@@ -70,3 +70,63 @@ export async function downloadUserDriveFile(accessToken: string, fileId: string)
   );
   return Buffer.from(res.data as ArrayBuffer);
 }
+
+/* ── write-back vault `_nalar-memory/` ke Drive user ──────────────────
+   Pakai fetch langsung ke REST Drive v3 (upload multipart/media) —
+   lebih ringkas daripada client googleapis utk kasus upload. */
+
+const DRIVE_API = 'https://www.googleapis.com/drive/v3';
+const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+
+async function driveFetch(token: string, url: string, init?: RequestInit) {
+  const res = await fetch(url, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
+  });
+  if (!res.ok) throw new Error(`Drive API ${res.status}: ${await res.text().catch(() => '')}`);
+  return res.json();
+}
+
+/** Cari/buat folder bernama `name` di root Drive user. Return folderId. */
+export async function ensureUserDriveFolder(token: string, name: string): Promise<string> {
+  const q = encodeURIComponent(
+    `name = '${name.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false`);
+  const found = await driveFetch(token, `${DRIVE_API}/files?q=${q}&fields=files(id)`);
+  if (found.files?.[0]?.id) return found.files[0].id;
+  const created = await driveFetch(token, `${DRIVE_API}/files`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: ['root'] }),
+  });
+  return created.id;
+}
+
+/** Buat/overwrite file teks bernama `name` di dalam folder. */
+export async function upsertUserDriveTextFile(
+  token: string, folderId: string, name: string, content: string,
+): Promise<void> {
+  const q = encodeURIComponent(
+    `name = '${name.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`);
+  const found = await driveFetch(token, `${DRIVE_API}/files?q=${q}&fields=files(id)`);
+
+  if (found.files?.[0]?.id) {
+    // update konten (media upload)
+    await driveFetch(token, `${DRIVE_UPLOAD}/files/${found.files[0].id}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'text/markdown' },
+      body: content,
+    });
+    return;
+  }
+  // create baru (multipart: metadata + media)
+  const boundary = 'nalar-vault-' + Date.now();
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+    JSON.stringify({ name, parents: [folderId], mimeType: 'text/markdown' }) +
+    `\r\n--${boundary}\r\nContent-Type: text/markdown\r\n\r\n${content}\r\n--${boundary}--`;
+  await driveFetch(token, `${DRIVE_UPLOAD}/files?uploadType=multipart`, {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+}

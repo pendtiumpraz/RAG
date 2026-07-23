@@ -39,8 +39,9 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          // drive.readonly ⇒ sync worker bisa membaca Drive milik user
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly',
+          // drive.readonly ⇒ baca Drive user; drive.file ⇒ tulis vault
+          // `_nalar-memory/` (hanya file buatan app ini — bukan seluruh Drive)
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
           access_type: 'offline',   // refresh_token
           prompt: 'consent',
         },

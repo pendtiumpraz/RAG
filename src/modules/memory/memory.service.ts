@@ -120,4 +120,30 @@ export const memoryService = {
       return notes.map((n) => ({ path: `_nalar-memory/${n.slug}.md`, content: n.contentMd }));
     });
   },
+
+  /**
+   * Write-back vault ke Google Drive user (folder `_nalar-memory` di root).
+   * Butuh scope drive.file (diberikan saat login Google). File di-upsert
+   * by-name — vault di Drive selalu cermin kondisi terkini, bisa dibuka
+   * langsung sebagai vault Obsidian via aplikasi Drive desktop.
+   */
+  async syncVaultToDrive(tenantId: string, userId: string, chatbotId: string): Promise<{ uploaded: number }> {
+    const { connectionService } = await import('@/modules/connections/connection.service');
+    const { ensureUserDriveFolder, upsertUserDriveTextFile } = await import('@/modules/knowledge/storage/gdrive');
+    const { audit } = await import('@/modules/core/guardrails');
+
+    const token = await connectionService.getAccessToken(tenantId, userId, 'google');
+    if (!token) throw new Error('Google Drive belum terhubung (login Google dgn izin Drive)');
+
+    const files = await this.exportVault(tenantId, chatbotId);
+    const folderId = await ensureUserDriveFolder(token, '_nalar-memory');
+    let uploaded = 0;
+    for (const f of files) {
+      const name = f.path.split('/').pop()!;
+      await upsertUserDriveTextFile(token, folderId, name, f.content);
+      uploaded++;
+    }
+    await audit(tenantId, userId, 'memory.vault.sync', chatbotId, { uploaded });
+    return { uploaded };
+  },
 };

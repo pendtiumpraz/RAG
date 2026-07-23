@@ -14,9 +14,9 @@ loop:
   status: "active"             # active | paused | completed | killed
 
   current_phase:
-    id: "02-WIREFRAME-AUDIT"
-    name: "Wireframe & Audit"
-    status: "in_progress"      # SEMUA mockup selesai (dashboard, landing, embed+whitelabel, auth, branding); GATE menunggu approve final → Fase 03
+    id: "04-FRONTEND"
+    name: "Frontend"
+    status: "pending"          # Fase 02 approved; Fase 03 SELESAI (commits 4c55dd6…berikut); menunggu "gas" user utk implementasi frontend
 
   phase_history:
     - phase: "00-PREREQUISITES"

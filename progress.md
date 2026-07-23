@@ -10,7 +10,7 @@
 | Item | Status |
 |------|--------|
 | **Project** | `Nalar — Multi-tenant RAG Engine` |
-| **Fase Aktif** | `03-BACKEND` (mockup approved; re-skin D4v2 selesai) |
+| **Fase Aktif** | `04-FRONTEND` (Fase 03 SELESAI ✅ 2026-07-23) |
 | **Status Loop** | `active` |
 | **Dimulai** | `2026-07-23` |
 | **Target Selesai** | `TBD (menunggu keputusan arsitektur)` |
@@ -43,7 +43,7 @@
 - [x] Mockup halaman Branding (white-label + live preview) → `wireframes/branding-mockup.html`
 - [👀] User approve SEMUA mockup — **GATE menunggu approve/revisi → lalu Fase 03**
 
-### ➡️ Fase 03: Backend — `In Progress (inti selesai)`
+### ✅ Fase 03: Backend — `SELESAI (2026-07-23)`
 - [x] Schema compliant: No-FK + `deleted_at` semua tabel + theme_config + tabel memory (notes/edges)
 - [x] Restrukturisasi Modular Monolith → `src/modules/{core,chatbot,knowledge,chat,settings,memory}`
 - [x] Repository + Service + Event bus per module; integritas referensial + cascade soft-delete di service
@@ -68,19 +68,34 @@
       /api/sources/:id/sync, /api/connections
 - [x] **Memory L5 self-evolving** (di-greenlight user): merge near-duplicate ≥0.93 (edges
       dialihkan, duplikat soft-delete) + prune MOC yatim; hasil di audit log
-- [ ] Ekstraksi PDF/DOCX (parser biner) · API documentation (OpenAPI)
+- [x] Ekstraksi **PDF (pdf-parse) + DOCX (mammoth)** — dynamic import, gagal-parse tak mematikan sync
+- [x] **Vault write-back ke Google Drive** user (`_nalar-memory/`, scope drive.file, upsert by-name) — `POST /api/memory/vault`
+- [x] Halaman **/auth nyata** (React) ter-wire `signIn()` credentials/Google/Microsoft + signup→auto-login
+- [x] **OpenAPI 3.1** satu sumber (`core/openapi.ts`) dilayani publik di `GET /api/openapi`
 
-### ⬜ Fase 04: Frontend — `Belum`
-- [ ] Sidebar 1-color icon
-- [ ] CRUD pages (list + right drawer modal)
-- [ ] Integrasi API (no dummy data)
-- [ ] Loading/error/empty states
+### ⬜ Fase 04: Frontend — `Berikutnya`
+
+- [ ] Global CSS dari `nalar-ds.css` (Retrieval Instrument) masuk app Next.js
+- [ ] Shell dashboard (sidebar 1-color icon, topbar) + halaman: Dashboard, Chatbots (CRUD one-page + right drawer + Sampah), Knowledge, Conversations (trace+sitasi), Memory (graph), Models&Keys, Team, Settings/Branding
+- [ ] Integrasi API nyata (no dummy data — Rule #7): chatbots/documents/sources/memory/usage/settings
+- [ ] Loading/skeleton/error/empty states di semua fetch
+- [ ] embed.js produksi: baca themeConfig dari GET /api/chat/[key], white-label token
 
 ### ⬜ Fase 05: Audit — `Belum`
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`
 
 ---
+
+## Ringkasan Fase 03 (tutup 2026-07-23)
+
+**9 commit**: modular monolith (6 module + repo/service/events) · schema compliant
+(No-FK, soft-delete, RLS, 5 migrasi) · endpoint trashed/restore · theme_config
+white-label served · NextAuth + signup→tenant + OAuth provisioning · rate-limit
+2 lapis + kuota + metering · **guardrails 5 lapis** · **Memory Agent L1–L5** ·
+OAuth token store + sync worker gdrive/onedrive/sharepoint + PDF/DOCX ·
+vault write-back Drive · halaman /auth nyata · OpenAPI 3.1.
+Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = bagian Fase 05 Audit).
 
 ## Issue & Blocker
 

@@ -62,7 +62,7 @@ async function runSync({ tenantId, userId, sourceId }: SyncPayload): Promise<voi
     let ingested = 0, skipped = 0;
 
     for (const f of files.slice(0, MAX_FILES_PER_SYNC)) {
-      const text = extractText(f.name, f.content);
+      const text = await extractText(f.name, f.content);
       if (text === null) { skipped++; continue; }
       await knowledgeService.ingest(tenantId, {
         chatbotId: source.chatbotId,
@@ -130,9 +130,15 @@ async function crawl(
 
 const TEXT_EXT = ['.txt', '.md', '.markdown', '.csv', '.json', '.log', '.yaml', '.yml'];
 
-export function extractText(name: string, buf: Buffer): string | null {
+/**
+ * name+buffer → teks, atau null bila format tak didukung (dihitung skipped).
+ * PDF via pdf-parse, DOCX via mammoth (dynamic import — modul berat hanya
+ * dimuat saat dibutuhkan). Parser gagal ⇒ null, JANGAN mematikan sync.
+ */
+export async function extractText(name: string, buf: Buffer): Promise<string | null> {
   const lower = name.toLowerCase();
   if (TEXT_EXT.some((e) => lower.endsWith(e))) return buf.toString('utf8');
+
   if (lower.endsWith('.html') || lower.endsWith('.htm')) {
     return buf.toString('utf8')
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -141,6 +147,29 @@ export function extractText(name: string, buf: Buffer): string | null {
       .replace(/\s+/g, ' ')
       .trim();
   }
-  // PDF/DOCX/XLSX butuh parser biner — dilewati eksplisit (tercatat sbg skipped).
+
+  if (lower.endsWith('.pdf')) {
+    try {
+      const pdfParse = (await import('pdf-parse')).default;
+      const data = await pdfParse(buf);
+      return data.text?.trim() || null;
+    } catch (err) {
+      console.error(`[sync] gagal parse PDF ${name}:`, err);
+      return null;
+    }
+  }
+
+  if (lower.endsWith('.docx')) {
+    try {
+      const mammoth = await import('mammoth');
+      const r = await mammoth.extractRawText({ buffer: buf });
+      return r.value?.trim() || null;
+    } catch (err) {
+      console.error(`[sync] gagal parse DOCX ${name}:`, err);
+      return null;
+    }
+  }
+
+  // XLSX/PPTX/gambar — belum didukung; tercatat sebagai skipped.
   return null;
 }
