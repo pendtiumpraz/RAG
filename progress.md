@@ -91,7 +91,14 @@
 - [x] **2 bug pgvector ditemukan & fixed**: dimensi vektor (kolom→vector(1536)+zero-pad), HNSW ≤2000 (registry di-cap, Qwen-8B dihapus, OpenAI-large@1536)
 - [x] Laporan audit → `audit-report.md`
 - [ ] Verifikasi runtime DB (Postgres+pgvector) — **butuh user (Docker/cloud)**
-- [ ] Unit/integration/e2e test; security scan; performance
+- [x] **Unit test 8/8 LULUS** (`npm test`, Node test runner): password, crypto AES-GCM, rate-limit, guardrails L1/L2/L4, wikilink parser, padVector
+- [ ] Integration/e2e test (butuh DB); security scan; performance
+
+### ⬜ Fase 06: Deployment — `Disiapkan (D5: Vercel + Postgres)`
+- [x] Keputusan: **Vercel + Vercel Postgres (Neon/pgvector)** — tanpa Docker
+- [x] Penyesuaian serverless: db pool max:1 di Vercel, embedding lokal lazy-import, `vercel.json` maxDuration
+- [x] Panduan `docs/DEPLOY-VERCEL.md` + 3 batasan serverless didokumentasikan
+- [ ] Buat DB di Vercel/Neon → set env → `db:push` + `db:migrate` → `vercel --prod` (butuh akun user)
 
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`

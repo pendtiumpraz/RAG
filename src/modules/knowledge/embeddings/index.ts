@@ -1,6 +1,8 @@
 ﻿import { getEmbeddingModel } from '@/modules/core/registry';
-import { embedLocal } from './local';
 import { embedApi } from './api';
+// './local' (transformers.js, berat) di-import DINAMIS hanya saat model lokal
+// dipakai — agar bundle fungsi serverless (Vercel) tetap ramping saat pakai
+// embedding API. Untuk on-prem/VPS, jalur lokal tetap tersedia penuh.
 
 /**
  * Dimensi kolom pgvector (documents/memory_notes). Dipilih 1536 karena:
@@ -40,6 +42,7 @@ export async function embed(
 
   let vectors: number[][];
   if (model.kind === 'local') {
+    const { embedLocal } = await import('./local');
     vectors = await embedLocal(model, texts);
   } else {
     const apiKey = await ctx.getApiKey(model.provider!);

@@ -88,6 +88,16 @@ menunggu approval user (ditandai 👀).
 - **Konsekuensi:** mockup lama (dashboard/landing/embed/auth/branding) masih gaya
   dark-indigo-glow → harus di-re-skin ke Editorial Ledger memakai `nalar-ds.css`.
 
+### D5 — Deployment SaaS: Vercel + Vercel Postgres (2026-07-24)
+- **Status:** ✅ APPROVED (user). Deploy web+API ke **Vercel**, DB **Vercel Postgres
+  (Neon, pgvector)** — tanpa Docker. On-prem tetap via docker-compose.
+- Penyesuaian serverless (di kode): db pool `max:1` di Vercel + `prepare:false`;
+  embedding lokal (transformers.js) **lazy-import** agar bundle ramping.
+- **3 batasan serverless didokumentasikan** (`docs/DEPLOY-VERCEL.md`): (1) embedding
+  lokal → pakai API di Vercel (lokal utk VPS/on-prem); (2) rate-limit in-memory →
+  KV/Upstash utk production; (3) background job → Pro+waitUntil atau worker eksternal.
+- `vercel.json`: maxDuration chat/ingest 60s, memory/sync 300s.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|

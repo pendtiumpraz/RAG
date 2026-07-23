@@ -4,8 +4,14 @@ import * as schema from './schema';
 
 const connectionString = process.env.DATABASE_URL!;
 
-// One shared pool. `prepare: false` keeps things simple with pgbouncer.
-const client = postgres(connectionString, { max: 10, prepare: false });
+// `prepare: false` wajib untuk pooler pgbouncer (Neon/Vercel Postgres).
+// Serverless: 1 koneksi per invocation agar tidak menghabiskan pool;
+// server long-lived (VPS/on-prem): pool lebih besar.
+const client = postgres(connectionString, {
+  max: process.env.VERCEL ? 1 : 10,
+  prepare: false,
+  idle_timeout: 20,
+});
 
 export const db = drizzle(client, { schema });
 export type Db = typeof db;
