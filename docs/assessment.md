@@ -12,7 +12,7 @@
 |---|---------|:----:|:------:|
 | 1 | Engine RAG (pipeline inti) | 6.5 | 🟡 |
 | 2 | Database & isolasi tenant | 7.5 | 🟡 |
-| 3 | Keamanan | 5.0 | 🟡 |
+| 3 | Keamanan | 6.5 ⬆ (was 5.0) | 🟡 |
 | 4 | Auth & SaaS multi-tenancy | 6.5 ⬆ (was 3.0) | 🟡 |
 | 5 | Agentic (memory agent, workers, orkestrasi) | 2.5 | 🔴 |
 | 6 | UI/UX — design system | 8.5 | 🟢 |
@@ -62,9 +62,12 @@ embedding lokal (transformers.js) + API, model host dari Drive/SharePoint.
 **Ada:** AES-256-GCM utk API key, RLS, allowed-origins per chatbot, server-to-server
 key (key tak pernah ke browser), publicKey pattern.
 
+**Update 2026-07-23:** ✅ rate limit 2 lapis (per-chatbot plan-based + per-IP) di
+endpoint embed & signup; ✅ kuota bulanan per plan + metering token (`usage_counters`);
+✅ maxChatbots per plan; ✅ batas panjang pesan.
+
 **Gap ke 10:**
-- [ ] **Tanpa rate limiting** — endpoint embed publik bisa dibombardir (biaya LLM!).
-- [ ] Tanpa kuota per plan/tenant.
+- [ ] Limiter masih in-memory (single-instance) — tukar ke Redis utk SaaS multi-instance.
 - [ ] Tanpa CSRF protection di API dashboard; tanpa audit log.
 - [ ] Prompt injection: konteks RAG belum di-sandbox (perlu system prompt hardening + output filtering).
 - [ ] Key rotation + secret management (Vault/KMS utk `CREDENTIALS_ENCRYPTION_KEY`).

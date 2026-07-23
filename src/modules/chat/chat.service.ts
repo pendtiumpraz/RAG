@@ -7,6 +7,8 @@ import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { conversationRepository as convo } from './conversation.repository';
 import { retrievalService, type RetrievedChunk } from './retrieval.service';
 import { streamChat, type ChatMessage } from './llm';
+import { estimateTokens } from '@/modules/core/limits';
+import { usageService } from '@/modules/usage/usage.service';
 
 function buildPrompt(
   system: string | null,
@@ -82,6 +84,11 @@ export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, vo
       content: full,
       citations: context.map((c) => ({ documentId: c.documentId, score: c.score })),
     }));
+
+  // Metering: estimasi token prompt (system+history+question) & jawaban.
+  const tokensIn = estimateTokens(prompt.map((m) => m.content).join('\n'));
+  const tokensOut = estimateTokens(full);
+  await usageService.recordTurn(input.tenantId, tokensIn, tokensOut);
 
   await dispatch('conversation.turn', {
     tenantId: input.tenantId, chatbotId: input.chatbotId, conversationId,

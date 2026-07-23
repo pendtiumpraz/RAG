@@ -15,5 +15,6 @@ export const config = {
     '/api/documents/:path*',
     '/api/ingest/:path*',
     '/api/settings/:path*',
+    '/api/usage/:path*',
   ],
 };

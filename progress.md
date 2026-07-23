@@ -50,7 +50,8 @@
 - [x] API: CRUD chatbots + `/trashed` + `/:id/restore`; documents delete/trashed/restore; ingest; settings; chat SSE + GET theme (white-label served)
 - [x] Memory primitives: wikilink parser, upsert note+edges, graph, export vault
 - [x] **Auth nyata NextAuth** (`src/modules/auth/`): Credentials (scrypt) + Google + Microsoft; JWT session bawa userId/tenantId/role; `signup→tenant` transaksi RLS-aware; OAuth email baru = provisioning tenant otomatis; policy `users_auth_lookup` (migrations/0002) utk lookup lintas-tenant yang aman; `core/auth.ts` ganti stub → getServerSession + requireRole; `middleware.ts` proteksi route (embed/chat tetap publik)
-- [ ] Rate limit + kuota; worker sync Drive/OneDrive/SharePoint
+- [x] **Rate limit + kuota per plan** (`core/limits.ts` + `modules/usage/`): token-bucket in-memory (2 lapis: per-chatbot sesuai plan + per-IP), PLAN_LIMITS (free/pro/enterprise/onprem), tabel `usage_counters` (+RLS 0003, upsert atomik), guard kuota bulanan di endpoint chat (429 + Retry-After), metering token per giliran, `GET /api/usage`, enforcement maxChatbots di create, anti-abuse signup 5/menit/IP, batas panjang pesan 4000
+- [ ] Worker sync Drive/OneDrive/SharePoint + Memory Agent runner
 - [ ] API documentation (OpenAPI)
 
 ### ⬜ Fase 04: Frontend — `Belum`

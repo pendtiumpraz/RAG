@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authService } from '@/modules/auth/auth.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { rateLimit } from '@/modules/core/limits';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,14 @@ const Body = z.object({
  * Setelah sukses, client melakukan signIn('credentials', …) NextAuth.
  */
 export async function POST(req: NextRequest) {
+  // Anti-abuse: maks ~5 signup/menit per IP.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const rl = rateLimit(`signup:${ip}`, 5, 5 / 60);
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Terlalu banyak percobaan. Coba lagi nanti.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } });
+  }
+
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Input tidak valid' }, { status: 400 });

@@ -3,6 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { users, documents, conversations, dataSources, type ThemeConfig } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
+import { usageService } from '@/modules/usage/usage.service';
 import { chatbotRepository as repo } from './chatbot.repository';
 
 export class ValidationError extends Error {}
@@ -24,6 +25,13 @@ export const chatbotService = {
     ownerId: string; name: string; allowedOrigins?: string[];
     greeting?: string; themeConfig?: ThemeConfig;
   }) {
+    // Enforcement plan: batas jumlah chatbot.
+    const usage = await usageService.snapshot(tenantId);
+    const activeCount = (await this.list(tenantId)).length;
+    if (activeCount >= usage.limits.maxChatbots) {
+      throw new ValidationError(`Plan ${usage.plan} maksimal ${usage.limits.maxChatbots} chatbot. Upgrade untuk menambah.`);
+    }
+
     return withTenant(tenantId, async (tx) => {
       // Integritas referensial di aplikasi: owner harus user aktif tenant ini.
       const owner = await tx.select({ id: users.id }).from(users)

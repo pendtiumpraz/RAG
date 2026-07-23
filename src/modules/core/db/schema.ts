@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, jsonb, vector, index, boolean, real,
+  pgTable, uuid, text, timestamp, jsonb, vector, index, boolean, real, integer,
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -160,6 +160,21 @@ export const messages = pgTable('messages', {
   convIdx: index('idx_messages_conversation').on(t.conversationId, t.createdAt),
   tenantIdx: index('idx_messages_tenant_id').on(t.tenantId),
   delIdx: index('idx_messages_deleted_at').on(t.deletedAt),
+}));
+
+/* ── usage metering (kuota per plan, dasar billing) ────────────────── */
+/** Satu baris per (tenant, periode YYYY-MM). Di-increment tiap giliran chat. */
+export const usageCounters = pgTable('usage_counters', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  period: text('period').notNull(),               // "2026-07"
+  messages: integer('messages').default(0).notNull(),
+  tokensIn: integer('tokens_in').default(0).notNull(),
+  tokensOut: integer('tokens_out').default(0).notNull(),
+  ...stamps,
+}, (t) => ({
+  scopeIdx: index('idx_usage_counters_scope').on(t.tenantId, t.period),
+  delIdx: index('idx_usage_counters_deleted_at').on(t.deletedAt),
 }));
 
 /* ── memory (Obsidian Memory Agent) ────────────────────────────────── */
