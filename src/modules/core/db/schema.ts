@@ -124,7 +124,7 @@ export const documents = pgTable('documents', {
   title: text('title'),
   content: text('content').notNull(),
   embeddingModel: text('embedding_model').notNull(),
-  embedding: vector('embedding', { dimensions: 4096 }),
+  embedding: vector('embedding', { dimensions: 1536 }),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
   ...stamps,
 }, (t) => ({
@@ -226,7 +226,7 @@ export const memoryNotes = pgTable('memory_notes', {
   contentMd: text('content_md').notNull(),// markdown incl. frontmatter + [[wikilinks]]
   linksTo: jsonb('links_to').$type<string[]>().default([]).notNull(),
   sourceDocumentId: uuid('source_document_id'),
-  embedding: vector('embedding', { dimensions: 4096 }),
+  embedding: vector('embedding', { dimensions: 1536 }),
   ...stamps,
 }, (t) => ({
   scopeIdx: index('idx_memory_notes_scope').on(t.tenantId, t.chatbotId, t.slug),

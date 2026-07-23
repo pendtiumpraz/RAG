@@ -113,12 +113,8 @@ export const EMBEDDING_MODELS: EmbeddingModel[] = [
     kind: 'local', bucket: 'large', dimensions: 1024, sizeMB: 2200,
     modelFile: 'bge-m3.onnx', hfRepo: 'Xenova/bge-m3',
   },
-  {
-    id: 'qwen3-embedding-8b',
-    label: 'Qwen3-Embedding-8B Q4 (~5GB, SOTA open-source)',
-    kind: 'local', bucket: 'large', dimensions: 4096, sizeMB: 5000,
-    modelFile: 'qwen3-embedding-8b-q4.onnx',
-  },
+  // NB: dimensi embedding di-cap ≤1536 (kolom pgvector vector(1536), HNSW ≤2000).
+  // Model >1536 dims (mis. Qwen3-8B 4096d) tidak didaftarkan agar index valid.
 
   // API bucket — no local weights, best quality-per-effort
   {
@@ -128,8 +124,9 @@ export const EMBEDDING_MODELS: EmbeddingModel[] = [
   },
   {
     id: 'text-embedding-3-large',
-    label: 'OpenAI text-embedding-3-large (API)',
-    kind: 'api', bucket: 'api', dimensions: 3072, provider: 'openai',
+    label: 'OpenAI text-embedding-3-large @1536d (API)',
+    // di-request pada 1536 dims (didukung native OpenAI) agar muat kolom + index.
+    kind: 'api', bucket: 'api', dimensions: 1536, provider: 'openai',
   },
   {
     id: 'embed-v4.0',

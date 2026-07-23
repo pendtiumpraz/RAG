@@ -85,7 +85,14 @@
 - [ ] Verifikasi end-to-end (npm install + DB) → Fase 05 Audit
 - [ ] Landing page publik React (mockup ada) · halaman Branding lengkap
 
-### ⬜ Fase 05: Audit — `Belum`
+### ➡️ Fase 05: Audit — `In Progress`
+- [x] **Build + typecheck LULUS** (`next build` exit 0, 28 rute) — fix: tipe pdf-parse
+- [x] **Smoke test runtime** (no-DB): /api/openapi, /embed.js, /auth → 200
+- [x] **2 bug pgvector ditemukan & fixed**: dimensi vektor (kolom→vector(1536)+zero-pad), HNSW ≤2000 (registry di-cap, Qwen-8B dihapus, OpenAI-large@1536)
+- [x] Laporan audit → `audit-report.md`
+- [ ] Verifikasi runtime DB (Postgres+pgvector) — **butuh user (Docker/cloud)**
+- [ ] Unit/integration/e2e test; security scan; performance
+
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`
 

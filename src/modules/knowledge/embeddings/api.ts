@@ -13,7 +13,8 @@ export async function embedApi(
   switch (model.provider) {
     case 'openai': {
       const client = new OpenAI({ apiKey });
-      const res = await client.embeddings.create({ model: model.id, input: texts });
+      // minta dimensi eksplisit (3-large native 3072 → 1536 sesuai registry).
+      const res = await client.embeddings.create({ model: model.id, input: texts, dimensions: model.dimensions });
       return res.data.map((d) => d.embedding);
     }
     case 'cohere': {
