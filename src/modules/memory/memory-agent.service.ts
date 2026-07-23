@@ -22,12 +22,16 @@ import { memoryService, slugify } from './memory.service';
  *  L4 GRAPH    — edges wikilink + similarity (embedding note), backlink,
  *                graph utk dashboard, export vault `_nalar-memory/`.
  *
- *  L5 (nanti)  — agen mereorganisasi/merge/prune note-nya sendiri secara
- *                berkala. TIDAK diimplement — kompleksitas > kebutuhan.
+ *  L5 SELF-EVOLVING — agen merawat vault-nya sendiri tiap run:
+ *      (a) MERGE note near-duplicate (similarity ≥ 0.93) — konten
+ *          digabung, edges dialihkan, duplikat di-soft-delete;
+ *      (b) PRUNE note MOC yatim (tanpa edge aktif).
+ *      Semua keputusan tercatat di audit (Guardrail L5).
  * ═══════════════════════════════════════════════════════════════════
  */
 
-export const MEMORY_MAX_LEVEL = 4 as const;
+export const MEMORY_MAX_LEVEL = 5 as const;
+const MERGE_THRESHOLD = 0.93;
 const SIMILARITY_EDGE_THRESHOLD = 0.82;
 const MAX_DOC_CHARS_FOR_LLM = 6000;
 const MAX_DOCS_PER_RUN = 40;
@@ -179,9 +183,90 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     }
   });
 
+  /* ── L5 · SELF-EVOLVING — merge duplikat + prune orphan ─────────── */
+  const evolution = await runSelfEvolution(tenantId, chatbotId, uniqueDrafts, vectors, idBySlug);
+
   await audit(tenantId, 'system', 'memory.run', chatbotId, {
     documents: docs.length, notes: uniqueDrafts.length, level: MEMORY_MAX_LEVEL,
+    l5: evolution,
   });
+}
+
+/**
+ * L5: vault merawat dirinya sendiri.
+ *  a) MERGE — pasangan note similarity ≥ MERGE_THRESHOLD digabung:
+ *     konten duplikat ditempel sebagai seksi di note utama, semua edge
+ *     duplikat dialihkan ke note utama, duplikat di-soft-delete.
+ *     Note MOC tidak pernah di-merge (fungsinya indeks, bukan konten).
+ *  b) PRUNE — MOC tanpa edge aktif (yatim) di-soft-delete.
+ */
+async function runSelfEvolution(
+  tenantId: string,
+  chatbotId: string,
+  drafts: Array<{ slug: string; title: string; source: string; body: string }>,
+  vectors: number[][],
+  idBySlug: Map<string, string>,
+): Promise<{ merged: number; pruned: number }> {
+  let merged = 0, pruned = 0;
+  const isMoc = (d: { source: string }) => d.source === 'moc';
+  const deadSlugs = new Set<string>();
+
+  await withTenant(tenantId, async (tx) => {
+    /* a) MERGE near-duplicates (non-MOC saja) */
+    for (let a = 0; a < drafts.length; a++) {
+      if (isMoc(drafts[a]) || deadSlugs.has(drafts[a].slug)) continue;
+      for (let b = a + 1; b < drafts.length; b++) {
+        if (isMoc(drafts[b]) || deadSlugs.has(drafts[b].slug)) continue;
+        const sim = dot(vectors[a], vectors[b]);
+        if (sim < MERGE_THRESHOLD) continue;
+
+        const keepId = idBySlug.get(drafts[a].slug)!;
+        const dropId = idBySlug.get(drafts[b].slug)!;
+
+        // gabungkan konten duplikat sebagai seksi di note utama
+        const mergedBody = drafts[a].body +
+          `\n\n## Digabung dari [[${drafts[b].slug}]] (sim ${sim.toFixed(2)})\n\n` +
+          drafts[b].body.replace(/^---[\s\S]*?---\n/, ''); // buang frontmatter dup
+        await tx.update(memoryNotes)
+          .set({ contentMd: mergedBody, updatedAt: new Date() })
+          .where(eq(memoryNotes.id, keepId));
+
+        // alihkan seluruh edge duplikat → note utama
+        await tx.update(memoryEdges).set({ fromNoteId: keepId, updatedAt: new Date() })
+          .where(and(eq(memoryEdges.fromNoteId, dropId), isNull(memoryEdges.deletedAt)));
+        await tx.update(memoryEdges).set({ toNoteId: keepId, updatedAt: new Date() })
+          .where(and(eq(memoryEdges.toNoteId, dropId), isNull(memoryEdges.deletedAt)));
+
+        // soft-delete duplikat (Rule #3 — bisa dipulihkan)
+        await tx.update(memoryNotes)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(memoryNotes.id, dropId));
+
+        deadSlugs.add(drafts[b].slug);
+        merged++;
+      }
+    }
+
+    /* b) PRUNE MOC yatim */
+    for (const d of drafts) {
+      if (!isMoc(d) || deadSlugs.has(d.slug)) continue;
+      const noteId = idBySlug.get(d.slug)!;
+      const edges = await tx.execute(sql`
+        select count(*)::int as n from memory_edges
+        where (from_note_id = ${noteId} or to_note_id = ${noteId})
+          and deleted_at is null
+      `);
+      const n = (edges as unknown as Array<{ n: number }>)[0]?.n ?? 0;
+      if (n === 0) {
+        await tx.update(memoryNotes)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(memoryNotes.id, noteId));
+        pruned++;
+      }
+    }
+  });
+
+  return { merged, pruned };
 }
 
 function dedupBySlug<T extends { slug: string }>(arr: T[]): T[] {

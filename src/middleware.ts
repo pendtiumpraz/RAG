@@ -17,5 +17,7 @@ export const config = {
     '/api/settings/:path*',
     '/api/usage/:path*',
     '/api/memory/:path*',
+    '/api/sources/:path*',
+    '/api/connections/:path*',
   ],
 };

@@ -163,7 +163,10 @@ Agent memori yang **memetakan** isi storage user menjadi knowledge map:
 | **L2** | Distill | LLM meringkas: abstrak + poin kunci ke dalam note | ✅ |
 | **L3** | Link | Entitas/topik → `[[wikilink]]` antar note + note MOC per topik | ✅ |
 | **L4** | Graph | Edges wikilink + similarity (embedding, cosine ≥0.82), backlink, graph API, export vault | ✅ (`/api/memory/run·graph·vault`) |
-| **L5** | Self-evolving | Agen reorganisasi/merge/prune note-nya sendiri terjadwal | ⛔ sengaja TIDAK — kompleksitas > kebutuhan saat ini |
+| **L5** | Self-evolving | Vault merawat diri: **merge** near-duplicate (sim ≥0.93, edges dialihkan, duplikat soft-delete) + **prune** MOC yatim; keputusan tercatat di audit | ✅ (di-greenlight user 2026-07-23; jalan otomatis tiap `memory.run`) |
+
+> Rantai otomatis penuh: **konek storage → sync worker crawl+ingest →
+> memory.run L1→L5** — sekali user menghubungkan Drive, semuanya mengalir.
 
 ## 6. Model catalog (2026-07-23)
 

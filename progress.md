@@ -59,8 +59,16 @@
       L1 capture (dok→note) · L2 distill (LLM abstrak+poin) · L3 link (entitas→[[wikilink]]+MOC) ·
       L4 graph (edges wikilink+similarity cosine≥0.82, API run/graph/vault, export Obsidian).
       **L5 self-evolving = keputusan user: TIDAK diimplement dulu**
-- [ ] Worker sync Drive/OneDrive/SharePoint (crawl storage → ingest → trigger memory.run)
-- [ ] API documentation (OpenAPI)
+- [x] **OAuth token store per-user** (`modules/connections/` + tabel `oauth_connections` RLS 0005):
+      token Drive/Microsoft terenkripsi, capture otomatis di NextAuth (scope drive.readonly /
+      Files.Read + offline), refresh otomatis Google & Microsoft
+- [x] **Sync worker** (`knowledge/sync.service.ts`, job 'source.sync'): crawl gdrive/onedrive/
+      sharepoint → ekstrak teks (txt/md/csv/json/html; PDF/DOCX diskip TERCATAT) → ingest →
+      status per source → **auto-trigger memory.run**. API: /api/sources (buat+list),
+      /api/sources/:id/sync, /api/connections
+- [x] **Memory L5 self-evolving** (di-greenlight user): merge near-duplicate ≥0.93 (edges
+      dialihkan, duplikat soft-delete) + prune MOC yatim; hasil di audit log
+- [ ] Ekstraksi PDF/DOCX (parser biner) · API documentation (OpenAPI)
 
 ### ⬜ Fase 04: Frontend — `Belum`
 - [ ] Sidebar 1-color icon

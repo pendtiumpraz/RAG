@@ -177,6 +177,23 @@ export const usageCounters = pgTable('usage_counters', {
   delIdx: index('idx_usage_counters_deleted_at').on(t.deletedAt),
 }));
 
+/* ── koneksi OAuth per-user (Drive/OneDrive/SharePoint) ────────────── */
+/** Token OAuth user utk akses storage MEREKA sendiri. Terenkripsi AES-256-GCM. */
+export const oauthConnections = pgTable('oauth_connections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  provider: text('provider').notNull(),           // 'google' | 'microsoft'
+  encryptedAccessToken: text('encrypted_access_token').notNull(),
+  encryptedRefreshToken: text('encrypted_refresh_token'),
+  expiresAt: timestamp('expires_at'),
+  scope: text('scope'),
+  ...stamps,
+}, (t) => ({
+  scopeIdx: index('idx_oauth_connections_scope').on(t.tenantId, t.userId, t.provider),
+  delIdx: index('idx_oauth_connections_deleted_at').on(t.deletedAt),
+}));
+
 /* ── audit log (Guardrail L5) ──────────────────────────────────────── */
 /** Jejak semua aksi penting: chat turn, auth, perubahan settings, guardrail hit. */
 export const auditLogs = pgTable('audit_logs', {

@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import { authService } from './auth.service';
+import { connectionService } from '@/modules/connections/connection.service';
 
 /**
  * NextAuth (Auth.js v4) — JWT session membawa { userId, tenantId, role }
@@ -36,11 +37,25 @@ export const authOptions: NextAuthOptions = {
     ...(process.env.GOOGLE_CLIENT_ID ? [GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          // drive.readonly ⇒ sync worker bisa membaca Drive milik user
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly',
+          access_type: 'offline',   // refresh_token
+          prompt: 'consent',
+        },
+      },
     })] : []),
     ...(process.env.MS_CLIENT_ID ? [AzureADProvider({
       clientId: process.env.MS_CLIENT_ID,
       clientSecret: process.env.MS_CLIENT_SECRET!,
       tenantId: process.env.MS_TENANT_ID || 'common',
+      authorization: {
+        params: {
+          // Files.Read ⇒ OneDrive/SharePoint user; offline_access ⇒ refresh
+          scope: 'openid email profile offline_access https://graph.microsoft.com/Files.Read',
+        },
+      },
     })] : []),
   ],
 
@@ -52,12 +67,24 @@ export const authOptions: NextAuthOptions = {
         token.userId = u.id; token.tenantId = u.tenantId; token.role = u.role;
         return token;
       }
-      // OAuth sign-in pertama: provisioning / lookup user Nalar by email.
+      // OAuth sign-in pertama: provisioning / lookup user Nalar by email,
+      // lalu simpan token storage (Drive/OneDrive) utk sync worker.
       if (account && account.provider !== 'credentials' && token.email) {
         const u = await authService.findOrCreateFromOAuth({
           email: token.email, name: token.name,
         });
         token.userId = u.id; token.tenantId = u.tenantId; token.role = u.role;
+
+        if (account.access_token) {
+          const provider = account.provider === 'google' ? 'google' : 'microsoft';
+          await connectionService.save({
+            tenantId: u.tenantId, userId: u.id, provider,
+            accessToken: account.access_token,
+            refreshToken: account.refresh_token ?? null,
+            expiresAt: account.expires_at ?? null,
+            scope: account.scope ?? null,
+          }).catch((err) => console.error('[auth] simpan koneksi gagal:', err));
+        }
       }
       return token;
     },
