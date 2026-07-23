@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nalar — Brand Identity</title>
+<style>
+  /* ─── Tokens ──────────────────────────────────────────────────── */
+  :root {
+    --bg: #0B0B14;
+    --surface: #14141F;
+    --surface-2: #1B1B2A;
+    --line: #2A2A3D;
+    --text: #ECECF2;
+    --muted: #9A9AB2;
+    --accent: #5B4BFF;      /* indigo — reasoning */
+    --accent-soft: #6E60FF;
+    --gold: #F2B24B;        /* gold — sourced answer */
+    --gold-ink: #F2B24B;
+    --good: #46C08A;
+    --warn: #E8894B;
+    --crit: #E5565B;
+    --focus: #8E80FF;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+    --maxw: 1120px;
+    --r: 14px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #F4F3EE; --surface: #FFFFFF; --surface-2: #ECEBE3; --line: #DEDCCF;
+      --text: #17172A; --muted: #5A5A70; --accent: #4B3DF0; --accent-soft: #5B4BFF;
+      --gold: #C6871B; --gold-ink: #A06E13; --focus: #4B3DF0;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F3EE; --surface: #FFFFFF; --surface-2: #ECEBE3; --line: #DEDCCF;
+    --text: #17172A; --muted: #5A5A70; --accent: #4B3DF0; --accent-soft: #5B4BFF;
+    --gold: #C6871B; --gold-ink: #A06E13; --focus: #4B3DF0;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B0B14; --surface: #14141F; --surface-2: #1B1B2A; --line: #2A2A3D;
+    --text: #ECECF2; --muted: #9A9AB2; --accent: #5B4BFF; --accent-soft: #6E60FF;
+    --gold: #F2B24B; --gold-ink: #F2B24B; --focus: #8E80FF;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 17px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+    transition: background .4s ease, color .4s ease;
+  }
+  ::selection { background: var(--accent); color: #fff; }
+  a { color: inherit; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  h1, h2, h3 { text-wrap: balance; font-weight: 700; letter-spacing: -0.02em; }
+
+  /* ─── Top bar ─────────────────────────────────────────────────── */
+  header.nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-in { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand-lockup { display: flex; align-items: center; gap: 11px; font-weight: 700; letter-spacing: -0.03em; font-size: 19px; }
+  .nav-links { display: flex; gap: 26px; align-items: center; }
+  .nav-links a { font-family: var(--mono); font-size: 12.5px; letter-spacing: .04em; text-decoration: none; color: var(--muted); text-transform: uppercase; }
+  .nav-links a:hover { color: var(--text); }
+  .toggle {
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    width: 38px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 15px;
+    display: grid; place-items: center;
+  }
+  .toggle:hover { border-color: var(--accent); }
+  @media (max-width: 720px) { .nav-links a:not(.mobile-keep) { display: none; } }
+
+  /* ─── Hero ────────────────────────────────────────────────────── */
+  .hero { position: relative; padding: 96px 0 84px; overflow: hidden; }
+  #field { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+  .hero .wrap { position: relative; z-index: 1; }
+  .hero-mark { margin-bottom: 30px; }
+  .hero h1 {
+    font-size: clamp(56px, 12vw, 132px); line-height: 0.92; margin: 0 0 8px;
+    letter-spacing: -0.05em;
+  }
+  .hero h1 .dot { color: var(--gold); }
+  .hero .lede {
+    font-family: var(--serif); font-size: clamp(20px, 2.6vw, 30px);
+    font-style: italic; color: var(--text); max-width: 20ch; margin: 18px 0 0; line-height: 1.3;
+  }
+  .hero .sub { color: var(--muted); max-width: 52ch; margin-top: 22px; font-size: 18px; }
+  .pillrow { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 34px; }
+  .pill {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+    border: 1px solid var(--line); border-radius: 999px; padding: 8px 15px; color: var(--muted);
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+  }
+  .pill b { color: var(--text); font-weight: 600; }
+
+  /* ─── Section scaffold ────────────────────────────────────────── */
+  section.blk { padding: 84px 0; border-top: 1px solid var(--line); }
+  .sec-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 40px; flex-wrap: wrap; }
+  .sec-num { font-family: var(--mono); font-size: 13px; color: var(--accent); letter-spacing: .1em; }
+  .sec-head h2 { font-size: clamp(30px, 5vw, 46px); margin: 0; }
+  .sec-head p { color: var(--muted); margin: 6px 0 0; max-width: 46ch; }
+
+  .grid { display: grid; gap: 20px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 26px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 20px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  /* ─── Logo section ────────────────────────────────────────────── */
+  .logo-grid { grid-template-columns: 1.2fr 1fr; align-items: stretch; }
+  @media (max-width: 860px) { .logo-grid { grid-template-columns: 1fr; } }
+  .logo-stage {
+    display: grid; place-items: center; min-height: 300px;
+    background:
+      radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+      var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r);
+  }
+  .construct {
+    background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 25%,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 25% 100%,
+      var(--surface);
+    background-position: center; border: 1px solid var(--line); border-radius: var(--r);
+    display: grid; place-items: center; min-height: 300px; position: relative;
+  }
+  .misuse { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 860px) { .misuse { grid-template-columns: repeat(2, 1fr); } }
+  .misuse .card { text-align: center; }
+  .badge { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  .no { color: var(--crit); }
+  .yes { color: var(--good); }
+
+  /* ─── Color section ───────────────────────────────────────────── */
+  .swatches { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 860px) { .swatches { grid-template-columns: repeat(2, 1fr); } }
+  .sw { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+  .sw .chip { height: 110px; }
+  .sw .meta { padding: 14px 16px; }
+  .sw .meta .n { font-weight: 650; font-size: 15px; }
+  .sw .meta .h { font-family: var(--mono); font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+  .sw .meta .role { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  /* ─── Type section ────────────────────────────────────────────── */
+  .specimen { display: grid; gap: 28px; }
+  .type-row { border-bottom: 1px solid var(--line); padding-bottom: 26px; }
+  .type-row:last-child { border-bottom: none; }
+  .type-label { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; }
+  .display-xl { font-size: clamp(44px, 8vw, 88px); font-weight: 700; letter-spacing: -0.045em; line-height: .95; margin: 0; }
+  .serif-lede { font-family: var(--serif); font-style: italic; font-size: clamp(22px, 3vw, 34px); margin: 0; line-height: 1.28; }
+  .body-set { font-size: 17px; max-width: 62ch; color: var(--text); margin: 0; }
+  .mono-set { font-family: var(--mono); font-size: 14px; color: var(--muted); letter-spacing: .02em; margin: 0; }
+  .scale { display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: baseline; }
+  .scale span { font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+
+  /* ─── Voice section ───────────────────────────────────────────── */
+  .voice-grid { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 860px) { .voice-grid { grid-template-columns: 1fr; } }
+  .say { border-left: 2px solid var(--good); }
+  .dont { border-left: 2px solid var(--crit); }
+  .voice-grid .card p { color: var(--text); font-size: 16px; }
+  .voice-grid .card .q { font-family: var(--serif); font-style: italic; }
+
+  /* ─── Applications ────────────────────────────────────────────── */
+  .apps { grid-template-columns: 1.4fr 1fr; }
+  @media (max-width: 860px) { .apps { grid-template-columns: 1fr; } }
+  .app-ui { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); }
+  .app-ui .bar { display: flex; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .app-ui .bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); display: inline-block; }
+  .app-body { padding: 20px; display: grid; gap: 12px; }
+  .msg { max-width: 84%; padding: 11px 14px; border-radius: 13px; font-size: 14.5px; line-height: 1.45; }
+  .msg.u { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.a { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .cite { color: var(--gold-ink); font-family: var(--mono); font-size: 11px; }
+  .card-brand { display: grid; place-items: center; min-height: 220px; border-radius: var(--r);
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000)); color: #fff; text-align: center; padding: 24px; }
+  .card-brand .cn { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; }
+  .card-brand .ct { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; opacity: .85; margin-top: 6px; }
+
+  /* ─── Footer ──────────────────────────────────────────────────── */
+  footer { border-top: 1px solid var(--line); padding: 46px 0; color: var(--muted); }
+  .foot-in { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .foot-in .mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: .04em; }
+
+  .mark-svg { display: block; }
+  .mark-svg .edge { stroke: var(--accent); }
+  .mark-svg .src { fill: var(--accent); }
+  .mark-svg .ans { fill: var(--gold); }
+</style>
+</head>
+<body>
+
+<!-- Reusable logo mark -->
+<template id="mark">
+  <svg class="mark-svg" width="40" height="40" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+    <rect x="1" y="1" width="46" height="46" rx="12" stroke="var(--line)"/>
+    <path class="edge" d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke-width="2" stroke-linecap="round"/>
+    <circle class="src" cx="13" cy="15" r="3"/>
+    <circle class="src" cx="13" cy="24" r="3"/>
+    <circle class="src" cx="13" cy="33" r="3"/>
+    <circle class="ans" cx="34" cy="24" r="5.5"/>
+  </svg>
+</template>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <div class="brand-lockup"><span id="navmark"></span> nalar</div>
+    <nav class="nav-links">
+      <a href="#idea">Idea</a>
+      <a href="#logo">Logo</a>
+      <a href="#color">Color</a>
+      <a href="#type">Type</a>
+      <a href="#voice">Voice</a>
+      <a href="idea.html" class="mobile-keep" style="color:var(--gold-ink)">Produk →</a>
+      <button class="toggle" id="themeBtn" aria-label="Toggle theme" title="Ganti tema">◐</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ─── HERO ─────────────────────────────────────────────────────── -->
+<section class="hero">
+  <canvas id="field" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="hero-mark"><span id="heromark"></span></div>
+    <div class="eyebrow">Brand Identity · v1.0 · 2026</div>
+    <h1>nalar<span class="dot">.</span></h1>
+    <p class="lede">Setiap jawaban bernalar dari sumbermu — dan dikutip.</p>
+    <p class="sub">Nalar adalah platform RAG multi-tenant: pilih model apa pun, hubungkan Drive-mu sendiri, sematkan chatbot di website mana pun. Pengetahuan tetap milikmu, terisolasi, dan bisa ditelusuri.</p>
+    <div class="pillrow">
+      <span class="pill"><b>Reasoning</b>, sourced</span>
+      <span class="pill">Bersumber</span>
+      <span class="pill">Terisolasi</span>
+      <span class="pill">Terbuka</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── IDEA / POSITIONING ───────────────────────────────────────── -->
+<section class="blk" id="idea">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div><h2>The idea</h2><p>Apa arti nama ini, dan janji apa yang dibawanya.</p></div>
+    </div>
+    <div style="max-width: 60ch; margin-bottom: 40px;">
+      <p class="serif-lede" style="margin-bottom:20px;">na·lar <span style="font-family:var(--mono);font-style:normal;font-size:14px;color:var(--muted)">/ˈna.lar/</span> — daya pikir; kemampuan menarik kesimpulan yang logis.</p>
+      <p style="color:var(--muted); font-size:18px;">Kebanyakan chatbot mengarang. Nalar tidak. Ia <b style="color:var(--text)">bernalar dari sumbermu sendiri</b> — dokumen di Drive-mu, basis pengetahuanmu — lalu menandai dari mana jawabannya berasal. Nama itu adalah produknya: penalaran yang membumi, bukan tebakan yang meyakinkan.</p>
+    </div>
+    <div class="grid" style="grid-template-columns: repeat(3,1fr);">
+      <div class="card"><h3 style="color:var(--accent)">Bersumber</h3><p>Setiap jawaban ditarik dari dokumenmu dan dikutip inline. Tidak ada halusinasi tanpa sumber.</p></div>
+      <div class="card"><h3 style="color:var(--gold-ink)">Terisolasi</h3><p>Tiap tenant terkurung oleh Row-Level Security di database. Basis pengetahuan mustahil bocor antar tenant.</p></div>
+      <div class="card"><h3>Terbuka</h3><p>Pilih model embedding & LLM apa pun — lokal 80MB, 2GB, atau API. Ganti kapan saja dari Settings.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── LOGO ─────────────────────────────────────────────────────── -->
+<section class="blk" id="logo">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div><h2>Logo</h2><p>Tiga sumber bertemu pada satu jawaban emas. Itulah retrieval.</p></div>
+    </div>
+    <div class="grid logo-grid">
+      <div class="logo-stage">
+        <div style="display:flex; align-items:center; gap:20px;">
+          <span id="biglogo"></span>
+          <span style="font-size:64px; font-weight:700; letter-spacing:-0.05em;">nalar<span style="color:var(--gold)">.</span></span>
+        </div>
+      </div>
+      <div class="construct">
+        <span id="constructmark"></span>
+        <span class="badge" style="position:absolute; bottom:16px; left:16px; color:var(--muted);">Grid 8px · clearspace = tinggi node</span>
+      </div>
+    </div>
+    <div class="grid misuse" style="margin-top:20px;">
+      <div class="card"><span class="badge yes">✓ Do</span><p style="margin-top:10px;">Mark + wordmark sejajar baseline.</p></div>
+      <div class="card"><span class="badge yes">✓ Do</span><p style="margin-top:10px;">Node jawaban selalu emas.</p></div>
+      <div class="card"><span class="badge no">✕ Don't</span><p style="margin-top:10px;">Jangan miringkan atau regangkan mark.</p></div>
+      <div class="card"><span class="badge no">✕ Don't</span><p style="margin-top:10px;">Jangan ganti warna node jawaban.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── COLOR ────────────────────────────────────────────────────── -->
+<section class="blk" id="color">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div><h2>Color</h2><p>Ruang gelap untuk bernalar. Indigo memikirkan, emas menjawab.</p></div>
+    </div>
+    <div class="grid swatches">
+      <div class="sw"><div class="chip" style="background:#5B4BFF"></div><div class="meta"><div class="n">Indigo</div><div class="h">#5B4BFF</div><div class="role">Primer — proses, aksi, tautan.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#F2B24B"></div><div class="meta"><div class="n">Gold</div><div class="h">#F2B24B</div><div class="role">Sekunder — jawaban tersumber, kutipan, sorotan.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#0B0B14"></div><div class="meta"><div class="n">Ink</div><div class="h">#0B0B14</div><div class="role">Kanvas gelap, bias indigo.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#F4F3EE"></div><div class="meta"><div class="n">Paper</div><div class="h">#F4F3EE</div><div class="role">Kanvas terang, hangat terpilih.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#9A9AB2"></div><div class="meta"><div class="n">Slate</div><div class="h">#9A9AB2</div><div class="role">Teks sekunder, netral bias indigo.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#46C08A"></div><div class="meta"><div class="n">Good</div><div class="h">#46C08A</div><div class="role">Semantik — sukses, tersinkron.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#E8894B"></div><div class="meta"><div class="n">Warn</div><div class="h">#E8894B</div><div class="role">Semantik — perhatian, kuota.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#E5565B"></div><div class="meta"><div class="n">Crit</div><div class="h">#E5565B</div><div class="role">Semantik — galat, batas.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── TYPE ─────────────────────────────────────────────────────── -->
+<section class="blk" id="type">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div><h2>Typography</h2><p>Sans tegas untuk struktur, serif old-style untuk makna, mono untuk data.</p></div>
+    </div>
+    <div class="specimen">
+      <div class="type-row">
+        <div class="type-label">Display · Sans · 700 · tracking −0.045em</div>
+        <p class="display-xl">Reasoning, sourced.</p>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Editorial · Serif · italic</div>
+        <p class="serif-lede">“Setiap jawaban punya sumber — dan kamu selalu bisa menelusurinya.”</p>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Body · Sans · 400 · ~65ch</div>
+        <p class="body-set">Nalar mengubah dokumenmu menjadi jawaban yang bisa dipercaya. Pilih model embedding, hubungkan sumber datamu, dan sematkan chatbot di mana pun. Basis pengetahuan tiap chatbot terisolasi penuh, jadi ID yang berbeda selalu berarti pengetahuan yang berbeda.</p>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Utility · Mono · uppercase · tracking .1em</div>
+        <p class="mono-set">EMBEDDING_MODEL = bge-m3 · DIM 1024 · TENANT_ISOLATED · cb_live_9f2a…</p>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Type scale</div>
+        <div class="scale">
+          <span style="font-size:13px">13</span>
+          <span style="font-size:17px">17</span>
+          <span style="font-size:21px">21</span>
+          <span style="font-size:28px">28</span>
+          <span style="font-size:38px">38</span>
+          <span style="font-size:52px">52</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── VOICE ────────────────────────────────────────────────────── -->
+<section class="blk" id="voice">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <div><h2>Voice &amp; tone</h2><p>Cerdas, tenang, presisi. Percaya diri tanpa hype.</p></div>
+    </div>
+    <div class="grid voice-grid">
+      <div class="card say">
+        <span class="badge yes">Kami mengatakan</span>
+        <p class="q" style="margin-top:14px;">“Berikut jawabannya — dari 3 dokumenmu. [1][2][3]”</p>
+        <p style="color:var(--muted); font-size:14.5px; margin-top:10px;">Jelas, bersumber, langsung ke inti. Menyebut hal dengan nama yang orang kenali.</p>
+      </div>
+      <div class="card dont">
+        <span class="badge no">Kami tidak</span>
+        <p class="q" style="margin-top:14px;">“Wow! AI revolusioner kami akan mengubah segalanya! 🚀”</p>
+        <p style="color:var(--muted); font-size:14.5px; margin-top:10px;">Tanpa hype, tanpa emoji sebagai penanda, tanpa janji yang tak bisa ditelusuri.</p>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr); margin-top:20px;">
+      <div class="card"><h3 style="font-size:17px;">Cerdas, bukan menggurui</h3><p>Menjelaskan, tidak memamerkan istilah.</p></div>
+      <div class="card"><h3 style="font-size:17px;">Presisi, bukan kaku</h3><p>Teknis saat perlu, manusiawi selalu.</p></div>
+      <div class="card"><h3 style="font-size:17px;">Bilingual-ready</h3><p>ID &amp; EN mengalir tanpa canggung.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── APPLICATIONS ─────────────────────────────────────────────── -->
+<section class="blk" id="apps">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <div><h2>In the wild</h2><p>Widget yang disematkan, dan kartu brand.</p></div>
+    </div>
+    <div class="grid apps">
+      <div class="app-ui">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="app-body">
+          <div class="msg u">Berapa lama garansi produk Pro?</div>
+          <div class="msg a">Garansi produk Pro adalah <b>24 bulan</b> sejak tanggal pembelian, mencakup cacat produksi. <span class="cite">[1] kebijakan-garansi.pdf</span></div>
+          <div class="msg u">Kalau rusak karena air?</div>
+          <div class="msg a">Kerusakan akibat cairan <b>tidak tercakup</b> garansi standar, namun tersedia Perlindungan+ opsional. <span class="cite">[2] syarat-layanan.pdf</span></div>
+        </div>
+      </div>
+      <div style="display:grid; gap:20px;">
+        <div class="card-brand">
+          <div>
+            <div class="cn">nalar<span style="color:var(--gold)">.</span></div>
+            <div class="ct">Reasoning, sourced</div>
+          </div>
+        </div>
+        <div class="card"><h3 style="font-size:16px;">Embed, di mana saja</h3><p style="font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:8px; word-break:break-all;">&lt;script src="…/embed.js" data-chatbot="cb_live_…"&gt;&lt;/script&gt;</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="brand-lockup" style="font-size:16px;"><span id="footmark"></span> nalar</div>
+    <div class="mono">© 2026 Nalar · Brand Identity v1.0 · Reasoning, sourced.</div>
+  </div>
+</footer>
+
+<script>
+  // Inject the SVG mark everywhere it's referenced.
+  (function () {
+    var tpl = document.getElementById('mark');
+    ['navmark','heromark','biglogo','constructmark','footmark'].forEach(function (id) {
+      var host = document.getElementById(id);
+      if (host) {
+        var node = tpl.content.cloneNode(true);
+        if (id === 'heromark') node.querySelector('svg').setAttribute('width', '68'), node.querySelector('svg').setAttribute('height', '68');
+        if (id === 'biglogo' || id === 'constructmark') { var s = node.querySelector('svg'); s.setAttribute('width','96'); s.setAttribute('height','96'); }
+        host.appendChild(node);
+      }
+    });
+  })();
+
+  // Theme toggle — persists to localStorage, overrides media query.
+  (function () {
+    var root = document.documentElement;
+    var saved = localStorage.getItem('nalar-theme');
+    if (saved) root.setAttribute('data-theme', saved);
+    document.getElementById('themeBtn').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('nalar-theme', next);
+    });
+  })();
+
+  // Hero "retrieval field": source nodes drifting, edges converging to a
+  // gold answer node. Static frame when reduced-motion is requested.
+  (function () {
+    var canvas = document.getElementById('field');
+    var ctx = canvas.getContext('2d');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var nodes = [], W, H, DPR;
+
+    function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      var r = canvas.getBoundingClientRect();
+      W = r.width; H = r.height;
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      seed();
+    }
+    function seed() {
+      nodes = [];
+      var n = Math.max(14, Math.floor(W / 46));
+      for (var i = 0; i < n; i++) {
+        nodes.push({
+          x: Math.random() * W, y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
+          r: 1.2 + Math.random() * 1.8
+        });
+      }
+    }
+    function frame() {
+      ctx.clearRect(0, 0, W, H);
+      var indigo = css('--accent') || '#5B4BFF';
+      var gold = css('--gold') || '#F2B24B';
+      // focal answer node follows a slow path near upper-right
+      var fx = W * 0.72, fy = H * 0.40;
+      for (var i = 0; i < nodes.length; i++) {
+        var p = nodes[i];
+        if (!reduce) { p.x += p.vx; p.y += p.vy; }
+        if (p.x < 0 || p.x > W) p.vx *= -1;
+        if (p.y < 0 || p.y > H) p.vy *= -1;
+        var d = Math.hypot(p.x - fx, p.y - fy);
+        var alpha = Math.max(0, 1 - d / (W * 0.55));
+        if (alpha > 0.02) {
+          ctx.strokeStyle = indigo;
+          ctx.globalAlpha = alpha * 0.28;
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(fx, fy); ctx.stroke();
+        }
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = indigo;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.29); ctx.fill();
+      }
+      // answer node
+      ctx.globalAlpha = 1;
+      var grd = ctx.createRadialGradient(fx, fy, 0, fx, fy, 26);
+      grd.addColorStop(0, gold); grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(fx, fy, 26, 0, 6.29); ctx.fill();
+      ctx.fillStyle = gold;
+      ctx.beginPath(); ctx.arc(fx, fy, 5.5, 0, 6.29); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (!reduce) requestAnimationFrame(frame);
+    }
+    window.addEventListener('resize', resize);
+    resize(); frame();
+  })();
+</script>
+</body>
+</html>

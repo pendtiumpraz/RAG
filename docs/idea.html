@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nalar — Product & Architecture</title>
+<style>
+  :root {
+    --bg:#0B0B14; --surface:#14141F; --surface-2:#1B1B2A; --line:#2A2A3D;
+    --text:#ECECF2; --muted:#9A9AB2; --accent:#5B4BFF; --accent-soft:#6E60FF;
+    --gold:#F2B24B; --gold-ink:#F2B24B; --good:#46C08A; --warn:#E8894B; --crit:#E5565B;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,"Liberation Mono",monospace;
+    --maxw:1120px; --r:14px;
+  }
+  @media (prefers-color-scheme: light){ :root{
+    --bg:#F4F3EE;--surface:#FFFFFF;--surface-2:#ECEBE3;--line:#DEDCCF;--text:#17172A;
+    --muted:#5A5A70;--accent:#4B3DF0;--gold:#C6871B;--gold-ink:#A06E13;} }
+  :root[data-theme="light"]{ --bg:#F4F3EE;--surface:#FFFFFF;--surface-2:#ECEBE3;--line:#DEDCCF;
+    --text:#17172A;--muted:#5A5A70;--accent:#4B3DF0;--gold:#C6871B;--gold-ink:#A06E13; }
+  :root[data-theme="dark"]{ --bg:#0B0B14;--surface:#14141F;--surface-2:#1B1B2A;--line:#2A2A3D;
+    --text:#ECECF2;--muted:#9A9AB2;--accent:#5B4BFF;--gold:#F2B24B;--gold-ink:#F2B24B; }
+
+  *{box-sizing:border-box;} html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:17px;
+    line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;transition:background .4s,color .4s;}
+  ::selection{background:var(--accent);color:#fff;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);}
+  h1,h2,h3{text-wrap:balance;font-weight:700;letter-spacing:-0.02em;}
+  a{color:var(--accent);}
+
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+    background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom:1px solid var(--line);}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:62px;}
+  .brand-lockup{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-0.03em;font-size:19px;}
+  .nav-links{display:flex;gap:24px;align-items:center;}
+  .nav-links a{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;text-decoration:none;color:var(--muted);text-transform:uppercase;}
+  .nav-links a:hover{color:var(--text);}
+  .toggle{border:1px solid var(--line);background:var(--surface);color:var(--text);width:38px;height:34px;
+    border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center;}
+  .toggle:hover{border-color:var(--accent);}
+  @media(max-width:760px){ .nav-links a:not(.keep){display:none;} }
+
+  .mark-svg .edge{stroke:var(--accent);} .mark-svg .src{fill:var(--accent);} .mark-svg .ans{fill:var(--gold);}
+
+  .hero{padding:80px 0 56px;}
+  .hero h1{font-size:clamp(40px,7vw,76px);line-height:.98;margin:16px 0 0;letter-spacing:-0.04em;}
+  .hero h1 .g{color:var(--gold);}
+  .hero .lede{font-family:var(--serif);font-style:italic;font-size:clamp(19px,2.4vw,27px);
+    color:var(--text);max-width:26ch;margin:20px 0 0;line-height:1.3;}
+  .hero .sub{color:var(--muted);max-width:58ch;margin-top:20px;font-size:18px;}
+  .cta{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap;}
+  .btn{font-family:var(--mono);font-size:13px;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;
+    padding:12px 20px;border-radius:10px;border:1px solid var(--line);color:var(--text);}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn:hover{border-color:var(--accent);}
+
+  section.blk{padding:72px 0;border-top:1px solid var(--line);}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:36px;flex-wrap:wrap;}
+  .sec-num{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.1em;}
+  .sec-head h2{font-size:clamp(28px,4.6vw,42px);margin:0;}
+  .sec-head p{color:var(--muted);margin:6px 0 0;max-width:48ch;}
+
+  .grid{display:grid;gap:18px;}
+  .g3{grid-template-columns:repeat(3,1fr);} .g2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:820px){ .g3,.g2{grid-template-columns:1fr;} }
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:24px;}
+  .card h3{margin:0 0 8px;font-size:19px;}
+  .card p{margin:0;color:var(--muted);font-size:15px;}
+  .card .k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);}
+
+  /* flow diagram */
+  .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch;}
+  @media(max-width:820px){ .flow{grid-template-columns:1fr 1fr;} }
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;position:relative;}
+  .step .n{font-family:var(--mono);font-size:12px;color:var(--gold-ink);}
+  .step h4{margin:8px 0 4px;font-size:15px;letter-spacing:-0.01em;}
+  .step p{margin:0;font-size:13px;color:var(--muted);line-height:1.4;}
+
+  /* spec table */
+  .tbl{width:100%;border-collapse:collapse;overflow:hidden;border:1px solid var(--line);border-radius:var(--r);}
+  .tbl-scroll{overflow-x:auto;border-radius:var(--r);}
+  .tbl th,.tbl td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);font-size:14.5px;vertical-align:top;}
+  .tbl th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl td code{font-family:var(--mono);font-size:12.5px;color:var(--gold-ink);}
+  .tag{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;}
+  .tag.small{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,var(--line));}
+  .tag.large{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,var(--line));}
+  .tag.api{color:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));}
+
+  .qa{border-left:2px solid var(--gold);padding-left:20px;margin:0 0 22px;}
+  .qa .q{font-family:var(--serif);font-style:italic;font-size:19px;margin:0 0 6px;}
+  .qa .a{color:var(--muted);margin:0;}
+  .qa .a b{color:var(--text);}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:820px){ .split{grid-template-columns:1fr;} }
+  .mono-block{font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.7;white-space:pre;overflow-x:auto;
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;}
+  .mono-block .hi{color:var(--gold-ink);} .mono-block .ac{color:var(--accent-soft);}
+
+  .road{display:grid;gap:10px;}
+  .road .item{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .road .box{width:16px;height:16px;border:1.5px solid var(--muted);border-radius:4px;margin-top:3px;flex:none;}
+  .road .item.done .box{background:var(--good);border-color:var(--good);}
+  .road .item p{margin:0;font-size:14.5px;}
+  .road .item .s{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+
+  footer{border-top:1px solid var(--line);padding:44px 0;color:var(--muted);}
+  .foot-in{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;}
+  .foot-in .mono{font-family:var(--mono);font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<template id="mark">
+  <svg class="mark-svg" width="34" height="34" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+    <rect x="1" y="1" width="46" height="46" rx="12" stroke="var(--line)"/>
+    <path class="edge" d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke-width="2" stroke-linecap="round"/>
+    <circle class="src" cx="13" cy="15" r="3"/><circle class="src" cx="13" cy="24" r="3"/>
+    <circle class="src" cx="13" cy="33" r="3"/><circle class="ans" cx="34" cy="24" r="5.5"/>
+  </svg>
+</template>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <div class="brand-lockup"><span id="navmark"></span> nalar</div>
+    <nav class="nav-links">
+      <a href="#how">How</a><a href="#features">Features</a><a href="#models">Models</a>
+      <a href="#tenancy">Isolation</a><a href="#deploy">Deploy</a>
+      <a href="brand-identity.html" class="keep" style="color:var(--gold-ink)">Brand →</a>
+      <button class="toggle" id="themeBtn" aria-label="Ganti tema">◐</button>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Product &amp; Architecture · 2026-07-23</div>
+    <h1>Mesin RAG yang<br>jawabannya bisa<br>kamu <span class="g">telusuri.</span></h1>
+    <p class="lede">Pilih model apa pun. Sumber datamu sendiri. Sematkan di mana saja.</p>
+    <p class="sub">Nalar adalah platform Retrieval-Augmented Generation multi-tenant di atas Next.js. Setiap tenant terisolasi, setiap chatbot punya basis pengetahuan sendiri, dan setiap jawaban dikutip dari dokumenmu.</p>
+    <div class="cta">
+      <a class="btn primary" href="#how">Lihat cara kerja</a>
+      <a class="btn" href="brand-identity.html">Brand identity</a>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="blk" id="how">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span>
+      <div><h2>Cara kerja</h2><p>Perjalanan satu pertanyaan, dari widget di website pelanggan sampai jawaban bersumber.</p></div>
+    </div>
+    <div class="flow">
+      <div class="step"><div class="n">01</div><h4>Embed &amp; tanya</h4><p>Widget <code>embed.js</code> di website mana pun kirim pertanyaan via <code>publicKey</code>.</p></div>
+      <div class="step"><div class="n">02</div><h4>Resolve tenant</h4><p><code>publicKey</code> → tenant + chatbot. Cek origin. RLS diaktifkan.</p></div>
+      <div class="step"><div class="n">03</div><h4>Retrieve</h4><p>Vector search pgvector, difilter <code>chatbot_id</code> — KB terisolasi.</p></div>
+      <div class="step"><div class="n">04</div><h4>Reason</h4><p>Model LLM aktif menyusun jawaban dari konteks + history.</p></div>
+      <div class="step"><div class="n">05</div><h4>Cite &amp; save</h4><p>Stream SSE ke widget, simpan history + kutipan sumber.</p></div>
+    </div>
+    <div class="mono-block" style="margin-top:22px;">website pelanggan
+  └─ <span class="ac">embed.js</span> ──POST /api/chat/&lt;publicKey&gt;──▶ resolve → tenant + chatbot
+                                            │  (cek allowedOrigins per-chatbot)
+                                            ▼
+                              <span class="ac">withTenant(tenantId)</span>  ← Row-Level Security aktif
+                                            │
+              ┌──────────────────────────────┼──────────────────────────────┐
+              ▼                              ▼                              ▼
+       <span class="hi">retrieve()</span> vektor          load <span class="hi">history</span>              <span class="hi">streamChat()</span> LLM
+       (filter chatbot_id)          (conversations)         (provider dari registry)
+              └──────────────▶ build prompt ──▶ SSE ──▶ widget ──▶ simpan history + sitasi</div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="blk" id="features">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span>
+      <div><h2>Yang bisa dilakukan</h2><p>Setiap fitur yang kamu minta, dan di mana kodenya hidup.</p></div>
+    </div>
+    <div class="grid g3">
+      <div class="card"><span class="k">Embeddings</span><h3>Pilih model bebas</h3><p>Lokal ~80MB, ~2GB, atau API OpenAI/Cohere. Ganti dari Settings. Hanya satu aktif per tenant.</p></div>
+      <div class="card"><span class="k">Storage</span><h3>Model dari Drive/SharePoint</h3><p>File model embedding di-host superadmin, diunduh sekali, di-cache, dipakai bersama.</p></div>
+      <div class="card"><span class="k">LLM</span><h3>Semua provider terbaru</h3><p>Anthropic, OpenAI, Google, Mistral, DeepSeek, xAI, Groq, Cohere — daftar per 23 Jul 2026.</p></div>
+      <div class="card"><span class="k">Keys</span><h3>API key tersimpan aman</h3><p>Terenkripsi AES-256-GCM saat disimpan. Per tenant, atau fallback env untuk on-prem.</p></div>
+      <div class="card"><span class="k">History</span><h3>Riwayat lengkap</h3><p>Semua percakapan &amp; pesan tersimpan per chatbot, dengan sitasi sumber tiap jawaban.</p></div>
+      <div class="card"><span class="k">Embed</span><h3>Chatbot di mana saja</h3><p>Satu baris <code>&lt;script&gt;</code>, respon streaming token-per-token via SSE, warna &amp; origin bisa diatur.</p></div>
+      <div class="card"><span class="k">Sources</span><h3>Drive per-user</h3><p>Tiap user hubungkan Google Drive / SharePoint miliknya sendiri sebagai sumber pengetahuan.</p></div>
+      <div class="card"><span class="k">Multi-bot</span><h3>1 user, banyak chatbot</h3><p>Tiap chatbot = 1 ID = 1 KB terisolasi. ID beda ⇒ pengetahuan beda.</p></div>
+      <div class="card"><span class="k">Deploy</span><h3>SaaS &amp; on-prem</h3><p>Satu perintah <code>docker compose up</code> untuk on-prem air-gapped, atau mode SaaS multi-tenant.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODELS -->
+<section class="blk" id="models">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span>
+      <div><h2>Katalog model</h2><p>Diverifikasi via web search pada 2026-07-23. Tambah model = tambah satu baris di <code>registry.ts</code>.</p></div>
+    </div>
+    <h3 style="font-size:16px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;margin:0 0 14px;">Chat / LLM</h3>
+    <div class="tbl-scroll" style="margin-bottom:34px;">
+      <table class="tbl">
+        <thead><tr><th>Provider</th><th>Model</th><th>ID</th><th>Konteks</th></tr></thead>
+        <tbody>
+          <tr><td>Anthropic</td><td>Claude Fable 5 · Opus 4.8 · Sonnet 5 · Haiku 4.5</td><td><code>claude-opus-4-8</code></td><td>hingga 1M</td></tr>
+          <tr><td>OpenAI</td><td>GPT-5.6 Sol · Terra · Luna · 5.5 · 5.4</td><td><code>gpt-5.6-sol</code></td><td>400K</td></tr>
+          <tr><td>Google</td><td>Gemini 3.5 Flash · Gemini 3 Pro</td><td><code>gemini-3.5-flash</code></td><td>1–2M</td></tr>
+          <tr><td>Lainnya</td><td>Mistral Large 2 · DeepSeek · Grok 4 · Llama 3.3 · Command R+</td><td><code>grok-4</code></td><td>128–256K</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 style="font-size:16px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;margin:0 0 14px;">Embedding</h3>
+    <div class="tbl-scroll">
+      <table class="tbl">
+        <thead><tr><th>Bucket</th><th>Model</th><th>Dim</th><th>Catatan</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag small">~80MB</span></td><td>all-MiniLM-L6-v2</td><td>384</td><td>Cepat, ramah CPU, cocok edge/on-prem.</td></tr>
+          <tr><td><span class="tag small">~140MB</span></td><td>nomic-embed-text v1.5</td><td>768</td><td>Konteks 8k, kualitas/ukuran seimbang.</td></tr>
+          <tr><td><span class="tag large">~2.2GB</span></td><td>BGE-M3</td><td>1024</td><td>Multilingual 100+ bahasa (termasuk ID).</td></tr>
+          <tr><td><span class="tag large">~5GB</span></td><td>Qwen3-Embedding-8B (Q4)</td><td>4096</td><td>SOTA open-source, butuh RAM lebih.</td></tr>
+          <tr><td><span class="tag api">API</span></td><td>OpenAI text-embedding-3-small / large</td><td>1536 / 3072</td><td>Tanpa bobot lokal, kualitas tinggi.</td></tr>
+          <tr><td><span class="tag api">API</span></td><td>Cohere Embed v4.0</td><td>1536</td><td>Multilingual, via API key.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TENANCY / ISOLATION -->
+<section class="blk" id="tenancy">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span>
+      <div><h2>Isolasi tenant</h2><p>Wajib: antar tenant tidak boleh saling connect. Dipaksa oleh database, bukan sekadar kode app.</p></div>
+    </div>
+    <div class="split">
+      <div class="card">
+        <h3>Row-Level Security</h3>
+        <p style="margin-bottom:12px;">Setiap baris punya <code style="color:var(--gold-ink);font-family:var(--mono)">tenant_id</code>. <code style="color:var(--gold-ink);font-family:var(--mono)">withTenant()</code> menyetel GUC <code style="color:var(--gold-ink);font-family:var(--mono)">app.current_tenant</code>, dan policy Postgres memaksa filter di level DB. Bug di kode app <b style="color:var(--text)">tidak bisa</b> membocorkan baris antar tenant.</p>
+        <p>Basis pengetahuan tiap chatbot juga difilter <code style="color:var(--gold-ink);font-family:var(--mono)">chatbot_id</code> — jadi satu user pun tidak mencampur KB antar chatbot-nya sendiri.</p>
+      </div>
+      <div class="mono-block"><span class="ac">-- migrations/0001_rls.sql</span>
+CREATE POLICY tenant_isolation ON documents
+  USING      (tenant_id = <span class="hi">app_current_tenant()</span>)
+  WITH CHECK (tenant_id = <span class="hi">app_current_tenant()</span>);
+
+<span class="ac">// setiap query berjalan di dalam:</span>
+withTenant(tenantId, async (tx) =&gt; {
+  <span class="ac">// SELECT tanpa WHERE tenant pun</span>
+  <span class="ac">// tetap terkurung ke tenant ini.</span>
+});</div>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOY -->
+<section class="blk" id="deploy">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span>
+      <div><h2>SaaS &amp; on-prem</h2><p>Satu basis kode, dua mode via <code>DEPLOYMENT_MODE</code>.</p></div>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <span class="k">mode = saas</span>
+        <h3>SaaS multi-tenant</h3>
+        <p>Signup terbuka, tiap pendaftar dapat tenant baru terisolasi. Tiap user hubungkan Drive-nya sendiri; file model embedding pakai Drive superadmin bersama. Billing &amp; kuota per plan.</p>
+      </div>
+      <div class="card">
+        <span class="k">mode = onprem</span>
+        <h3>On-prem / air-gapped</h3>
+        <p><code>docker compose up</code> → Postgres+pgvector + app. Satu organisasi, satu tenant. Embedding lokal (80MB/2GB) tanpa panggilan keluar. Key organisasi via env.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Q&A -->
+<section class="blk" id="qa">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span>
+      <div><h2>Pertanyaanmu, dijawab</h2><p>Semua "bisa gak" dari brief awal.</p></div>
+    </div>
+    <div class="qa"><p class="q">Embeddings pakai Google Drive superadmin, bisa gak?</p>
+      <p class="a"><b>Bisa.</b> Yang di Drive superadmin adalah <b>file MODEL</b> embedding (ONNX 80MB/2GB) — diunduh sekali, di-cache, dipakai bersama semua tenant. Hasil embedding (vektor) tiap tenant tetap terisolasi, tidak pernah bercampur.</p></div>
+    <div class="qa"><p class="q">1 user = 1 ID chatbot yang bisa di-embed ke website lain, beda ID beda knowledge base?</p>
+      <p class="a"><b>Bisa.</b> Satu user boleh punya banyak chatbot; tiap chatbot punya <code style="color:var(--gold-ink);font-family:var(--mono)">publicKey</code> sendiri. Retrieval selalu difilter <code style="color:var(--gold-ink);font-family:var(--mono)">chatbot_id</code>, jadi beda ID = beda KB terisolasi.</p></div>
+    <div class="qa"><p class="q">Setiap user konek Google Drive masing-masing?</p>
+      <p class="a"><b>Ya.</b> Sumber data per-user pakai OAuth Drive/SharePoint milik user itu sendiri.</p></div>
+    <div class="qa"><p class="q">Antar tenant harus terisolasi, tidak boleh saling connect?</p>
+      <p class="a"><b>Dipaksa di level database</b> lewat Postgres Row-Level Security + <code style="color:var(--gold-ink);font-family:var(--mono)">tenant_id</code>. Kebocoran antar tenant mustahil walau ada bug di kode.</p></div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="blk" id="roadmap">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span>
+      <div><h2>Status &amp; roadmap</h2><p>Engine sudah jadi; berikut yang tinggal dilengkapi untuk produksi.</p></div>
+    </div>
+    <div class="road">
+      <div class="item done"><div class="box"></div><div><p>Engine RAG: registry model, embeddings, retrieval, chat streaming, embed widget</p><span class="s">Selesai</span></div></div>
+      <div class="item done"><div class="box"></div><div><p>Skema multi-tenant + RLS + pgvector, chat history, API key terenkripsi</p><span class="s">Selesai</span></div></div>
+      <div class="item done"><div class="box"></div><div><p>Konektor Drive/SharePoint (model host + per-user), docker on-prem</p><span class="s">Selesai</span></div></div>
+      <div class="item"><div class="box"></div><div><p>NextAuth/Auth.js nyata + signup → buat tenant otomatis (kini stub cookie)</p><span class="s">Berikutnya</span></div></div>
+      <div class="item"><div class="box"></div><div><p>Worker sync Drive/SharePoint: ekstraksi teks PDF/DOCX → ingest</p><span class="s">Berikutnya</span></div></div>
+      <div class="item"><div class="box"></div><div><p>UI dashboard: kelola chatbot, sumber data, lihat history</p><span class="s">Berikutnya</span></div></div>
+      <div class="item"><div class="box"></div><div><p>Rate limiting, kuota per plan, billing (SaaS); halaman superadmin folder model</p><span class="s">Nanti</span></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="brand-lockup" style="font-size:16px;"><span id="footmark"></span> nalar</div>
+    <div class="mono">© 2026 Nalar · Product &amp; Architecture · Reasoning, sourced.</div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var tpl=document.getElementById('mark');
+    ['navmark','footmark'].forEach(function(id){
+      var h=document.getElementById(id); if(h) h.appendChild(tpl.content.cloneNode(true));
+    });
+  })();
+  (function(){
+    var root=document.documentElement;
+    var saved=localStorage.getItem('nalar-theme');
+    if(saved) root.setAttribute('data-theme',saved);
+    document.getElementById('themeBtn').addEventListener('click',function(){
+      var next=root.getAttribute('data-theme')==='light'?'dark':'light';
+      root.setAttribute('data-theme',next); localStorage.setItem('nalar-theme',next);
+    });
+  })();
+</script>
+</body>
+</html>

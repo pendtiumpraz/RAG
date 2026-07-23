@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nalar — Design System · Editorial Ledger</title>
+<link rel="stylesheet" href="nalar-ds.css" />
+<style>
+  .page{ max-width:1000px; margin:0 auto; padding:0 var(--sp-6) var(--sp-20); }
+  /* Masthead ala terbitan */
+  .masthead{ display:flex; align-items:flex-end; justify-content:space-between; gap:var(--sp-4);
+    padding:var(--sp-6) 0 var(--sp-4); border-bottom:3px double var(--rule-strong); margin-bottom:var(--sp-6); flex-wrap:wrap; }
+  .mh-brand{ display:flex; align-items:center; gap:var(--sp-3); }
+  .mh-brand .wm{ font-family:var(--font-display); font-size:34px; letter-spacing:-0.03em; }
+  .mh-brand .wm b{ color:var(--gold-mark); font-weight:600; }
+  .mh-meta{ text-align:right; }
+  .lede{ font-family:var(--font-display); font-size:var(--fs-2xl); line-height:1.3; max-width:32ch; color:var(--ink); }
+  .lede em{ color:var(--gold-ink); font-style:italic; }
+
+  section{ padding:var(--sp-12) 0; border-top:1px solid var(--rule); }
+  section:first-of-type{ border-top:none; }
+  .sec-num{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); }
+
+  .grid{ display:grid; gap:var(--sp-4); }
+  .cols-2{ grid-template-columns:1fr 1fr; } .cols-3{ grid-template-columns:repeat(3,1fr); } .cols-4{ grid-template-columns:repeat(4,1fr); }
+  @media(max-width:760px){ .cols-2,.cols-3,.cols-4{ grid-template-columns:1fr; } }
+
+  /* type specimen */
+  .spec-row{ display:flex; align-items:baseline; gap:var(--sp-4); padding:var(--sp-3) 0; border-bottom:1px solid var(--rule); }
+  .spec-row .tag{ width:120px; flex:none; }
+  .type-serif{ font-family:var(--font-display); letter-spacing:-0.025em; line-height:1; }
+
+  /* swatch */
+  .swatch{ border:1px solid var(--rule); border-radius:var(--rad-sm); overflow:hidden; }
+  .swatch .chip{ height:64px; } .swatch .meta{ padding:10px 12px; }
+  .swatch .n{ font-weight:600; font-size:var(--fs-sm); } .swatch .h{ font-family:var(--font-mono); font-size:var(--fs-2xs); color:var(--muted); }
+  .swatch .ratio{ font-family:var(--font-mono); font-size:10px; color:var(--faint); margin-top:3px; }
+
+  /* scale demo */
+  .scale-item{ display:flex; align-items:center; gap:var(--sp-3); font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--muted); }
+  .scale-item .box{ background:var(--tint-indigo); border:1px solid color-mix(in srgb,var(--indigo) 30%,var(--rule)); height:20px; border-radius:3px; }
+  .rad-demo{ display:flex; gap:var(--sp-4); flex-wrap:wrap; }
+  .rad-box{ width:76px; height:60px; background:var(--card); border:1px solid var(--rule-strong); display:grid; place-items:end center; padding-bottom:6px; font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+
+  .demo-box{ display:flex; gap:var(--sp-3); flex-wrap:wrap; align-items:center; }
+  .label-row{ font-family:var(--font-mono); font-size:var(--fs-2xs); color:var(--faint); text-transform:uppercase; letter-spacing:var(--tk-wide); margin:var(--sp-4) 0 var(--sp-2); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- MASTHEAD -->
+  <div class="masthead">
+    <div class="mh-brand">
+      <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="none" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
+      <div class="wm">Nalar<b>.</b></div>
+    </div>
+    <div class="mh-meta">
+      <div class="kicker">Design System · v2</div>
+      <div style="font-family:var(--font-display);font-size:var(--fs-lg);">Editorial Ledger</div>
+      <button class="btn btn-sm btn-ghost" id="themeBtn" style="margin-top:6px;">☾ / ☀ tema</button>
+    </div>
+  </div>
+  <p class="lede">Sistem visual ink-on-paper untuk jawaban yang <em>bisa ditelusuri</em> — struktur dibawa garis ledger &amp; sitasi, bukan gradien atau glow.</p>
+
+  <!-- 00 · SIGNATURE -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">00</span> <h2 style="display:inline;">Tanda tangan — jawaban bersumber</h2></div><span class="kicker">the hero pattern</span></div>
+    <div class="card card-pad" style="max-width:640px;">
+      <div class="kicker" style="margin-bottom:10px;">Support Bot · retrieval</div>
+      <p style="font-family:var(--font-display);font-size:var(--fs-xl);line-height:1.45;margin-bottom:4px;">
+        Garansi produk Pro adalah <strong>24 bulan</strong> sejak tanggal pembelian, mencakup cacat produksi.<span class="cite">1</span>
+        Kerusakan akibat cairan tidak tercakup garansi standar.<span class="cite">2</span>
+      </p>
+      <ul class="footnotes">
+        <li><b>1.</b> kebijakan-garansi.pdf — hlm. 3 · <span class="source-tag">gdrive</span></li>
+        <li><b>2.</b> syarat-layanan.pdf — §4.2 · <span class="source-tag">sharepoint</span></li>
+      </ul>
+    </div>
+    <p class="marginalia" style="margin-top:var(--sp-3);">Sitasi <span class="cite">n</span> superscript · footnote di bawah garis · gold = ink sumber. Ini identitas Nalar.</p>
+  </section>
+
+  <!-- 01 · TYPOGRAPHY -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">01</span> <h2 style="display:inline;">Tipografi</h2></div><span class="kicker">serif display · sans body · mono data</span></div>
+    <div class="spec-row"><span class="tag kicker">Display / 42</span><span class="type-serif" style="font-size:42px;">Reasoning, sourced</span></div>
+    <div class="spec-row"><span class="tag kicker">Heading / 26</span><span class="type-serif" style="font-size:26px;">Setiap jawaban punya sumber</span></div>
+    <div class="spec-row"><span class="tag kicker">Body / 14.5</span><span style="max-width:56ch;">Nalar mengubah dokumenmu menjadi jawaban yang bisa dipercaya. Teks tubuh memakai sans yang tenang agar mudah dibaca panjang.</span></div>
+    <div class="spec-row"><span class="tag kicker">Mono / data</span><span class="mono" style="color:var(--muted);">EMBEDDING=bge-m3 · DIM 1024 · cb_live_9f2a…c1 · 3.940 docs</span></div>
+    <div class="spec-row" style="border-bottom:none;"><span class="tag kicker">Skala</span>
+      <span class="cluster" style="gap:var(--sp-4);">
+        <span class="type-serif" style="font-size:12px;">12</span><span class="type-serif" style="font-size:16px;">16</span><span class="type-serif" style="font-size:21px;">21</span><span class="type-serif" style="font-size:26px;">26</span><span class="type-serif" style="font-size:32px;">32</span><span class="type-serif" style="font-size:42px;">42</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- 02 · COLOR / INK -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">02</span> <h2 style="display:inline;">Ink &amp; kertas</h2></div><span class="kicker">kontras AA/AAA diverifikasi</span></div>
+    <div class="grid cols-4">
+      <div class="swatch"><div class="chip" style="background:var(--paper);border-bottom:1px solid var(--rule)"></div><div class="meta"><div class="n">Paper</div><div class="h">#F3F1EA</div><div class="ratio">canvas</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><div class="n">Ink</div><div class="h">#1B1813</div><div class="ratio">15.3:1 · AAA</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--indigo)"></div><div class="meta"><div class="n">Indigo (interaktif)</div><div class="h">#3F35B5</div><div class="ratio">8.6:1 · AAA</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--gold-ink)"></div><div class="meta"><div class="n">Gold (sumber)</div><div class="h">#8A5E12</div><div class="ratio">4.9:1 · AA</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--muted)"></div><div class="meta"><div class="n">Muted</div><div class="h">—</div><div class="ratio">6.6:1 · AA+</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--good)"></div><div class="meta"><div class="n">Good (forest)</div><div class="h">#3B6E51</div><div class="ratio">status</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--danger)"></div><div class="meta"><div class="n">Danger (oxblood)</div><div class="h">#9E2F27</div><div class="ratio">status</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--rule-strong)"></div><div class="meta"><div class="n">Rule</div><div class="h">ledger line</div><div class="ratio">struktur</div></div></div>
+    </div>
+    <p class="marginalia" style="margin-top:var(--sp-3);">Tanpa acid-green / vermilion. Status pakai forest &amp; oxblood — editorial, bukan slop.</p>
+  </section>
+
+  <!-- 03 · SPACING & RADIUS -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">03</span> <h2 style="display:inline;">Spasi &amp; radius</h2></div><span class="kicker">skala 4px · radius crisp</span></div>
+    <div class="grid cols-2">
+      <div>
+        <div class="label-row">Spacing scale</div>
+        <div class="stack gap-2">
+          <div class="scale-item"><span class="box" style="width:4px;"></span> 1 · 4px</div>
+          <div class="scale-item"><span class="box" style="width:8px;"></span> 2 · 8px</div>
+          <div class="scale-item"><span class="box" style="width:16px;"></span> 4 · 16px</div>
+          <div class="scale-item"><span class="box" style="width:24px;"></span> 6 · 24px</div>
+          <div class="scale-item"><span class="box" style="width:32px;"></span> 8 · 32px</div>
+          <div class="scale-item"><span class="box" style="width:48px;"></span> 12 · 48px</div>
+        </div>
+      </div>
+      <div>
+        <div class="label-row">Radius scale</div>
+        <div class="rad-demo">
+          <div class="rad-box" style="border-radius:4px;">4</div>
+          <div class="rad-box" style="border-radius:6px;">6</div>
+          <div class="rad-box" style="border-radius:8px;">8</div>
+          <div class="rad-box" style="border-radius:11px;">11</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · BUTTONS -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">04</span> <h2 style="display:inline;">Tombol</h2></div><span class="kicker">solid ink / outline · no gradient</span></div>
+    <div class="label-row">Varian</div>
+    <div class="demo-box"><button class="btn btn-primary">Simpan</button><button class="btn btn-outline">Batal</button><button class="btn">Sekunder</button><button class="btn btn-ghost">Ghost</button><button class="btn btn-danger">Hapus</button></div>
+    <div class="label-row">Ukuran</div>
+    <div class="demo-box"><button class="btn btn-primary btn-lg">Large</button><button class="btn btn-primary">Default</button><button class="btn btn-primary btn-sm">Small</button></div>
+    <div class="label-row">State</div>
+    <div class="demo-box"><button class="btn btn-primary is-loading">Loading</button><button class="btn btn-primary" disabled>Disabled</button><button class="btn btn-outline is-loading">Loading</button></div>
+  </section>
+
+  <!-- 05 · FORMS -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">05</span> <h2 style="display:inline;">Form</h2></div><span class="kicker">default · focus · error · disabled</span></div>
+    <div class="grid cols-2" style="max-width:640px;">
+      <div class="field"><label>Email</label><input class="input" placeholder="nama@perusahaan.com" /></div>
+      <div class="field"><label>Fokus (klik)</label><input class="input" value="terlihat focus ring" /></div>
+      <div class="field"><label>Error</label><input class="input" aria-invalid="true" value="format salah" /><span class="error">Email tidak valid.</span></div>
+      <div class="field"><label>Disabled</label><input class="input" value="terkunci" disabled /></div>
+      <div class="field"><label>Select</label><select class="select"><option>BGE-M3 (1024d)</option><option>MiniLM (384d)</option></select></div>
+      <div class="field"><label>Switch</label><div class="cluster"><input type="checkbox" class="switch" checked /> <span class="mono" style="font-size:var(--fs-xs);color:var(--muted)">enabled</span></div></div>
+    </div>
+  </section>
+
+  <!-- 06 · STATUS -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">06</span> <h2 style="display:inline;">Status &amp; sitasi</h2></div><span class="kicker">badge · source-tag</span></div>
+    <div class="demo-box">
+      <span class="badge"><span class="dot"></span>default</span>
+      <span class="badge badge-ok"><span class="dot"></span>synced</span>
+      <span class="badge badge-accent">~2GB aktif</span>
+      <span class="badge badge-danger"><span class="dot"></span>error</span>
+      <span class="source-tag">1 · kebijakan-garansi.pdf</span>
+    </div>
+  </section>
+
+  <!-- 07 · TABLE + states -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">07</span> <h2 style="display:inline;">Tabel (ledger)</h2></div>
+      <div class="tabs"><button class="tab" aria-selected="true" data-t="data">Data</button><button class="tab" aria-selected="false" data-t="loading">Loading</button><button class="tab" aria-selected="false" data-t="empty">Empty</button></div>
+    </div>
+    <div class="card">
+      <div data-tp="data">
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>Dokumen</th><th>Sumber</th><th class="num">Chunks</th><th>Diperbarui</th></tr></thead>
+          <tbody>
+            <tr><td>kebijakan-garansi.pdf</td><td><span class="badge">gdrive</span></td><td class="num">12</td><td class="mono" style="color:var(--muted)">2026-07-22</td></tr>
+            <tr><td>syarat-layanan.pdf</td><td><span class="badge">sharepoint</span></td><td class="num">7</td><td class="mono" style="color:var(--muted)">2026-07-21</td></tr>
+            <tr><td>panduan-produk.docx</td><td><span class="badge">upload</span></td><td class="num">25</td><td class="mono" style="color:var(--muted)">2026-07-20</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div data-tp="loading" style="display:none;" class="card-pad stack gap-3">
+        <div class="skeleton sk-line" style="width:70%"></div><div class="skeleton sk-line" style="width:90%"></div><div class="skeleton sk-line" style="width:55%"></div><div class="skeleton sk-line" style="width:80%"></div>
+      </div>
+      <div data-tp="empty" style="display:none;">
+        <div class="empty-state"><div class="glyph">¶</div><div style="font-family:var(--font-display);font-size:var(--fs-lg);">Belum ada dokumen</div><p style="color:var(--muted);margin-top:6px;">Hubungkan Google Drive atau unggah file untuk mengisi knowledge base.</p><button class="btn btn-primary btn-sm" style="margin-top:var(--sp-3);">Hubungkan sumber</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 · OVERLAYS -->
+  <section>
+    <div class="section-head"><div><span class="sec-num">08</span> <h2 style="display:inline;">Overlay</h2></div><span class="kicker">toast · drawer</span></div>
+    <div class="demo-box">
+      <button class="btn btn-primary" onclick="toast('Tersimpan')">Toast sukses</button>
+      <button class="btn" onclick="toast('Gagal menyimpan','error')">Toast error</button>
+      <button class="btn btn-outline" onclick="openD()">Buka drawer</button>
+    </div>
+    <p class="marginalia" style="margin-top:var(--sp-3);">Drawer &amp; toast pakai bayangan tipis (overlay) — satu-satunya tempat shadow dipakai. Sisanya struktur dari garis.</p>
+  </section>
+
+  <!-- 09 · A11y -->
+  <section style="padding-bottom:0;">
+    <div class="section-head"><div><span class="sec-num">09</span> <h2 style="display:inline;">Aksesibilitas &amp; motion</h2></div><span class="kicker">non-negotiable</span></div>
+    <ul class="footnotes" style="border-top:none;">
+      <li><b>✓</b> Semua interaktif = elemen fokusable, <span class="mono">:focus-visible</span> outline solid 2px.</li>
+      <li><b>✓</b> Kontras teks ≥ 4.5:1 (AA), judul ≥ 7:1 (AAA). Gold hanya untuk teks ≥14px.</li>
+      <li><b>✓</b> <span class="mono">prefers-reduced-motion</span> mematikan animasi.</li>
+      <li><b>✓</b> Target sentuh ≥ 44×44px. Dua tema (paper / night ledger) digarap setara.</li>
+    </ul>
+  </section>
+
+</div>
+
+<!-- drawer + toast -->
+<div class="backdrop" id="bd" onclick="closeD()"></div>
+<aside class="drawer" id="dr">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--sp-5);border-bottom:1px solid var(--rule);">
+    <h3>Edit Chatbot</h3><button class="icon-btn" onclick="closeD()" aria-label="Tutup">✕</button>
+  </div>
+  <div style="padding:var(--sp-5);flex:1;overflow:auto;" class="stack gap-4">
+    <div class="field"><label>Nama</label><input class="input" value="Support Bot" /></div>
+    <div class="field"><label>Greeting</label><input class="input" value="Hi! Ada yang bisa dibantu?" /></div>
+    <div class="field"><label>Embed snippet</label><div class="card card-pad mono" style="font-size:var(--fs-xs);word-break:break-all;">&lt;script src="…/embed.js" data-chatbot="<span style="color:var(--gold-ink)">cb_live_9f2a…c1</span>"&gt;&lt;/script&gt;</div></div>
+  </div>
+  <div style="padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--rule);" class="cluster">
+    <button class="btn btn-primary" style="flex:1;" onclick="closeD();toast('Tersimpan')">Simpan</button><button class="btn" onclick="closeD()">Batal</button>
+  </div>
+</aside>
+<div class="toast" id="toast"><span class="dot"></span><span id="toastMsg">Tersimpan</span></div>
+
+<script>
+  document.getElementById('themeBtn').addEventListener('click',function(){ var r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark'); });
+  // table state tabs
+  document.querySelectorAll('.tab').forEach(function(t){ t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.setAttribute('aria-selected','false'); }); t.setAttribute('aria-selected','true');
+    document.querySelectorAll('[data-tp]').forEach(function(p){ p.style.display = (p.dataset.tp===t.dataset.t)?'':'none'; });
+  }); });
+  function openD(){ document.getElementById('dr').classList.add('open'); document.getElementById('bd').classList.add('show'); }
+  function closeD(){ document.getElementById('dr').classList.remove('open'); document.getElementById('bd').classList.remove('show'); }
+  var tt; function toast(m,kind){ var el=document.getElementById('toast'); document.getElementById('toastMsg').textContent=m;
+    el.classList.toggle('toast-error', kind==='error'); el.classList.add('show'); clearTimeout(tt); tt=setTimeout(function(){ el.classList.remove('show'); },2200); }
+</script>
+</body>
+</html>

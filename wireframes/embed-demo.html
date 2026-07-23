@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nalar — Embed Widget + White-label Customizer</title>
+<style>
+  /* ══ Backdrop: situs pelanggan (dummy) ══ */
+  :root{
+    --site-bg:#0e1016; --site-card:#161923; --site-line:#242938; --site-text:#e7e9f0; --site-muted:#9aa0b3;
+    --sans:"Inter","Segoe UI",system-ui,sans-serif; --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:var(--sans); background:var(--site-bg); color:var(--site-text);
+    -webkit-font-smoothing:antialiased; min-height:100vh; }
+  .site-nav{ display:flex; align-items:center; justify-content:space-between; padding:18px 28px; border-bottom:1px solid var(--site-line);
+    position:sticky; top:0; background:color-mix(in srgb,var(--site-bg) 82%,transparent); backdrop-filter:blur(10px); z-index:5; }
+  .site-nav .b{ font-weight:750; letter-spacing:-0.02em; opacity:.9; }
+  .site-nav .l{ display:flex; gap:22px; color:var(--site-muted); font-size:14px; }
+  @media(max-width:720px){ .site-nav .l{ display:none; } }
+  .site-hero{ max-width:900px; margin:0 auto; padding:72px 28px 40px; text-align:center; }
+  .site-hero h1{ font-size:clamp(30px,5.5vw,52px); letter-spacing:-0.03em; margin:0 0 14px; }
+  .site-hero p{ color:var(--site-muted); font-size:18px; max-width:52ch; margin:0 auto; }
+  .site-grid{ max-width:1000px; margin:20px auto 0; padding:0 28px 90px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:720px){ .site-grid{ grid-template-columns:1fr; } }
+  .site-card{ background:var(--site-card); border:1px solid var(--site-line); border-radius:14px; padding:22px; }
+  .site-card .bar{ height:9px; background:#222738; border-radius:4px; margin:6px 0; }
+  .ribbon{ text-align:center; font-family:var(--mono); font-size:12px; color:var(--site-muted); padding:10px; border-top:1px dashed var(--site-line); }
+
+  /* ══════════════════════════════════════════════════════
+     WHITE-LABEL WIDGET — semua rupa dikontrol var --wl-*.
+     Ganti token = ganti seluruh tampilan (white-label).
+     ══════════════════════════════════════════════════════ */
+  .nalar-embed{
+    --wl-primary:#7C6DFF; --wl-primary-2:#6656F5; --wl-accent:#F5BE5E;
+    --wl-bg:#14141F; --wl-surface:#1B1B26; --wl-text:#F2F2F7; --wl-muted:#9A9AB0; --wl-line:#2A2A3A;
+    --wl-radius:18px; --wl-radius-sm:12px; --wl-font:"Inter","Segoe UI",system-ui,sans-serif;
+    --wl-focus:rgba(124,109,255,.35); --wl-btn:solid; --wl-launcher:right;
+    --wl-header-h:64px;
+  }
+  .nalar-embed[data-wl-theme="light"]{ --wl-bg:#FFFFFF; --wl-surface:#F5F5F7; --wl-text:#17172A; --wl-muted:#63637A; --wl-line:#E6E6EC; }
+
+  .wl-launcher{ position:fixed; bottom:24px; width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; z-index:60;
+    display:grid; place-items:center; color:#fff; box-shadow:0 10px 30px rgba(0,0,0,.4); transition:transform .2s, box-shadow .2s;
+    background:linear-gradient(180deg,var(--wl-primary),var(--wl-primary-2)); font-family:var(--wl-font); }
+  .wl-launcher:hover{ transform:translateY(-2px) scale(1.03); }
+  .nalar-embed[data-wl-launcher="right"] .wl-launcher{ right:24px; }
+  .nalar-embed[data-wl-launcher="left"] .wl-launcher{ left:24px; }
+
+  .wl-panel{ position:fixed; bottom:96px; width:380px; max-width:calc(100vw - 32px); height:560px; max-height:calc(100vh - 130px);
+    background:var(--wl-bg); color:var(--wl-text); border:1px solid var(--wl-line); border-radius:var(--wl-radius);
+    box-shadow:0 24px 70px rgba(0,0,0,.45); z-index:60; display:flex; flex-direction:column; overflow:hidden;
+    font-family:var(--wl-font); transform:translateY(16px) scale(.98); opacity:0; pointer-events:none;
+    transition:transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; transform-origin:bottom right; }
+  .nalar-embed[data-wl-launcher="right"] .wl-panel{ right:24px; }
+  .nalar-embed[data-wl-launcher="left"] .wl-panel{ left:24px; transform-origin:bottom left; }
+  .nalar-embed.open .wl-panel{ transform:none; opacity:1; pointer-events:auto; }
+
+  .wl-head{ height:var(--wl-header-h); display:flex; align-items:center; gap:11px; padding:0 16px; color:#fff;
+    background:linear-gradient(180deg,var(--wl-primary),var(--wl-primary-2)); }
+  .wl-logo{ width:34px; height:34px; border-radius:9px; background:rgba(255,255,255,.16); display:grid; place-items:center; flex:none; font-weight:800; }
+  .wl-head .t{ font-weight:700; font-size:15px; letter-spacing:-0.01em; line-height:1.2; }
+  .wl-head .t small{ display:block; font-weight:500; font-size:11px; opacity:.85; }
+  .wl-head .cls{ margin-left:auto; background:rgba(255,255,255,.15); border:none; color:#fff; width:30px; height:30px; border-radius:8px; cursor:pointer; }
+
+  .wl-msgs{ flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:11px;
+    background:radial-gradient(90% 60% at 50% 0%, color-mix(in srgb,var(--wl-primary) 12%,transparent), transparent 55%); }
+  .wl-m{ max-width:84%; padding:11px 14px; font-size:13.5px; line-height:1.5; border-radius:var(--wl-radius-sm); }
+  .wl-m.u{ align-self:flex-end; color:#fff; background:linear-gradient(180deg,var(--wl-primary),var(--wl-primary-2)); border-bottom-right-radius:4px; }
+  .wl-m.a{ align-self:flex-start; background:var(--wl-surface); border:1px solid var(--wl-line); border-bottom-left-radius:4px; }
+  .wl-cite{ display:inline-block; margin-top:7px; font-family:var(--mono); font-size:10px; color:var(--wl-accent);
+    border:1px solid color-mix(in srgb,var(--wl-accent) 45%,transparent); border-radius:6px; padding:1px 7px; }
+  .wl-typing{ align-self:flex-start; display:flex; gap:4px; padding:12px 14px; background:var(--wl-surface); border:1px solid var(--wl-line); border-radius:var(--wl-radius-sm); }
+  .wl-typing i{ width:6px; height:6px; border-radius:50%; background:var(--wl-muted); animation:blink 1.2s infinite; }
+  .wl-typing i:nth-child(2){ animation-delay:.2s; } .wl-typing i:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,60%,100%{ opacity:.3; } 30%{ opacity:1; } }
+
+  .wl-input{ display:flex; gap:8px; padding:12px; border-top:1px solid var(--wl-line); }
+  .wl-input input{ flex:1; background:var(--wl-surface); border:1px solid var(--wl-line); color:var(--wl-text); font:inherit;
+    font-size:13.5px; padding:11px 13px; border-radius:var(--wl-radius-sm); outline:none; }
+  .wl-input input:focus{ border-color:var(--wl-primary); box-shadow:0 0 0 3px var(--wl-focus); }
+  .wl-send{ width:42px; border-radius:var(--wl-radius-sm); border:none; cursor:pointer; color:#fff; display:grid; place-items:center;
+    background:linear-gradient(180deg,var(--wl-primary),var(--wl-primary-2)); }
+  .wl-foot{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--wl-muted); padding:6px 0 10px; }
+  /* button style variants (white-label) */
+  .nalar-embed[data-wl-btn="soft"] .wl-launcher,.nalar-embed[data-wl-btn="soft"] .wl-send{ background:color-mix(in srgb,var(--wl-primary) 20%, var(--wl-surface)); color:var(--wl-primary); }
+  .nalar-embed[data-wl-btn="outline"] .wl-launcher,.nalar-embed[data-wl-btn="outline"] .wl-send{ background:transparent; border:1.5px solid var(--wl-primary); color:var(--wl-primary); }
+
+  @media(max-width:520px){
+    .wl-panel{ width:100vw; max-width:100vw; height:calc(100vh - 76px); right:0!important; left:0!important; bottom:0; border-radius:18px 18px 0 0; }
+    .wl-launcher{ bottom:16px; }
+    .nalar-embed[data-wl-launcher="right"] .wl-launcher{ right:16px; }
+  }
+
+  /* ══ CUSTOMIZER PANEL ══ */
+  .cz{ position:fixed; top:78px; left:24px; width:300px; max-height:calc(100vh - 110px); overflow-y:auto; z-index:70;
+    background:var(--site-card); border:1px solid var(--site-line); border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.4);
+    font-size:13px; transition:transform .3s; }
+  .cz.hide{ transform:translateX(-340px); }
+  .cz .czh{ display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-bottom:1px solid var(--site-line); }
+  .cz .czh b{ letter-spacing:-0.01em; } .cz .czh small{ display:block; color:var(--site-muted); font-size:11px; font-weight:400; }
+  .cz .czb{ padding:14px 16px; display:flex; flex-direction:column; gap:15px; }
+  .cz .grp{ display:flex; flex-direction:column; gap:7px; }
+  .cz .grp>label{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--site-muted); font-family:var(--mono); }
+  .row{ display:flex; align-items:center; gap:10px; }
+  .row label{ flex:1; color:var(--site-text); }
+  .cz input[type=color]{ width:34px; height:28px; border:1px solid var(--site-line); border-radius:7px; background:none; padding:0; cursor:pointer; }
+  .cz input[type=text]{ width:100%; background:#0e1016; border:1px solid var(--site-line); color:var(--site-text); border-radius:8px; padding:8px 10px; font:inherit; }
+  .cz input[type=range]{ width:100%; accent-color:#7C6DFF; }
+  .cz select{ width:100%; background:#0e1016; border:1px solid var(--site-line); color:var(--site-text); border-radius:8px; padding:8px; font:inherit; }
+  .seg{ display:flex; gap:5px; }
+  .seg button{ flex:1; background:#0e1016; border:1px solid var(--site-line); color:var(--site-muted); border-radius:8px; padding:7px; cursor:pointer; font:inherit; font-size:12px; }
+  .seg button.on{ background:#7C6DFF; color:#fff; border-color:#7C6DFF; }
+  .presets{ display:flex; gap:8px; flex-wrap:wrap; }
+  .preset{ width:30px; height:30px; border-radius:9px; cursor:pointer; border:2px solid transparent; }
+  .preset.on{ border-color:#fff; }
+  .cz .copy{ width:100%; background:linear-gradient(180deg,#7C6DFF,#6656F5); border:none; color:#fff; border-radius:9px; padding:10px; cursor:pointer; font:inherit; font-weight:600; }
+  .cz pre{ background:#0b0d13; border:1px solid var(--site-line); border-radius:9px; padding:11px; font-family:var(--mono); font-size:10.5px; color:#9aa0b3; overflow-x:auto; margin:0; }
+  .cz-toggle{ position:fixed; top:78px; left:24px; z-index:71; background:var(--site-card); border:1px solid var(--site-line); color:var(--site-text);
+    border-radius:10px; padding:9px 13px; cursor:pointer; font:inherit; font-size:13px; display:none; }
+  .cz.hide + .cz-toggle{ display:block; }
+  @media(max-width:900px){ .cz{ width:270px; } }
+</style>
+</head>
+<body>
+
+<!-- ══ Situs pelanggan (dummy backdrop) ══ -->
+<nav class="site-nav"><div class="b">◈ Toko Nusantara</div><div class="l"><span>Produk</span><span>Harga</span><span>Bantuan</span><span>Masuk</span></div></nav>
+<div class="site-hero">
+  <h1>Website pelanggan mana pun.</h1>
+  <p>Ini contoh situs milik klien. Widget Nalar di pojok bisa disematkan dengan satu baris <span style="font-family:var(--mono);font-size:14px;">&lt;script&gt;</span> — dan seluruh tampilannya bisa di-white-label.</p>
+</div>
+<div class="site-grid">
+  <div class="site-card"><div class="bar" style="width:60%"></div><div class="bar" style="width:90%"></div><div class="bar" style="width:75%"></div></div>
+  <div class="site-card"><div class="bar" style="width:70%"></div><div class="bar" style="width:85%"></div><div class="bar" style="width:55%"></div></div>
+  <div class="site-card"><div class="bar" style="width:80%"></div><div class="bar" style="width:65%"></div><div class="bar" style="width:88%"></div></div>
+</div>
+<div class="ribbon">↖ Atur tampilan widget lewat panel White-label · Widget di kanan-bawah ↘ · coba di HP juga (responsive)</div>
+
+<!-- ══ CUSTOMIZER ══ -->
+<aside class="cz" id="cz">
+  <div class="czh"><div><b>White-label Customizer</b><small>Setiap client punya tema sendiri</small></div><button onclick="czToggle()" style="background:none;border:none;color:var(--site-muted);cursor:pointer;font-size:16px;">‹</button></div>
+  <div class="czb">
+    <div class="grp"><label>Preset</label><div class="presets" id="presets"></div></div>
+    <div class="grp"><label>Brand</label>
+      <div class="row"><label>Nama</label><input type="text" id="brandName" value="Support" style="width:130px;" /></div>
+      <div class="row"><label>Inisial logo</label><input type="text" id="brandLogo" value="◈" maxlength="2" style="width:130px;" /></div>
+    </div>
+    <div class="grp"><label>Warna</label>
+      <div class="row"><label>Primary</label><input type="color" id="cPrimary" value="#7C6DFF" /></div>
+      <div class="row"><label>Accent (sitasi)</label><input type="color" id="cAccent" value="#F5BE5E" /></div>
+      <div class="row"><label>Focus ring</label><input type="color" id="cFocus" value="#7C6DFF" /></div>
+    </div>
+    <div class="grp"><label>Bentuk</label>
+      <div class="row"><label>Radius <span id="radVal" class="mono" style="color:var(--site-muted)">18px</span></label></div>
+      <input type="range" id="cRadius" min="0" max="28" value="18" />
+    </div>
+    <div class="grp"><label>Font</label>
+      <select id="cFont">
+        <option value='"Inter","Segoe UI",system-ui,sans-serif'>Inter / Sans</option>
+        <option value='Georgia,"Iowan Old Style",serif'>Serif</option>
+        <option value='ui-monospace,Consolas,monospace'>Mono</option>
+        <option value='"Trebuchet MS",system-ui,sans-serif'>Trebuchet</option>
+      </select>
+    </div>
+    <div class="grp"><label>Gaya tombol</label>
+      <div class="seg" id="btnStyle"><button data-v="solid" class="on">Solid</button><button data-v="soft">Soft</button><button data-v="outline">Outline</button></div>
+    </div>
+    <div class="grp"><label>Tema widget</label>
+      <div class="seg" id="wTheme"><button data-v="dark" class="on">Dark</button><button data-v="light">Light</button></div>
+    </div>
+    <div class="grp"><label>Posisi</label>
+      <div class="seg" id="wPos"><button data-v="right" class="on">Kanan</button><button data-v="left">Kiri</button></div>
+    </div>
+    <div class="grp"><label>Theme config (server per-client)</label><pre id="cfg"></pre>
+      <button class="copy" onclick="copyCfg()">Salin config JSON</button></div>
+  </div>
+</aside>
+<button class="cz-toggle" onclick="czToggle()">⚙ White-label</button>
+
+<!-- ══ EMBED WIDGET ══ -->
+<div class="nalar-embed" id="embed" data-wl-theme="dark" data-wl-btn="solid" data-wl-launcher="right">
+  <button class="wl-launcher" id="launcher" aria-label="Buka chat">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M4 4h16a2 2 0 012 2v9a2 2 0 01-2 2H9l-4 4v-4H4a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
+  </button>
+  <section class="wl-panel" role="dialog" aria-label="Chat">
+    <div class="wl-head">
+      <div class="wl-logo" id="wlLogo">◈</div>
+      <div class="t" id="wlTitle">Support<small>Ditenagai Nalar</small></div>
+      <button class="cls" id="closeBtn" aria-label="Tutup">✕</button>
+    </div>
+    <div class="wl-msgs" id="wlMsgs">
+      <div class="wl-m a">Halo! 👋 Ada yang bisa saya bantu soal produk kami?</div>
+      <div class="wl-m u">Berapa lama garansi produk Pro?</div>
+      <div class="wl-m a">Garansi produk Pro adalah <b>24 bulan</b> sejak tanggal pembelian, mencakup cacat produksi.<span class="wl-cite">[1] kebijakan-garansi.pdf</span></div>
+    </div>
+    <div class="wl-input"><input id="wlInput" placeholder="Tulis pesan…" /><button class="wl-send" id="wlSend"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20l18-8L3 4v6l12 2-12 2z"/></svg></button></div>
+    <div class="wl-foot">🔒 API key server-to-server · widget hanya bawa public_key</div>
+  </div>
+</div>
+
+<script>
+  const embed = document.getElementById('embed');
+  // open/close
+  document.getElementById('launcher').addEventListener('click', ()=> embed.classList.toggle('open'));
+  document.getElementById('closeBtn').addEventListener('click', ()=> embed.classList.remove('open'));
+
+  // fake send + typing + streamed reply
+  const msgs = document.getElementById('wlMsgs'), input = document.getElementById('wlInput');
+  function send(){
+    const v = input.value.trim(); if(!v) return; input.value='';
+    add('u', v);
+    const typing = document.createElement('div'); typing.className='wl-typing'; typing.innerHTML='<i></i><i></i><i></i>';
+    msgs.appendChild(typing); msgs.scrollTop = msgs.scrollHeight;
+    setTimeout(()=>{ typing.remove(); const el = add('a',''); stream(el,
+      'Kerusakan akibat cairan tidak tercakup garansi standar, namun tersedia Perlindungan+ opsional.',
+      '[2] syarat-layanan.pdf'); }, 900);
+  }
+  function add(role, text){ const d=document.createElement('div'); d.className='wl-m '+role; d.textContent=text; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; return d; }
+  function stream(el, text, cite){ let i=0; const t=setInterval(()=>{ el.textContent=text.slice(0,++i); msgs.scrollTop=msgs.scrollHeight;
+    if(i>=text.length){ clearInterval(t); const c=document.createElement('span'); c.className='wl-cite'; c.textContent=cite; el.appendChild(c); } }, 16); }
+  document.getElementById('wlSend').addEventListener('click', send);
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+
+  // ══ White-label bindings ══
+  function setVar(k,v){ embed.style.setProperty(k, v); updateCfg(); }
+  document.getElementById('cPrimary').addEventListener('input', e=>{ setVar('--wl-primary', e.target.value); setVar('--wl-primary-2', shade(e.target.value,-12)); });
+  document.getElementById('cAccent').addEventListener('input', e=> setVar('--wl-accent', e.target.value));
+  document.getElementById('cFocus').addEventListener('input', e=> setVar('--wl-focus', hexA(e.target.value,.35)));
+  document.getElementById('cRadius').addEventListener('input', e=>{ setVar('--wl-radius', e.target.value+'px'); setVar('--wl-radius-sm', Math.max(4,e.target.value-6)+'px'); document.getElementById('radVal').textContent=e.target.value+'px'; });
+  document.getElementById('cFont').addEventListener('change', e=> setVar('--wl-font', e.target.value));
+  document.getElementById('brandName').addEventListener('input', e=>{ document.getElementById('wlTitle').innerHTML = (e.target.value||'Support')+'<small>Ditenagai Nalar</small>'; updateCfg(); });
+  document.getElementById('brandLogo').addEventListener('input', e=>{ const v=e.target.value||'◈'; document.getElementById('wlLogo').textContent=v; document.getElementById('wlLogo').textContent=v; updateCfg(); });
+
+  function seg(id, attr){ document.querySelectorAll('#'+id+' button').forEach(b=> b.addEventListener('click', ()=>{
+    document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    embed.setAttribute(attr, b.dataset.v); updateCfg(); })); }
+  seg('btnStyle','data-wl-btn'); seg('wTheme','data-wl-theme'); seg('wPos','data-wl-launcher');
+
+  // presets
+  const PRESETS = [
+    {n:'Nalar', p:'#7C6DFF', a:'#F5BE5E'}, {n:'Emerald', p:'#12B981', a:'#F5BE5E'},
+    {n:'Coral', p:'#FB6F5A', a:'#FFC14E'}, {n:'Azure', p:'#2E90FA', a:'#7C6DFF'}, {n:'Mono', p:'#3A3A46', a:'#B9B9C9'}
+  ];
+  const pc = document.getElementById('presets');
+  PRESETS.forEach((pr,i)=>{ const b=document.createElement('div'); b.className='preset'+(i===0?' on':''); b.style.background='linear-gradient(135deg,'+pr.p+','+pr.a+')'; b.title=pr.n;
+    b.addEventListener('click', ()=>{ document.querySelectorAll('.preset').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+      document.getElementById('cPrimary').value=pr.p; document.getElementById('cAccent').value=pr.a; document.getElementById('cFocus').value=pr.p;
+      setVar('--wl-primary',pr.p); setVar('--wl-primary-2',shade(pr.p,-12)); setVar('--wl-accent',pr.a); setVar('--wl-focus',hexA(pr.p,.35)); });
+    pc.appendChild(b); });
+
+  // helpers
+  function shade(hex,p){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+p, g=((n>>8)&255)+p, b=(n&255)+p;
+    r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+    return '#'+(0x1000000+(r<<16)+(g<<8)+b).toString(16).slice(1); }
+  function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')'; }
+
+  function updateCfg(){
+    const cfg = {
+      chatbotId: "cb_live_9f2a…c1",
+      brand: { name: document.getElementById('brandName').value, logo: document.getElementById('brandLogo').value },
+      theme: {
+        primary: document.getElementById('cPrimary').value,
+        accent: document.getElementById('cAccent').value,
+        focus: document.getElementById('cFocus').value,
+        radius: document.getElementById('cRadius').value+"px",
+        font: document.getElementById('cFont').value.split(',')[0].replace(/"/g,''),
+        button: embed.getAttribute('data-wl-btn'),
+        mode: embed.getAttribute('data-wl-theme'),
+        position: embed.getAttribute('data-wl-launcher')
+      }
+    };
+    document.getElementById('cfg').textContent = JSON.stringify(cfg, null, 2);
+  }
+  function copyCfg(){ navigator.clipboard && navigator.clipboard.writeText(document.getElementById('cfg').textContent); }
+  function czToggle(){ document.getElementById('cz').classList.toggle('hide'); }
+  updateCfg();
+</script>
+</body>
+</html>

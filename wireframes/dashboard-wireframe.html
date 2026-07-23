@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nalar — Wireframe Dashboard (Low-Fidelity)</title>
+<style>
+  /* LOW-FIDELITY WIREFRAME — sengaja grayscale & single-theme.
+     Fokus: layout & flow. Warna/branding menyusul di fase Mockup. */
+  * { box-sizing: border-box; }
+  :root {
+    --ink:#2b2b2b; --line:#c8c8c8; --line2:#dedede; --box:#e9e9e9; --box2:#f2f2f2;
+    --paper:#ffffff; --bg:#eceded; --muted:#8a8a8a; --anno:#5f7896;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+    --sans: "Segoe UI", system-ui, sans-serif;
+  }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; }
+  .wrap { max-width:1180px; margin:0 auto; padding:32px 22px 80px; }
+
+  /* Wireframe primitives */
+  .bar { height:9px; background:var(--box); border-radius:3px; }
+  .bar.dk { background:#dcdcdc; }
+  .bar.w25{width:25%} .bar.w40{width:40%} .bar.w50{width:50%} .bar.w60{width:60%}
+  .bar.w70{width:70%} .bar.w80{width:80%} .bar.w90{width:90%}
+  .btn { display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--ink); border-radius:6px;
+    padding:7px 12px; font-size:12.5px; background:var(--paper); font-weight:600; }
+  .btn.solid { background:var(--ink); color:#fff; }
+  .field { border:1.4px solid var(--line); border-radius:6px; height:34px; background:var(--paper);
+    display:flex; align-items:center; padding:0 10px; color:var(--muted); font-size:12.5px; }
+  .ico { width:20px; height:20px; border:1.6px solid var(--ink); border-radius:5px; flex:none; }
+  .ico.sm{ width:16px; height:16px; }
+  .avatar { width:30px; height:30px; border-radius:50%; border:1.6px solid var(--ink); background:var(--box); }
+  .chip { display:inline-block; border:1.3px solid var(--line); border-radius:999px; padding:2px 9px;
+    font-size:11px; color:var(--muted); font-family:var(--mono); }
+
+  /* Frame scaffold */
+  .frame { background:var(--paper); border:1.5px solid var(--line); border-radius:10px; margin:22px 0;
+    overflow:hidden; box-shadow:0 1px 0 #d8d8d8; }
+  .frame > .cap { background:#f6f6f6; border-bottom:1px dashed var(--line); padding:9px 14px;
+    font-family:var(--mono); font-size:12px; color:#555; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .cap .id { color:var(--anno); font-weight:700; }
+  .frame-body { padding:0; }
+
+  /* App shell */
+  .shell { display:grid; grid-template-columns:210px 1fr; min-height:520px; }
+  .sidebar { background:#f4f4f4; border-right:1px solid var(--line); padding:14px 10px; }
+  .brand-row { display:flex; align-items:center; gap:9px; padding:6px 8px 16px; }
+  .logo-ph { width:26px; height:26px; border:1.6px solid var(--ink); border-radius:7px; }
+  .nav { display:flex; flex-direction:column; gap:3px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:8px 9px; border-radius:7px; font-size:13px; color:#444; }
+  .nav-item.active { background:#e2e2e2; font-weight:600; }
+  .nav-item .dotc { width:14px; height:14px; border-radius:4px; border:1.6px solid var(--ink); flex:none; }
+  .side-note { margin-top:14px; padding:8px 9px; font-family:var(--mono); font-size:10.5px; color:var(--anno);
+    border:1px dashed var(--anno); border-radius:6px; line-height:1.5; }
+
+  .main { display:flex; flex-direction:column; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:12px 18px; border-bottom:1px solid var(--line); }
+  .topbar .title { font-weight:700; font-size:16px; }
+  .topbar .right { display:flex; align-items:center; gap:12px; }
+  .search { width:230px; }
+  .content { padding:18px; flex:1; }
+
+  /* generic grids */
+  .row { display:flex; gap:14px; }
+  .stat { flex:1; border:1.3px solid var(--line); border-radius:9px; padding:14px; min-height:84px; display:flex; flex-direction:column; gap:10px; }
+  .stat .big { height:22px; width:52px; background:#dcdcdc; border-radius:4px; }
+  .panel { border:1.3px solid var(--line); border-radius:9px; padding:14px; }
+  .panel h4 { margin:0 0 12px; font-size:13px; }
+  .chartph { height:150px; border:1.3px dashed var(--line); border-radius:8px; display:grid; place-items:center;
+    color:var(--muted); font-family:var(--mono); font-size:12px; }
+
+  /* table */
+  table.wf { width:100%; border-collapse:collapse; }
+  table.wf th, table.wf td { text-align:left; padding:10px 10px; border-bottom:1px solid var(--line2); font-size:12.5px; }
+  table.wf th { font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tab { border:1.3px solid var(--line); border-bottom:none; border-radius:7px 7px 0 0; padding:7px 14px; font-size:12.5px; color:var(--muted); }
+  .tab.active { color:var(--ink); font-weight:700; background:#f6f6f6; }
+  .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .rowicons { display:flex; gap:8px; }
+  .pgn { display:flex; gap:6px; justify-content:flex-end; margin-top:12px; }
+  .pgn .pg { width:26px; height:26px; border:1.2px solid var(--line); border-radius:6px; display:grid; place-items:center; font-size:12px; color:var(--muted); }
+
+  /* right drawer */
+  .stage { position:relative; }
+  .backdrop { position:absolute; inset:0; background:rgba(40,40,40,.28); }
+  .drawer { position:absolute; top:0; right:0; bottom:0; width:340px; max-width:86%; background:var(--paper);
+    border-left:1.5px solid var(--ink); box-shadow:-6px 0 16px rgba(0,0,0,.12); padding:16px; overflow-y:auto; }
+  .drawer .dh { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .drawer .x { width:26px; height:26px; border:1.4px solid var(--ink); border-radius:6px; display:grid; place-items:center; }
+  .form-row { margin-bottom:13px; }
+  .form-row .lbl { font-size:11.5px; color:#555; margin-bottom:5px; font-weight:600; }
+  .toggle-ph { width:42px; height:22px; border:1.5px solid var(--ink); border-radius:999px; position:relative; }
+  .toggle-ph::after{ content:""; position:absolute; top:2px; right:2px; width:16px; height:16px; background:var(--ink); border-radius:50%; }
+  .snippet { font-family:var(--mono); font-size:10.5px; color:#555; background:#f4f4f4; border:1px solid var(--line);
+    border-radius:6px; padding:9px; word-break:break-all; line-height:1.5; }
+
+  /* conversations 2-pane */
+  .convo { display:grid; grid-template-columns:230px 1fr; gap:0; border:1.3px solid var(--line); border-radius:9px; overflow:hidden; min-height:330px; }
+  .convo .list { border-right:1px solid var(--line); }
+  .convo .ci { padding:11px 12px; border-bottom:1px solid var(--line2); display:flex; flex-direction:column; gap:6px; }
+  .convo .ci.active { background:#f2f2f2; }
+  .transcript { padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:78%; padding:9px 12px; border:1.3px solid var(--line); border-radius:11px; }
+  .msg.u { align-self:flex-end; background:#ededed; }
+  .msg.a { align-self:flex-start; }
+  .citec { display:inline-block; margin-top:6px; border:1px dashed var(--anno); color:var(--anno); font-family:var(--mono);
+    font-size:10px; border-radius:5px; padding:1px 6px; }
+
+  /* annotation callouts */
+  .note { display:flex; gap:9px; align-items:flex-start; background:#eef2f7; border:1px solid #cdd8e6;
+    border-left:3px solid var(--anno); border-radius:7px; padding:10px 12px; margin:14px 0; }
+  .note .mk { font-family:var(--mono); font-size:10.5px; color:#fff; background:var(--anno); border-radius:5px;
+    padding:2px 7px; flex:none; font-weight:700; }
+  .note p { margin:0; font-size:12.5px; color:#33465e; line-height:1.55; }
+  .note code { font-family:var(--mono); font-size:11.5px; background:#dde5ef; padding:1px 5px; border-radius:4px; }
+
+  h1.doc { font-size:26px; margin:0 0 4px; letter-spacing:-0.02em; }
+  .sub { color:var(--muted); font-family:var(--mono); font-size:12.5px; margin:0 0 18px; }
+  .legend { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 26px; }
+  .legend .chip { font-size:11px; }
+  h2.sec { font-size:15px; font-family:var(--mono); color:#444; margin:34px 0 4px; letter-spacing:.02em; }
+  .flowmap { font-family:var(--mono); font-size:12px; color:#555; background:var(--paper); border:1.3px dashed var(--line);
+    border-radius:9px; padding:14px; line-height:1.9; overflow-x:auto; white-space:pre; }
+  @media (max-width:820px){ .shell{grid-template-columns:1fr} .sidebar{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1 class="doc">Nalar — Wireframe Dashboard</h1>
+  <p class="sub">FASE 02 · LOW-FIDELITY · grayscale · fokus layout &amp; flow · 2026-07-23</p>
+
+  <div class="legend">
+    <span class="chip">Rule #4 · CRUD one-page</span>
+    <span class="chip">Rule #5 · Right-drawer modal</span>
+    <span class="chip">Rule #6 · Sidebar 1-warna-icon</span>
+    <span class="chip">Rule #3 · Soft delete (tab Sampah)</span>
+    <span class="chip">Rule #7 · No dummy data</span>
+    <span class="chip">D3 · Hybrid (warna Nalar di Mockup)</span>
+  </div>
+
+  <div class="note">
+    <span class="mk">READ</span>
+    <p>Ini wireframe <b>low-fidelity</b> — sengaja abu-abu tanpa warna/branding. Tujuannya menyepakati <b>tata letak &amp; alur</b>. Setelah kamu approve, aku buat <b>mockup high-fidelity</b> dengan palet Nalar (indigo <code>#5B4BFF</code> / gold <code>#F2B24B</code>), sidebar 1-warna-icon per menu, font Inter, dan komponen shadcn.</p>
+  </div>
+
+  <!-- INFORMATION ARCHITECTURE / FLOW -->
+  <h2 class="sec">// INFORMATION ARCHITECTURE</h2>
+  <div class="flowmap">Login ──▶ Dashboard (overview)
+             │
+   ┌─────────┼───────────────┬─────────────┬───────────────┬──────────────┐
+   ▼         ▼               ▼             ▼               ▼              ▼
+ Chatbots  Knowledge Base  Conversations  Models &amp; Keys   Team         Settings
+ (CRUD)    (sources+docs)  (history)      (1 aktif)       (users)      (tenant)
+   │           │
+   │           └▶ tiap chatbot = 1 knowledge base terisolasi
+   └▶ tiap chatbot = 1 public_key → embed &lt;script&gt; ke website mana pun</div>
+
+  <!-- ══════════ FRAME 1: DASHBOARD ══════════ -->
+  <h2 class="sec">// SCREEN 01 — Dashboard (overview)</h2>
+  <div class="frame">
+    <div class="cap"><span><span class="id">S01</span> · Dashboard</span><span>desktop · shell utama</span></div>
+    <div class="frame-body">
+      <div class="shell">
+        <!-- sidebar -->
+        <aside class="sidebar">
+          <div class="brand-row"><div class="logo-ph"></div><div class="bar w60"></div></div>
+          <nav class="nav">
+            <div class="nav-item active"><span class="dotc"></span>Dashboard</div>
+            <div class="nav-item"><span class="dotc"></span>Chatbots</div>
+            <div class="nav-item"><span class="dotc"></span>Knowledge Base</div>
+            <div class="nav-item"><span class="dotc"></span>Conversations</div>
+            <div class="nav-item"><span class="dotc"></span>Models &amp; Keys</div>
+            <div class="nav-item"><span class="dotc"></span>Team</div>
+            <div class="nav-item"><span class="dotc"></span>Settings</div>
+          </nav>
+          <div class="side-note">Rule #6 — tiap menu 1 icon SVG, 1 warna solid (di Mockup). Grayscale di wireframe.</div>
+        </aside>
+        <!-- main -->
+        <div class="main">
+          <div class="topbar">
+            <div class="title">Dashboard</div>
+            <div class="right"><div class="field search">Search…</div><div class="avatar"></div></div>
+          </div>
+          <div class="content">
+            <div class="row" style="margin-bottom:14px;">
+              <div class="stat"><div class="bar w60"></div><div class="big"></div><span class="chip">Chatbots</span></div>
+              <div class="stat"><div class="bar w60"></div><div class="big"></div><span class="chip">Conversations</span></div>
+              <div class="stat"><div class="bar w60"></div><div class="big"></div><span class="chip">Documents</span></div>
+              <div class="stat"><div class="bar w60"></div><div class="big"></div><span class="chip">Tokens (bln ini)</span></div>
+            </div>
+            <div class="row">
+              <div class="panel" style="flex:2;"><h4>Aktivitas percakapan</h4><div class="chartph">[ chart placeholder ]</div></div>
+              <div class="panel" style="flex:1.2;"><h4>Percakapan terbaru</h4>
+                <div style="display:flex;flex-direction:column;gap:11px;margin-top:4px;">
+                  <div class="bar w90"></div><div class="bar w70"></div><div class="bar w80"></div><div class="bar w50"></div><div class="bar w70"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S01</span><p>Ringkasan dulu, detail kemudian — 4 stat tile (jumlah chatbot, percakapan, dokumen, token), grafik aktivitas, dan daftar percakapan terbaru. Semua angka dari API (Rule #7, tanpa dummy).</p></div>
+
+  <!-- ══════════ FRAME 2: CHATBOTS LIST (CRUD one-page) ══════════ -->
+  <h2 class="sec">// SCREEN 02 — Chatbots · list (CRUD one-page)</h2>
+  <div class="frame">
+    <div class="cap"><span><span class="id">S02</span> · Chatbots</span><span>Rule #4 CRUD one-page · Rule #3 tab Sampah</span></div>
+    <div class="frame-body">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand-row"><div class="logo-ph"></div><div class="bar w60"></div></div>
+          <nav class="nav">
+            <div class="nav-item"><span class="dotc"></span>Dashboard</div>
+            <div class="nav-item active"><span class="dotc"></span>Chatbots</div>
+            <div class="nav-item"><span class="dotc"></span>Knowledge Base</div>
+            <div class="nav-item"><span class="dotc"></span>Conversations</div>
+            <div class="nav-item"><span class="dotc"></span>Models &amp; Keys</div>
+            <div class="nav-item"><span class="dotc"></span>Team</div>
+            <div class="nav-item"><span class="dotc"></span>Settings</div>
+          </nav>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="title">Chatbots</div>
+            <div class="right"><div class="field search">Search…</div><div class="avatar"></div></div></div>
+          <div class="content">
+            <div class="tabs"><div class="tab active">Aktif</div><div class="tab">Sampah</div></div>
+            <div class="toolbar">
+              <div class="field" style="width:260px;">Cari nama / public key…</div>
+              <span class="btn solid">+ Tambah Chatbot</span>
+            </div>
+            <table class="wf">
+              <thead><tr><th>Nama</th><th>Public Key</th><th>Sumber</th><th>Status</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <tr><td><div class="bar w80"></div></td><td><span class="chip">cb_live_…</span></td><td><div class="bar w50"></div></td><td><span class="chip">enabled</span></td>
+                    <td><div class="rowicons"><span class="ico sm"></span><span class="ico sm"></span></div></td></tr>
+                <tr><td><div class="bar w70"></div></td><td><span class="chip">cb_live_…</span></td><td><div class="bar w40"></div></td><td><span class="chip">disabled</span></td>
+                    <td><div class="rowicons"><span class="ico sm"></span><span class="ico sm"></span></div></td></tr>
+                <tr><td><div class="bar w90"></div></td><td><span class="chip">cb_live_…</span></td><td><div class="bar w60"></div></td><td><span class="chip">enabled</span></td>
+                    <td><div class="rowicons"><span class="ico sm"></span><span class="ico sm"></span></div></td></tr>
+              </tbody>
+            </table>
+            <div class="pgn"><span class="pg">‹</span><span class="pg">1</span><span class="pg">2</span><span class="pg">›</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S02</span><p>Satu halaman untuk list + create + edit + delete + restore (Rule #4). Tab <b>Aktif / Sampah</b> = soft delete (Rule #3). Tombol <b>+ Tambah</b> &amp; klik baris/ikon edit → membuka right-drawer (S03). Ikon aksi: edit &amp; hapus (soft).</p></div>
+
+  <!-- ══════════ FRAME 3: RIGHT DRAWER (Create/Edit) ══════════ -->
+  <h2 class="sec">// SCREEN 03 — Chatbots · right-drawer create/edit</h2>
+  <div class="frame">
+    <div class="cap"><span><span class="id">S03</span> · Drawer form</span><span>Rule #5 right-drawer 400px · slide-in 300ms</span></div>
+    <div class="frame-body">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand-row"><div class="logo-ph"></div><div class="bar w60"></div></div>
+          <nav class="nav">
+            <div class="nav-item"><span class="dotc"></span>Dashboard</div>
+            <div class="nav-item active"><span class="dotc"></span>Chatbots</div>
+            <div class="nav-item"><span class="dotc"></span>Knowledge Base</div>
+            <div class="nav-item"><span class="dotc"></span>Conversations</div>
+            <div class="nav-item"><span class="dotc"></span>Models &amp; Keys</div>
+            <div class="nav-item"><span class="dotc"></span>Team</div>
+            <div class="nav-item"><span class="dotc"></span>Settings</div>
+          </nav>
+        </aside>
+        <div class="main stage">
+          <div class="topbar"><div class="title">Chatbots</div><div class="right"><div class="field search">Search…</div><div class="avatar"></div></div></div>
+          <div class="content">
+            <table class="wf">
+              <thead><tr><th>Nama</th><th>Public Key</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><div class="bar w80"></div></td><td><span class="chip">cb_live_…</span></td><td><span class="chip">enabled</span></td></tr>
+                <tr><td><div class="bar w70"></div></td><td><span class="chip">cb_live_…</span></td><td><span class="chip">enabled</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- drawer overlay -->
+          <div class="backdrop"></div>
+          <aside class="drawer">
+            <div class="dh"><b style="font-size:14px;">Edit Chatbot</b><span class="x">✕</span></div>
+            <div class="form-row"><div class="lbl">Nama</div><div class="field">Support Bot</div></div>
+            <div class="form-row"><div class="lbl">Greeting</div><div class="field">Hi! Ada yang bisa dibantu?</div></div>
+            <div class="form-row"><div class="lbl">Theme color</div><div class="field">#5B4BFF</div></div>
+            <div class="form-row"><div class="lbl">Allowed origins (per baris)</div><div class="field" style="height:52px;align-items:flex-start;padding-top:8px;">https://situs-pelanggan.com</div></div>
+            <div class="form-row" style="display:flex;justify-content:space-between;align-items:center;">
+              <div class="lbl" style="margin:0;">Enabled</div><div class="toggle-ph"></div></div>
+            <div class="form-row"><div class="lbl">Embed snippet (read-only)</div>
+              <div class="snippet">&lt;script src="…/embed.js" data-chatbot="cb_live_…"&gt;&lt;/script&gt;</div></div>
+            <div style="display:flex;gap:8px;margin-top:8px;"><span class="btn solid">Simpan</span><span class="btn">Batal</span></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S03</span><p>Right-side drawer 400px, slide-in dari kanan 300ms, backdrop semi-transparan, tombol ✕ + klik backdrop untuk tutup (Rule #5). Form yang sama dipakai untuk Create &amp; Edit. Saat Edit muncul <b>embed snippet</b> read-only untuk disalin.</p></div>
+
+  <!-- ══════════ FRAME 4: KNOWLEDGE BASE ══════════ -->
+  <h2 class="sec">// SCREEN 04 — Knowledge Base (sumber + dokumen per chatbot)</h2>
+  <div class="frame">
+    <div class="cap"><span><span class="id">S04</span> · Knowledge Base</span><span>selector chatbot · sources · documents</span></div>
+    <div class="frame-body">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand-row"><div class="logo-ph"></div><div class="bar w60"></div></div>
+          <nav class="nav">
+            <div class="nav-item"><span class="dotc"></span>Dashboard</div>
+            <div class="nav-item"><span class="dotc"></span>Chatbots</div>
+            <div class="nav-item active"><span class="dotc"></span>Knowledge Base</div>
+            <div class="nav-item"><span class="dotc"></span>Conversations</div>
+            <div class="nav-item"><span class="dotc"></span>Models &amp; Keys</div>
+            <div class="nav-item"><span class="dotc"></span>Team</div>
+            <div class="nav-item"><span class="dotc"></span>Settings</div>
+          </nav>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="title">Knowledge Base</div><div class="right"><div class="field" style="width:180px;">▾ Pilih chatbot</div><div class="avatar"></div></div></div>
+          <div class="content">
+            <div class="toolbar"><div class="bar w25" style="height:14px;"></div><span class="btn solid">+ Hubungkan sumber</span></div>
+            <div class="row" style="margin-bottom:16px;">
+              <div class="panel" style="flex:1;"><h4>Google Drive</h4><div class="bar w70" style="margin-bottom:8px;"></div><span class="chip">synced · 42 file</span></div>
+              <div class="panel" style="flex:1;"><h4>SharePoint</h4><div class="bar w60" style="margin-bottom:8px;"></div><span class="chip">syncing…</span></div>
+              <div class="panel" style="flex:1;"><h4>Upload manual</h4><div class="bar w50" style="margin-bottom:8px;"></div><span class="chip">3 file</span></div>
+            </div>
+            <div class="tabs"><div class="tab active">Aktif</div><div class="tab">Sampah</div></div>
+            <table class="wf">
+              <thead><tr><th>Judul dokumen</th><th>Sumber</th><th>Chunks</th><th>Diperbarui</th><th>Aksi</th></tr></thead>
+              <tbody>
+                <tr><td><div class="bar w80"></div></td><td><span class="chip">gdrive</span></td><td>12</td><td><div class="bar w40"></div></td><td><div class="rowicons"><span class="ico sm"></span><span class="ico sm"></span></div></td></tr>
+                <tr><td><div class="bar w70"></div></td><td><span class="chip">sharepoint</span></td><td>7</td><td><div class="bar w40"></div></td><td><div class="rowicons"><span class="ico sm"></span><span class="ico sm"></span></div></td></tr>
+                <tr><td><div class="bar w90"></div></td><td><span class="chip">upload</span></td><td>25</td><td><div class="bar w40"></div></td><td><div class="rowicons"><span class="ico sm"></span><span class="ico sm"></span></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S04</span><p>Selektor chatbot di kanan-atas → menegaskan <b>1 chatbot = 1 knowledge base terisolasi</b>. Kartu sumber (Drive/SharePoint/Upload) dengan status sync. Tabel dokumen + tab Sampah (Rule #3). "+ Hubungkan sumber" → right-drawer (OAuth Drive/SharePoint user).</p></div>
+
+  <!-- ══════════ FRAME 5: CONVERSATIONS ══════════ -->
+  <h2 class="sec">// SCREEN 05 — Conversations (history)</h2>
+  <div class="frame">
+    <div class="cap"><span><span class="id">S05</span> · Conversations</span><span>2-pane · list + transcript + sitasi</span></div>
+    <div class="frame-body">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand-row"><div class="logo-ph"></div><div class="bar w60"></div></div>
+          <nav class="nav">
+            <div class="nav-item"><span class="dotc"></span>Dashboard</div>
+            <div class="nav-item"><span class="dotc"></span>Chatbots</div>
+            <div class="nav-item"><span class="dotc"></span>Knowledge Base</div>
+            <div class="nav-item active"><span class="dotc"></span>Conversations</div>
+            <div class="nav-item"><span class="dotc"></span>Models &amp; Keys</div>
+            <div class="nav-item"><span class="dotc"></span>Team</div>
+            <div class="nav-item"><span class="dotc"></span>Settings</div>
+          </nav>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="title">Conversations</div><div class="right"><div class="field" style="width:180px;">▾ Filter chatbot</div><div class="avatar"></div></div></div>
+          <div class="content">
+            <div class="convo">
+              <div class="list">
+                <div class="ci active"><div class="bar w70"></div><span class="chip">visitor · 2m lalu</span></div>
+                <div class="ci"><div class="bar w60"></div><span class="chip">visitor · 1j lalu</span></div>
+                <div class="ci"><div class="bar w80"></div><span class="chip">visitor · kemarin</span></div>
+                <div class="ci"><div class="bar w50"></div><span class="chip">visitor · kemarin</span></div>
+              </div>
+              <div class="transcript">
+                <div class="msg u"><div class="bar w80"></div></div>
+                <div class="msg a"><div class="bar w90" style="margin-bottom:6px;"></div><div class="bar w60"></div><span class="citec">[1] dokumen-a.pdf</span></div>
+                <div class="msg u"><div class="bar w50"></div></div>
+                <div class="msg a"><div class="bar w80" style="margin-bottom:6px;"></div><div class="bar w40"></div><span class="citec">[2] dokumen-b.pdf</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S05</span><p>Dua panel: daftar percakapan (kiri) + transcript (kanan) dengan bubble user/assistant dan <b>chip sitasi</b> [1][2] menuju dokumen sumber. Filter per chatbot. Semua tersimpan (chat history).</p></div>
+
+  <!-- ══════════ FRAME 6: MODELS & KEYS ══════════ -->
+  <h2 class="sec">// SCREEN 06 — Models &amp; API Keys (settings)</h2>
+  <div class="frame">
+    <div class="cap"><span><span class="id">S06</span> · Models &amp; Keys</span><span>1 LLM aktif · 1 embedding aktif · keys terenkripsi</span></div>
+    <div class="frame-body">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand-row"><div class="logo-ph"></div><div class="bar w60"></div></div>
+          <nav class="nav">
+            <div class="nav-item"><span class="dotc"></span>Dashboard</div>
+            <div class="nav-item"><span class="dotc"></span>Chatbots</div>
+            <div class="nav-item"><span class="dotc"></span>Knowledge Base</div>
+            <div class="nav-item"><span class="dotc"></span>Conversations</div>
+            <div class="nav-item active"><span class="dotc"></span>Models &amp; Keys</div>
+            <div class="nav-item"><span class="dotc"></span>Team</div>
+            <div class="nav-item"><span class="dotc"></span>Settings</div>
+          </nav>
+        </aside>
+        <div class="main">
+          <div class="topbar"><div class="title">Models &amp; API Keys</div><div class="right"><div class="avatar"></div></div></div>
+          <div class="content" style="max-width:640px;">
+            <div class="panel" style="margin-bottom:14px;"><h4>Model chat aktif (pilih satu)</h4><div class="field">▾ Claude Sonnet 5 — anthropic</div></div>
+            <div class="panel" style="margin-bottom:14px;"><h4>Model embedding aktif (pilih satu)</h4>
+              <div class="field" style="margin-bottom:8px;">▾ grup: ~80MB · ~2GB · API</div>
+              <div style="display:flex;gap:8px;"><span class="chip">~80MB MiniLM</span><span class="chip">~2GB BGE-M3</span><span class="chip">API text-embedding-3</span></div>
+            </div>
+            <div class="panel" style="margin-bottom:14px;"><h4>System prompt</h4><div class="field" style="height:60px;align-items:flex-start;padding-top:8px;">Jawab hanya dari konteks…</div></div>
+            <div class="panel"><h4>Provider API keys (disimpan terenkripsi)</h4>
+              <div style="display:flex;flex-direction:column;gap:9px;">
+                <div style="display:flex;gap:10px;align-items:center;"><span class="chip" style="width:80px;">openai</span><div class="field" style="flex:1;">•••• •••• ••••</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="chip" style="width:80px;">anthropic</span><div class="field" style="flex:1;">•••• •••• ••••</div></div>
+                <div style="display:flex;gap:10px;align-items:center;"><span class="chip" style="width:80px;">google</span><div class="field" style="flex:1;">tambah key…</div></div>
+              </div>
+            </div>
+            <div style="margin-top:14px;"><span class="btn solid">Simpan</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S06</span><p>Dropdown model chat (semua provider, <b>hanya satu aktif</b>). Dropdown embedding dikelompokkan <b>~80MB / ~2GB / API</b>. System prompt. Daftar API key per provider (masked, disimpan terenkripsi AES-256). Sesuai brief.</p></div>
+
+  <!-- ══════════ FRAME 7: TRASH + MOBILE ══════════ -->
+  <h2 class="sec">// SCREEN 07 — Tab Sampah (restore) &amp; tampilan Mobile</h2>
+  <div class="row" style="align-items:stretch;flex-wrap:wrap;">
+    <div class="frame" style="flex:1;min-width:320px;">
+      <div class="cap"><span><span class="id">S07a</span> · Sampah / Restore</span><span>Rule #3</span></div>
+      <div class="frame-body" style="padding:16px;">
+        <div class="tabs"><div class="tab">Aktif</div><div class="tab active">Sampah</div></div>
+        <table class="wf">
+          <thead><tr><th>Nama</th><th>Dihapus</th><th>Aksi</th></tr></thead>
+          <tbody>
+            <tr><td><div class="bar w70"></div></td><td><div class="bar w40"></div></td><td><span class="btn" style="padding:4px 10px;">Restore</span></td></tr>
+            <tr><td><div class="bar w80"></div></td><td><div class="bar w40"></div></td><td><span class="btn" style="padding:4px 10px;">Restore</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="frame" style="width:300px;">
+      <div class="cap"><span><span class="id">S07b</span> · Mobile &lt;768px</span><span>sidebar collapse</span></div>
+      <div class="frame-body" style="padding:14px;">
+        <div class="topbar" style="padding:8px 4px;"><div style="display:flex;gap:8px;align-items:center;"><span class="ico"></span><div class="title" style="font-size:14px;">Chatbots</div></div><div class="avatar"></div></div>
+        <div style="margin-top:10px;"><div class="field" style="margin-bottom:10px;">Search…</div>
+          <div class="panel" style="margin-bottom:8px;"><div class="bar w70" style="margin-bottom:8px;"></div><span class="chip">cb_live_…</span></div>
+          <div class="panel" style="margin-bottom:8px;"><div class="bar w60" style="margin-bottom:8px;"></div><span class="chip">cb_live_…</span></div>
+        </div>
+        <div style="margin-top:8px;text-align:center;"><span class="btn solid" style="width:100%;justify-content:center;">+ Tambah</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><span class="mk">S07</span><p>Tab <b>Sampah</b> menampilkan item ter–soft-delete dengan tombol <b>Restore</b> (Rule #3). Di mobile (&lt;768px): sidebar jadi hamburger, tabel jadi kartu, drawer jadi full-width (Rule #5 mobile).</p></div>
+
+  <!-- APPROVAL -->
+  <h2 class="sec">// APPROVAL — Fase 02</h2>
+  <div class="note" style="background:#f3f0e9;border-color:#e0d7c2;border-left-color:#b8974b;">
+    <span class="mk" style="background:#b8974b;">GATE</span>
+    <p>Setujui wireframe ini untuk lanjut ke <b>mockup high-fidelity</b> (palet Nalar). Tulis approval/feedback di <code>user_requirement.md</code> bagian "Feedback Wireframe &amp; Mockup", atau balas langsung: <b>approve</b> / <b>revisi: [catatan]</b>.</p>
+  </div>
+
+</div>
+</body>
+</html>

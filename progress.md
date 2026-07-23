@@ -1,0 +1,97 @@
+# Progress — Nalar (RAG Engine)
+
+> **Source of truth progress project. Update setiap kali ada perubahan status fase.**
+> Mengikuti Sainskerta Loop Workflow (`loop/`).
+
+---
+
+## Ringkasan
+
+| Item | Status |
+|------|--------|
+| **Project** | `Nalar — Multi-tenant RAG Engine` |
+| **Fase Aktif** | `02-WIREFRAME-AUDIT` |
+| **Status Loop** | `active` |
+| **Dimulai** | `2026-07-23` |
+| **Target Selesai** | `TBD (menunggu keputusan arsitektur)` |
+| **Progress** | `~20% (scaffold engine ada, pre-loop; butuh refactor kepatuhan)` |
+
+---
+
+## Fase
+
+### ✅ Fase 00: Prerequisites — `Sebagian`
+- [x] Requirement dasar dari user (terkumpul dari percakapan)
+- [x] Framework di-scaffold awal (Next.js) — **perlu approval ulang via Loop**
+- [ ] Database credentials dari user (Rule #8) — **belum**
+- [ ] Environment setup final
+- [ ] Git initialized (git baru dipasang di sesi ini)
+
+### ➡️ Fase 01: Planning — `In Progress`
+- [x] Analisa requirement
+- [x] Tanya jawab arsitektur dengan user — **D1/D2/D3 APPROVED** (lihat `architecture-decisions.md`)
+- [x] Project structure awal dibuat (restrukturisasi Modular Monolith = task berikutnya)
+- [ ] Roadmap final disepakati
+
+### ➡️ Fase 02: Wireframe & Audit — `In Progress`
+- [x] Wireframe low fidelity → `wireframes/dashboard-wireframe.html` (7 screen + mobile)
+- [x] User approve wireframe (2026-07-23)
+- [x] Mockup high fidelity dashboard → `wireframes/dashboard-mockup.html` (7 halaman, revisi elegan dark-first)
+- [x] Mockup landing page → `wireframes/landing-mockup.html`
+- [x] Mockup embed widget + **white-label customizer live** → `wireframes/embed-demo.html`
+- [x] Mockup auth (login/register) → `wireframes/auth-mockup.html`
+- [x] Mockup halaman Branding (white-label + live preview) → `wireframes/branding-mockup.html`
+- [👀] User approve SEMUA mockup — **GATE menunggu approve/revisi → lalu Fase 03**
+
+### ⬜ Fase 03: Backend — `Belum (scaffold ada, belum compliant)`
+- [ ] Migration tanpa FK constraint + `deleted_at` di semua tabel
+- [ ] Restrukturisasi ke Modules/ (Core, Tenant, Chatbot, Knowledge, Chat, Settings)
+- [ ] Service + Repository layer per module
+- [ ] API endpoints + soft delete/restore
+- [ ] Auth nyata (ganti stub cookie)
+
+### ⬜ Fase 04: Frontend — `Belum`
+- [ ] Sidebar 1-color icon
+- [ ] CRUD pages (list + right drawer modal)
+- [ ] Integrasi API (no dummy data)
+- [ ] Loading/error/empty states
+
+### ⬜ Fase 05: Audit — `Belum`
+### ⬜ Fase 06: Deployment — `Belum`
+### ⬜ Fase 07: Improvement — `Belum`
+
+---
+
+## Issue & Blocker
+
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| 1 | Schema Drizzle pakai FK `.references()` — langgar Rule #2 (No FK) | high | ✅ fixed (schema.ts) |
+| 2 | Tabel belum punya `deleted_at` + endpoint restore | high | 🔄 schema fixed; endpoint /trashed+/restore pending |
+| 3 | Struktur `src/lib/*` belum Modular Monolith (`Modules/`) — Rule #1 | medium | open (D1 approved, restrukturisasi berikutnya) |
+| 4 | Arah UI dashboard vs standar Sainskerta | high | ✅ resolved (D3=Hybrid) |
+| 5 | DB credentials belum diberikan user (Rule #8) | medium | open |
+| 6 | White-label (theme_config per tenant/chatbot: logo, warna, radius, font, focus, dll) | high | 🔄 mockup demo jadi; implementasi backend pending |
+| 7 | Server-to-server API key per client (key tak pernah ke browser) | high | ✅ arsitektur ada (providerCredentials + apiKeyResolver); didokumentasi di docs/idea.md |
+
+---
+
+## Catatan
+
+- **Scaffold engine dibangun SEBELUM mengadopsi Loop Engineering.** Sekarang proyek dis/selaraskan dengan RULES-OF-THE-GAME. File engine (`src/lib/*`, `docs/*`) tetap dipertahankan sebagai referensi, tapi backend akan direstrukturisasi agar compliant.
+- Brand identity **Nalar** sudah jadi (`docs/brand-identity.html`, `docs/idea.html`).
+- Model catalog di `src/lib/models/registry.ts` (per 2026-07-23) lebih baru dari `loop/standards/AI-PROVIDERS.md` (Juni 2026) — pakai yang lebih baru.
+
+---
+
+## Log Perubahan
+
+| Tanggal | Fase | Perubahan |
+|---------|------|-----------|
+| 2026-07-23 | 00→01 | Adopsi Sainskerta Loop Workflow; instantiate file-as-interface; identifikasi 5 gap kepatuhan; angkat 3 keputusan arsitektur ke user |
+| 2026-07-23 | 01 | D1/D2/D3 di-approve user; refactor `schema.ts` compliant (No-FK + soft-delete + index) |
+| 2026-07-23 | 02 | Wireframe low-fi dashboard dibuat (7 screen: dashboard, chatbots CRUD, right-drawer, KB, conversations, models&keys, sampah+mobile); menunggu approval |
+| 2026-07-23 | 02 | Wireframe di-approve; mockup high-fi interaktif dibuat (7 halaman, hybrid: struktur Sainskerta + warna Nalar, dark-mode, drawer, toast); menunggu approval mockup |
+| 2026-07-23 | 02 | Revisi elegan dashboard (dark-first premium, sparkline, chart glow); + mockup landing, + embed widget dengan white-label customizer live; requirement white-label & server-to-server key dicatat; docs/idea.md ditulis |
+| 2026-07-23 | 02 | Mockup auth (login/register, split brand + retrieval-field) + halaman Branding white-label (live preview navbar/sidebar/widget). Semua mockup Fase 02 lengkap; menunggu approval final |
+| 2026-07-23 | 02 | UI/UX assessment (~6.4/10). Arah desain baru **Editorial Ledger** (D4) untuk anti AI-slop + target 10. Design system `nalar-ds.css` + referensi `design-system.html` dibuat. TODO: re-skin semua surface ke DS ini |

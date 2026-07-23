@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env
+.env.local
+.model-cache/
+*.log
+.DS_Store
+next-env.d.ts
