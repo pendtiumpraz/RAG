@@ -73,13 +73,17 @@
 - [x] Halaman **/auth nyata** (React) ter-wire `signIn()` credentials/Google/Microsoft + signup→auto-login
 - [x] **OpenAPI 3.1** satu sumber (`core/openapi.ts`) dilayani publik di `GET /api/openapi`
 
-### ⬜ Fase 04: Frontend — `Berikutnya`
+<!-- Fase 04 dimulai 2026-07-23; detail di atas -->
 
-- [ ] Global CSS dari `nalar-ds.css` (Retrieval Instrument) masuk app Next.js
-- [ ] Shell dashboard (sidebar 1-color icon, topbar) + halaman: Dashboard, Chatbots (CRUD one-page + right drawer + Sampah), Knowledge, Conversations (trace+sitasi), Memory (graph), Models&Keys, Team, Settings/Branding
-- [ ] Integrasi API nyata (no dummy data — Rule #7): chatbots/documents/sources/memory/usage/settings
-- [ ] Loading/skeleton/error/empty states di semua fetch
-- [ ] embed.js produksi: baca themeConfig dari GET /api/chat/[key], white-label token
+### ➡️ Fase 04: Frontend — `In Progress (inti selesai)`
+- [x] **DS v4 Official Brand** (`src/app/nalar-ds.css`): light-first, Deep Navy+Royal Blue+Emerald+Amber, Manrope/Inter/JetBrains Mono via **next/font**; token diremap, kontras diverifikasi
+- [x] Providers (SessionProvider + tema) + layout + **next/font** self-host + metadata/logo resmi
+- [x] API client (`_lib/api.ts`: fetch wrapper + useApi hook loading/error/refetch) + UI atoms (Icon outline-2px, Logo PNG resmi, Toast, Skeleton, Empty/Error states)
+- [x] Shell `(app)/` — sidebar terang (sesuai product UI resmi) + topbar + tema toggle + logout
+- [x] **8 halaman wired ke API NYATA (Rule #7 no dummy)**: Dashboard (usage), Chatbots (CRUD penuh + drawer + Sampah/restore), Knowledge (sumber+koneksi+connect drawer), Memory (run+graph SVG+vault sync), Models&Keys (settings), Conversations/Team/Settings (state jujur + branding save)
+- [x] **embed.js produksi**: GET themeConfig → white-label scoped + SSE streaming + sitasi + rate-limit aware
+- [ ] Verifikasi end-to-end (npm install + DB) → Fase 05 Audit
+- [ ] Landing page publik React (mockup ada) · halaman Branding lengkap
 
 ### ⬜ Fase 05: Audit — `Belum`
 ### ⬜ Fase 06: Deployment — `Belum`

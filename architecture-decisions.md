@@ -58,7 +58,17 @@ menunggu approval user (ditandai 👀).
 
 ---
 
-### D4v2 — REVISI arah desain: "Retrieval Instrument" (2026-07-23)
+### D4v3 — FINAL brand: official "NALAR — Enterprise Knowledge Intelligence" (2026-07-23)
+- **Status:** ✅ AUTHORITATIVE — user menyediakan brand identity sheet resmi.
+- Light-first enterprise. Palet: Deep Navy #0F172A · Royal Blue #2563EB (interaktif)
+  · Emerald #10B981 (sukses) · Amber #F59E0B (sitasi/sumber) · Slate.
+  Tipografi: Manrope/Plus Jakarta (display) · Inter (body) · JetBrains Mono (data).
+  Ikon outline 2px. Tagline: "Enterprise Knowledge. Instant Intelligence."
+- Jiwa RAG (retrieval trace + sitasi) dari D4v2 DIPERTAHANKAN, di-reskin ke palet resmi.
+- DS `nalar-ds.css` v4; dipakai app Next.js (Fase 04) + mockup (token diremap otomatis).
+- Logo resmi PNG di `public/brand/` menggantikan SVG inline.
+
+### D4v2 — arah desain "Retrieval Instrument" (2026-07-23) — di-reskin ke brand resmi (D4v3)
 - **Status:** ✅ APPROVED — menggantikan D4v1 "Editorial Ledger" (feedback user:
   "kayak museum, gak AI/RAG banget").
 - Konsol graphite presisi; **mesin RAG diperlihatkan**: skor similarity, trace
