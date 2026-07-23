@@ -125,6 +125,18 @@ Beda `data-chatbot` = beda chatbot = beda knowledge base + beda theme.
 
 ---
 
+## 5a. Guardrails — 5 lapis (implemented 2026-07-23)
+
+Setiap giliran chat & run agent melewati 5 lapis (`src/modules/core/guardrails.ts`):
+
+| Lapis | Nama | Isi |
+|---|---|---|
+| **L1** | Input | Sanitasi input (kontrol char, panjang ≤4000), rate-limit 2 lapis + kuota plan di route |
+| **L2** | Context | Anti prompt-injection: chunk dokumen = **DATA bukan instruksi** — pola injeksi disaring, dibungkus `<doc id>`, system prompt dikeraskan |
+| **L3** | Execution | Budget per giliran: maks 8 chunk × 2400 char, output ≤8000 char, timeout stream 60 dtk |
+| **L4** | Output | Redaksi secret (sk-, AKIA, ghp_, private key, JWT) per-delta + teks penuh; enforcement sitasi `[n]` |
+| **L5** | Audit | Semua aksi → tabel `audit_logs` (RLS): chat.turn (dgn flag guardrail), auth.signup, memory.run, settings |
+
 ## 5b. Obsidian Memory Agent (requirement 2026-07-23)
 
 Agent memori yang **memetakan** isi storage user menjadi knowledge map:
@@ -142,6 +154,16 @@ Agent memori yang **memetakan** isi storage user menjadi knowledge map:
   catatan (gaya Editorial Ledger: indeks silang / cross-reference).
 - **Pipeline**: crawl → ekstrak teks → entity/topic mapping (LLM) → tulis note
   ber-wikilink → embed & graph → (opsional) tulis balik ke storage user.
+
+### Level memory (keputusan 2026-07-23: implement L1–L4; **L5 belum dibutuhkan**)
+
+| Level | Nama | Isi | Status |
+|---|---|---|---|
+| **L1** | Capture | 1 dokumen sumber → 1 note markdown (frontmatter + ref) | ✅ `memory-agent.service.ts` |
+| **L2** | Distill | LLM meringkas: abstrak + poin kunci ke dalam note | ✅ |
+| **L3** | Link | Entitas/topik → `[[wikilink]]` antar note + note MOC per topik | ✅ |
+| **L4** | Graph | Edges wikilink + similarity (embedding, cosine ≥0.82), backlink, graph API, export vault | ✅ (`/api/memory/run·graph·vault`) |
+| **L5** | Self-evolving | Agen reorganisasi/merge/prune note-nya sendiri terjadwal | ⛔ sengaja TIDAK — kompleksitas > kebutuhan saat ini |
 
 ## 6. Model catalog (2026-07-23)
 

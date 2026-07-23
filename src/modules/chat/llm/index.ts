@@ -8,6 +8,21 @@ export interface ChatMessage {
   content: string;
 }
 
+/** Non-stream helper: kumpulkan seluruh stream jadi satu string (dipakai agent). */
+export async function completeChat(
+  modelId: string,
+  messages: ChatMessage[],
+  apiKey: string,
+  maxChars = 8000,
+): Promise<string> {
+  let full = '';
+  for await (const delta of streamChat(modelId, messages, apiKey)) {
+    full += delta;
+    if (full.length > maxChars) break;
+  }
+  return full;
+}
+
 /** OpenAI-compatible base URLs for providers that speak the OpenAI wire. */
 const OPENAI_COMPAT_BASE: Partial<Record<Provider, string>> = {
   openai: undefined, // native default

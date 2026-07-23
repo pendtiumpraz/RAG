@@ -177,6 +177,22 @@ export const usageCounters = pgTable('usage_counters', {
   delIdx: index('idx_usage_counters_deleted_at').on(t.deletedAt),
 }));
 
+/* ── audit log (Guardrail L5) ──────────────────────────────────────── */
+/** Jejak semua aksi penting: chat turn, auth, perubahan settings, guardrail hit. */
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  actor: text('actor').notNull(),           // userId | 'visitor:<id>' | 'system'
+  action: text('action').notNull(),         // 'chat.turn' | 'auth.signup' | 'guardrail.block' | …
+  subject: text('subject'),                 // id objek terkait (chatbotId, dsb.)
+  meta: jsonb('meta').$type<Record<string, unknown>>().default({}),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_audit_logs_tenant_id').on(t.tenantId),
+  actionIdx: index('idx_audit_logs_action').on(t.action, t.createdAt),
+  delIdx: index('idx_audit_logs_deleted_at').on(t.deletedAt),
+}));
+
 /* ── memory (Obsidian Memory Agent) ────────────────────────────────── */
 /**
  * Markdown notes with [[wikilinks]] — Obsidian-compatible. `slug` is the

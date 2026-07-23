@@ -51,7 +51,15 @@
 - [x] Memory primitives: wikilink parser, upsert note+edges, graph, export vault
 - [x] **Auth nyata NextAuth** (`src/modules/auth/`): Credentials (scrypt) + Google + Microsoft; JWT session bawa userId/tenantId/role; `signup→tenant` transaksi RLS-aware; OAuth email baru = provisioning tenant otomatis; policy `users_auth_lookup` (migrations/0002) utk lookup lintas-tenant yang aman; `core/auth.ts` ganti stub → getServerSession + requireRole; `middleware.ts` proteksi route (embed/chat tetap publik)
 - [x] **Rate limit + kuota per plan** (`core/limits.ts` + `modules/usage/`): token-bucket in-memory (2 lapis: per-chatbot sesuai plan + per-IP), PLAN_LIMITS (free/pro/enterprise/onprem), tabel `usage_counters` (+RLS 0003, upsert atomik), guard kuota bulanan di endpoint chat (429 + Retry-After), metering token per giliran, `GET /api/usage`, enforcement maxChatbots di create, anti-abuse signup 5/menit/IP, batas panjang pesan 4000
-- [ ] Worker sync Drive/OneDrive/SharePoint + Memory Agent runner
+- [x] **Guardrails 5 lapis** (`core/guardrails.ts`, terpasang di pipeline chat + auth):
+      L1 input sanitize · L2 anti prompt-injection (chunk=data, filter pola, hardening) ·
+      L3 execution budget (cap chunk/output/timeout) · L4 redaksi secret + enforcement sitasi ·
+      L5 audit_logs (RLS, migration 0004) dgn flag pelanggaran per giliran
+- [x] **Memory Agent L1–L4** (`memory/memory-agent.service.ts` + job runner `core/jobs.ts`):
+      L1 capture (dok→note) · L2 distill (LLM abstrak+poin) · L3 link (entitas→[[wikilink]]+MOC) ·
+      L4 graph (edges wikilink+similarity cosine≥0.82, API run/graph/vault, export Obsidian).
+      **L5 self-evolving = keputusan user: TIDAK diimplement dulu**
+- [ ] Worker sync Drive/OneDrive/SharePoint (crawl storage → ingest → trigger memory.run)
 - [ ] API documentation (OpenAPI)
 
 ### ⬜ Fase 04: Frontend — `Belum`

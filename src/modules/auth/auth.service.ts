@@ -2,6 +2,7 @@ import { sql, eq } from 'drizzle-orm';
 import { db, tenants, users, tenantSettings } from '@/modules/core/db';
 import { hashPassword, verifyPassword } from './password';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { audit } from '@/modules/core/guardrails';
 
 export interface AuthUser {
   id: string;
@@ -46,6 +47,9 @@ export const authService = {
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
 
       return { id: user.id, tenantId: user.tenantId, email: user.email, name: user.name, role: user.role };
+    }).then(async (u) => {
+      await audit(u.tenantId, u.id, 'auth.signup', undefined, { email: u.email });
+      return u;
     });
   },
 

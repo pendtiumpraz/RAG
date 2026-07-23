@@ -16,5 +16,6 @@ export const config = {
     '/api/ingest/:path*',
     '/api/settings/:path*',
     '/api/usage/:path*',
+    '/api/memory/:path*',
   ],
 };
