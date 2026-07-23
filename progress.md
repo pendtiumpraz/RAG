@@ -49,7 +49,7 @@
 - [x] Repository + Service + Event bus per module; integritas referensial + cascade soft-delete di service
 - [x] API: CRUD chatbots + `/trashed` + `/:id/restore`; documents delete/trashed/restore; ingest; settings; chat SSE + GET theme (white-label served)
 - [x] Memory primitives: wikilink parser, upsert note+edges, graph, export vault
-- [ ] Auth nyata NextAuth (ganti stub cookie) + signup→tenant
+- [x] **Auth nyata NextAuth** (`src/modules/auth/`): Credentials (scrypt) + Google + Microsoft; JWT session bawa userId/tenantId/role; `signup→tenant` transaksi RLS-aware; OAuth email baru = provisioning tenant otomatis; policy `users_auth_lookup` (migrations/0002) utk lookup lintas-tenant yang aman; `core/auth.ts` ganti stub → getServerSession + requireRole; `middleware.ts` proteksi route (embed/chat tetap publik)
 - [ ] Rate limit + kuota; worker sync Drive/OneDrive/SharePoint
 - [ ] API documentation (OpenAPI)
 

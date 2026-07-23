@@ -13,7 +13,7 @@
 | 1 | Engine RAG (pipeline inti) | 6.5 | 🟡 |
 | 2 | Database & isolasi tenant | 7.5 | 🟡 |
 | 3 | Keamanan | 5.0 | 🟡 |
-| 4 | Auth & SaaS multi-tenancy | 3.0 | 🔴 |
+| 4 | Auth & SaaS multi-tenancy | 6.5 ⬆ (was 3.0) | 🟡 |
 | 5 | Agentic (memory agent, workers, orkestrasi) | 2.5 | 🔴 |
 | 6 | UI/UX — design system | 8.5 | 🟢 |
 | 7 | UI/UX — surfaces (halaman nyata) | 5.5 | 🟡 |
@@ -71,16 +71,19 @@ key (key tak pernah ke browser), publicKey pattern.
 - [ ] Security review (Fase 05 Loop) belum dijalankan; tanpa dependency scanning.
 - [ ] Webhook signing utk integrasi keluar.
 
-## 4 · Auth & SaaS multi-tenancy — 3.0/10
-**Ada:** stub cookie (`auth.ts`), mode `saas|onprem`, mockup auth.
+## 4 · Auth & SaaS multi-tenancy — 6.5/10 ⬆ (2026-07-23)
+**Ada:** NextAuth nyata (`src/modules/auth/`) — Credentials scrypt + Google + Microsoft;
+JWT session {userId, tenantId, role}; **signup→tenant** transaksi RLS-aware;
+OAuth email baru = tenant baru otomatis; policy `users_auth_lookup` (0002) utk
+lookup login lintas-tenant yang tetap aman; `requireRole()` guard; middleware
+proteksi route (embed/chat publik); mode on-prem via env.
 
 **Gap ke 10:**
-- [ ] **NextAuth/Auth.js nyata** — Google/Microsoft OAuth + email — belum ada sama sekali.
-- [ ] Signup → auto-create tenant + RLS wiring.
-- [ ] RBAC (superadmin/admin/member) enforcement di setiap route.
-- [ ] Session management, email verification, password reset.
-- [ ] Billing (plan, kuota, upgrade) — belum disentuh.
-- [ ] Team invite flow (mockup ada, backend tidak).
+- [ ] Belum diuji end-to-end (npm install + DB nyata).
+- [ ] Halaman /auth nyata (mockup sudah ada) + wiring signIn() client.
+- [ ] `requireRole` dipasang eksplisit di route admin (baru tersedia).
+- [ ] Email verification + password reset.
+- [ ] Billing (plan, kuota, upgrade); Team invite backend.
 
 ## 5 · Agentic — 2.5/10
 **Ada:** konsep + requirement Memory Agent (baru dicatat), konektor storage dasar.

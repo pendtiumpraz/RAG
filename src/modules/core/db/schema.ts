@@ -40,6 +40,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   name: text('name'),
   role: text('role').default('member').notNull(), // 'superadmin' | 'admin' | 'member'
+  /** scrypt hash utk login kredensial; NULL utk user OAuth. */
+  passwordHash: text('password_hash'),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_users_tenant_id').on(t.tenantId),

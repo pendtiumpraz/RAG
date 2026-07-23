@@ -1,29 +1,41 @@
-import { cookies } from 'next/headers';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/modules/auth/auth.options';
 
-/**
- * Auth boundary (stub). Wire this to NextAuth/Auth.js in production:
- *  - SaaS: session → user → user.tenantId (each signup gets a fresh tenant)
- *  - on-prem: single tenant, DEPLOYMENT_MODE=onprem, return the org tenant
- *
- * Kept deliberately thin so the rest of the app depends only on
- * getCurrentTenantId() / getCurrentUser(), not the auth provider.
- */
-export async function getCurrentTenantId(): Promise<string> {
-  if (process.env.DEPLOYMENT_MODE === 'onprem') {
-    return process.env.ONPREM_TENANT_ID!;
-  }
-  // TODO: replace with real session lookup (NextAuth getServerSession).
-  const jar = await cookies();
-  const tid = jar.get('tenant_id')?.value;
-  if (!tid) throw new Error('Not authenticated');
-  return tid;
+export class UnauthorizedError extends Error {
+  constructor(msg = 'Not authenticated') { super(msg); }
 }
 
-export async function getCurrentUser(): Promise<{ id: string; tenantId: string; role: string }> {
-  const jar = await cookies();
-  return {
-    id: jar.get('user_id')?.value ?? '',
-    tenantId: await getCurrentTenantId(),
-    role: jar.get('role')?.value ?? 'member',
-  };
+export interface CurrentUser {
+  id: string;
+  tenantId: string;
+  role: string; // 'superadmin' | 'admin' | 'member'
+}
+
+/**
+ * Identitas request saat ini — SATU-SATUNYA pintu auth utk service/route.
+ *  • SaaS   : sesi NextAuth (JWT membawa userId/tenantId/role).
+ *  • On-prem: DEPLOYMENT_MODE=onprem → tenant tunggal dari env, tanpa login
+ *             multi-tenant (dipakai deployment air-gapped).
+ */
+export async function getCurrentUser(): Promise<CurrentUser> {
+  if (process.env.DEPLOYMENT_MODE === 'onprem') {
+    const tenantId = process.env.ONPREM_TENANT_ID;
+    if (!tenantId) throw new UnauthorizedError('ONPREM_TENANT_ID belum di-set');
+    return { id: process.env.ONPREM_USER_ID ?? tenantId, tenantId, role: 'admin' };
+  }
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !session.user.tenantId) throw new UnauthorizedError();
+  return { id: session.user.id, tenantId: session.user.tenantId, role: session.user.role };
+}
+
+export async function getCurrentTenantId(): Promise<string> {
+  return (await getCurrentUser()).tenantId;
+}
+
+/** Guard peran: throw bila peran user tidak termasuk yang diizinkan. */
+export async function requireRole(...roles: string[]): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!roles.includes(user.role)) throw new UnauthorizedError('Peran tidak diizinkan');
+  return user;
 }
