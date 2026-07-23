@@ -1,118 +1,108 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nalar — Auth (Masuk / Daftar)</title>
+<title>Nalar — Masuk / Daftar</title>
+<link rel="stylesheet" href="nalar-ds.css" />
 <style>
-  :root{
-    --bg:#0A0A11; --bg-2:#0E0E17; --card:#14141F; --card-2:#1A1A26; --line:#242433;
-    --text:#F2F2F7; --muted:#9A9AB0; --faint:#63637A;
-    --indigo:#7C6DFF; --indigo-2:#6656F5; --indigo-soft:rgba(124,109,255,.14);
-    --gold:#F5BE5E; --good:#3FC98F;
-    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-    --sans:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
-    --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
-  }
-  :root[data-theme="light"]{
-    --bg:#F4F3EF; --bg-2:#EFEEE8; --card:#FFFFFF; --card-2:#F7F6F1; --line:#E5E3DA;
-    --text:#181824; --muted:#5A5A70; --faint:#9A9AAB; --indigo:#5A48F5; --indigo-2:#4A38E8;
-    --gold:#B7791F; --indigo-soft:rgba(90,72,245,.08);
-  }
-  *{ box-sizing:border-box; }
-  body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.6;
-    -webkit-font-smoothing:antialiased; transition:background .35s,color .35s; }
-  a{ color:var(--indigo); text-decoration:none; } a:hover{ text-decoration:underline; }
-  ::selection{ background:var(--indigo); color:#fff; }
-
-  .shell{ display:grid; grid-template-columns:1.05fr .95fr; min-height:100vh; }
+  .shell{ display:grid; grid-template-columns:1fr 1fr; min-height:100vh; }
   @media (max-width:880px){ .shell{ grid-template-columns:1fr; } }
 
-  /* ── Brand panel ── */
-  .brandside{ position:relative; overflow:hidden; padding:44px; display:flex; flex-direction:column; justify-content:space-between;
-    background:linear-gradient(160deg,#0C0C16,#101020); border-right:1px solid var(--line); }
-  @media (max-width:880px){ .brandside{ min-height:230px; padding:28px; } }
-  #field{ position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:.9; }
-  .brandside > *{ position:relative; z-index:1; }
-  .logo-lockup{ display:flex; align-items:center; gap:12px; font-weight:750; letter-spacing:-0.035em; font-size:22px; color:#fff; }
-  .logo-lockup b{ color:var(--gold); }
-  .bs-mid h2{ font-size:clamp(26px,3.4vw,40px); letter-spacing:-0.03em; line-height:1.12; margin:0; color:#fff; max-width:15ch; }
-  .bs-mid h2 .g{ color:var(--gold); font-family:var(--serif); font-style:italic; font-weight:600; }
-  .bs-mid p{ color:#B8B8CC; font-size:16px; margin:16px 0 0; max-width:34ch; }
-  .bullets{ display:flex; flex-direction:column; gap:12px; margin-top:6px; }
-  .bullet{ display:flex; gap:11px; align-items:center; color:#CFCFDD; font-size:14px; }
-  .bullet .c{ width:22px; height:22px; border-radius:7px; background:rgba(124,109,255,.2); color:var(--gold); display:grid; place-items:center; font-size:12px; flex:none; }
-  @media (max-width:880px){ .bs-mid, .bullets{ display:none; } }
+  /* ── Panel brand (kiri) — halaman terbitan ── */
+  .brandside{ background:var(--paper-2); border-right:1px solid var(--rule-strong);
+    padding:var(--sp-10); display:flex; flex-direction:column; gap:var(--sp-8); }
+  @media (max-width:880px){ .brandside{ display:none; } }
+  .lockup{ display:flex; align-items:center; gap:var(--sp-3); padding-bottom:var(--sp-5);
+    border-bottom:3px double var(--rule-strong); }
+  .lockup .wm{ font-family:var(--font-display); font-size:28px; letter-spacing:-0.02em; }
+  .lockup .wm b{ color:var(--gold-mark); font-weight:600; }
+  .brandside h2{ font-size:var(--fs-4xl); line-height:1.05; max-width:14ch; }
+  .brandside h2 em{ font-style:italic; color:var(--gold-ink); }
+  .brandside .sub{ color:var(--muted); font-size:var(--fs-md); line-height:var(--lh-read); max-width:38ch; margin-top:var(--sp-4); }
 
-  /* ── Form side ── */
-  .formside{ display:grid; place-items:center; padding:44px 28px; }
-  .fcard{ width:100%; max-width:394px; }
-  .ftop{ display:flex; justify-content:space-between; align-items:center; margin-bottom:26px; }
-  .toggle{ width:38px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
-  .segbig{ display:flex; background:var(--card-2); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:26px; }
-  .segbig button{ flex:1; padding:10px; border:none; background:none; color:var(--muted); font:inherit; font-weight:650; font-size:14px; border-radius:9px; cursor:pointer; transition:.16s; }
-  .segbig button.on{ background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.25); }
-  h1.tt{ font-size:26px; letter-spacing:-0.03em; margin:0 0 6px; }
-  .sub{ color:var(--muted); font-size:14px; margin:0 0 24px; }
+  .proof{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-5); max-width:420px; }
+  .proof .q{ font-weight:600; font-size:var(--fs-sm); margin-bottom:var(--sp-3); }
+  .proof .a{ font-family:var(--font-display); font-size:var(--fs-md); line-height:1.55; }
 
-  .oauth{ display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
-  .oauthbtn{ display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid var(--line); background:var(--card);
-    color:var(--text); border-radius:11px; padding:11px; font:inherit; font-weight:600; font-size:14px; cursor:pointer; transition:.16s; }
-  .oauthbtn:hover{ border-color:var(--indigo); transform:translateY(-1px); }
-  .divider{ display:flex; align-items:center; gap:12px; color:var(--faint); font-size:12px; margin:6px 0 20px; }
-  .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--line); }
+  .creed{ margin-top:auto; }
+  .creed li{ list-style:none; display:flex; gap:var(--sp-3); padding:var(--sp-2) 0;
+    border-bottom:1px solid var(--rule); font-size:var(--fs-sm); color:var(--muted); }
+  .creed li:last-child{ border-bottom:none; }
+  .creed .no{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); width:18px; flex:none; }
 
-  .field{ margin-bottom:16px; }
-  .field label{ display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:7px; }
-  .field input{ width:100%; background:var(--card-2); border:1px solid var(--line); border-radius:11px; padding:12px 14px;
-    font:inherit; font-size:14px; color:var(--text); outline:none; transition:.16s; }
-  .field input:focus{ border-color:var(--indigo); box-shadow:0 0 0 3px var(--indigo-soft); background:var(--card); }
-  .rowbtwn{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; font-size:13px; }
-  .check{ display:flex; align-items:center; gap:8px; color:var(--muted); cursor:pointer; }
+  /* ── Panel form (kanan) ── */
+  .formside{ display:grid; place-items:center; padding:var(--sp-10) var(--sp-6); }
+  .fcard{ width:100%; max-width:392px; }
+  .ftop{ display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--sp-6); }
+  .mini-lockup{ display:flex; align-items:center; gap:var(--sp-2); font-family:var(--font-display); font-size:19px; }
+  .mini-lockup b{ color:var(--gold-mark); }
+  @media (min-width:881px){ .mini-lockup{ visibility:hidden; } }
+
+  .seg{ display:flex; border-bottom:1px solid var(--rule-strong); margin-bottom:var(--sp-6); }
+  .seg button{ flex:1; padding:var(--sp-3); border:none; background:none; font-family:var(--font-mono);
+    font-size:var(--fs-xs); letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--muted);
+    cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .seg button[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--indigo); font-weight:700; }
+
+  .tt{ font-size:var(--fs-2xl); margin-bottom:var(--sp-2); }
+  .sub{ color:var(--muted); font-size:var(--fs-sm); margin-bottom:var(--sp-6); }
+  .oauth .btn{ width:100%; margin-bottom:var(--sp-2); justify-content:center; }
+  .divider{ display:flex; align-items:center; gap:var(--sp-3); color:var(--faint);
+    font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-caps); text-transform:uppercase; margin:var(--sp-4) 0 var(--sp-5); }
+  .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--rule); }
+  .rowbtwn{ display:flex; justify-content:space-between; align-items:center; margin:var(--sp-2) 0 var(--sp-5); font-size:var(--fs-sm); }
+  .check{ display:flex; align-items:center; gap:var(--sp-2); color:var(--muted); cursor:pointer; }
   .check input{ accent-color:var(--indigo); width:15px; height:15px; }
-  .submit{ width:100%; border:none; border-radius:11px; padding:13px; font:inherit; font-weight:700; font-size:15px; color:#fff; cursor:pointer;
-    background:linear-gradient(180deg,var(--indigo),var(--indigo-2)); box-shadow:0 6px 20px var(--indigo-soft), inset 0 1px 0 rgba(255,255,255,.2); transition:.16s; }
-  .submit:hover{ transform:translateY(-1px); }
-  .foot{ text-align:center; margin-top:22px; color:var(--muted); font-size:13.5px; }
-  .legal{ text-align:center; margin-top:30px; color:var(--faint); font-size:11.5px; font-family:var(--mono); }
-  .hidden{ display:none; }
+  .foot{ text-align:center; margin-top:var(--sp-5); color:var(--muted); font-size:var(--fs-sm); }
+  .legal{ text-align:center; margin-top:var(--sp-8); }
+  [hidden]{ display:none !important; }
 </style>
 </head>
 <body>
 <div class="shell">
 
-  <!-- BRAND SIDE -->
+  <!-- BRAND -->
   <aside class="brandside">
-    <canvas id="field" aria-hidden="true"></canvas>
-    <div class="logo-lockup">
-      <svg width="34" height="34" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="12" fill="#14141F" stroke="#2A2A3D"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="#7C6DFF" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="#7C6DFF"/><circle cx="13" cy="24" r="3" fill="#7C6DFF"/><circle cx="13" cy="33" r="3" fill="#7C6DFF"/><circle cx="34" cy="24" r="5.5" fill="#F5BE5E"/></svg>
-      nalar<b>.</b>
+    <div class="lockup">
+      <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
+      <span class="wm">Nalar<b>.</b></span>
     </div>
-    <div class="bs-mid">
-      <h2>Jawaban yang <span class="g">bisa ditelusuri.</span></h2>
-      <p>Masuk untuk mengelola chatbot, knowledge base, dan model — semua terisolasi per tenant.</p>
+
+    <div>
+      <span class="kicker">Reasoning, sourced</span>
+      <h2 style="margin-top:var(--sp-3);">Jawaban yang <em>bisa ditelusuri.</em></h2>
+      <p class="sub">Masuk untuk mengelola chatbot, knowledge base, dan model — semua terisolasi per tenant.</p>
     </div>
-    <div class="bullets">
-      <div class="bullet"><span class="c">✓</span> Isolasi RLS per tenant</div>
-      <div class="bullet"><span class="c">✓</span> White-label penuh</div>
-      <div class="bullet"><span class="c">✓</span> Semua model, satu aktif</div>
+
+    <div class="proof">
+      <div class="kicker" style="margin-bottom:var(--sp-3);">Contoh keluaran</div>
+      <div class="q">Berapa lama garansi produk Pro?</div>
+      <div class="a">Garansi produk Pro adalah <strong>24 bulan</strong> sejak pembelian.<span class="cite">1</span></div>
+      <ul class="footnotes"><li><b>1.</b> kebijakan-garansi.pdf — hlm. 3 · <span class="source-tag">gdrive</span></li></ul>
     </div>
+
+    <ul class="creed" style="margin-bottom:0;padding:0;">
+      <li><span class="no">I</span> Isolasi Row-Level Security per tenant</li>
+      <li><span class="no">II</span> White-label penuh — logo, warna, huruf</li>
+      <li><span class="no">III</span> Semua model; satu aktif, ganti kapan saja</li>
+    </ul>
   </aside>
 
-  <!-- FORM SIDE -->
+  <!-- FORM -->
   <main class="formside">
     <div class="fcard">
       <div class="ftop">
-        <div class="logo-lockup" style="font-size:18px;color:var(--text)">
-          <svg width="26" height="26" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="12" fill="none" stroke="var(--line)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="#7C6DFF" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="#7C6DFF"/><circle cx="13" cy="24" r="3" fill="#7C6DFF"/><circle cx="13" cy="33" r="3" fill="#7C6DFF"/><circle cx="34" cy="24" r="5.5" fill="#F5BE5E"/></svg>
-          nalar
+        <div class="mini-lockup">
+          <svg width="24" height="24" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="none" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
+          Nalar<b>.</b>
         </div>
-        <button class="toggle" id="themeBtn" aria-label="Tema">◐</button>
+        <button class="icon-btn" id="themeBtn" aria-label="Ganti tema">◐</button>
       </div>
 
-      <div class="segbig">
-        <button id="segLogin" class="on" onclick="showTab('login')">Masuk</button>
-        <button id="segReg" onclick="showTab('register')">Daftar</button>
+      <div class="seg" role="tablist">
+        <button id="segLogin" role="tab" aria-selected="true" onclick="showTab('login')">Masuk</button>
+        <button id="segReg" role="tab" aria-selected="false" onclick="showTab('register')">Daftar</button>
       </div>
 
       <!-- LOGIN -->
@@ -120,68 +110,55 @@
         <h1 class="tt">Selamat datang kembali</h1>
         <p class="sub">Masuk ke workspace Nalar kamu.</p>
         <div class="oauth">
-          <button class="oauthbtn"><svg width="17" height="17" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6L19 3.8A9.9 9.9 0 0012 1 11 11 0 002.1 7l3.3 2.6A6.5 6.5 0 0112 5z"/><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.5-.2-2.3H12v4.5h6.2a5.3 5.3 0 01-2.3 3.5l3.6 2.8c2.1-2 3.5-4.9 3.5-8.5z"/><path fill="#34A853" d="M5.4 14.3A6.6 6.6 0 015 12c0-.8.1-1.6.4-2.3L2.1 7A11 11 0 001 12c0 1.8.4 3.5 1.1 5l3.3-2.7z"/><path fill="#FBBC05" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.7 1.1a6.5 6.5 0 01-6.1-4.3L2.1 17A11 11 0 0012 23z"/></svg> Lanjut dengan Google</button>
-          <button class="oauthbtn"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#F25022" d="M2 2h9.5v9.5H2z"/><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/></svg> Lanjut dengan Microsoft</button>
+          <button class="btn"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6L19 3.8A9.9 9.9 0 0012 1 11 11 0 002.1 7l3.3 2.6A6.5 6.5 0 0112 5z"/><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.5-.2-2.3H12v4.5h6.2a5.3 5.3 0 01-2.3 3.5l3.6 2.8c2.1-2 3.5-4.9 3.5-8.5z"/><path fill="#34A853" d="M5.4 14.3A6.6 6.6 0 015 12c0-.8.1-1.6.4-2.3L2.1 7A11 11 0 001 12c0 1.8.4 3.5 1.1 5l3.3-2.7z"/><path fill="#FBBC05" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.7 1.1a6.5 6.5 0 01-6.1-4.3L2.1 17A11 11 0 0012 23z"/></svg> Lanjut dengan Google</button>
+          <button class="btn"><svg width="15" height="15" viewBox="0 0 24 24"><path fill="#F25022" d="M2 2h9.5v9.5H2z"/><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/></svg> Lanjut dengan Microsoft</button>
         </div>
         <div class="divider">atau email</div>
-        <div class="field"><label>Email</label><input type="email" placeholder="nama@perusahaan.com" value="galih@sainskerta.id" /></div>
-        <div class="field"><label>Password</label><input type="password" placeholder="••••••••" value="password" /></div>
+        <div class="stack gap-4">
+          <div class="field"><label>Email</label><input class="input" type="email" placeholder="nama@perusahaan.com" value="galih@sainskerta.id" /></div>
+          <div class="field"><label>Password</label><input class="input" type="password" value="password" /></div>
+        </div>
         <div class="rowbtwn">
           <label class="check"><input type="checkbox" checked /> Ingat saya</label>
-          <a href="#">Lupa password?</a>
+          <a href="#" style="font-size:var(--fs-sm);">Lupa password?</a>
         </div>
-        <button class="submit">Masuk</button>
-        <div class="foot">Belum punya akun? <a href="#" onclick="showTab('register');return false;">Daftar gratis</a></div>
+        <button class="btn btn-primary btn-lg" style="width:100%;">Masuk</button>
+        <p class="foot">Belum punya akun? <a href="#" onclick="showTab('register');return false;">Daftar gratis</a></p>
       </form>
 
       <!-- REGISTER -->
-      <form id="tab-register" class="hidden" onsubmit="return false;">
+      <form id="tab-register" hidden onsubmit="return false;">
         <h1 class="tt">Buat workspace baru</h1>
-        <p class="sub">Setiap pendaftaran = tenant baru yang terisolasi.</p>
+        <p class="sub">Setiap pendaftaran menjadi tenant baru yang terisolasi.</p>
         <div class="oauth">
-          <button class="oauthbtn"><svg width="17" height="17" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6L19 3.8A9.9 9.9 0 0012 1 11 11 0 002.1 7l3.3 2.6A6.5 6.5 0 0112 5z"/><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.5-.2-2.3H12v4.5h6.2a5.3 5.3 0 01-2.3 3.5l3.6 2.8c2.1-2 3.5-4.9 3.5-8.5z"/><path fill="#34A853" d="M5.4 14.3A6.6 6.6 0 015 12c0-.8.1-1.6.4-2.3L2.1 7A11 11 0 001 12c0 1.8.4 3.5 1.1 5l3.3-2.7z"/><path fill="#FBBC05" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.7 1.1a6.5 6.5 0 01-6.1-4.3L2.1 17A11 11 0 0012 23z"/></svg> Daftar dengan Google</button>
+          <button class="btn"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6L19 3.8A9.9 9.9 0 0012 1 11 11 0 002.1 7l3.3 2.6A6.5 6.5 0 0112 5z"/><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.5-.2-2.3H12v4.5h6.2a5.3 5.3 0 01-2.3 3.5l3.6 2.8c2.1-2 3.5-4.9 3.5-8.5z"/><path fill="#34A853" d="M5.4 14.3A6.6 6.6 0 015 12c0-.8.1-1.6.4-2.3L2.1 7A11 11 0 001 12c0 1.8.4 3.5 1.1 5l3.3-2.7z"/><path fill="#FBBC05" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.7 1.1a6.5 6.5 0 01-6.1-4.3L2.1 17A11 11 0 0012 23z"/></svg> Daftar dengan Google</button>
         </div>
         <div class="divider">atau email</div>
-        <div class="field"><label>Nama organisasi</label><input placeholder="PT Nusantara" /></div>
-        <div class="field"><label>Nama lengkap</label><input placeholder="Galih Praz" /></div>
-        <div class="field"><label>Email</label><input type="email" placeholder="nama@perusahaan.com" /></div>
-        <div class="field"><label>Password</label><input type="password" placeholder="Minimal 8 karakter" /></div>
-        <button class="submit">Buat workspace</button>
-        <div class="foot">Sudah punya akun? <a href="#" onclick="showTab('login');return false;">Masuk</a></div>
+        <div class="stack gap-4">
+          <div class="field"><label>Nama organisasi</label><input class="input" placeholder="PT Nusantara" /></div>
+          <div class="field"><label>Nama lengkap</label><input class="input" placeholder="Galih Praz" /></div>
+          <div class="field"><label>Email</label><input class="input" type="email" placeholder="nama@perusahaan.com" /></div>
+          <div class="field"><label>Password</label><input class="input" type="password" placeholder="Minimal 8 karakter" /><span class="hint">Gunakan campuran huruf, angka, dan simbol.</span></div>
+        </div>
+        <button class="btn btn-primary btn-lg" style="width:100%;margin-top:var(--sp-4);">Buat workspace</button>
+        <p class="foot">Sudah punya akun? <a href="#" onclick="showTab('login');return false;">Masuk</a></p>
       </form>
 
-      <div class="legal">Dengan lanjut kamu setuju pada Ketentuan &amp; Kebijakan Privasi Nalar.</div>
+      <p class="legal marginalia">Dengan melanjutkan, kamu menyetujui Ketentuan &amp; Kebijakan Privasi Nalar.</p>
     </div>
   </main>
 </div>
 
 <script>
   function showTab(t){
-    document.getElementById('tab-login').classList.toggle('hidden', t!=='login');
-    document.getElementById('tab-register').classList.toggle('hidden', t!=='register');
-    document.getElementById('segLogin').classList.toggle('on', t==='login');
-    document.getElementById('segReg').classList.toggle('on', t==='register');
+    document.getElementById('tab-login').hidden = (t!=='login');
+    document.getElementById('tab-register').hidden = (t!=='register');
+    document.getElementById('segLogin').setAttribute('aria-selected', t==='login');
+    document.getElementById('segReg').setAttribute('aria-selected', t==='register');
   }
   document.getElementById('themeBtn').addEventListener('click', function(){
-    var r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='light'?'dark':'light');
+    var r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
   });
-  // retrieval-field
-  (function(){
-    var c=document.getElementById('field'), ctx=c.getContext('2d');
-    var reduce=window.matchMedia('(prefers-reduced-motion:reduce)').matches, nodes=[], W,H,DPR;
-    function resize(){ DPR=Math.min(window.devicePixelRatio||1,2); var r=c.getBoundingClientRect(); W=r.width;H=r.height;
-      c.width=W*DPR;c.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0); seed(); }
-    function seed(){ nodes=[]; var n=Math.max(10,Math.floor(W/55)); for(var i=0;i<n;i++) nodes.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,r:1+Math.random()*1.5}); }
-    function frame(){ ctx.clearRect(0,0,W,H); var fx=W*0.7, fy=H*0.5;
-      for(var i=0;i<nodes.length;i++){ var p=nodes[i]; if(!reduce){p.x+=p.vx;p.y+=p.vy;} if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
-        var d=Math.hypot(p.x-fx,p.y-fy), a=Math.max(0,1-d/(W*.55));
-        if(a>.02){ ctx.strokeStyle='#7C6DFF'; ctx.globalAlpha=a*.22; ctx.lineWidth=1; ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(fx,fy);ctx.stroke(); }
-        ctx.globalAlpha=.4; ctx.fillStyle='#7C6DFF'; ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,6.29);ctx.fill(); }
-      ctx.globalAlpha=1; var g=ctx.createRadialGradient(fx,fy,0,fx,fy,22); g.addColorStop(0,'#F5BE5E'); g.addColorStop(1,'transparent');
-      ctx.fillStyle=g; ctx.beginPath();ctx.arc(fx,fy,22,0,6.29);ctx.fill(); ctx.fillStyle='#F5BE5E'; ctx.beginPath();ctx.arc(fx,fy,4,0,6.29);ctx.fill();
-      if(!reduce) requestAnimationFrame(frame); }
-    window.addEventListener('resize',resize); resize(); frame();
-  })();
 </script>
 </body>
 </html>

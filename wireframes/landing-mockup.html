@@ -1,343 +1,298 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nalar — Landing Page Mockup</title>
+<title>Nalar — Reasoning, sourced.</title>
+<link rel="stylesheet" href="nalar-ds.css" />
 <style>
-  :root{
-    --bg:#0A0A11; --bg-2:#0E0E17; --card:#14141F; --card-2:#1A1A26; --line:#242433;
-    --text:#F2F2F7; --muted:#9A9AB0; --faint:#63637A;
-    --indigo:#7C6DFF; --indigo-2:#6656F5; --indigo-soft:rgba(124,109,255,.14);
-    --gold:#F5BE5E; --gold-ink:#F5BE5E; --gold-soft:rgba(245,190,94,.13);
-    --good:#3FC98F;
-    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-    --sans:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
-    --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
-    --maxw:1140px;
-  }
-  :root[data-theme="light"]{
-    --bg:#F4F3EF; --bg-2:#EFEEE8; --card:#FFFFFF; --card-2:#F7F6F1; --line:#E5E3DA;
-    --text:#181824; --muted:#5A5A70; --faint:#9A9AAB; --indigo:#5A48F5; --indigo-2:#4A38E8;
-    --gold:#B7791F; --gold-ink:#9A6614; --indigo-soft:rgba(90,72,245,.08); --gold-soft:rgba(183,121,31,.10);
-  }
-  *{ box-sizing:border-box; }
-  html{ scroll-behavior:smooth; }
-  @media (prefers-reduced-motion:reduce){ html{ scroll-behavior:auto; } }
-  body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); font-size:16px; line-height:1.6;
-    -webkit-font-smoothing:antialiased; overflow-x:hidden; transition:background .35s,color .35s; }
-  a{ color:inherit; text-decoration:none; }
-  ::selection{ background:var(--indigo); color:#fff; }
-  .wrap{ max-width:var(--maxw); margin:0 auto; padding:0 26px; }
-  .eyebrow{ font-family:var(--mono); font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); }
-  h1,h2,h3{ text-wrap:balance; letter-spacing:-0.03em; font-weight:750; }
-  .btn{ display:inline-flex; align-items:center; gap:8px; border-radius:12px; padding:13px 22px; font-weight:650; font-size:15px;
-    border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; transition:.18s; }
-  .btn:hover{ border-color:var(--indigo); transform:translateY(-1px); }
-  .btn.primary{ background:linear-gradient(180deg,var(--indigo),var(--indigo-2)); border-color:transparent; color:#fff;
-    box-shadow:0 6px 22px var(--indigo-soft), inset 0 1px 0 rgba(255,255,255,.2); }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 var(--sp-6); }
 
-  /* nav */
-  header.nav{ position:sticky; top:0; z-index:50; backdrop-filter:blur(14px);
-    background:color-mix(in srgb,var(--bg) 78%,transparent); border-bottom:1px solid var(--line); }
-  .nav-in{ display:flex; align-items:center; justify-content:space-between; height:66px; }
-  .brand{ display:flex; align-items:center; gap:11px; font-weight:750; letter-spacing:-0.035em; font-size:20px; }
-  .brand b{ color:var(--gold); }
-  .nlinks{ display:flex; gap:28px; align-items:center; }
-  .nlinks a{ font-size:14px; color:var(--muted); }
-  .nlinks a:hover{ color:var(--text); }
-  .nav-cta{ display:flex; align-items:center; gap:12px; }
-  .toggle{ width:38px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
-  @media (max-width:860px){ .nlinks{ display:none; } }
+  /* Masthead ala surat kabar */
+  header.mast{ border-bottom:3px double var(--rule-strong); position:sticky; top:0; z-index:50; background:var(--paper); }
+  .mast-in{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); height:68px; }
+  .mast .wm{ font-family:var(--font-display); font-size:26px; letter-spacing:-0.02em; display:flex; align-items:center; gap:var(--sp-3); }
+  .mast .wm b{ color:var(--gold-mark); font-weight:600; }
+  .mast nav{ display:flex; gap:var(--sp-6); }
+  .mast nav a{ font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--muted); }
+  .mast nav a:hover{ color:var(--ink); text-decoration:none; }
+  @media (max-width:860px){ .mast nav{ display:none; } }
 
-  /* hero */
-  .hero{ position:relative; overflow:hidden; padding:78px 0 70px; }
-  #field{ position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:.9; }
-  .hero .wrap{ position:relative; z-index:1; display:grid; grid-template-columns:1.15fr .85fr; gap:40px; align-items:center; }
-  @media (max-width:900px){ .hero .wrap{ grid-template-columns:1fr; } }
-  .pill{ display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--muted);
-    border:1px solid var(--line); border-radius:999px; padding:6px 13px; background:color-mix(in srgb,var(--card) 60%,transparent); }
-  .pill .dot{ width:7px; height:7px; border-radius:50%; background:var(--good); box-shadow:0 0 8px var(--good); }
-  .hero h1{ font-size:clamp(40px,6vw,68px); line-height:1.02; margin:20px 0 0; }
-  .hero h1 .g{ color:var(--gold); font-family:var(--serif); font-style:italic; font-weight:600; }
-  .hero .lede{ color:var(--muted); font-size:19px; margin:20px 0 0; max-width:44ch; }
-  .hero .cta{ display:flex; gap:12px; margin-top:30px; flex-wrap:wrap; }
-  .hero .microcopy{ margin-top:14px; font-family:var(--mono); font-size:12px; color:var(--faint); }
+  /* Hero — dua kolom: klaim + jawaban bersumber */
+  .hero{ padding:var(--sp-16) 0 var(--sp-12); border-bottom:1px solid var(--rule); }
+  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:var(--sp-12); align-items:start; }
+  @media (max-width:880px){ .hero-grid{ grid-template-columns:1fr; gap:var(--sp-8); } }
+  .hero h1{ font-size:var(--fs-5xl); line-height:1.02; margin:var(--sp-4) 0 0; }
+  .hero h1 em{ font-style:italic; color:var(--gold-ink); }
+  .hero .lede{ font-size:var(--fs-lg); line-height:var(--lh-read); color:var(--muted); margin-top:var(--sp-5); max-width:46ch; }
+  .hero .cta{ display:flex; gap:var(--sp-3); margin-top:var(--sp-6); flex-wrap:wrap; }
+  .hero .micro{ margin-top:var(--sp-4); }
 
-  /* hero product card */
-  .demo{ background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:0 24px 60px rgba(0,0,0,.4);
-    overflow:hidden; }
-  .demo .bar{ display:flex; gap:6px; padding:12px 14px; border-bottom:1px solid var(--line); background:var(--card-2); }
-  .demo .bar i{ width:11px; height:11px; border-radius:50%; background:var(--line); }
-  .demo .body{ padding:18px; display:flex; flex-direction:column; gap:10px; background:radial-gradient(80% 60% at 50% 0%,var(--indigo-soft),transparent 60%); }
-  .demo .m{ max-width:86%; padding:10px 13px; border-radius:13px; font-size:13.5px; line-height:1.5; }
-  .demo .m.u{ align-self:flex-end; background:linear-gradient(180deg,var(--indigo),var(--indigo-2)); color:#fff; border-bottom-right-radius:4px; }
-  .demo .m.a{ align-self:flex-start; background:var(--card-2); border:1px solid var(--line); border-bottom-left-radius:4px; }
-  .demo .cite{ display:inline-block; margin-top:7px; font-family:var(--mono); font-size:10px; color:var(--gold-ink);
-    border:1px solid color-mix(in srgb,var(--gold) 40%,transparent); background:var(--gold-soft); border-radius:6px; padding:1px 7px; }
-  .demo .inp{ display:flex; gap:8px; border-top:1px solid var(--line); padding:12px; }
-  .demo .inp .f{ flex:1; border:1px solid var(--line); border-radius:9px; padding:9px 11px; color:var(--faint); font-size:13px; background:var(--bg-2); }
-  .demo .inp .s{ width:38px; border-radius:9px; background:var(--indigo); display:grid; place-items:center; color:#fff; }
+  /* Kartu jawaban-bersumber (signature) */
+  .proof{ border:1px solid var(--rule-strong); border-radius:var(--rad-lg); background:var(--card); overflow:hidden; }
+  .proof .ph{ display:flex; justify-content:space-between; align-items:center; padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--rule); }
+  .proof .body{ padding:var(--sp-5); }
+  .proof .q{ font-weight:600; font-size:var(--fs-md); margin-bottom:var(--sp-4); }
+  .proof .a{ font-family:var(--font-display); font-size:var(--fs-xl); line-height:1.5; }
+  .typing::after{ content:"▌"; color:var(--gold-mark); animation:blink 1s step-end infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
 
-  /* trust */
-  .trust{ border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:26px 0; }
-  .trust .wrap{ display:flex; align-items:center; gap:30px; flex-wrap:wrap; justify-content:center; }
-  .trust .lbl{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
-  .trust .logo{ height:16px; width:96px; border-radius:5px; background:var(--card-2); border:1px solid var(--line); }
+  section.blk{ padding:var(--sp-16) 0; border-bottom:1px solid var(--rule); }
+  .sec-head{ margin-bottom:var(--sp-8); max-width:620px; }
+  .sec-head h2{ font-size:var(--fs-3xl); margin-top:var(--sp-3); }
+  .sec-head p{ color:var(--muted); margin-top:var(--sp-3); font-size:var(--fs-md); line-height:var(--lh-read); }
 
-  section{ padding:84px 0; }
-  .sec-head{ text-align:center; max-width:640px; margin:0 auto 52px; }
-  .sec-head h2{ font-size:clamp(28px,4.4vw,42px); margin:12px 0 0; }
-  .sec-head p{ color:var(--muted); margin:14px 0 0; font-size:17px; }
+  .grid{ display:grid; gap:var(--sp-4); }
+  .g3{ grid-template-columns:repeat(3,1fr); } .g4{ grid-template-columns:repeat(4,1fr); }
+  @media (max-width:880px){ .g3,.g4{ grid-template-columns:1fr; } }
 
-  .grid{ display:grid; gap:20px; }
-  .g3{ grid-template-columns:repeat(3,1fr); } .g2{ grid-template-columns:1fr 1fr; } .g4{ grid-template-columns:repeat(4,1fr); }
-  @media (max-width:900px){ .g3,.g2,.g4{ grid-template-columns:1fr; } }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:26px; }
-  .card .ic{ width:42px; height:42px; border-radius:12px; display:grid; place-items:center; margin-bottom:16px; }
-  .card h3{ font-size:19px; margin:0 0 8px; }
-  .card p{ color:var(--muted); margin:0; font-size:14.5px; }
+  /* Pilar — entri indeks, bukan icon-card */
+  .pillar{ border-top:2px solid var(--ink); padding-top:var(--sp-4); }
+  .pillar .no{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); }
+  .pillar h3{ font-size:var(--fs-xl); margin:var(--sp-2) 0; }
+  .pillar p{ color:var(--muted); font-size:var(--fs-sm); line-height:var(--lh-read); }
 
-  /* how it works */
-  .steps{ counter-reset:s; display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
-  @media (max-width:900px){ .steps{ grid-template-columns:1fr 1fr; } }
-  .step{ position:relative; padding:24px 20px; border:1px solid var(--line); border-radius:14px; background:var(--card); }
-  .step::before{ counter-increment:s; content:"0" counter(s); font-family:var(--mono); font-size:12px; color:var(--gold-ink); }
-  .step h4{ margin:10px 0 6px; font-size:16px; letter-spacing:-0.01em; }
-  .step p{ margin:0; color:var(--muted); font-size:13.5px; }
+  /* Cara kerja — daftar bernomor (proses nyata = penomoran sah) */
+  .steps{ counter-reset:s; display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1px solid var(--rule-strong); border-radius:var(--rad-md); overflow:hidden; }
+  @media (max-width:880px){ .steps{ grid-template-columns:1fr; } }
+  .step{ padding:var(--sp-5); border-right:1px solid var(--rule); background:var(--card); }
+  .step:last-child{ border-right:none; }
+  @media (max-width:880px){ .step{ border-right:none; border-bottom:1px solid var(--rule); } .step:last-child{ border-bottom:none; } }
+  .step::before{ counter-increment:s; content:counter(s,decimal-leading-zero); font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); }
+  .step h4{ font-size:var(--fs-md); margin:var(--sp-2) 0 var(--sp-2); }
+  .step p{ color:var(--muted); font-size:var(--fs-xs); line-height:1.6; }
 
-  /* feature split */
-  .feat{ display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:center; }
-  @media (max-width:900px){ .feat{ grid-template-columns:1fr; } }
+  /* Fitur split */
+  .feat{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-12); align-items:center; }
+  @media (max-width:880px){ .feat{ grid-template-columns:1fr; gap:var(--sp-6); } .feat.rev .txt{ order:0; } }
   .feat.rev .txt{ order:2; }
-  .feat .txt h2{ font-size:clamp(26px,3.6vw,36px); margin:10px 0 0; }
-  .feat .txt p{ color:var(--muted); font-size:16px; margin:16px 0 0; }
-  .feat .txt ul{ margin:18px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
-  .feat .txt li{ display:flex; gap:10px; align-items:flex-start; font-size:14.5px; }
-  .feat .txt li .chk{ color:var(--good); font-weight:700; }
-  .visual{ border:1px solid var(--line); border-radius:16px; background:var(--card); padding:22px; box-shadow:0 16px 44px rgba(0,0,0,.3); }
-  .codebox{ font-family:var(--mono); font-size:12.5px; background:var(--bg-2); border:1px solid var(--line); border-radius:12px; padding:16px; line-height:1.8; color:var(--muted); overflow-x:auto; }
-  .codebox .ac{ color:var(--indigo); } .codebox .go{ color:var(--gold-ink); } .codebox .cm{ color:var(--faint); }
-  .modelchips{ display:flex; flex-wrap:wrap; gap:9px; }
-  .mchip{ font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:999px; padding:6px 12px; color:var(--muted); background:var(--card-2); }
-  .mchip.on{ color:#fff; background:linear-gradient(180deg,var(--indigo),var(--indigo-2)); border-color:transparent; }
+  .feat h2{ font-size:var(--fs-2xl); margin-top:var(--sp-3); }
+  .feat .txt p{ color:var(--muted); margin-top:var(--sp-4); line-height:var(--lh-read); }
+  .checklist{ margin:var(--sp-5) 0 0; padding:0; list-style:none; }
+  .checklist li{ display:flex; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--rule); font-size:var(--fs-sm); }
+  .checklist li:last-child{ border-bottom:none; }
+  .checklist .tick{ color:var(--good); font-weight:700; }
+  .codecard{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-5); }
+  .codebox{ font-family:var(--font-mono); font-size:var(--fs-xs); background:var(--sunken); border:1px solid var(--rule);
+    border-radius:var(--rad-sm); padding:var(--sp-4); line-height:1.9; color:var(--muted); overflow-x:auto; }
+  .codebox .k{ color:var(--indigo); } .codebox .v{ color:var(--gold-ink); } .codebox .c{ color:var(--faint); }
+  .mchips{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
+  .mchip{ font-family:var(--font-mono); font-size:var(--fs-xs); border:1px solid var(--rule-strong); border-radius:var(--rad-xs);
+    padding:5px 11px; color:var(--muted); background:var(--card-2); }
+  .mchip.on{ background:var(--indigo); border-color:var(--indigo); color:var(--on-indigo); }
 
-  /* pricing */
-  .price{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; align-items:start; }
-  @media (max-width:900px){ .price{ grid-template-columns:1fr; } }
-  .tier{ border:1px solid var(--line); border-radius:18px; padding:28px; background:var(--card); }
-  .tier.pop{ border-color:var(--indigo); box-shadow:0 0 0 1px var(--indigo), 0 20px 50px var(--indigo-soft); position:relative; }
-  .tier.pop .tag{ position:absolute; top:-12px; left:28px; background:var(--gold); color:#1a1207; font-family:var(--mono); font-size:11px;
-    padding:4px 10px; border-radius:999px; font-weight:700; }
-  .tier .name{ font-family:var(--mono); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
-  .tier .amt{ font-size:40px; font-weight:750; letter-spacing:-0.03em; margin:12px 0 2px; }
-  .tier .amt small{ font-size:15px; color:var(--muted); font-weight:500; }
-  .tier ul{ list-style:none; margin:20px 0 24px; padding:0; display:flex; flex-direction:column; gap:11px; }
-  .tier li{ font-size:14px; color:var(--muted); display:flex; gap:9px; }
-  .tier li .chk{ color:var(--indigo); font-weight:700; }
+  /* Harga — tarif ledger */
+  .tiers{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-4); align-items:start; }
+  @media (max-width:880px){ .tiers{ grid-template-columns:1fr; } }
+  .tier{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-6); }
+  .tier.pop{ border-color:var(--ink); border-width:2px; position:relative; }
+  .tier.pop .flag{ position:absolute; top:-11px; left:var(--sp-6); background:var(--gold-mark); color:#1B1207;
+    font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps); padding:3px 10px; border-radius:var(--rad-xs); font-weight:700; }
+  .tier .amt{ font-family:var(--font-display); font-size:40px; letter-spacing:-0.02em; margin:var(--sp-3) 0 2px; }
+  .tier .amt small{ font-family:var(--wl-font); font-size:var(--fs-sm); color:var(--muted); }
+  .tier ul{ list-style:none; margin:var(--sp-4) 0 var(--sp-5); padding:0; }
+  .tier li{ display:flex; gap:var(--sp-2); padding:7px 0; border-bottom:1px solid var(--rule); font-size:var(--fs-sm); color:var(--muted); }
+  .tier li:last-child{ border-bottom:none; }
+  .tier .tick{ color:var(--indigo); font-weight:700; }
 
-  /* CTA */
-  .final{ text-align:center; border:1px solid var(--line); border-radius:24px; padding:64px 26px;
-    background:radial-gradient(90% 120% at 50% 0%, var(--indigo-soft), transparent 60%), var(--card); }
-  .final h2{ font-size:clamp(30px,5vw,46px); margin:0; }
-  .final p{ color:var(--muted); font-size:18px; margin:16px auto 0; max-width:48ch; }
+  /* Final CTA */
+  .colophon{ text-align:center; padding:var(--sp-16) var(--sp-6); border:1px solid var(--rule-strong); border-radius:var(--rad-lg); background:var(--card); }
+  .colophon h2{ font-size:var(--fs-3xl); }
+  .colophon p{ color:var(--muted); font-size:var(--fs-md); margin:var(--sp-4) auto 0; max-width:46ch; line-height:var(--lh-read); }
 
-  footer{ border-top:1px solid var(--line); padding:44px 0; margin-top:80px; color:var(--muted); }
-  .foot-in{ display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; align-items:center; }
-  .foot-in .mono{ font-family:var(--mono); font-size:12.5px; }
+  footer{ padding:var(--sp-10) 0; }
+  .foot{ display:flex; justify-content:space-between; gap:var(--sp-4); flex-wrap:wrap; align-items:center;
+    border-top:3px double var(--rule-strong); padding-top:var(--sp-6); }
 </style>
 </head>
 <body>
 
-<template id="mark">
-  <svg width="34" height="34" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="12" fill="#14141F" stroke="#2A2A3D"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="#7C6DFF" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="#7C6DFF"/><circle cx="13" cy="24" r="3" fill="#7C6DFF"/><circle cx="13" cy="33" r="3" fill="#7C6DFF"/><circle cx="34" cy="24" r="5.5" fill="#F5BE5E"/></svg>
-</template>
-
-<header class="nav">
-  <div class="wrap nav-in">
-    <div class="brand"><span id="m1"></span> nalar<b>.</b></div>
-    <nav class="nlinks">
-      <a href="#fitur">Fitur</a><a href="#cara">Cara kerja</a><a href="#model">Model</a><a href="#harga">Harga</a>
-      <a href="idea.html">Docs</a>
+<header class="mast">
+  <div class="wrap mast-in">
+    <div class="wm">
+      <svg width="30" height="30" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
+      Nalar<b>.</b>
+    </div>
+    <nav>
+      <a href="#pilar">Kenapa</a><a href="#cara">Cara kerja</a><a href="#model">Model</a><a href="#harga">Harga</a><a href="idea.html">Docs</a>
     </nav>
-    <div class="nav-cta">
-      <button class="toggle" id="themeBtn" aria-label="Tema">◐</button>
-      <a class="btn" href="auth-mockup.html" style="padding:9px 16px;font-size:14px;">Masuk</a>
-      <a class="btn primary" href="auth-mockup.html" style="padding:9px 16px;font-size:14px;">Mulai gratis</a>
+    <div class="cluster gap-2">
+      <button class="icon-btn" id="themeBtn" aria-label="Tema" style="width:38px;height:36px;">◐</button>
+      <a class="btn btn-sm" href="auth-mockup.html">Masuk</a>
+      <a class="btn btn-primary btn-sm" href="auth-mockup.html">Mulai gratis</a>
     </div>
   </div>
 </header>
 
 <!-- HERO -->
 <section class="hero">
-  <canvas id="field" aria-hidden="true"></canvas>
-  <div class="wrap">
+  <div class="wrap hero-grid">
     <div>
-      <span class="pill"><span class="dot"></span> RAG multi-tenant · SaaS &amp; on-prem</span>
-      <h1>Chatbot yang jawabannya <span class="g">bisa ditelusuri.</span></h1>
-      <p class="lede">Pilih model apa pun, hubungkan Google Drive-mu sendiri, dan sematkan chatbot di website mana pun. Setiap jawaban dikutip dari dokumenmu — dan tetap terisolasi per tenant.</p>
+      <span class="kicker">RAG multi-tenant · SaaS &amp; on-prem · white-label</span>
+      <h1>Chatbot yang jawabannya <em>bisa ditelusuri.</em></h1>
+      <p class="lede">Hubungkan Google Drive-mu, pilih model apa pun, sematkan di website mana pun. Setiap jawaban dikutip dari dokumenmu — dengan catatan kaki, seperti terbitan yang baik.</p>
       <div class="cta">
-        <a class="btn primary" href="auth-mockup.html">Mulai gratis <span aria-hidden="true">→</span></a>
-        <a class="btn" href="embed-demo.html">Lihat demo widget</a>
+        <a class="btn btn-primary btn-lg" href="auth-mockup.html">Mulai gratis</a>
+        <a class="btn btn-lg" href="embed-demo.html">Lihat demo widget</a>
       </div>
-      <div class="microcopy">Tanpa kartu kredit · &lt;script&gt; satu baris · isolasi RLS bawaan</div>
+      <p class="marginalia micro">tanpa kartu kredit · &lt;script&gt; satu baris · isolasi RLS bawaan</p>
     </div>
-    <!-- product/chat preview -->
-    <div class="demo">
-      <div class="bar"><i></i><i></i><i></i></div>
+
+    <!-- signature proof card -->
+    <div class="proof">
+      <div class="ph"><span class="kicker">Support Bot · live</span><span class="badge badge-ok"><span class="dot"></span>sourced</span></div>
       <div class="body">
-        <div class="m u">Berapa lama garansi produk Pro?</div>
-        <div class="m a">Garansi produk Pro adalah <b>24 bulan</b> sejak pembelian.<br><span class="cite">[1] kebijakan-garansi.pdf</span></div>
-        <div class="m u">Kalau rusak karena air?</div>
-        <div class="m a">Kerusakan cairan tidak tercakup garansi standar.<br><span class="cite">[2] syarat-layanan.pdf</span></div>
+        <div class="q">Berapa lama garansi produk Pro?</div>
+        <div class="a" id="typeTarget"></div>
+        <ul class="footnotes" id="fns" style="visibility:hidden;">
+          <li><b>1.</b> kebijakan-garansi.pdf — hlm. 3 · <span class="source-tag">gdrive</span></li>
+          <li><b>2.</b> syarat-layanan.pdf — §4.2 · <span class="source-tag">sharepoint</span></li>
+        </ul>
       </div>
-      <div class="inp"><div class="f">Tulis pesan…</div><div class="s">→</div></div>
     </div>
   </div>
 </section>
 
-<!-- TRUST -->
-<div class="trust"><div class="wrap">
-  <span class="lbl">Dipercaya tim yang menghargai jawaban bersumber</span>
-  <span class="logo"></span><span class="logo"></span><span class="logo"></span><span class="logo"></span>
-</div></div>
-
-<!-- FITUR / PILLARS -->
-<section id="fitur"><div class="wrap">
-  <div class="sec-head"><span class="eyebrow">Kenapa Nalar</span><h2>Penalaran yang membumi, bukan tebakan meyakinkan.</h2><p>Tiga hal yang membuat Nalar berbeda dari chatbot biasa.</p></div>
-  <div class="grid g3">
-    <div class="card"><div class="ic" style="background:var(--indigo-soft)"><svg width="20" height="20" viewBox="0 0 24 24" fill="#7C6DFF"><path d="M5 3h11a3 3 0 013 3v14l-4-2-3 1.5L9 19l-4 2V5a2 2 0 012-2z"/></svg></div><h3>Bersumber</h3><p>Setiap jawaban ditarik dari dokumenmu dan dikutip inline [1][2]. Tidak ada halusinasi tanpa sumber.</p></div>
-    <div class="card"><div class="ic" style="background:var(--gold-soft)"><svg width="20" height="20" viewBox="0 0 24 24" fill="#F5BE5E"><path d="M12 2l3 6 6 .9-4.5 4.3 1 6.1L12 17l-5.5 2.3 1-6.1L3 8.9 9 8z"/></svg></div><h3>Terisolasi</h3><p>Tiap tenant terkurung Row-Level Security di database. Basis pengetahuan mustahil bocor antar tenant.</p></div>
-    <div class="card"><div class="ic" style="background:rgba(53,198,174,.16)"><svg width="20" height="20" viewBox="0 0 24 24" fill="#35C6AE"><path d="M4 5h16v3H4zM4 10h16v3H4zM4 15h10v3H4z"/></svg></div><h3>Terbuka</h3><p>Pilih model embedding &amp; LLM apa pun — lokal 80MB, 2GB, atau API. Ganti kapan saja dari Settings.</p></div>
+<!-- PILAR -->
+<section class="blk" id="pilar">
+  <div class="wrap">
+    <div class="sec-head"><span class="kicker">Kenapa Nalar</span><h2>Penalaran yang membumi, bukan tebakan yang meyakinkan.</h2></div>
+    <div class="grid g3">
+      <div class="pillar"><span class="no">I</span><h3>Bersumber</h3><p>Setiap jawaban ditarik dari dokumenmu dan diberi catatan kaki<span class="cite">n</span> yang bisa diklik. Tidak ada klaim tanpa sumber.</p></div>
+      <div class="pillar"><span class="no">II</span><h3>Terisolasi</h3><p>Tiap tenant dikurung Row-Level Security di database. Basis pengetahuan mustahil bocor antar tenant — dijamin mesin, bukan janji.</p></div>
+      <div class="pillar"><span class="no">III</span><h3>Terbuka &amp; milikmu</h3><p>Model apa pun — lokal 80MB/2GB atau API. White-label penuh: logo, warna, radius, huruf. On-prem bila perlu.</p></div>
+    </div>
   </div>
-</div></section>
+</section>
 
 <!-- CARA KERJA -->
-<section id="cara" style="background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);"><div class="wrap">
-  <div class="sec-head"><span class="eyebrow">Cara kerja</span><h2>Dari dokumen ke jawaban dalam 4 langkah.</h2></div>
-  <div class="steps">
-    <div class="step"><h4>Hubungkan sumber</h4><p>Sambungkan Google Drive / SharePoint milikmu, atau unggah file.</p></div>
-    <div class="step"><h4>Pilih model</h4><p>Tentukan 1 model embedding &amp; 1 LLM aktif dari semua provider.</p></div>
-    <div class="step"><h4>Sematkan widget</h4><p>Tempel &lt;script&gt; satu baris ke website mana pun.</p></div>
-    <div class="step"><h4>Jawab &amp; kutip</h4><p>Pengunjung bertanya; Nalar menjawab dari KB-mu dengan sitasi.</p></div>
+<section class="blk" id="cara" style="background:var(--paper-2);">
+  <div class="wrap">
+    <div class="sec-head"><span class="kicker">Cara kerja</span><h2>Dari dokumen ke jawaban dalam empat langkah.</h2></div>
+    <div class="steps">
+      <div class="step"><h4>Hubungkan sumber</h4><p>Google Drive, OneDrive, SharePoint milikmu — atau unggah file.</p></div>
+      <div class="step"><h4>Pilih model</h4><p>Satu model embedding &amp; satu LLM aktif, dari semua provider.</p></div>
+      <div class="step"><h4>Sematkan widget</h4><p>Satu baris &lt;script&gt; di website mana pun. API key tetap di server.</p></div>
+      <div class="step"><h4>Jawab &amp; kutip</h4><p>Pengunjung bertanya; Nalar menjawab dari KB-mu, lengkap dengan catatan kaki.</p></div>
+    </div>
   </div>
-</div></section>
+</section>
 
 <!-- FEATURE: EMBED -->
-<section><div class="wrap">
-  <div class="feat">
+<section class="blk">
+  <div class="wrap feat">
     <div class="txt">
-      <span class="eyebrow">Embed di mana saja</span>
+      <span class="kicker">Embed di mana saja</span>
       <h2>Satu ID chatbot, satu knowledge base.</h2>
-      <p>Setiap chatbot punya <b>public key</b> sendiri. Tempel di situs mana pun; respons streaming token-per-token. ID berbeda = pengetahuan berbeda, terisolasi.</p>
-      <ul>
-        <li><span class="chk">✓</span> Origin allow-list per chatbot</li>
-        <li><span class="chk">✓</span> Warna &amp; sapaan bisa dikustom</li>
-        <li><span class="chk">✓</span> Streaming SSE, riwayat tersimpan</li>
+      <p>Setiap chatbot punya <b>public key</b> sendiri. Tempel di situs mana pun; respons mengalir kata demi kata. ID berbeda berarti pengetahuan berbeda — terisolasi sepenuhnya.</p>
+      <ul class="checklist">
+        <li><span class="tick">✓</span> Origin allow-list per chatbot</li>
+        <li><span class="tick">✓</span> White-label: warna, radius, huruf, logo</li>
+        <li><span class="tick">✓</span> API key server-to-server — tak pernah menyentuh browser</li>
       </ul>
     </div>
-    <div class="visual">
-      <div class="codebox"><span class="cm">&lt;!-- tempel di website mana pun --&gt;</span>
-&lt;<span class="ac">script</span>
-  src=<span class="go">"https://app.nalar.id/embed.js"</span>
-  data-chatbot=<span class="go">"cb_live_9f2a…c1"</span>
-  data-color=<span class="go">"#7C6DFF"</span>&gt;
-&lt;/<span class="ac">script</span>&gt;</div>
+    <div class="codecard">
+      <div class="kicker" style="margin-bottom:var(--sp-3);">pasang di situs pelanggan</div>
+      <div class="codebox"><span class="c">&lt;!-- satu baris, selesai --&gt;</span>
+&lt;<span class="k">script</span>
+  src=<span class="v">"https://app.nalar.id/embed.js"</span>
+  data-chatbot=<span class="v">"cb_live_9f2a…c1"</span>&gt;
+&lt;/<span class="k">script</span>&gt;</div>
     </div>
   </div>
-</div></section>
+</section>
 
 <!-- FEATURE: MODELS -->
-<section id="model" style="background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);"><div class="wrap">
-  <div class="feat rev">
-    <div class="visual">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;">LLM aktif</div>
-      <div class="modelchips" style="margin-bottom:20px;">
+<section class="blk" id="model" style="background:var(--paper-2);">
+  <div class="wrap feat rev">
+    <div class="codecard">
+      <div class="kicker" style="margin-bottom:var(--sp-3);">LLM aktif — pilih satu</div>
+      <div class="mchips" style="margin-bottom:var(--sp-5);">
         <span class="mchip on">Claude Sonnet 5</span><span class="mchip">GPT-5.6 Sol</span><span class="mchip">Gemini 3.5</span><span class="mchip">Grok 4</span><span class="mchip">DeepSeek</span>
       </div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;">Embedding</div>
-      <div class="modelchips">
+      <div class="kicker" style="margin-bottom:var(--sp-3);">Embedding — 80MB / 2GB / API</div>
+      <div class="mchips">
         <span class="mchip">MiniLM ~80MB</span><span class="mchip on">BGE-M3 ~2GB</span><span class="mchip">OpenAI API</span><span class="mchip">Cohere v4</span>
       </div>
     </div>
     <div class="txt">
-      <span class="eyebrow">Semua provider</span>
-      <h2>Model apa pun. Kamu yang pilih.</h2>
-      <p>Model terbaru dari Anthropic, OpenAI, Google, xAI, DeepSeek, Cohere &amp; lainnya. Embedding lokal 80MB / 2GB untuk on-prem, atau API. Satu aktif per tenant, ganti kapan saja.</p>
-      <ul>
-        <li><span class="chk">✓</span> API key tersimpan terenkripsi (AES-256)</li>
-        <li><span class="chk">✓</span> Embedding lokal untuk air-gapped</li>
-        <li><span class="chk">✓</span> Katalog selalu diperbarui</li>
+      <span class="kicker">Semua provider</span>
+      <h2>Model apa pun. Kamu yang memilih.</h2>
+      <p>Model terbaru Anthropic, OpenAI, Google, xAI, DeepSeek, Cohere. Embedding lokal untuk on-prem yang terputus internet, atau API untuk kualitas maksimum. Ganti kapan saja dari Settings.</p>
+      <ul class="checklist">
+        <li><span class="tick">✓</span> API key tersimpan terenkripsi (AES-256)</li>
+        <li><span class="tick">✓</span> File model di-host terpusat, diunduh sekali</li>
+        <li><span class="tick">✓</span> Memory Agent: peta pengetahuan ala Obsidian</li>
       </ul>
     </div>
   </div>
-</div></section>
+</section>
 
 <!-- HARGA -->
-<section id="harga"><div class="wrap">
-  <div class="sec-head"><span class="eyebrow">Harga</span><h2>Mulai gratis. Skala saat siap.</h2><p>SaaS bulanan, atau lisensi on-prem sekali bayar.</p></div>
-  <div class="price">
-    <div class="tier">
-      <div class="name">Starter</div>
-      <div class="amt">Rp0<small>/bln</small></div>
-      <ul><li><span class="chk">✓</span> 1 chatbot</li><li><span class="chk">✓</span> Embedding lokal 80MB</li><li><span class="chk">✓</span> 1.000 pesan/bln</li><li><span class="chk">✓</span> Riwayat 7 hari</li></ul>
-      <a class="btn" href="auth-mockup.html" style="width:100%;justify-content:center;">Mulai gratis</a>
-    </div>
-    <div class="tier pop">
-      <span class="tag">POPULER</span>
-      <div class="name">Pro</div>
-      <div class="amt">Rp490k<small>/bln</small></div>
-      <ul><li><span class="chk">✓</span> 10 chatbot</li><li><span class="chk">✓</span> Semua model + API keys</li><li><span class="chk">✓</span> 50.000 pesan/bln</li><li><span class="chk">✓</span> Drive/SharePoint sync</li><li><span class="chk">✓</span> Riwayat penuh</li></ul>
-      <a class="btn primary" href="auth-mockup.html" style="width:100%;justify-content:center;">Coba Pro</a>
-    </div>
-    <div class="tier">
-      <div class="name">On-Prem</div>
-      <div class="amt">Custom</div>
-      <ul><li><span class="chk">✓</span> Chatbot tak terbatas</li><li><span class="chk">✓</span> Air-gapped, data milikmu</li><li><span class="chk">✓</span> Embedding 2GB lokal</li><li><span class="chk">✓</span> Deploy docker 1 perintah</li><li><span class="chk">✓</span> SLA &amp; dukungan</li></ul>
-      <a class="btn" href="#" style="width:100%;justify-content:center;">Hubungi kami</a>
+<section class="blk" id="harga">
+  <div class="wrap">
+    <div class="sec-head"><span class="kicker">Tarif</span><h2>Mulai gratis. Naikkan saat siap.</h2></div>
+    <div class="tiers">
+      <div class="tier">
+        <span class="kicker">Starter</span>
+        <div class="amt">Rp0<small>/bln</small></div>
+        <ul><li><span class="tick">✓</span> 1 chatbot</li><li><span class="tick">✓</span> Embedding lokal 80MB</li><li><span class="tick">✓</span> 1.000 pesan/bln</li><li><span class="tick">✓</span> Riwayat 7 hari</li></ul>
+        <a class="btn" href="auth-mockup.html" style="width:100%;">Mulai gratis</a>
+      </div>
+      <div class="tier pop">
+        <span class="flag">Populer</span>
+        <span class="kicker">Pro</span>
+        <div class="amt">Rp490k<small>/bln</small></div>
+        <ul><li><span class="tick">✓</span> 10 chatbot</li><li><span class="tick">✓</span> Semua model + API keys</li><li><span class="tick">✓</span> 50.000 pesan/bln</li><li><span class="tick">✓</span> Drive/SharePoint sync</li><li><span class="tick">✓</span> White-label penuh</li></ul>
+        <a class="btn btn-primary" href="auth-mockup.html" style="width:100%;">Coba Pro</a>
+      </div>
+      <div class="tier">
+        <span class="kicker">On-prem</span>
+        <div class="amt">Custom</div>
+        <ul><li><span class="tick">✓</span> Chatbot tak terbatas</li><li><span class="tick">✓</span> Air-gapped, data milikmu</li><li><span class="tick">✓</span> Embedding 2GB lokal</li><li><span class="tick">✓</span> Docker satu perintah</li><li><span class="tick">✓</span> SLA &amp; dukungan</li></ul>
+        <a class="btn" href="#" style="width:100%;">Hubungi kami</a>
+      </div>
     </div>
   </div>
-</div></section>
+</section>
 
 <!-- FINAL CTA -->
-<section><div class="wrap">
-  <div class="final">
-    <span class="eyebrow">Siap mencoba?</span>
-    <h2>Jadikan dokumenmu bisa menjawab.</h2>
-    <p>Pasang chatbot pertamamu dalam hitungan menit — setiap jawaban bersumber, setiap tenant terisolasi.</p>
-    <div style="margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <a class="btn primary" href="auth-mockup.html">Mulai gratis</a>
-      <a class="btn" href="idea.html">Baca dokumentasi</a>
+<section class="blk" style="border-bottom:none;">
+  <div class="wrap">
+    <div class="colophon">
+      <span class="kicker">Siap mencoba?</span>
+      <h2>Jadikan dokumenmu bisa menjawab.</h2>
+      <p>Pasang chatbot pertamamu dalam hitungan menit — setiap jawaban bersumber, setiap tenant terisolasi.</p>
+      <div class="cluster" style="justify-content:center; margin-top:var(--sp-6);">
+        <a class="btn btn-primary btn-lg" href="auth-mockup.html">Mulai gratis</a>
+        <a class="btn btn-lg" href="idea.html">Baca dokumentasi</a>
+      </div>
     </div>
   </div>
-</div></section>
+</section>
 
-<footer><div class="wrap foot-in">
-  <div class="brand" style="font-size:17px;"><span id="m2"></span> nalar<b>.</b></div>
-  <div class="mono">© 2026 Nalar · by Sainskerta · Reasoning, sourced.</div>
-</div></footer>
+<footer>
+  <div class="wrap foot">
+    <div class="wm" style="font-family:var(--font-display);font-size:20px;">Nalar<b style="color:var(--gold-mark)">.</b></div>
+    <span class="marginalia">© 2026 Nalar · by Sainskerta · Reasoning, sourced.</span>
+  </div>
+</footer>
 
 <script>
-  (function(){ var t=document.getElementById('mark'); ['m1','m2'].forEach(function(id){ var h=document.getElementById(id); if(h) h.appendChild(t.content.cloneNode(true)); }); })();
-  (function(){ var r=document.documentElement; document.getElementById('themeBtn').addEventListener('click',function(){ r.setAttribute('data-theme', r.getAttribute('data-theme')==='light'?'dark':'light'); }); })();
-  // retrieval-field hero
+  document.getElementById('themeBtn').addEventListener('click', function(){
+    var r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
+  });
+  // Streaming jawaban di proof card (hormati reduced-motion)
   (function(){
-    var c=document.getElementById('field'), ctx=c.getContext('2d');
-    var reduce=window.matchMedia('(prefers-reduced-motion:reduce)').matches, nodes=[], W,H,DPR;
-    function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
-    function resize(){ DPR=Math.min(window.devicePixelRatio||1,2); var r=c.getBoundingClientRect(); W=r.width;H=r.height;
-      c.width=W*DPR;c.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0); seed(); }
-    function seed(){ nodes=[]; var n=Math.max(12,Math.floor(W/60)); for(var i=0;i<n;i++) nodes.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,r:1+Math.random()*1.6}); }
-    function frame(){ ctx.clearRect(0,0,W,H); var ind=css('--indigo')||'#7C6DFF', gold=css('--gold')||'#F5BE5E';
-      var fx=W*0.82, fy=H*0.34;
-      for(var i=0;i<nodes.length;i++){ var p=nodes[i]; if(!reduce){p.x+=p.vx;p.y+=p.vy;} if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
-        var d=Math.hypot(p.x-fx,p.y-fy), a=Math.max(0,1-d/(W*.5));
-        if(a>.02){ ctx.strokeStyle=ind; ctx.globalAlpha=a*.22; ctx.lineWidth=1; ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(fx,fy);ctx.stroke(); }
-        ctx.globalAlpha=.4; ctx.fillStyle=ind; ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,6.29);ctx.fill(); }
-      ctx.globalAlpha=1; var g=ctx.createRadialGradient(fx,fy,0,fx,fy,24); g.addColorStop(0,gold); g.addColorStop(1,'transparent');
-      ctx.fillStyle=g; ctx.beginPath();ctx.arc(fx,fy,24,0,6.29);ctx.fill(); ctx.fillStyle=gold; ctx.beginPath();ctx.arc(fx,fy,4.5,0,6.29);ctx.fill();
-      if(!reduce) requestAnimationFrame(frame); }
-    window.addEventListener('resize',resize); resize(); frame();
+    var el=document.getElementById('typeTarget'), fns=document.getElementById('fns');
+    var html='Garansi produk Pro adalah <strong>24 bulan</strong> sejak tanggal pembelian, mencakup cacat produksi.<span class="cite">1</span> Kerusakan akibat cairan tidak tercakup garansi standar.<span class="cite">2</span>';
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches){ el.innerHTML=html; fns.style.visibility='visible'; return; }
+    var txt='Garansi produk Pro adalah 24 bulan sejak tanggal pembelian, mencakup cacat produksi.';
+    var i=0; el.classList.add('typing');
+    var t=setInterval(function(){
+      el.textContent = txt.slice(0, ++i);
+      if (i>=txt.length){ clearInterval(t); el.classList.remove('typing'); el.innerHTML=html; fns.style.visibility='visible'; }
+    }, 22);
   })();
 </script>
 </body>

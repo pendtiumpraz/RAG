@@ -1,235 +1,129 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nalar — Dashboard Mockup (High-Fidelity)</title>
+<title>Nalar — Console · Editorial Ledger</title>
+<link rel="stylesheet" href="nalar-ds.css" />
 <style>
-  /* ═══════════════════════════════════════════════════════════════
-     NALAR CONSOLE — Hybrid (D3): struktur Sainskerta + warna Nalar.
-     Dark-first, premium. Indigo = interaktif. Gold = sumber/sitasi (hemat).
-     ═══════════════════════════════════════════════════════════════ */
-  :root[data-theme="dark"]{
-    --bg:#0A0A11; --bg-2:#0E0E16; --panel:#12121C; --card:#16161F; --card-2:#1B1B26;
-    --line:#242433; --line-soft:#1D1D28; --hair: rgba(255,255,255,.04);
-    --text:#F2F2F7; --muted:#9A9AB0; --faint:#5E5E74;
-    --indigo:#7C6DFF; --indigo-2:#6656F5; --indigo-soft:rgba(124,109,255,.15); --indigo-line:rgba(124,109,255,.35);
-    --gold:#F5BE5E; --gold-ink:#F5BE5E; --gold-soft:rgba(245,190,94,.14); --gold-line:rgba(245,190,94,.32);
-    --good:#3FC98F; --good-soft:rgba(63,201,143,.14); --danger:#F2555A; --warn:#EFA24E;
-    --sb:#0C0C14; --sb-2:#10101A; --sb-line:#20202D; --sb-text:#A6A6BC; --sb-active:#FFFFFF;
-    --shadow:0 1px 0 rgba(255,255,255,.03), 0 2px 8px rgba(0,0,0,.35), 0 16px 40px rgba(0,0,0,.30);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.3);
-    --ring:0 0 0 3px var(--indigo-soft);
-  }
-  :root[data-theme="light"]{
-    --bg:#F3F2EE; --bg-2:#EEEDE7; --panel:#FBFAF7; --card:#FFFFFF; --card-2:#F7F6F1;
-    --line:#E6E4DB; --line-soft:#EEECE4; --hair: rgba(0,0,0,.02);
-    --text:#191924; --muted:#63637A; --faint:#9A9AAB;
-    --indigo:#5A48F5; --indigo-2:#4A38E8; --indigo-soft:rgba(90,72,245,.10); --indigo-line:rgba(90,72,245,.28);
-    --gold:#B7791F; --gold-ink:#9A6614; --gold-soft:rgba(183,121,31,.12); --gold-line:rgba(183,121,31,.30);
-    --good:#1F9D6B; --good-soft:rgba(31,157,107,.12); --danger:#DC3B41; --warn:#C77A22;
-    --sb:#0D0D16; --sb-2:#12121C; --sb-line:#22222F; --sb-text:#AFAFC4; --sb-active:#FFFFFF;
-    --shadow:0 1px 2px rgba(20,20,40,.05), 0 8px 24px rgba(20,20,40,.06);
-    --shadow-sm:0 1px 2px rgba(20,20,40,.06);
-    --ring:0 0 0 3px var(--indigo-soft);
-  }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; height:100%; }
-  body{ background:var(--bg); color:var(--text); font-size:14px; line-height:1.55;
-    font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
-    -webkit-font-smoothing:antialiased; transition:background .35s, color .35s;
-    background-image: radial-gradient(120% 90% at 100% 0%, var(--indigo-soft), transparent 55%); background-attachment:fixed; }
-  :root[data-theme="light"] body{ background-image: radial-gradient(120% 90% at 100% 0%, rgba(90,72,245,.06), transparent 55%); }
-  a{ color:inherit; text-decoration:none; }
-  ::selection{ background:var(--indigo); color:#fff; }
-  :focus-visible{ outline:none; box-shadow:var(--ring); border-radius:8px; }
-  .mono{ font-family:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace; }
-  .tnum{ font-variant-numeric:tabular-nums; }
+  /* ── App shell (layout only; look datang dari nalar-ds.css) ─────────── */
+  .app{ display:grid; grid-template-columns:250px 1fr; min-height:100vh; }
+  @media (max-width:920px){ .app{ grid-template-columns:1fr; } }
 
-  .app{ display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
-
-  /* ── Sidebar ── */
-  .sidebar{ background:linear-gradient(180deg,var(--sb),var(--sb-2)); color:var(--sb-text);
-    display:flex; flex-direction:column; padding:18px 14px; position:sticky; top:0; height:100vh;
-    border-right:1px solid var(--sb-line); }
-  .brand{ display:flex; align-items:center; gap:11px; padding:6px 8px 20px; }
-  .brand .logo{ width:32px; height:32px; border-radius:9px; flex:none; }
-  .brand .wm{ font-weight:750; letter-spacing:-0.035em; font-size:19px; color:#fff; }
-  .brand .wm b{ color:var(--gold); }
-  .nav-label{ font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.18em; text-transform:uppercase;
-    color:var(--faint); padding:0 10px 8px; }
-  .nav{ display:flex; flex-direction:column; gap:3px; }
-  .nav-item{ display:flex; align-items:center; gap:12px; padding:10px 11px; border-radius:11px;
-    color:var(--sb-text); font-size:13.5px; font-weight:500; cursor:pointer; position:relative;
-    transition:background .16s, color .16s; }
-  .nav-item svg{ width:19px; height:19px; flex:none; opacity:.62; transition:opacity .16s, transform .16s; }
-  .nav-item:hover{ background:rgba(255,255,255,.05); color:#E9E9F3; }
-  .nav-item:hover svg{ opacity:.9; }
-  .nav-item.active{ background:rgba(255,255,255,.07); color:var(--sb-active); font-weight:600; }
-  .nav-item.active svg{ opacity:1; }
-  .nav-item.active::before{ content:""; position:absolute; left:-14px; top:50%; transform:translateY(-50%);
-    width:3px; height:22px; border-radius:0 3px 3px 0; background:currentColor; opacity:.9; }
-  .side-foot{ margin-top:auto; border-top:1px solid var(--sb-line); padding-top:14px; margin-top:auto;
-    display:flex; align-items:center; gap:11px; }
-  .side-foot .av{ width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--indigo),var(--gold)); flex:none; box-shadow:var(--shadow-sm); }
-  .side-foot .who{ font-size:12.5px; line-height:1.35; color:#D6D6E4; }
-  .side-foot .who small{ color:var(--faint); display:block; font-size:11px; }
-
-  /* ── Topbar ── */
-  .main{ display:flex; flex-direction:column; min-width:0; }
-  .topbar{ display:flex; align-items:center; gap:16px; padding:15px 30px; border-bottom:1px solid var(--line);
-    background:color-mix(in srgb,var(--bg) 72%,transparent); backdrop-filter:blur(14px) saturate(1.2);
-    position:sticky; top:0; z-index:20; }
-  .hamb{ display:none; }
-  .topbar .h{ font-size:19px; font-weight:700; letter-spacing:-0.025em; }
-  .topbar .grow{ flex:1; }
-  .search{ display:flex; align-items:center; gap:9px; background:var(--card); border:1px solid var(--line);
-    border-radius:11px; padding:9px 13px; width:300px; color:var(--faint); transition:border-color .16s, box-shadow .16s; }
-  .search:focus-within{ border-color:var(--indigo-line); box-shadow:var(--ring); }
-  .search input{ border:none; background:none; outline:none; color:var(--text); font:inherit; width:100%; }
-  .iconbtn{ width:40px; height:40px; border-radius:11px; border:1px solid var(--line); background:var(--card);
-    color:var(--muted); display:grid; place-items:center; cursor:pointer; transition:.16s; }
-  .iconbtn:hover{ color:var(--text); border-color:var(--indigo-line); }
-
-  .content{ padding:30px; max-width:1240px; width:100%; }
-  .page{ display:none; } .page.active{ display:block; animation:rise .3s cubic-bezier(.2,.7,.2,1); }
-  @keyframes rise{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
-  .page-head{ margin-bottom:24px; }
-  .page-head h1{ font-size:24px; margin:0 0 5px; letter-spacing:-0.03em; font-weight:750; }
-  .page-head p{ margin:0; color:var(--muted); font-size:13.5px; max-width:60ch; }
-
-  /* ── Reusable ── */
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
-    position:relative; }
-  .card::after{ content:""; position:absolute; inset:0 0 auto 0; height:1px; border-radius:16px 16px 0 0;
-    background:linear-gradient(90deg,transparent,var(--hair),transparent); pointer-events:none; }
-  .pad{ padding:20px; }
-  .grid{ display:grid; gap:18px; }
-  .g4{ grid-template-columns:repeat(4,1fr); } .g3{ grid-template-columns:repeat(3,1fr); } .g2{ grid-template-columns:1.9fr 1fr; }
-  .btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:var(--card);
-    color:var(--text); border-radius:11px; padding:9px 15px; font:inherit; font-weight:600; font-size:13px; cursor:pointer; transition:.16s; }
-  .btn:hover{ border-color:var(--indigo-line); transform:translateY(-1px); }
-  .btn.primary{ background:linear-gradient(180deg,var(--indigo),var(--indigo-2)); border-color:transparent; color:#fff;
-    box-shadow:0 2px 10px var(--indigo-soft), inset 0 1px 0 rgba(255,255,255,.18); }
-  .btn.primary:hover{ box-shadow:0 4px 16px var(--indigo-soft), inset 0 1px 0 rgba(255,255,255,.22); }
-  .btn.sm{ padding:6px 11px; font-size:12px; border-radius:9px; }
-  .badge{ display:inline-flex; align-items:center; gap:6px; font-family:ui-monospace,monospace; font-size:11px;
-    padding:3px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted); background:var(--card-2); }
-  .badge.ok{ color:var(--good); border-color:color-mix(in srgb,var(--good) 40%,transparent); background:var(--good-soft); }
-  .badge.off{ color:var(--faint); }
-  .badge.gold{ color:var(--gold-ink); border-color:var(--gold-line); background:var(--gold-soft); }
-  .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 6px currentColor; }
-
-  /* stat tiles */
-  .stat{ padding:18px 20px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
-  .stat .s-top{ display:flex; align-items:center; justify-content:space-between; }
-  .stat .ic{ width:34px; height:34px; border-radius:10px; display:grid; place-items:center; }
-  .stat .num{ font-size:30px; font-weight:750; letter-spacing:-0.03em; line-height:1; }
-  .stat .s-lbl{ color:var(--muted); font-size:12.5px; }
-  .delta{ display:inline-flex; align-items:center; gap:4px; font-family:ui-monospace,monospace; font-size:11px;
-    padding:3px 8px; border-radius:999px; }
-  .delta.up{ color:var(--good); background:var(--good-soft); }
-  .delta.gold{ color:var(--gold-ink); background:var(--gold-soft); }
-  .spark{ width:100%; height:32px; margin-top:2px; display:block; }
-
-  /* table */
-  .tbl-wrap{ overflow-x:auto; }
-  table.t{ width:100%; border-collapse:collapse; }
-  table.t th,table.t td{ text-align:left; padding:13px 16px; border-bottom:1px solid var(--line-soft); font-size:13px; white-space:nowrap; }
-  table.t th{ font-family:ui-monospace,monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); font-weight:600; }
-  table.t tr:last-child td{ border-bottom:none; }
-  table.t tbody tr{ transition:background .12s; }
-  table.t tbody tr:hover{ background:var(--card-2); }
-  .rowact{ display:flex; gap:6px; }
-  .rowact button{ width:31px; height:31px; border-radius:9px; border:1px solid var(--line); background:var(--card);
-    color:var(--muted); display:grid; place-items:center; cursor:pointer; transition:.14s; }
-  .rowact button:hover{ color:var(--indigo); border-color:var(--indigo-line); }
-  .rowact button.del:hover{ color:var(--danger); border-color:color-mix(in srgb,var(--danger) 45%,transparent); }
-
-  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
-  .tabs{ display:inline-flex; background:var(--card-2); border:1px solid var(--line); border-radius:11px; padding:3px; }
-  .tab{ padding:7px 16px; border-radius:8px; font-size:12.5px; color:var(--muted); cursor:pointer; font-weight:600; transition:.14s; }
-  .tab.active{ background:var(--card); color:var(--text); box-shadow:var(--shadow-sm); }
-  .pager{ display:flex; gap:6px; justify-content:flex-end; }
-  .pager .pg{ min-width:33px; height:33px; padding:0 9px; border:1px solid var(--line); border-radius:9px; background:var(--card);
-    display:grid; place-items:center; font-size:12.5px; color:var(--muted); cursor:pointer; transition:.14s; }
-  .pager .pg:hover{ border-color:var(--indigo-line); color:var(--text); }
-  .pager .pg.active{ background:var(--indigo); color:#fff; border-color:transparent; }
-
-  .muted{ color:var(--muted); }
-  .kbd{ font-family:ui-monospace,monospace; font-size:11.5px; background:var(--card-2); border:1px solid var(--line); border-radius:7px; padding:2px 8px; color:var(--gold-ink); }
-
-  /* chart */
-  .chart{ width:100%; height:190px; display:block; }
-  .chart .grid-l{ stroke:var(--line-soft); stroke-width:1; }
-  .chart .area{ fill:url(#gr); } .chart .ln{ fill:none; stroke:var(--indigo); stroke-width:2.5; stroke-linecap:round; }
-
-  /* sources */
-  .src{ padding:18px; display:flex; flex-direction:column; gap:11px; }
-  .src .top{ display:flex; align-items:center; gap:11px; }
-  .src .lg{ width:38px; height:38px; border-radius:11px; display:grid; place-items:center; }
-  .src .nm{ font-weight:650; font-size:14px; }
-
-  /* conversations */
-  .convo{ display:grid; grid-template-columns:266px 1fr; min-height:460px; overflow:hidden; }
-  .convo .list{ border-right:1px solid var(--line); overflow-y:auto; max-height:560px; }
-  .ci{ padding:14px 16px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .12s; }
-  .ci:hover{ background:var(--card-2); }
-  .ci.active{ background:var(--indigo-soft); box-shadow:inset 3px 0 0 var(--indigo); }
-  .ci .t{ font-size:13px; font-weight:650; margin-bottom:4px; }
-  .transcript{ padding:22px; display:flex; flex-direction:column; gap:13px; overflow-y:auto; max-height:560px;
-    background:radial-gradient(90% 60% at 50% 0%, var(--indigo-soft), transparent 60%); }
-  .msg{ max-width:74%; padding:12px 15px; border-radius:16px; font-size:13.5px; line-height:1.55; }
-  .msg.u{ align-self:flex-end; background:linear-gradient(180deg,var(--indigo),var(--indigo-2)); color:#fff; border-bottom-right-radius:5px; box-shadow:0 4px 14px var(--indigo-soft); }
-  .msg.a{ align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:5px; }
-  .cite{ display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-family:ui-monospace,monospace; font-size:10.5px;
-    color:var(--gold-ink); border:1px solid var(--gold-line); background:var(--gold-soft); border-radius:7px; padding:2px 8px; }
-
-  /* form fields */
-  .field{ display:flex; flex-direction:column; gap:7px; margin-bottom:16px; }
-  .field label{ font-size:12px; font-weight:600; color:var(--muted); }
-  .field input,.field select,.field textarea{ background:var(--card-2); border:1px solid var(--line); border-radius:10px;
-    padding:11px 13px; font:inherit; font-size:13px; color:var(--text); outline:none; width:100%; transition:.16s; }
-  .field input:focus,.field select:focus,.field textarea:focus{ border-color:var(--indigo-line); box-shadow:var(--ring); background:var(--card); }
-  .switch{ width:46px; height:26px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; transition:.2s; flex:none; }
-  .switch.on{ background:var(--indigo); box-shadow:0 0 0 3px var(--indigo-soft); }
-  .switch::after{ content:""; position:absolute; top:2.5px; left:2.5px; width:21px; height:21px; border-radius:50%; background:#fff; transition:.2s; box-shadow:var(--shadow-sm); }
-  .switch.on::after{ left:22.5px; }
-  .snippet{ font-family:ui-monospace,monospace; font-size:11.5px; background:var(--bg-2); border:1px solid var(--line); border-radius:10px;
-    padding:13px; color:var(--muted); word-break:break-all; line-height:1.65; }
-  .snippet .tok{ color:var(--gold-ink); }
-
-  /* drawer */
-  .backdrop{ position:fixed; inset:0; background:rgba(6,6,14,.55); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .3s; z-index:40; }
-  .backdrop.show{ opacity:1; pointer-events:auto; }
-  .drawer{ position:fixed; top:0; right:0; bottom:0; width:430px; max-width:92vw; background:var(--panel);
-    border-left:1px solid var(--line); box-shadow:-16px 0 50px rgba(0,0,0,.4); z-index:50;
-    transform:translateX(100%); transition:transform .32s cubic-bezier(.32,.72,0,1); display:flex; flex-direction:column; }
-  .drawer.open{ transform:translateX(0); }
-  .drawer .dh{ display:flex; align-items:center; justify-content:space-between; padding:20px 22px; border-bottom:1px solid var(--line); }
-  .drawer .dh h3{ margin:0; font-size:16px; letter-spacing:-0.02em; }
-  .drawer .db{ padding:22px; overflow-y:auto; flex:1; }
-  .drawer .df{ padding:18px 22px; border-top:1px solid var(--line); display:flex; gap:10px; }
-
-  /* toast */
-  .toast{ position:fixed; bottom:26px; left:50%; translate:-50% 20px;
-    background:var(--card); border:1px solid var(--line); color:var(--text); padding:13px 18px; border-radius:12px; font-size:13px;
-    box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .3s, translate .3s; z-index:60;
-    display:flex; align-items:center; gap:10px; }
-  .toast.show{ opacity:1; translate:-50% 0; }
-  .toast .dotg{ width:8px; height:8px; border-radius:50%; background:var(--good); box-shadow:0 0 8px var(--good); }
-
-  .empty{ text-align:center; color:var(--muted); padding:44px 20px; }
-
+  /* Sidebar — kertas, dipisah garis; BUKAN slab gelap */
+  .sidebar{ background:var(--paper-2); border-right:1px solid var(--rule-strong);
+    padding:var(--sp-5) var(--sp-4); position:sticky; top:0; height:100vh;
+    display:flex; flex-direction:column; }
   @media (max-width:920px){
-    .app{ grid-template-columns:1fr; }
-    .sidebar{ position:fixed; left:0; top:0; z-index:70; transform:translateX(-100%); transition:transform .3s; width:248px; }
+    .sidebar{ position:fixed; left:0; top:0; z-index:70; width:260px;
+      transform:translateX(-100%); transition:transform var(--dur-slow) var(--ease-spring);
+      box-shadow:var(--shadow-pop); }
     .sidebar.open{ transform:translateX(0); }
-    .hamb{ display:grid; }
-    .search{ width:150px; }
-    .g4{ grid-template-columns:repeat(2,1fr); } .g3{ grid-template-columns:1fr; } .g2{ grid-template-columns:1fr; }
-    .convo{ grid-template-columns:1fr; }
   }
+  .brand{ display:flex; align-items:center; gap:var(--sp-3); padding-bottom:var(--sp-4);
+    border-bottom:3px double var(--rule-strong); margin-bottom:var(--sp-4); }
+  .brand .wm{ font-family:var(--font-display); font-size:24px; letter-spacing:-0.02em; }
+  .brand .wm b{ color:var(--gold-mark); font-weight:600; }
+  .nav-label{ font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps);
+    text-transform:uppercase; color:var(--faint); padding:var(--sp-3) var(--sp-2) var(--sp-2); }
+  .nav-item{ display:flex; align-items:center; gap:var(--sp-3); padding:9px var(--sp-2);
+    border:none; background:none; width:100%; text-align:left; cursor:pointer;
+    font:inherit; font-size:var(--fs-sm); color:var(--muted); border-radius:var(--rad-xs);
+    border-left:2px solid transparent; margin-left:-2px; transition:color var(--dur-fast), background var(--dur-fast); }
+  .nav-item svg{ width:17px; height:17px; flex:none; }
+  .nav-item:hover{ color:var(--ink); background:var(--card-2); }
+  .nav-item[aria-current="page"]{ color:var(--ink); font-weight:600; border-left-color:var(--gold-mark); background:var(--card); }
+  /* Rule #6 — satu warna ink solid per menu (palet editorial) */
+  .hue-dash{ color:var(--indigo); } .hue-bot{ color:var(--gold-ink); } .hue-kb{ color:var(--good); }
+  .hue-conv{ color:#6C4AB0; } [data-theme="dark"] .hue-conv{ color:#A98BE8; }
+  .hue-mem{ color:#2F6E6E; } [data-theme="dark"] .hue-mem{ color:#63B8B8; }
+  .hue-model{ color:#8A5E12; } [data-theme="dark"] .hue-model{ color:#E0B45C; }
+  .hue-team{ color:var(--danger); } .hue-set{ color:var(--muted); }
+  .side-foot{ margin-top:auto; border-top:1px solid var(--rule); padding-top:var(--sp-4);
+    display:flex; gap:var(--sp-3); align-items:center; }
+  .side-foot .seal{ width:34px; height:34px; border:1px solid var(--rule-strong); border-radius:50%;
+    display:grid; place-items:center; font-family:var(--font-display); font-size:15px; color:var(--gold-ink); background:var(--card); }
+  .side-foot .who{ font-size:var(--fs-xs); line-height:1.4; }
+  .side-foot .who small{ display:block; color:var(--faint); font-family:var(--font-mono); font-size:10px; }
+
+  /* Topbar */
+  .main{ min-width:0; display:flex; flex-direction:column; }
+  .topbar{ display:flex; align-items:center; gap:var(--sp-4); padding:var(--sp-4) var(--sp-8);
+    border-bottom:1px solid var(--rule-strong); position:sticky; top:0; z-index:20; background:var(--paper); }
+  .topbar h1{ font-size:var(--fs-2xl); }
+  .grow{ flex:1; }
+  .search{ display:flex; align-items:center; gap:var(--sp-2); border:1px solid var(--rule-strong);
+    border-radius:var(--rad-sm); background:var(--card); padding:0 var(--sp-3); height:40px; width:280px; color:var(--faint); }
+  .search input{ border:none; background:none; outline:none; color:var(--ink); font:inherit; font-size:var(--fs-sm); width:100%; }
+  .hamb{ display:none; } @media (max-width:920px){ .hamb{ display:grid; } .search{ width:150px; } }
+
+  .content{ padding:var(--sp-8); max-width:1180px; width:100%; }
+  .page{ display:none; } .page.active{ display:block; animation:rise var(--dur-slow) var(--ease-out); }
+  .page-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-4);
+    border-bottom:1px solid var(--rule); padding-bottom:var(--sp-4); margin-bottom:var(--sp-6); flex-wrap:wrap; }
+  .page-head .sub{ color:var(--muted); font-size:var(--fs-sm); max-width:58ch; margin-top:6px; }
+
+  .grid{ display:grid; gap:var(--sp-4); }
+  .g4{ grid-template-columns:repeat(4,1fr); } .g3{ grid-template-columns:repeat(3,1fr); } .g2{ grid-template-columns:1.9fr 1fr; }
+  @media (max-width:920px){ .g4{ grid-template-columns:1fr 1fr; } .g3,.g2{ grid-template-columns:1fr; } }
+
+  /* Stat "ledger entry" */
+  .stat{ padding:var(--sp-4) var(--sp-5); }
+  .stat .k{ display:flex; justify-content:space-between; align-items:baseline; }
+  .stat .num{ font-family:var(--font-display); font-size:34px; letter-spacing:-0.02em; margin-top:var(--sp-2); font-variant-numeric:tabular-nums; }
+  .stat .delta{ font-family:var(--font-mono); font-size:var(--fs-2xs); }
+  .stat .delta.up{ color:var(--good); } .stat .delta.acc{ color:var(--gold-ink); }
+  .spark{ width:100%; height:26px; display:block; margin-top:var(--sp-2); }
+
+  /* Chart dgn axis (data-viz proper) */
+  .chart{ width:100%; height:230px; display:block; }
+  .chart text{ font-family:var(--font-mono); font-size:9.5px; fill:var(--muted); }
+  .chart .gl{ stroke:var(--rule); stroke-width:1; }
+  .chart .axis{ stroke:var(--rule-strong); stroke-width:1; }
+  .chart .ln{ fill:none; stroke:var(--indigo); stroke-width:2; }
+  .chart .ar{ fill:var(--indigo); fill-opacity:.07; }
+  .chart .pt{ fill:var(--card); stroke:var(--indigo); stroke-width:1.5; }
+  .chart .pt:hover{ fill:var(--indigo); }
+  .chart .pt-end{ fill:var(--gold-mark); stroke:var(--gold-ink); }
+
+  .rowact{ display:flex; gap:6px; }
+  .rowact .icon-btn{ width:31px; height:31px; }
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); margin-bottom:var(--sp-4); flex-wrap:wrap; }
+  .pager{ display:flex; gap:6px; justify-content:flex-end; padding:var(--sp-3) var(--sp-4); border-top:1px solid var(--rule); }
+  .pg{ min-width:32px; height:32px; padding:0 8px; border:1px solid var(--rule); border-radius:var(--rad-xs); background:var(--card);
+    display:grid; place-items:center; font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--muted); cursor:pointer; }
+  .pg:hover{ border-color:var(--rule-strong); color:var(--ink); }
+  .pg[aria-current="true"]{ background:var(--indigo); border-color:var(--indigo); color:var(--on-indigo); }
+
+  /* Conversations — 2 pane, transcript editorial */
+  .convo{ display:grid; grid-template-columns:262px 1fr; min-height:460px; }
+  @media (max-width:920px){ .convo{ grid-template-columns:1fr; } }
+  .convo .list{ border-right:1px solid var(--rule); max-height:560px; overflow-y:auto; }
+  .ci{ padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--rule); cursor:pointer; border-left:2px solid transparent; }
+  .ci:hover{ background:var(--card-2); }
+  .ci[aria-current="true"]{ background:var(--card-2); border-left-color:var(--gold-mark); }
+  .ci .t{ font-weight:600; font-size:var(--fs-sm); }
+  .transcript{ padding:var(--sp-6); max-height:560px; overflow-y:auto; }
+  .turn{ margin-bottom:var(--sp-6); }
+  .turn .who{ font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--faint); margin-bottom:var(--sp-2); }
+  .turn.q .body{ font-size:var(--fs-md); font-weight:600; }
+  .turn.a .body{ font-family:var(--font-display); font-size:var(--fs-lg); line-height:1.55; }
+
+  /* Memory graph */
+  .memgraph{ width:100%; height:330px; display:block; }
+  .memgraph .edge{ stroke:var(--rule-strong); stroke-width:1; }
+  .memgraph .edge.hi{ stroke:var(--gold-mark); stroke-width:1.5; }
+  .memgraph .node{ fill:var(--card); stroke:var(--indigo); stroke-width:1.5; }
+  .memgraph .node.hub{ fill:var(--gold-mark); stroke:var(--gold-ink); }
+  .memgraph text{ font-family:var(--font-mono); font-size:9.5px; fill:var(--muted); }
+  .note-item{ padding:var(--sp-3) 0; border-bottom:1px solid var(--rule); }
+  .note-item .nm{ font-family:var(--font-display); font-size:var(--fs-md); }
+  .wikilink{ color:var(--indigo); font-family:var(--font-mono); font-size:var(--fs-xs); }
+
+  /* Drawer internals */
+  .drawer .dh{ display:flex; align-items:center; justify-content:space-between; padding:var(--sp-5); border-bottom:1px solid var(--rule-strong); }
+  .drawer .db{ padding:var(--sp-5); overflow-y:auto; flex:1; }
+  .drawer .df{ padding:var(--sp-4) var(--sp-5); border-top:1px solid var(--rule-strong); display:flex; gap:var(--sp-3); }
 </style>
 </head>
 <body>
@@ -239,249 +133,363 @@
   <symbol id="i-bot" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a1 1 0 011 1v1h3a3 3 0 013 3v8a3 3 0 01-3 3H8a3 3 0 01-3-3V7a3 3 0 013-3h3V3a1 1 0 011-1zM9 10a1.3 1.3 0 100 2.6A1.3 1.3 0 009 10zm6 0a1.3 1.3 0 100 2.6A1.3 1.3 0 0015 10zm-6 5a1 1 0 000 2h6a1 1 0 000-2H9z"/></symbol>
   <symbol id="i-book" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h11a3 3 0 013 3v14a1 1 0 01-1.4.9L15 19.6l-2.6 1.3a1 1 0 01-.9 0L9 19.6 6.4 20.9A1 1 0 015 20V5a2 2 0 012-2zm2 4v2h8V7H7zm0 4v2h6v-2H7z"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16a2 2 0 012 2v9a2 2 0 01-2 2H9l-4 4v-4H4a2 2 0 01-2-2V6a2 2 0 012-2zm3 5v2h10V9H7zm0 4v2h6v-2H7z"/></symbol>
+  <symbol id="i-mem" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4" fill="currentColor"/><circle cx="18" cy="6" r="2.4" fill="currentColor"/><circle cx="12" cy="18" r="2.4" fill="currentColor"/><path stroke="currentColor" stroke-width="1.6" d="M7.5 7.5l3.4 8M16.5 7.5l-3.4 8M8.4 6h7.2"/></symbol>
   <symbol id="i-cpu" viewBox="0 0 24 24"><path fill="currentColor" d="M9 2v2H7a3 3 0 00-3 3v2H2v2h2v2H2v2h2v2a3 3 0 003 3h2v2h2v-2h2v2h2v-2h2a3 3 0 003-3v-2h2v-2h-2v-2h2V9h-2V7a3 3 0 00-3-3h-2V2h-2v2h-2V2H9zm0 7h6v6H9V9z"/></symbol>
   <symbol id="i-users" viewBox="0 0 24 24"><path fill="currentColor" d="M9 11a4 4 0 100-8 4 4 0 000 8zm7 0a3 3 0 100-6 3 3 0 000 6zM3 20c0-3.3 3.6-5 6-5s6 1.7 6 5v1H3v-1zm14 1v-1c0-1.6-.6-2.9-1.6-3.9 2.4.3 4.6 1.6 4.6 3.9v1h-3z"/></symbol>
-  <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l2 1.5-2 3.5-2.4-1a7 7 0 01-1.4.8L17 20h-4l-.4-2.4a7 7 0 01-1.4-.8L8.8 18l-2-3.5L9 12l-.2-1.5-2-1.5 2-3.5 2.4 1c.4-.3.9-.6 1.4-.8L13 3h4l.4 2.4c.5.2 1 .5 1.4.8l2.4-1 2 3.5-2 1.5.2 1.5z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l2 1.5-2 3.5-2.4-1a7 7 0 01-1.4.8L17 20h-4l-.4-2.4a7 7 0 01-1.4-.8L8.8 18l-2-3.5L9 12 7 10.5l2-3.5 2.4 1 1.4-.8L13 3h4l.4 2.4 1.4.8 2.4-1 2 3.5L21 10.5z"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4a6 6 0 104.5 10l4.3 4.3 1.4-1.4-4.3-4.3A6 6 0 0010 4zm0 2a4 4 0 110 8 4 4 0 010-8z"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path fill="currentColor" d="M4 16.5V20h3.5l9.1-9.1-3.5-3.5L4 16.5zM19.7 7.3a1 1 0 000-1.4l-2.6-2.6a1 1 0 00-1.4 0l-1.7 1.7 3.5 3.5 1.7-1.7z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 8h12l-1 12a2 2 0 01-2 2H9a2 2 0 01-2-2L6 8zm4 3v7h1v-7h-1zm3 0v7h1v-7h-1z"/></symbol>
   <symbol id="i-restore" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5H5a7 7 0 107-7z"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path fill="currentColor" d="M6.4 5L5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6 6.4 5z"/></symbol>
-  <symbol id="i-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M8 3h9a2 2 0 012 2v11h-2V5H8V3zM5 7h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2zm0 2v10h9V9H5z"/></symbol>
-  <symbol id="i-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a9 9 0 108.5 12A7 7 0 0112 3z"/></symbol>
   <symbol id="i-menu" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></symbol>
-  <symbol id="i-drive" viewBox="0 0 24 24"><path fill="currentColor" d="M8 3h8l6 10-4 7H6L2 13 8 3zm.6 2L4.3 12.4h4.3L12.8 5H8.6z"/></symbol>
-  <symbol id="i-cloud" viewBox="0 0 24 24"><path fill="currentColor" d="M7 18a4 4 0 010-8 5 5 0 019.6-1.3A4 4 0 0117 18H7z"/></symbol>
-  <symbol id="i-up" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l5 5h-3v6h-4V8H7l5-5zM5 18h14v2H5v-2z"/></symbol>
 </defs></svg>
 
 <div class="app">
   <!-- ══ SIDEBAR ══ -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="12" fill="#14141F" stroke="#2A2A3D"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="#7C6DFF" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="#7C6DFF"/><circle cx="13" cy="24" r="3" fill="#7C6DFF"/><circle cx="13" cy="33" r="3" fill="#7C6DFF"/><circle cx="34" cy="24" r="5.5" fill="#F5BE5E"/></svg>
-      <span class="wm">nalar<b>.</b></span>
+      <svg width="34" height="34" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
+      <span class="wm">Nalar<b>.</b></span>
     </div>
     <div class="nav-label">Workspace</div>
-    <nav class="nav">
-      <div class="nav-item active" data-page="dashboard" style="color:#7C6DFF"><svg><use href="#i-dash"/></svg><span style="color:var(--sb-active)">Dashboard</span></div>
-      <div class="nav-item" data-page="chatbots" style="color:#F5BE5E"><svg><use href="#i-bot"/></svg><span style="color:var(--sb-text)">Chatbots</span></div>
-      <div class="nav-item" data-page="knowledge" style="color:#35C6AE"><svg><use href="#i-book"/></svg><span style="color:var(--sb-text)">Knowledge Base</span></div>
-      <div class="nav-item" data-page="conversations" style="color:#9A8CFF"><svg><use href="#i-chat"/></svg><span style="color:var(--sb-text)">Conversations</span></div>
-      <div class="nav-item" data-page="models" style="color:#EF9A55"><svg><use href="#i-cpu"/></svg><span style="color:var(--sb-text)">Models &amp; Keys</span></div>
+    <nav>
+      <button class="nav-item" aria-current="page" data-page="dashboard"><svg class="hue-dash"><use href="#i-dash"/></svg>Dashboard</button>
+      <button class="nav-item" data-page="chatbots"><svg class="hue-bot"><use href="#i-bot"/></svg>Chatbots</button>
+      <button class="nav-item" data-page="knowledge"><svg class="hue-kb"><use href="#i-book"/></svg>Knowledge Base</button>
+      <button class="nav-item" data-page="conversations"><svg class="hue-conv"><use href="#i-chat"/></svg>Conversations</button>
+      <button class="nav-item" data-page="memory"><svg class="hue-mem"><use href="#i-mem"/></svg>Memory</button>
+      <button class="nav-item" data-page="models"><svg class="hue-model"><use href="#i-cpu"/></svg>Models &amp; Keys</button>
     </nav>
-    <div class="nav-label" style="margin-top:16px;">Organisasi</div>
-    <nav class="nav">
-      <div class="nav-item" data-page="team" style="color:#EC6A7A"><svg><use href="#i-users"/></svg><span style="color:var(--sb-text)">Team</span></div>
-      <div class="nav-item" data-page="settings" style="color:#8A8AA6"><svg><use href="#i-gear"/></svg><span style="color:var(--sb-text)">Settings</span></div>
+    <div class="nav-label">Organisasi</div>
+    <nav>
+      <button class="nav-item" data-page="team"><svg class="hue-team"><use href="#i-users"/></svg>Team</button>
+      <button class="nav-item" data-page="settings"><svg class="hue-set"><use href="#i-gear"/></svg>Settings</button>
     </nav>
     <div class="side-foot">
-      <div class="av"></div>
-      <div class="who">Galih Praz<small>Sainskerta · admin</small></div>
+      <span class="seal">G</span>
+      <div class="who">Galih Praz<small>SAINSKERTA · ADMIN</small></div>
     </div>
   </aside>
 
   <!-- ══ MAIN ══ -->
   <div class="main">
     <header class="topbar">
-      <button class="iconbtn hamb" id="hamb" aria-label="Menu"><svg width="18" height="18"><use href="#i-menu"/></svg></button>
-      <div class="h" id="crumb">Dashboard</div>
+      <button class="icon-btn hamb" id="hamb" aria-label="Menu"><svg width="17" height="17"><use href="#i-menu"/></svg></button>
+      <h1 id="crumb">Dashboard</h1>
       <div class="grow"></div>
-      <div class="search"><svg width="16" height="16"><use href="#i-search"/></svg><input placeholder="Cari…" /></div>
-      <button class="iconbtn" id="themeBtn" aria-label="Tema"><svg width="18" height="18"><use href="#i-moon"/></svg></button>
+      <div class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input placeholder="Cari…" aria-label="Cari" /></div>
+      <button class="icon-btn" id="themeBtn" aria-label="Ganti tema">◐</button>
     </header>
 
     <div class="content">
 
-      <!-- ─────────── DASHBOARD ─────────── -->
+      <!-- ─── DASHBOARD ─── -->
       <section class="page active" id="page-dashboard">
-        <div class="page-head"><h1>Dashboard</h1><p>Ringkasan aktivitas seluruh chatbot &amp; knowledge base kamu.</p></div>
-        <div class="grid g4" style="margin-bottom:18px;">
+        <div class="page-head">
+          <div><span class="kicker">Ikhtisar · 30 hari</span><p class="sub">Ringkasan aktivitas seluruh chatbot &amp; knowledge base.</p></div>
+          <span class="marginalia">diperbarui 2m lalu</span>
+        </div>
+        <div class="grid g4" style="margin-bottom:var(--sp-5);">
           <div class="card stat">
-            <div class="s-top"><span class="ic" style="background:var(--indigo-soft)"><svg width="16" height="16" style="color:#7C6DFF"><use href="#i-bot"/></svg></span><span class="delta up">▲ 2</span></div>
-            <div class="num tnum">8</div><div class="s-lbl">Chatbots aktif</div>
-            <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none"><polyline points="0,26 20,24 40,25 60,20 80,18 100,12 120,10" fill="none" stroke="#7C6DFF" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="k"><span class="kicker">Chatbots</span><span class="delta up">▲ 2</span></div>
+            <div class="num">8</div>
+            <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,21 20,19 40,20 60,16 80,14 100,9 120,8" fill="none" stroke="var(--indigo)" stroke-width="1.5"/></svg>
           </div>
           <div class="card stat">
-            <div class="s-top"><span class="ic" style="background:rgba(154,140,255,.16)"><svg width="16" height="16" style="color:#9A8CFF"><use href="#i-chat"/></svg></span><span class="delta up">▲ 18%</span></div>
-            <div class="num tnum">1.284</div><div class="s-lbl">Conversations</div>
-            <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none"><polyline points="0,28 20,20 40,24 60,14 80,16 100,8 120,6" fill="none" stroke="#9A8CFF" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="k"><span class="kicker">Conversations</span><span class="delta up">▲ 18%</span></div>
+            <div class="num">1.284</div>
+            <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,22 20,16 40,19 60,11 80,13 100,6 120,5" fill="none" stroke="var(--indigo)" stroke-width="1.5"/></svg>
           </div>
           <div class="card stat">
-            <div class="s-top"><span class="ic" style="background:rgba(53,198,174,.16)"><svg width="16" height="16" style="color:#35C6AE"><use href="#i-book"/></svg></span><span class="delta up">▲ 126</span></div>
-            <div class="num tnum">3.940</div><div class="s-lbl">Documents</div>
-            <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none"><polyline points="0,24 20,22 40,18 60,19 80,12 100,10 120,7" fill="none" stroke="#35C6AE" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="k"><span class="kicker">Documents</span><span class="delta up">▲ 126</span></div>
+            <div class="num">3.940</div>
+            <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,19 20,18 40,14 60,15 80,10 100,8 120,6" fill="none" stroke="var(--good)" stroke-width="1.5"/></svg>
           </div>
           <div class="card stat">
-            <div class="s-top"><span class="ic" style="background:var(--gold-soft)"><svg width="16" height="16" style="color:var(--gold)"><use href="#i-cpu"/></svg></span><span class="delta gold">~$14,20</span></div>
-            <div class="num tnum">2,1M</div><div class="s-lbl">Tokens bulan ini</div>
-            <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none"><polyline points="0,20 20,22 40,16 60,18 80,13 100,15 120,9" fill="none" stroke="#F5BE5E" stroke-width="2" stroke-linecap="round"/></svg>
+            <div class="k"><span class="kicker">Tokens / bln</span><span class="delta acc">≈ $14,20</span></div>
+            <div class="num">2,1M</div>
+            <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,16 20,18 40,13 60,14 80,10 100,12 120,7" fill="none" stroke="var(--gold-mark)" stroke-width="1.5"/></svg>
           </div>
         </div>
         <div class="grid g2">
-          <div class="card pad">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><b>Aktivitas percakapan</b><span class="badge">30 hari</span></div>
-            <svg class="chart" viewBox="0 0 600 190" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7C6DFF" stop-opacity=".32"/><stop offset="1" stop-color="#7C6DFF" stop-opacity="0"/></linearGradient>
-                <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-              </defs>
-              <line class="grid-l" x1="0" y1="48" x2="600" y2="48"/><line class="grid-l" x1="0" y1="95" x2="600" y2="95"/><line class="grid-l" x1="0" y1="142" x2="600" y2="142"/>
-              <path class="area" d="M0,150 C60,128 90,96 150,106 S250,64 300,76 S420,118 470,86 S560,44 600,60 L600,190 L0,190 Z"/>
-              <path class="ln" d="M0,150 C60,128 90,96 150,106 S250,64 300,76 S420,118 470,86 S560,44 600,60"/>
-              <circle cx="600" cy="60" r="9" fill="#F5BE5E" opacity=".25" filter="url(#glow)"/>
-              <circle cx="600" cy="60" r="4.5" fill="#F5BE5E"/>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Percakapan per minggu</h3><span class="badge">jul 2026</span></div>
+            <!-- data-viz proper: axis, gridline, label, unit, titik ber-tooltip -->
+            <svg class="chart" viewBox="0 0 640 230" role="img" aria-label="Grafik percakapan per minggu, satuan percakapan">
+              <line class="gl" x1="46" y1="30" x2="620" y2="30"/><text x="10" y="34">300</text>
+              <line class="gl" x1="46" y1="80" x2="620" y2="80"/><text x="10" y="84">225</text>
+              <line class="gl" x1="46" y1="130" x2="620" y2="130"/><text x="10" y="134">150</text>
+              <line class="gl" x1="46" y1="180" x2="620" y2="180"/><text x="16" y="184">75</text>
+              <line class="axis" x1="46" y1="196" x2="620" y2="196"/>
+              <text x="66" y="215">W1·Jun</text><text x="162" y="215">W2</text><text x="248" y="215">W3</text>
+              <text x="334" y="215">W4</text><text x="414" y="215">W1·Jul</text><text x="500" y="215">W2</text><text x="580" y="215">W3</text>
+              <polygon class="ar" points="80,160 170,148 258,156 346,118 430,126 516,84 600,70 600,196 80,196"/>
+              <polyline class="ln" points="80,160 170,148 258,156 346,118 430,126 516,84 600,70"/>
+              <circle class="pt" cx="80" cy="160" r="4"><title>W1 Jun — 54 percakapan</title></circle>
+              <circle class="pt" cx="170" cy="148" r="4"><title>W2 Jun — 72 percakapan</title></circle>
+              <circle class="pt" cx="258" cy="156" r="4"><title>W3 Jun — 60 percakapan</title></circle>
+              <circle class="pt" cx="346" cy="118" r="4"><title>W4 Jun — 117 percakapan</title></circle>
+              <circle class="pt" cx="430" cy="126" r="4"><title>W1 Jul — 105 percakapan</title></circle>
+              <circle class="pt" cx="516" cy="84" r="4"><title>W2 Jul — 168 percakapan</title></circle>
+              <circle class="pt pt-end" cx="600" cy="70" r="5"><title>W3 Jul — 189 percakapan (berjalan)</title></circle>
             </svg>
+            <p class="marginalia" style="margin-top:var(--sp-2);">satuan: percakapan / minggu · arahkan kursor ke titik untuk nilai</p>
           </div>
-          <div class="card pad">
-            <b>Percakapan terbaru</b>
-            <div style="display:flex;flex-direction:column;margin-top:14px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-soft);"><span>Support Bot</span><span class="badge">2m</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-soft);"><span>Docs Assistant</span><span class="badge">14m</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-soft);"><span>Sales FAQ</span><span class="badge">1j</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;"><span>HR Helper</span><span class="badge">3j</span></div>
-            </div>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-2);"><h3 style="font-size:var(--fs-lg);">Terbaru</h3></div>
+            <table class="table">
+              <tbody>
+                <tr><td>Support Bot</td><td class="num mono" style="color:var(--muted)">2m</td></tr>
+                <tr><td>Docs Assistant</td><td class="num mono" style="color:var(--muted)">14m</td></tr>
+                <tr><td>Sales FAQ</td><td class="num mono" style="color:var(--muted)">1j</td></tr>
+                <tr><td>HR Helper</td><td class="num mono" style="color:var(--muted)">3j</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      <!-- ─────────── CHATBOTS ─────────── -->
+      <!-- ─── CHATBOTS ─── -->
       <section class="page" id="page-chatbots">
-        <div class="page-head"><h1>Chatbots</h1><p>Tiap chatbot punya 1 ID publik &amp; knowledge base terisolasi. Sematkan di website mana pun.</p></div>
-        <div class="toolbar">
-          <div class="tabs"><div class="tab active" data-t="cb-aktif">Aktif</div><div class="tab" data-t="cb-sampah">Sampah</div></div>
-          <div style="display:flex;gap:10px;">
-            <div class="search" style="width:230px;"><svg width="15" height="15"><use href="#i-search"/></svg><input placeholder="Cari nama / public key…" /></div>
-            <button class="btn primary" onclick="openDrawer('create')"><svg width="15" height="15"><use href="#i-plus"/></svg>Tambah Chatbot</button>
-          </div>
+        <div class="page-head">
+          <div><span class="kicker">Registri</span><p class="sub">Tiap chatbot punya 1 ID publik &amp; knowledge base terisolasi.</p></div>
+          <button class="btn btn-primary" onclick="openDrawer('create')"><svg width="14" height="14"><use href="#i-plus"/></svg>Tambah Chatbot</button>
         </div>
-
+        <div class="toolbar">
+          <div class="tabs" role="tablist">
+            <button class="tab" role="tab" aria-selected="true" data-t="cb-aktif">Aktif</button>
+            <button class="tab" role="tab" aria-selected="false" data-t="cb-sampah">Sampah</button>
+          </div>
+          <div class="search" style="width:250px;"><svg width="14" height="14"><use href="#i-search"/></svg><input placeholder="Cari nama / public key…" /></div>
+        </div>
         <div class="card" data-tp="cb-aktif">
-          <div class="tbl-wrap"><table class="t">
-            <thead><tr><th>Nama</th><th>Public Key</th><th>Sumber</th><th>Percakapan</th><th>Status</th><th></th></tr></thead>
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th>Nama</th><th>Public Key</th><th>Sumber</th><th class="num" style="text-align:right;">Percakapan</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              <tr><td><b>Support Bot</b></td><td><span class="badge">cb_live_9f2a…c1</span></td><td><span class="badge"><span class="dot" style="color:#35C6AE"></span>Google Drive</span></td><td class="tnum">612</td><td><span class="badge ok"><span class="dot"></span>enabled</span></td><td><div class="rowact"><button onclick="openDrawer('edit')"><svg width="15" height="15"><use href="#i-edit"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-              <tr><td><b>Docs Assistant</b></td><td><span class="badge">cb_live_71bd…e4</span></td><td><span class="badge"><span class="dot" style="color:#9A8CFF"></span>SharePoint</span></td><td class="tnum">388</td><td><span class="badge ok"><span class="dot"></span>enabled</span></td><td><div class="rowact"><button onclick="openDrawer('edit')"><svg width="15" height="15"><use href="#i-edit"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-              <tr><td><b>Sales FAQ</b></td><td><span class="badge">cb_live_3ce0…9a</span></td><td><span class="badge"><span class="dot" style="color:#EF9A55"></span>Upload</span></td><td class="tnum">201</td><td><span class="badge off"><span class="dot"></span>disabled</span></td><td><div class="rowact"><button onclick="openDrawer('edit')"><svg width="15" height="15"><use href="#i-edit"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-              <tr><td><b>HR Helper</b></td><td><span class="badge">cb_live_a55f…2d</span></td><td><span class="badge"><span class="dot" style="color:#35C6AE"></span>Google Drive</span></td><td class="tnum">83</td><td><span class="badge ok"><span class="dot"></span>enabled</span></td><td><div class="rowact"><button onclick="openDrawer('edit')"><svg width="15" height="15"><use href="#i-edit"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td><b>Support Bot</b></td><td class="mono" style="color:var(--gold-ink)">cb_live_9f2a…c1</td><td><span class="badge">gdrive</span></td><td class="num">612</td><td><span class="badge badge-ok"><span class="dot"></span>enabled</span></td><td><div class="rowact"><button class="icon-btn" onclick="openDrawer('edit')" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td><b>Docs Assistant</b></td><td class="mono" style="color:var(--gold-ink)">cb_live_71bd…e4</td><td><span class="badge">sharepoint</span></td><td class="num">388</td><td><span class="badge badge-ok"><span class="dot"></span>enabled</span></td><td><div class="rowact"><button class="icon-btn" onclick="openDrawer('edit')" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td><b>Sales FAQ</b></td><td class="mono" style="color:var(--gold-ink)">cb_live_3ce0…9a</td><td><span class="badge">upload</span></td><td class="num">201</td><td><span class="badge"><span class="dot"></span>disabled</span></td><td><div class="rowact"><button class="icon-btn" onclick="openDrawer('edit')" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td><b>HR Helper</b></td><td class="mono" style="color:var(--gold-ink)">cb_live_a55f…2d</td><td><span class="badge">gdrive</span></td><td class="num">83</td><td><span class="badge badge-ok"><span class="dot"></span>enabled</span></td><td><div class="rowact"><button class="icon-btn" onclick="openDrawer('edit')" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
             </tbody>
           </table></div>
-          <div class="pad" style="border-top:1px solid var(--line);"><div class="pager"><span class="pg">‹</span><span class="pg active">1</span><span class="pg">2</span><span class="pg">›</span></div></div>
+          <div class="pager"><span class="pg">‹</span><span class="pg" aria-current="true">1</span><span class="pg">2</span><span class="pg">›</span></div>
         </div>
-
-        <div class="card" data-tp="cb-sampah" style="display:none;">
-          <div class="tbl-wrap"><table class="t">
+        <div class="card" data-tp="cb-sampah" hidden>
+          <div class="table-wrap"><table class="table">
             <thead><tr><th>Nama</th><th>Dihapus</th><th></th></tr></thead>
             <tbody>
-              <tr><td><b>Old Landing Bot</b></td><td class="muted mono">2026-07-19</td><td><button class="btn sm" onclick="toast('Chatbot dipulihkan')"><svg width="14" height="14"><use href="#i-restore"/></svg>Restore</button></td></tr>
-              <tr><td><b>Beta Test Bot</b></td><td class="muted mono">2026-07-11</td><td><button class="btn sm" onclick="toast('Chatbot dipulihkan')"><svg width="14" height="14"><use href="#i-restore"/></svg>Restore</button></td></tr>
+              <tr><td><b>Old Landing Bot</b></td><td class="mono" style="color:var(--muted)">2026-07-19</td><td><button class="btn btn-sm" onclick="toast('Chatbot dipulihkan')"><svg width="13" height="13"><use href="#i-restore"/></svg>Restore</button></td></tr>
+              <tr><td><b>Beta Test Bot</b></td><td class="mono" style="color:var(--muted)">2026-07-11</td><td><button class="btn btn-sm" onclick="toast('Chatbot dipulihkan')"><svg width="13" height="13"><use href="#i-restore"/></svg>Restore</button></td></tr>
             </tbody>
           </table></div>
         </div>
       </section>
 
-      <!-- ─────────── KNOWLEDGE BASE ─────────── -->
+      <!-- ─── KNOWLEDGE BASE ─── -->
       <section class="page" id="page-knowledge">
-        <div class="page-head"><h1>Knowledge Base</h1><p>Sumber &amp; dokumen untuk chatbot terpilih. Beda chatbot = beda knowledge base.</p></div>
+        <div class="page-head">
+          <div><span class="kicker">Sumber &amp; dokumen</span><p class="sub">Beda chatbot = beda knowledge base. Pilih chatbot untuk melihat isinya.</p></div>
+          <div class="cluster">
+            <select class="select" style="width:190px;min-height:40px;"><option>Support Bot</option><option>Docs Assistant</option><option>Sales FAQ</option></select>
+            <button class="btn btn-primary" onclick="openDrawer('source')"><svg width="14" height="14"><use href="#i-plus"/></svg>Hubungkan sumber</button>
+          </div>
+        </div>
+        <div class="grid g3" style="margin-bottom:var(--sp-5);">
+          <div class="card card-pad"><div class="kicker" style="margin-bottom:8px;">Google Drive</div><div class="mono" style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px;">/Knowledge/support</div><span class="badge badge-ok"><span class="dot"></span>synced · 42 file</span></div>
+          <div class="card card-pad"><div class="kicker" style="margin-bottom:8px;">SharePoint</div><div class="mono" style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px;">Docs / Produk</div><span class="badge badge-accent">syncing… 60%</span></div>
+          <div class="card card-pad"><div class="kicker" style="margin-bottom:8px;">Upload manual</div><div class="mono" style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px;">PDF · DOCX · TXT</div><span class="badge"><span class="dot"></span>3 file</span></div>
+        </div>
         <div class="toolbar">
-          <div class="field" style="margin:0;min-width:240px;"><select><option>Support Bot</option><option>Docs Assistant</option><option>Sales FAQ</option><option>HR Helper</option></select></div>
-          <button class="btn primary" onclick="openDrawer('source')"><svg width="15" height="15"><use href="#i-plus"/></svg>Hubungkan sumber</button>
+          <div class="tabs" role="tablist">
+            <button class="tab" role="tab" aria-selected="true" data-t="kb-aktif">Aktif</button>
+            <button class="tab" role="tab" aria-selected="false" data-t="kb-sampah">Sampah</button>
+          </div>
+          <span class="marginalia">embedding: bge-m3 · 1024d</span>
         </div>
-        <div class="grid g3" style="margin-bottom:20px;">
-          <div class="card src"><div class="top"><span class="lg" style="background:rgba(53,198,174,.16)"><svg width="18" height="18" style="color:#35C6AE"><use href="#i-drive"/></svg></span><span class="nm">Google Drive</span></div><div class="muted" style="font-size:12.5px;">/Knowledge/support</div><span class="badge ok"><span class="dot"></span>synced · 42 file</span></div>
-          <div class="card src"><div class="top"><span class="lg" style="background:rgba(154,140,255,.16)"><svg width="18" height="18" style="color:#9A8CFF"><use href="#i-cloud"/></svg></span><span class="nm">SharePoint</span></div><div class="muted" style="font-size:12.5px;">Docs / Produk</div><span class="badge gold"><span class="dot"></span>syncing… 60%</span></div>
-          <div class="card src"><div class="top"><span class="lg" style="background:var(--gold-soft)"><svg width="18" height="18" style="color:var(--gold)"><use href="#i-up"/></svg></span><span class="nm">Upload manual</span></div><div class="muted" style="font-size:12.5px;">PDF, DOCX, TXT</div><span class="badge"><span class="dot"></span>3 file</span></div>
-        </div>
-        <div class="toolbar"><div class="tabs"><div class="tab active" data-t="kb-aktif">Aktif</div><div class="tab" data-t="kb-sampah">Sampah</div></div><span class="muted" style="font-size:12.5px;">Model embedding: <span class="kbd">bge-m3 · 1024d</span></span></div>
         <div class="card" data-tp="kb-aktif">
-          <div class="tbl-wrap"><table class="t">
-            <thead><tr><th>Judul dokumen</th><th>Sumber</th><th>Chunks</th><th>Diperbarui</th><th></th></tr></thead>
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th>Dokumen</th><th>Sumber</th><th class="num" style="text-align:right;">Chunks</th><th>Diperbarui</th><th></th></tr></thead>
             <tbody>
-              <tr><td>kebijakan-garansi.pdf</td><td><span class="badge">gdrive</span></td><td class="tnum">12</td><td class="muted mono">2026-07-22</td><td><div class="rowact"><button><svg width="15" height="15"><use href="#i-search"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-              <tr><td>syarat-layanan.pdf</td><td><span class="badge">sharepoint</span></td><td class="tnum">7</td><td class="muted mono">2026-07-21</td><td><div class="rowact"><button><svg width="15" height="15"><use href="#i-search"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-              <tr><td>panduan-produk.docx</td><td><span class="badge">upload</span></td><td class="tnum">25</td><td class="muted mono">2026-07-20</td><td><div class="rowact"><button><svg width="15" height="15"><use href="#i-search"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td>kebijakan-garansi.pdf</td><td><span class="badge">gdrive</span></td><td class="num">12</td><td class="mono" style="color:var(--muted)">2026-07-22</td><td><div class="rowact"><button class="icon-btn" aria-label="Pratinjau"><svg width="14" height="14"><use href="#i-search"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td>syarat-layanan.pdf</td><td><span class="badge">sharepoint</span></td><td class="num">7</td><td class="mono" style="color:var(--muted)">2026-07-21</td><td><div class="rowact"><button class="icon-btn" aria-label="Pratinjau"><svg width="14" height="14"><use href="#i-search"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td>panduan-produk.docx</td><td><span class="badge">upload</span></td><td class="num">25</td><td class="mono" style="color:var(--muted)">2026-07-20</td><td><div class="rowact"><button class="icon-btn" aria-label="Pratinjau"><svg width="14" height="14"><use href="#i-search"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
             </tbody>
           </table></div>
         </div>
-        <div class="card" data-tp="kb-sampah" style="display:none;"><div class="empty">Tidak ada dokumen di Sampah.</div></div>
+        <div class="card" data-tp="kb-sampah" hidden>
+          <div class="empty-state"><div class="glyph">¶</div><div style="font-family:var(--font-display);font-size:var(--fs-lg);">Sampah kosong</div><p style="margin-top:6px;">Dokumen yang dihapus akan muncul di sini dan bisa dipulihkan.</p></div>
+        </div>
       </section>
 
-      <!-- ─────────── CONVERSATIONS ─────────── -->
+      <!-- ─── CONVERSATIONS ─── -->
       <section class="page" id="page-conversations">
-        <div class="page-head"><h1>Conversations</h1><p>Riwayat percakapan lengkap dengan sitasi sumber di tiap jawaban.</p></div>
-        <div class="toolbar"><div class="field" style="margin:0;min-width:210px;"><select><option>Semua chatbot</option><option>Support Bot</option><option>Docs Assistant</option></select></div><span class="badge">1.284 percakapan</span></div>
+        <div class="page-head">
+          <div><span class="kicker">Arsip</span><p class="sub">Riwayat percakapan lengkap — tiap jawaban membawa sitasi sumbernya.</p></div>
+          <select class="select" style="width:190px;min-height:40px;"><option>Semua chatbot</option><option>Support Bot</option></select>
+        </div>
         <div class="card convo">
           <div class="list">
-            <div class="ci active"><div class="t">visitor_9f2a</div><div class="muted" style="font-size:11.5px;">Garansi produk Pro… · 2m</div></div>
-            <div class="ci"><div class="t">visitor_71bd</div><div class="muted" style="font-size:11.5px;">Cara integrasi API… · 1j</div></div>
-            <div class="ci"><div class="t">visitor_3ce0</div><div class="muted" style="font-size:11.5px;">Harga paket enterprise… · kemarin</div></div>
-            <div class="ci"><div class="t">visitor_a55f</div><div class="muted" style="font-size:11.5px;">Reset password… · kemarin</div></div>
+            <div class="ci" aria-current="true"><div class="t">visitor_9f2a</div><div class="marginalia">garansi produk pro · 2m</div></div>
+            <div class="ci"><div class="t">visitor_71bd</div><div class="marginalia">integrasi api · 1j</div></div>
+            <div class="ci"><div class="t">visitor_3ce0</div><div class="marginalia">harga enterprise · kemarin</div></div>
+            <div class="ci"><div class="t">visitor_a55f</div><div class="marginalia">reset password · kemarin</div></div>
           </div>
           <div class="transcript">
-            <div class="msg u">Berapa lama garansi produk Pro?</div>
-            <div class="msg a">Garansi produk Pro adalah <b>24 bulan</b> sejak tanggal pembelian, mencakup cacat produksi.<br><span class="cite"><span class="dot" style="width:5px;height:5px;box-shadow:none;"></span>[1] kebijakan-garansi.pdf</span></div>
-            <div class="msg u">Kalau rusak karena air?</div>
-            <div class="msg a">Kerusakan akibat cairan <b>tidak tercakup</b> garansi standar, namun tersedia Perlindungan+ opsional.<br><span class="cite"><span class="dot" style="width:5px;height:5px;box-shadow:none;"></span>[2] syarat-layanan.pdf</span></div>
+            <div class="turn q"><div class="who">Pengunjung · 14:02</div><div class="body">Berapa lama garansi produk Pro?</div></div>
+            <div class="turn a">
+              <div class="who">Support Bot · Claude Sonnet 5</div>
+              <div class="body">Garansi produk Pro adalah <strong>24 bulan</strong> sejak tanggal pembelian, mencakup cacat produksi.<span class="cite">1</span></div>
+            </div>
+            <div class="turn q"><div class="who">Pengunjung · 14:03</div><div class="body">Kalau rusak karena air?</div></div>
+            <div class="turn a">
+              <div class="who">Support Bot · Claude Sonnet 5</div>
+              <div class="body">Kerusakan akibat cairan <strong>tidak tercakup</strong> garansi standar, namun tersedia Perlindungan+ opsional.<span class="cite">2</span></div>
+            </div>
+            <ul class="footnotes">
+              <li><b>1.</b> kebijakan-garansi.pdf — hlm. 3 · <span class="source-tag">gdrive</span></li>
+              <li><b>2.</b> syarat-layanan.pdf — §4.2 · <span class="source-tag">sharepoint</span></li>
+            </ul>
           </div>
         </div>
       </section>
 
-      <!-- ─────────── MODELS & KEYS ─────────── -->
-      <section class="page" id="page-models">
-        <div class="page-head"><h1>Models &amp; API Keys</h1><p>Pilih satu model chat &amp; satu model embedding aktif. API key disimpan terenkripsi.</p></div>
+      <!-- ─── MEMORY (graph) ─── -->
+      <section class="page" id="page-memory">
+        <div class="page-head">
+          <div><span class="kicker">Peta pengetahuan · Obsidian-compatible</span><p class="sub">Memory Agent memetakan Drive/OneDrive/SharePoint menjadi catatan ber-[[wikilink]] dan graph relasi.</p></div>
+          <div class="cluster"><span class="badge badge-ok"><span class="dot"></span>vault synced</span><button class="btn btn-sm">Sync ke Drive</button></div>
+        </div>
         <div class="grid g2">
-          <div style="display:flex;flex-direction:column;gap:18px;">
-            <div class="card pad">
-              <b>Model chat aktif</b><p class="muted" style="margin:4px 0 14px;font-size:12.5px;">Hanya satu yang aktif per tenant.</p>
-              <div class="field" style="margin:0;"><select><option>Claude Sonnet 5 — anthropic</option><option>Claude Opus 4.8 — anthropic</option><option>GPT-5.6 Sol — openai</option><option>Gemini 3.5 Flash — google</option><option>Grok 4 — xai</option><option>DeepSeek V3.x — deepseek</option></select></div>
-            </div>
-            <div class="card pad">
-              <b>Model embedding aktif</b><p class="muted" style="margin:4px 0 14px;font-size:12.5px;">Dikelompokkan berdasarkan ukuran.</p>
-              <div class="field" style="margin:0 0 12px;"><select>
-                <optgroup label="~80MB — cepat, lokal"><option>MiniLM L6 v2 (384d)</option><option>Nomic Embed v1.5 (768d)</option></optgroup>
-                <optgroup label="~2GB — akurasi tinggi"><option selected>BGE-M3 (1024d)</option><option>Qwen3-Embedding-8B (4096d)</option></optgroup>
-                <optgroup label="API"><option>OpenAI text-embedding-3-small</option><option>Cohere Embed v4.0</option></optgroup>
-              </select></div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;"><span class="badge">~80MB</span><span class="badge gold">~2GB aktif</span><span class="badge">API</span></div>
-            </div>
-            <div class="card pad">
-              <b>System prompt</b>
-              <div class="field" style="margin:10px 0 0;"><textarea rows="3">Jawab hanya dari konteks yang diberikan. Sertakan sitasi [n].</textarea></div>
-            </div>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-3);"><h3 style="font-size:var(--fs-lg);">Graph — Support Bot</h3><span class="marginalia">42 notes · 118 link</span></div>
+            <svg class="memgraph" viewBox="0 0 560 330" role="img" aria-label="Graph pengetahuan">
+              <line class="edge hi" x1="280" y1="150" x2="140" y2="80"/>
+              <line class="edge hi" x1="280" y1="150" x2="420" y2="90"/>
+              <line class="edge" x1="280" y1="150" x2="180" y2="240"/>
+              <line class="edge" x1="280" y1="150" x2="400" y2="240"/>
+              <line class="edge" x1="140" y1="80" x2="60" y2="160"/>
+              <line class="edge" x1="420" y1="90" x2="500" y2="170"/>
+              <line class="edge" x1="180" y1="240" x2="90" y2="290"/>
+              <line class="edge" x1="400" y1="240" x2="480" y2="290"/>
+              <line class="edge" x1="140" y1="80" x2="420" y2="90"/>
+              <circle class="node hub" cx="280" cy="150" r="13"><title>Garansi (hub · 9 link)</title></circle>
+              <circle class="node" cx="140" cy="80" r="9"><title>kebijakan-garansi.pdf</title></circle>
+              <circle class="node" cx="420" cy="90" r="9"><title>syarat-layanan.pdf</title></circle>
+              <circle class="node" cx="180" cy="240" r="8"><title>Perlindungan+</title></circle>
+              <circle class="node" cx="400" cy="240" r="8"><title>Klaim &amp; retur</title></circle>
+              <circle class="node" cx="60" cy="160" r="6"><title>faq-toko.md</title></circle>
+              <circle class="node" cx="500" cy="170" r="6"><title>sop-cs.docx</title></circle>
+              <circle class="node" cx="90" cy="290" r="6"><title>harga-addon.xlsx</title></circle>
+              <circle class="node" cx="480" cy="290" r="6"><title>form-klaim.pdf</title></circle>
+              <text x="262" y="132">Garansi</text>
+              <text x="96" y="66">kebijakan.pdf</text>
+              <text x="392" y="76">syarat.pdf</text>
+              <text x="140" y="262">Perlindungan+</text>
+              <text x="372" y="262">Klaim &amp; retur</text>
+            </svg>
+            <p class="marginalia" style="margin-top:var(--sp-2);">node emas = hub · garis emas = relasi terkuat · arahkan kursor untuk judul</p>
           </div>
-          <div class="card pad" style="align-self:start;">
-            <b>Provider API keys</b><p class="muted" style="margin:4px 0 14px;font-size:12.5px;">Terenkripsi AES-256-GCM.</p>
-            <div class="field"><label>anthropic</label><input type="password" value="sk-ant-xxxxxxxx" /></div>
-            <div class="field"><label>openai</label><input type="password" value="sk-xxxxxxxxxxxx" /></div>
-            <div class="field"><label>google</label><input type="password" placeholder="tambah key…" /></div>
-            <div class="field"><label>cohere</label><input type="password" placeholder="tambah key…" /></div>
-            <button class="btn primary" style="width:100%;justify-content:center;" onclick="toast('Pengaturan tersimpan')">Simpan</button>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-2);"><h3 style="font-size:var(--fs-lg);">Catatan</h3><span class="badge">_nalar-memory/</span></div>
+            <div class="note-item"><div class="nm">Garansi</div><div class="marginalia" style="margin:4px 0;">hub · 9 backlink</div><span class="wikilink">[[kebijakan-garansi]]</span> <span class="wikilink">[[perlindungan-plus]]</span> <span class="wikilink">[[klaim-retur]]</span></div>
+            <div class="note-item"><div class="nm">Perlindungan+</div><div class="marginalia" style="margin:4px 0;">3 backlink</div><span class="wikilink">[[garansi]]</span> <span class="wikilink">[[harga-addon]]</span></div>
+            <div class="note-item"><div class="nm">Klaim &amp; retur</div><div class="marginalia" style="margin:4px 0;">4 backlink</div><span class="wikilink">[[garansi]]</span> <span class="wikilink">[[form-klaim]]</span> <span class="wikilink">[[sop-cs]]</span></div>
+            <p class="marginalia" style="margin-top:var(--sp-4);">Vault markdown bisa dibuka langsung di Obsidian.</p>
           </div>
         </div>
       </section>
 
-      <!-- ─────────── TEAM ─────────── -->
-      <section class="page" id="page-team">
-        <div class="page-head"><h1>Team</h1><p>Anggota tenant &amp; peran akses. Data terisolasi per tenant (RLS).</p></div>
-        <div class="toolbar"><span class="badge">3 anggota</span><button class="btn primary" onclick="openDrawer('invite')"><svg width="15" height="15"><use href="#i-plus"/></svg>Undang anggota</button></div>
-        <div class="card"><div class="tbl-wrap"><table class="t">
-          <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            <tr><td><b>Galih Praz</b></td><td class="muted">galih@sainskerta.id</td><td><span class="badge gold">admin</span></td><td><span class="badge ok"><span class="dot"></span>aktif</span></td><td><div class="rowact"><button><svg width="15" height="15"><use href="#i-edit"/></svg></button></div></td></tr>
-            <tr><td><b>Rara D.</b></td><td class="muted">rara@sainskerta.id</td><td><span class="badge">member</span></td><td><span class="badge ok"><span class="dot"></span>aktif</span></td><td><div class="rowact"><button><svg width="15" height="15"><use href="#i-edit"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-            <tr><td><b>Bima S.</b></td><td class="muted">bima@sainskerta.id</td><td><span class="badge">member</span></td><td><span class="badge off"><span class="dot"></span>diundang</span></td><td><div class="rowact"><button><svg width="15" height="15"><use href="#i-edit"/></svg></button><button class="del"><svg width="15" height="15"><use href="#i-trash"/></svg></button></div></td></tr>
-          </tbody>
-        </table></div></div>
+      <!-- ─── MODELS & KEYS ─── -->
+      <section class="page" id="page-models">
+        <div class="page-head">
+          <div><span class="kicker">Konfigurasi</span><p class="sub">Satu model chat &amp; satu model embedding aktif per tenant. Key disimpan terenkripsi, dipakai server-to-server.</p></div>
+        </div>
+        <div class="grid g2">
+          <div class="stack gap-4">
+            <div class="card card-pad">
+              <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Model chat aktif</h3><span class="badge badge-accent">1 aktif</span></div>
+              <div class="field"><label>Model</label>
+                <select class="select"><option>Claude Sonnet 5 — anthropic</option><option>Claude Opus 4.8 — anthropic</option><option>GPT-5.6 Sol — openai</option><option>Gemini 3.5 Flash — google</option><option>Grok 4 — xai</option><option>DeepSeek V3.x — deepseek</option></select>
+              </div>
+            </div>
+            <div class="card card-pad">
+              <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Model embedding aktif</h3><span class="badge badge-accent">~2GB</span></div>
+              <div class="field"><label>Model</label>
+                <select class="select">
+                  <optgroup label="~80MB — cepat, lokal"><option>MiniLM L6 v2 (384d)</option><option>Nomic Embed v1.5 (768d)</option></optgroup>
+                  <optgroup label="~2GB — akurasi tinggi"><option selected>BGE-M3 (1024d)</option><option>Qwen3-Embedding-8B (4096d)</option></optgroup>
+                  <optgroup label="API"><option>OpenAI text-embedding-3-small</option><option>Cohere Embed v4.0</option></optgroup>
+                </select>
+              </div>
+              <p class="marginalia" style="margin-top:var(--sp-2);">file model di-host superadmin (Drive/SharePoint) · diunduh sekali, di-cache</p>
+            </div>
+            <div class="card card-pad">
+              <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">System prompt</h3></div>
+              <div class="field"><label>Instruksi</label><textarea class="textarea" rows="3">Jawab hanya dari konteks yang diberikan. Sertakan sitasi [n].</textarea></div>
+            </div>
+          </div>
+          <div class="card card-pad" style="align-self:start;">
+            <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Provider API keys</h3><span class="marginalia">AES-256-GCM</span></div>
+            <div class="stack gap-4">
+              <div class="field"><label>anthropic</label><input class="input" type="password" value="sk-ant-xxxxxxxx" /></div>
+              <div class="field"><label>openai</label><input class="input" type="password" value="sk-xxxxxxxxxxxx" /></div>
+              <div class="field"><label>google</label><input class="input" type="password" placeholder="tambah key…" /></div>
+              <div class="field"><label>cohere</label><input class="input" type="password" placeholder="tambah key…" /></div>
+              <button class="btn btn-primary" onclick="toast('Pengaturan tersimpan')">Simpan</button>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <!-- ─────────── SETTINGS ─────────── -->
+      <!-- ─── TEAM ─── -->
+      <section class="page" id="page-team">
+        <div class="page-head">
+          <div><span class="kicker">Anggota</span><p class="sub">Peran akses per tenant — data terisolasi oleh Row-Level Security.</p></div>
+          <button class="btn btn-primary" onclick="openDrawer('invite')"><svg width="14" height="14"><use href="#i-plus"/></svg>Undang anggota</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td><b>Galih Praz</b></td><td style="color:var(--muted)">galih@sainskerta.id</td><td><span class="badge badge-accent">admin</span></td><td><span class="badge badge-ok"><span class="dot"></span>aktif</span></td><td><div class="rowact"><button class="icon-btn" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button></div></td></tr>
+              <tr><td><b>Rara D.</b></td><td style="color:var(--muted)">rara@sainskerta.id</td><td><span class="badge">member</span></td><td><span class="badge badge-ok"><span class="dot"></span>aktif</span></td><td><div class="rowact"><button class="icon-btn" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+              <tr><td><b>Bima S.</b></td><td style="color:var(--muted)">bima@sainskerta.id</td><td><span class="badge">member</span></td><td><span class="badge"><span class="dot"></span>diundang</span></td><td><div class="rowact"><button class="icon-btn" aria-label="Edit"><svg width="14" height="14"><use href="#i-edit"/></svg></button><button class="icon-btn" aria-label="Hapus"><svg width="14" height="14"><use href="#i-trash"/></svg></button></div></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- ─── SETTINGS ─── -->
       <section class="page" id="page-settings">
-        <div class="page-head"><h1>Settings</h1><p>Pengaturan tenant, deployment, dan koneksi.</p></div>
+        <div class="page-head">
+          <div><span class="kicker">Tenant</span><p class="sub">Pengaturan organisasi, deployment, dan koneksi superadmin.</p></div>
+          <a class="btn" href="branding-mockup.html">Buka Branding →</a>
+        </div>
         <div class="grid g3">
-          <div class="card pad"><b>Tenant</b><div class="field" style="margin:14px 0 0;"><label>Nama organisasi</label><input value="Sainskerta Solusi Nusantara" /></div><div class="field" style="margin:0;"><label>Plan</label><input value="Pro" readonly /></div></div>
-          <div class="card pad"><b>Deployment</b><div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span>Mode</span><span class="badge gold">SaaS</span></div><div style="display:flex;justify-content:space-between;align-items:center;"><span>Region</span><span class="badge">ap-southeast</span></div><div style="display:flex;justify-content:space-between;align-items:center;"><span>Isolasi RLS</span><span class="badge ok"><span class="dot"></span>aktif</span></div></div></div>
-          <div class="card pad"><b>Koneksi superadmin</b><p class="muted" style="font-size:12.5px;margin:4px 0 12px;">Host file model embedding.</p><div style="display:flex;flex-direction:column;gap:12px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span>Google Drive</span><span class="badge ok"><span class="dot"></span>terhubung</span></div><div style="display:flex;justify-content:space-between;align-items:center;"><span>SharePoint</span><button class="btn sm">Hubungkan</button></div></div></div>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Organisasi</h3></div>
+            <div class="stack gap-4">
+              <div class="field"><label>Nama</label><input class="input" value="Sainskerta Solusi Nusantara" /></div>
+              <div class="field"><label>Plan</label><input class="input" value="Pro" disabled /></div>
+            </div>
+          </div>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Deployment</h3></div>
+            <table class="table"><tbody>
+              <tr><td>Mode</td><td class="num"><span class="badge badge-accent">SaaS</span></td></tr>
+              <tr><td>Region</td><td class="num"><span class="badge">ap-southeast</span></td></tr>
+              <tr><td>Isolasi RLS</td><td class="num"><span class="badge badge-ok"><span class="dot"></span>aktif</span></td></tr>
+            </tbody></table>
+          </div>
+          <div class="card card-pad">
+            <div class="section-head" style="margin-bottom:var(--sp-4);"><h3 style="font-size:var(--fs-lg);">Host model</h3></div>
+            <table class="table"><tbody>
+              <tr><td>Google Drive</td><td class="num"><span class="badge badge-ok"><span class="dot"></span>terhubung</span></td></tr>
+              <tr><td>SharePoint</td><td class="num"><button class="btn btn-sm">Hubungkan</button></td></tr>
+            </tbody></table>
+          </div>
         </div>
       </section>
 
@@ -491,77 +499,78 @@
 
 <!-- ══ DRAWER (Rule #5) ══ -->
 <div class="backdrop" id="backdrop" onclick="closeDrawer()"></div>
-<aside class="drawer" id="drawer">
-  <div class="dh"><h3 id="drawerTitle">Tambah Chatbot</h3><button class="iconbtn" onclick="closeDrawer()"><svg width="16" height="16"><use href="#i-close"/></svg></button></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="dh"><h3 id="drawerTitle">Tambah Chatbot</h3><button class="icon-btn" onclick="closeDrawer()" aria-label="Tutup"><svg width="15" height="15"><use href="#i-close"/></svg></button></div>
   <div class="db" id="drawerBody"></div>
-  <div class="df"><button class="btn primary" style="flex:1;justify-content:center;" onclick="saveDrawer()">Simpan</button><button class="btn" onclick="closeDrawer()">Batal</button></div>
+  <div class="df"><button class="btn btn-primary" style="flex:1;" onclick="saveDrawer()">Simpan</button><button class="btn" onclick="closeDrawer()">Batal</button></div>
 </aside>
 
-<div class="toast" id="toast"><span class="dotg"></span><span id="toastMsg">Tersimpan</span></div>
+<div class="toast" id="toast"><span class="dot"></span><span id="toastMsg">Tersimpan</span></div>
 
 <script>
+  // ── Navigasi halaman ──
   const crumb = document.getElementById('crumb');
   document.querySelectorAll('.nav-item').forEach(it => it.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    it.classList.add('active');
-    const p = it.dataset.page;
-    document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
-    document.getElementById('page-' + p).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.removeAttribute('aria-current'));
+    it.setAttribute('aria-current','page');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + it.dataset.page).classList.add('active');
     crumb.textContent = it.textContent.trim();
     document.getElementById('sidebar').classList.remove('open');
-    window.scrollTo(0, 0);
+    window.scrollTo(0,0);
   }));
 
+  // ── Tabs Aktif/Sampah ──
   document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
     const group = t.parentElement;
-    group.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
+    group.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected','false'));
+    t.setAttribute('aria-selected','true');
     const page = t.closest('.page');
     page.querySelectorAll('[data-tp]').forEach(p => {
-      const belongs = group.querySelector('[data-t="' + p.dataset.tp + '"]');
-      if (belongs) p.style.display = (p.dataset.tp === t.dataset.t) ? '' : 'none';
+      const owns = group.querySelector('[data-t="' + p.dataset.tp + '"]');
+      if (owns) p.hidden = (p.dataset.tp !== t.dataset.t);
     });
   }));
 
+  // ── Drawer ──
   const drawer = document.getElementById('drawer'), backdrop = document.getElementById('backdrop');
   const dTitle = document.getElementById('drawerTitle'), dBody = document.getElementById('drawerBody');
-  function fieldHTML(){ return `
-    <div class="field"><label>Nama chatbot</label><input value="Support Bot" /></div>
-    <div class="field"><label>Greeting</label><input value="Hi! Ada yang bisa dibantu?" /></div>
-    <div class="field"><label>Theme color</label><input value="#7C6DFF" /></div>
-    <div class="field"><label>Allowed origins (satu per baris — kosong = semua)</label><textarea rows="2">https://situs-pelanggan.com</textarea></div>
-    <div class="field" style="flex-direction:row;justify-content:space-between;align-items:center;"><label style="margin:0;">Enabled</label><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="field"><label>Embed snippet</label>
-      <div class="snippet">&lt;script src="https://app.nalar.id/embed.js" data-chatbot="<span class="tok">cb_live_9f2a…c1</span>"&gt;&lt;/script&gt;
-        <div style="margin-top:10px;"><button class="btn sm" onclick="copySnip()"><svg width="13" height="13"><use href="#i-copy"/></svg>Salin</button></div>
+  const botForm = () => `
+    <div class="stack gap-4">
+      <div class="field"><label>Nama chatbot</label><input class="input" value="Support Bot" /></div>
+      <div class="field"><label>Greeting</label><input class="input" value="Hai! Ada yang bisa dibantu?" /></div>
+      <div class="field"><label>Allowed origins <span style="text-transform:none;letter-spacing:0;">(kosong = semua)</span></label><textarea class="textarea" rows="2">https://situs-pelanggan.com</textarea></div>
+      <div class="cluster" style="justify-content:space-between;"><span class="kicker">Enabled</span><input type="checkbox" class="switch" checked /></div>
+      <div class="field"><label>Embed snippet</label>
+        <div class="card card-pad mono" style="font-size:var(--fs-xs);word-break:break-all;">&lt;script src="https://app.nalar.id/embed.js" data-chatbot="<span style="color:var(--gold-ink)">cb_live_9f2a…c1</span>"&gt;&lt;/script&gt;
+          <div style="margin-top:10px;"><button class="btn btn-sm" onclick="toast('Snippet disalin')">Salin</button></div>
+        </div>
       </div>
-    </div>`; }
-  function sourceHTML(){ return `
-    <div class="field"><label>Jenis sumber</label><select><option>Google Drive (OAuth user)</option><option>SharePoint / OneDrive</option><option>Upload file</option><option>URL / sitemap</option></select></div>
-    <div class="field"><label>Folder / path</label><input placeholder="/Knowledge/support" /></div>
-    <p class="muted" style="font-size:12.5px;">Kamu akan diarahkan ke login akun untuk memberi izin baca.</p>`; }
-  function inviteHTML(){ return `
-    <div class="field"><label>Email</label><input placeholder="nama@perusahaan.com" /></div>
-    <div class="field"><label>Peran</label><select><option>member</option><option>admin</option></select></div>`; }
-
+    </div>`;
+  const sourceForm = () => `
+    <div class="stack gap-4">
+      <div class="field"><label>Jenis sumber</label><select class="select"><option>Google Drive (OAuth user)</option><option>OneDrive</option><option>SharePoint</option><option>Upload file</option><option>URL / sitemap</option></select></div>
+      <div class="field"><label>Folder / path</label><input class="input" placeholder="/Knowledge/support" /></div>
+      <p class="marginalia">Kamu akan diarahkan ke login akun untuk memberi izin baca.</p>
+    </div>`;
+  const inviteForm = () => `
+    <div class="stack gap-4">
+      <div class="field"><label>Email</label><input class="input" placeholder="nama@perusahaan.com" /></div>
+      <div class="field"><label>Peran</label><select class="select"><option>member</option><option>admin</option></select></div>
+    </div>`;
   function openDrawer(mode){
-    if(mode==='create'){ dTitle.textContent='Tambah Chatbot'; dBody.innerHTML=fieldHTML(); }
-    else if(mode==='edit'){ dTitle.textContent='Edit Chatbot'; dBody.innerHTML=fieldHTML(); }
-    else if(mode==='source'){ dTitle.textContent='Hubungkan sumber'; dBody.innerHTML=sourceHTML(); }
-    else if(mode==='invite'){ dTitle.textContent='Undang anggota'; dBody.innerHTML=inviteHTML(); }
+    dTitle.textContent = mode==='create' ? 'Tambah Chatbot' : mode==='edit' ? 'Edit Chatbot' : mode==='source' ? 'Hubungkan sumber' : 'Undang anggota';
+    dBody.innerHTML = mode==='source' ? sourceForm() : mode==='invite' ? inviteForm() : botForm();
     drawer.classList.add('open'); backdrop.classList.add('show');
   }
   function closeDrawer(){ drawer.classList.remove('open'); backdrop.classList.remove('show'); }
   function saveDrawer(){ closeDrawer(); toast('Tersimpan'); }
-  function copySnip(){ toast('Snippet disalin'); }
 
-  let tTimer;
-  function toast(msg){ const el=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg;
-    el.classList.add('show'); clearTimeout(tTimer); tTimer=setTimeout(()=>el.classList.remove('show'),2200); }
-
+  // ── Toast / theme / mobile ──
+  let tt; function toast(m){ const el=document.getElementById('toast'); document.getElementById('toastMsg').textContent=m;
+    el.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),2200); }
   document.getElementById('themeBtn').addEventListener('click', () => {
-    const r=document.documentElement;
-    r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
+    const r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
   });
   document.getElementById('hamb').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
 </script>
