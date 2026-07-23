@@ -1,4 +1,4 @@
-import { getEmbeddingModel } from '@/lib/models/registry';
+﻿import { getEmbeddingModel } from '@/modules/core/registry';
 import { embedLocal } from './local';
 import { embedApi } from './api';
 

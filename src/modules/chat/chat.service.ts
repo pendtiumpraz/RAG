@@ -1,23 +1,28 @@
-import { eq, and, asc } from 'drizzle-orm';
-import { db, tenantSettings, conversations, messages } from '@/lib/db';
-import { withTenant } from '@/lib/db/tenant';
-import { retrieve, type RetrievedChunk } from './retrieve';
-import { streamChat, type ChatMessage } from '@/lib/llm';
-import { apiKeyResolver } from '@/lib/credentials';
-import { getLlmModel } from '@/lib/models/registry';
+import { eq } from 'drizzle-orm';
+import { tenantSettings } from '@/modules/core/db';
+import { withTenant } from '@/modules/core/db/tenant-context';
+import { dispatch } from '@/modules/core/events';
+import { getLlmModel } from '@/modules/core/registry';
+import { apiKeyResolver } from '@/modules/settings/credentials.repository';
+import { conversationRepository as convo } from './conversation.repository';
+import { retrievalService, type RetrievedChunk } from './retrieval.service';
+import { streamChat, type ChatMessage } from './llm';
 
-function buildPrompt(system: string | null, context: RetrievedChunk[], history: ChatMessage[], question: string): ChatMessage[] {
+function buildPrompt(
+  system: string | null,
+  context: RetrievedChunk[],
+  history: ChatMessage[],
+  question: string,
+): ChatMessage[] {
   const contextBlock = context.length
     ? context.map((c, i) => `[[${i + 1}]] ${c.title ?? ''}\n${c.content}`).join('\n\n')
     : '(no relevant documents found)';
-
   const sys = [
     system ?? 'You are a helpful assistant that answers using ONLY the provided context.',
     'Answer strictly from the CONTEXT below. If the answer is not in the context, say you don\'t know.',
     'Cite sources inline as [1], [2] matching the context blocks.',
     '\n=== CONTEXT ===\n' + contextBlock,
   ].join('\n');
-
   return [{ role: 'system', content: sys }, ...history, { role: 'user', content: question }];
 }
 
@@ -30,14 +35,8 @@ export interface ChatTurnInput {
 }
 
 /**
- * One RAG chat turn:
- *   1. load/create the conversation (history persisted per chatbot)
- *   2. retrieve context from THIS chatbot's KB
- *   3. stream the answer from the tenant's active LLM
- *   4. persist both user + assistant messages (full history)
- *
- * Returns an async generator of text deltas plus a promise that resolves
- * once the assistant message has been saved (with citations).
+ * Satu giliran RAG: load history → retrieve KB chatbot → stream jawaban →
+ * simpan user+assistant message + sitasi. Yield delta teks (dipakai SSE).
  */
 export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, void> {
   const getApiKey = apiKeyResolver(input.tenantId);
@@ -45,21 +44,8 @@ export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, vo
   const { settings, history, conversationId } = await withTenant(input.tenantId, async (tx) => {
     const s = (await tx.select().from(tenantSettings)
       .where(eq(tenantSettings.tenantId, input.tenantId)).limit(1))[0];
-
-    let convId = input.conversationId;
-    if (!convId) {
-      const created = await tx.insert(conversations).values({
-        tenantId: input.tenantId,
-        chatbotId: input.chatbotId,
-        visitorId: input.visitorId,
-      }).returning({ id: conversations.id });
-      convId = created[0].id;
-    }
-
-    const prior = await tx.select().from(messages)
-      .where(and(eq(messages.conversationId, convId), eq(messages.tenantId, input.tenantId)))
-      .orderBy(asc(messages.createdAt));
-
+    const convId = await convo.findOrCreate(tx, input.tenantId, input.chatbotId, input.conversationId, input.visitorId);
+    const prior = await convo.history(tx, input.tenantId, convId);
     return {
       settings: s,
       conversationId: convId,
@@ -70,19 +56,17 @@ export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, vo
   const embeddingModel = settings?.activeEmbeddingModel ?? 'all-MiniLM-L6-v2';
   const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';
 
-  const context = await retrieve(input.tenantId, input.chatbotId, embeddingModel, input.question);
+  const context = await retrievalService.retrieve(input.tenantId, input.chatbotId, embeddingModel, input.question);
   const prompt = buildPrompt(settings?.systemPrompt ?? null, context, history, input.question);
 
   const provider = getLlmModel(llmModel)?.provider;
   const apiKey = provider ? await getApiKey(provider) : null;
   if (!apiKey) throw new Error(`No API key configured for provider: ${provider}`);
 
-  // persist the user message first
-  await withTenant(input.tenantId, async (tx) => {
-    await tx.insert(messages).values({
+  await withTenant(input.tenantId, (tx) =>
+    convo.appendMessage(tx, {
       tenantId: input.tenantId, conversationId, role: 'user', content: input.question,
-    });
-  });
+    }));
 
   let full = '';
   for await (const delta of streamChat(llmModel, prompt, apiKey)) {
@@ -90,14 +74,16 @@ export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, vo
     yield delta;
   }
 
-  // persist assistant message + citations after the stream completes
-  await withTenant(input.tenantId, async (tx) => {
-    await tx.insert(messages).values({
+  await withTenant(input.tenantId, (tx) =>
+    convo.appendMessage(tx, {
       tenantId: input.tenantId,
       conversationId,
       role: 'assistant',
       content: full,
       citations: context.map((c) => ({ documentId: c.documentId, score: c.score })),
-    });
+    }));
+
+  await dispatch('conversation.turn', {
+    tenantId: input.tenantId, chatbotId: input.chatbotId, conversationId,
   });
 }

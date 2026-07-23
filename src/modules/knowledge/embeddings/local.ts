@@ -1,6 +1,6 @@
-import { pipeline, env } from '@xenova/transformers';
-import type { EmbeddingModel } from '@/lib/models/registry';
-import { ensureModelFile } from '@/lib/storage/model-host';
+﻿import { pipeline, env } from '@xenova/transformers';
+import type { EmbeddingModel } from '@/modules/core/registry';
+import { ensureModelFile } from '@/modules/knowledge/storage/model-host';
 
 /**
  * Local ONNX embeddings via transformers.js.
@@ -8,7 +8,7 @@ import { ensureModelFile } from '@/lib/storage/model-host';
  * The model weights (the 80MB / 2GB files) are NOT bundled. On first use
  * ensureModelFile() pulls them from the superadmin's Google Drive /
  * SharePoint folder into the on-disk cache, then transformers.js loads
- * them from there. This is the "embedding model comes from Drive" flow —
+ * them from there. This is the "embedding model comes from Drive" flow â€”
  * and it is shared infrastructure: the MODEL is central, while the
  * VECTORS it produces are written per-tenant and never shared.
  */

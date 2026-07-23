@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/lib/auth';
-import { ingestDocument } from '@/lib/rag/ingest';
+import { getCurrentUser } from '@/modules/core/auth';
+import { knowledgeService } from '@/modules/knowledge/knowledge.service';
+import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
 export const runtime = 'nodejs';
 
-/**
- * Ingest raw text into a chatbot's knowledge base. In production this is
- * called by the Drive/SharePoint sync workers after extracting text from
- * each file; exposed here for direct uploads too.
- */
 const Body = z.object({
   chatbotId: z.string().uuid(),
   title: z.string().optional(),
   text: z.string().min(1),
+  sourceId: z.string().uuid().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
+/** POST /api/ingest — teks → chunk → embed → simpan ke KB chatbot. */
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 
-  const chunks = await ingestDocument({
-    tenantId: user.tenantId,
-    chatbotId: parsed.data.chatbotId,
-    title: parsed.data.title,
-    text: parsed.data.text,
-    metadata: parsed.data.metadata,
-  });
-
-  return NextResponse.json({ ok: true, chunks });
+  try {
+    const chunks = await knowledgeService.ingest(user.tenantId, parsed.data);
+    return NextResponse.json({ ok: true, chunks });
+  } catch (e) {
+    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
+    throw e;
+  }
 }

@@ -15,7 +15,8 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'users','tenant_settings','provider_credentials','chatbots',
-    'data_sources','documents','conversations','messages'
+    'data_sources','documents','conversations','messages',
+    'memory_notes','memory_edges'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);

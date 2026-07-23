@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
+﻿import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { EmbeddingModel } from '@/lib/models/registry';
+import type { EmbeddingModel } from '@/modules/core/registry';
 import { downloadSuperadminDriveFile } from './gdrive';
 import { downloadSuperadminSharepointFile } from './sharepoint';
 
@@ -10,9 +10,9 @@ import { downloadSuperadminSharepointFile } from './sharepoint';
  * SharePoint folder the first time. Returns the local directory path
  * transformers.js should load from.
  *
- * "Embeddings pakai Google Drive superadmin" → the MODEL is central,
+ * "Embeddings pakai Google Drive superadmin" â†’ the MODEL is central,
  * downloaded once, cached, and shared by all tenants. The per-tenant
- * knowledge base (the vectors) is never shared — see db/tenant.ts.
+ * knowledge base (the vectors) is never shared â€” see db/tenant.ts.
  */
 export async function ensureModelFile(model: EmbeddingModel): Promise<string> {
   const cacheDir = process.env.MODEL_CACHE_DIR || './.model-cache';

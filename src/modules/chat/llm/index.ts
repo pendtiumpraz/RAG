@@ -1,7 +1,7 @@
-import OpenAI from 'openai';
+﻿import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
-import { getLlmModel, type Provider } from '@/lib/models/registry';
+import { getLlmModel, type Provider } from '@/modules/core/registry';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';

@@ -1,25 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, tenantSettings, providerCredentials } from '@/lib/db';
-import { withTenant } from '@/lib/db/tenant';
-import { encryptSecret } from '@/lib/crypto';
-import { getCurrentTenantId } from '@/lib/auth';
-import { LLM_MODELS, EMBEDDING_MODELS, ALL_PROVIDERS } from '@/lib/models/registry';
+import { getCurrentUser } from '@/modules/core/auth';
+import { settingsService } from '@/modules/settings/settings.service';
+import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { LLM_MODELS, EMBEDDING_MODELS, ALL_PROVIDERS } from '@/modules/core/registry';
 
 export const runtime = 'nodejs';
 
-// Expose the catalog so the Settings UI can render the dropdowns.
+/** GET /api/settings — katalog model + setelan aktif tenant. */
 export async function GET() {
-  const tenantId = await getCurrentTenantId();
-  const settings = await withTenant(tenantId, async (tx) =>
-    (await tx.select().from(tenantSettings).where(eq(tenantSettings.tenantId, tenantId)).limit(1))[0],
-  );
+  const user = await getCurrentUser();
+  const active = await settingsService.get(user.tenantId);
   return NextResponse.json({
     llmModels: LLM_MODELS,
     embeddingModels: EMBEDDING_MODELS,
     providers: ALL_PROVIDERS,
-    active: settings ?? null,
+    active,
   });
 }
 
@@ -27,41 +23,21 @@ const Body = z.object({
   activeLlmModel: z.string().optional(),
   activeEmbeddingModel: z.string().optional(),
   systemPrompt: z.string().optional(),
-  // provider → API key. Empty string clears; undefined leaves unchanged.
+  themeConfig: z.record(z.unknown()).optional(),
   apiKeys: z.record(z.string()).optional(),
 });
 
+/** POST /api/settings — simpan model aktif / prompt / theme / API keys. */
 export async function POST(req: NextRequest) {
-  const tenantId = await getCurrentTenantId();
+  const user = await getCurrentUser();
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
-  const { activeLlmModel, activeEmbeddingModel, systemPrompt, apiKeys } = parsed.data;
 
-  await withTenant(tenantId, async (tx) => {
-    // Upsert the single active model selection.
-    await tx.insert(tenantSettings)
-      .values({ tenantId, activeLlmModel, activeEmbeddingModel, systemPrompt })
-      .onConflictDoUpdate({
-        target: tenantSettings.tenantId,
-        set: {
-          ...(activeLlmModel ? { activeLlmModel } : {}),
-          ...(activeEmbeddingModel ? { activeEmbeddingModel } : {}),
-          ...(systemPrompt !== undefined ? { systemPrompt } : {}),
-          updatedAt: new Date(),
-        },
-      });
-
-    // Save/replace encrypted API keys per provider.
-    if (apiKeys) {
-      for (const [provider, key] of Object.entries(apiKeys)) {
-        if (!key) continue;
-        await tx.delete(providerCredentials).where(eq(providerCredentials.provider, provider));
-        await tx.insert(providerCredentials).values({
-          tenantId, provider, encryptedKey: encryptSecret(key),
-        });
-      }
-    }
-  });
-
-  return NextResponse.json({ ok: true });
+  try {
+    await settingsService.update(user.tenantId, parsed.data as never);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
+    throw e;
+  }
 }

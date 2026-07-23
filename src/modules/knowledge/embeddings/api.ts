@@ -1,5 +1,5 @@
-import OpenAI from 'openai';
-import type { EmbeddingModel } from '@/lib/models/registry';
+﻿import OpenAI from 'openai';
+import type { EmbeddingModel } from '@/modules/core/registry';
 
 /**
  * Remote embedding APIs. OpenAI is native; Cohere and other

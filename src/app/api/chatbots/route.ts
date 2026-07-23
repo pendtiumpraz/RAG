@@ -1,37 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { nanoid } from 'nanoid';
-import { db, chatbots } from '@/lib/db';
-import { withTenant } from '@/lib/db/tenant';
-import { getCurrentUser } from '@/lib/auth';
+import { z } from 'zod';
+import { getCurrentUser } from '@/modules/core/auth';
+import { chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
 
 export const runtime = 'nodejs';
 
-// List this tenant's chatbots (each = one isolated knowledge base).
+/** GET /api/chatbots — daftar chatbot aktif tenant ini. */
 export async function GET() {
   const user = await getCurrentUser();
-  const rows = await withTenant(user.tenantId, async (tx) => tx.select().from(chatbots));
+  const rows = await chatbotService.list(user.tenantId);
   return NextResponse.json(rows);
 }
 
-// Create a new chatbot → returns its public embed key + snippet.
+const CreateBody = z.object({
+  name: z.string().min(1).default('Chatbot Baru'),
+  allowedOrigins: z.array(z.string()).optional(),
+  greeting: z.string().optional(),
+  themeConfig: z.record(z.unknown()).optional(),
+});
+
+/** POST /api/chatbots — buat chatbot → balikan termasuk embed snippet. */
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  const body = await req.json().catch(() => ({}));
-  const name: string = body.name ?? 'My Chatbot';
-  const allowedOrigins: string[] = Array.isArray(body.allowedOrigins) ? body.allowedOrigins : [];
+  const parsed = CreateBody.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 
-  const publicKey = 'cb_live_' + nanoid(24);
-  const created = await withTenant(user.tenantId, async (tx) =>
-    (await tx.insert(chatbots).values({
-      tenantId: user.tenantId,
-      ownerId: user.id,
-      name,
-      publicKey,
-      allowedOrigins,
-    }).returning())[0],
-  );
-
-  const host = process.env.NEXTAUTH_URL ?? '';
-  const snippet = `<script src="${host}/embed.js" data-chatbot="${publicKey}" data-color="#4f46e5"></script>`;
-  return NextResponse.json({ chatbot: created, snippet });
+  try {
+    const chatbot = await chatbotService.create(user.tenantId, {
+      ownerId: user.id, ...parsed.data,
+      themeConfig: parsed.data.themeConfig as never,
+    });
+    return NextResponse.json({ chatbot, snippet: chatbotService.embedSnippet(chatbot.publicKey) }, { status: 201 });
+  } catch (e) {
+    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
+    throw e;
+  }
 }
