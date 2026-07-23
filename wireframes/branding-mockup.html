@@ -1,117 +1,111 @@
 <!doctype html>
-<html lang="id" data-theme="light">
+<html lang="id" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Nalar — Branding · White-label</title>
 <link rel="stylesheet" href="nalar-ds.css" />
 <style>
-  .app{ display:grid; grid-template-columns:250px 1fr; min-height:100vh; }
+  .app{ display:grid; grid-template-columns:246px 1fr; min-height:100vh; }
   @media (max-width:900px){ .app{ grid-template-columns:1fr; } .sidebar{ display:none; } }
-
-  .sidebar{ background:var(--paper-2); border-right:1px solid var(--rule-strong);
+  .sidebar{ background:var(--bg-2); border-right:1px solid var(--line-strong);
     padding:var(--sp-5) var(--sp-4); position:sticky; top:0; height:100vh; }
   .brand{ display:flex; align-items:center; gap:var(--sp-3); padding-bottom:var(--sp-4);
-    border-bottom:3px double var(--rule-strong); margin-bottom:var(--sp-4); }
-  .brand .wm{ font-family:var(--font-display); font-size:24px; }
-  .brand .wm b{ color:var(--gold-mark); font-weight:600; }
+    border-bottom:1px solid var(--line-strong); margin-bottom:var(--sp-4); font-weight:750; font-size:19px; }
+  .brand b{ color:var(--source); }
   .nav-label{ font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps);
     text-transform:uppercase; color:var(--faint); padding:var(--sp-3) var(--sp-2) var(--sp-2); }
   .nav-item{ display:flex; align-items:center; gap:var(--sp-3); padding:9px var(--sp-2); border:none; background:none;
     width:100%; text-align:left; cursor:pointer; font:inherit; font-size:var(--fs-sm); color:var(--muted);
     border-left:2px solid transparent; margin-left:-2px; border-radius:var(--rad-xs); }
   .nav-item:hover{ color:var(--ink); background:var(--card-2); }
-  .nav-item[aria-current="page"]{ color:var(--ink); font-weight:600; border-left-color:var(--gold-mark); background:var(--card); }
+  .nav-item[aria-current="page"]{ color:var(--ink); font-weight:600; border-left-color:var(--signal); background:var(--card); }
 
   .main{ min-width:0; }
-  .topbar{ display:flex; align-items:center; gap:var(--sp-4); padding:var(--sp-4) var(--sp-8);
-    border-bottom:1px solid var(--rule-strong); position:sticky; top:0; z-index:20; background:var(--paper); }
-  .topbar h1{ font-size:var(--fs-2xl); } .grow{ flex:1; }
+  .topbar{ display:flex; align-items:center; gap:var(--sp-4); padding:var(--sp-3) var(--sp-6);
+    border-bottom:1px solid var(--line-strong); position:sticky; top:0; z-index:20; background:var(--bg); min-height:60px; }
+  .topbar h1{ font-size:var(--fs-xl); } .grow{ flex:1; }
 
-  .content{ padding:var(--sp-8); display:grid; grid-template-columns:400px 1fr; gap:var(--sp-6); align-items:start; max-width:1200px; }
+  .content{ padding:var(--sp-6); display:grid; grid-template-columns:390px 1fr; gap:var(--sp-5); align-items:start; max-width:1180px; }
   @media (max-width:1020px){ .content{ grid-template-columns:1fr; } }
-  .page-head{ grid-column:1 / -1; border-bottom:1px solid var(--rule); padding-bottom:var(--sp-4); }
-  .page-head .sub{ color:var(--muted); font-size:var(--fs-sm); margin-top:6px; max-width:64ch; }
+  .page-head{ grid-column:1 / -1; }
+  .page-head .sub{ color:var(--muted); font-size:var(--fs-sm); margin-top:4px; max-width:66ch; }
 
-  /* editor */
-  .editor .grp{ padding:var(--sp-4) var(--sp-5); border-bottom:1px solid var(--rule); }
+  .editor .grp{ padding:var(--sp-4) var(--sp-5); border-bottom:1px solid var(--line); }
   .editor .grp:last-child{ border-bottom:none; }
   .editor .gl{ font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps);
     text-transform:uppercase; color:var(--faint); margin-bottom:var(--sp-3); }
   .row{ display:flex; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-3); }
   .row:last-child{ margin-bottom:0; }
   .row > label{ flex:1; font-size:var(--fs-sm); }
-  input[type=color]{ width:38px; height:30px; border:1px solid var(--rule-strong); border-radius:var(--rad-xs); background:none; padding:0; cursor:pointer; }
-  input[type=range]{ flex:1; accent-color:var(--indigo); }
+  input[type=color]{ width:38px; height:30px; border:1px solid var(--line-strong); border-radius:var(--rad-xs); background:none; padding:0; cursor:pointer; }
+  input[type=range]{ flex:1; accent-color:var(--signal); }
   .seg{ display:flex; gap:5px; }
-  .seg button{ flex:1; background:var(--card-2); border:1px solid var(--rule-strong); color:var(--muted);
+  .seg button{ flex:1; background:var(--bg-2); border:1px solid var(--line-strong); color:var(--muted);
     border-radius:var(--rad-xs); padding:7px; cursor:pointer; font:inherit; font-size:var(--fs-xs); }
-  .seg button.on{ background:var(--indigo); color:var(--on-indigo); border-color:var(--indigo); }
+  .seg button.on{ background:var(--signal); color:var(--on-signal); border-color:var(--signal); }
   .presets{ display:flex; gap:9px; flex-wrap:wrap; }
   .preset{ width:32px; height:32px; border-radius:var(--rad-xs); cursor:pointer; border:2px solid transparent; }
   .preset.on{ border-color:var(--ink); }
-  .logodrop{ width:56px; height:56px; border:1.5px dashed var(--rule-strong); border-radius:var(--rad-sm);
-    display:grid; place-items:center; font-family:var(--font-display); font-size:22px; color:var(--indigo); background:var(--card); }
-  pre.cfg{ background:var(--sunken); border:1px solid var(--rule); border-radius:var(--rad-sm); padding:var(--sp-3);
-    margin:0; font-family:var(--font-mono); font-size:10.5px; color:var(--muted); overflow-x:auto; }
+  .logodrop{ width:54px; height:54px; border:1.5px dashed var(--line-strong); border-radius:var(--rad-sm);
+    display:grid; place-items:center; font-weight:800; font-size:20px; color:var(--signal); background:var(--card-2); }
+  pre.cfg{ background:var(--bg-2); border:1px solid var(--line); border-radius:var(--rad-sm); padding:var(--sp-3);
+    margin:0; font-family:var(--font-mono); font-size:10px; color:var(--muted); overflow-x:auto; }
 
-  /* ═══ LIVE PREVIEW — scoped --pv-* ═══ */
-  .preview{
-    --pv-primary:#3F35B5; --pv-primary-ink:#322A93; --pv-accent:#8A5E12;
-    --pv-radius:8px; --pv-radius-sm:6px;
-    --pv-serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-  }
+  /* PREVIEW scoped --pv-* */
+  .preview{ --pv-signal:#7D8CFF; --pv-signal-strong:#98A5FF; --pv-source:#E3B15C; --pv-radius:8px; --pv-radius-sm:6px; }
   .pv-label{ font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps); text-transform:uppercase;
     color:var(--faint); margin:0 0 var(--sp-3); }
-  .pv-frame{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); overflow:hidden; margin-bottom:var(--sp-5); }
+  .pv-frame{ border:1px solid var(--line-strong); border-radius:var(--rad-md); overflow:hidden; margin-bottom:var(--sp-5); }
   .pv-nav{ display:flex; align-items:center; justify-content:space-between; padding:var(--sp-3) var(--sp-4);
-    border-bottom:1px solid var(--rule-strong); background:var(--card-2); }
-  .pv-brandrow{ display:flex; align-items:center; gap:var(--sp-2); font-family:var(--pv-serif); font-size:var(--fs-md); font-weight:600; }
+    border-bottom:1px solid var(--line-strong); background:var(--card-2); }
+  .pv-brandrow{ display:flex; align-items:center; gap:var(--sp-2); font-weight:700; font-size:var(--fs-md); }
   .pv-logo{ width:30px; height:30px; border-radius:var(--pv-radius-sm); display:grid; place-items:center;
-    color:#F7F5EE; font-family:var(--pv-serif); font-weight:700; background:var(--pv-primary); border:1px solid var(--pv-primary-ink); }
-  .pv-body{ display:grid; grid-template-columns:132px 1fr; min-height:270px; }
+    color:var(--on-signal); font-weight:800; background:var(--pv-signal); }
+  .pv-body{ display:grid; grid-template-columns:130px 1fr; min-height:280px; }
   @media (max-width:640px){ .pv-body{ grid-template-columns:1fr; } .pv-side{ display:none; } }
-  .pv-side{ border-right:1px solid var(--rule); padding:var(--sp-3); background:var(--card-2); }
-  .pv-si{ display:flex; align-items:center; gap:8px; padding:7px 9px; font-size:var(--fs-xs); color:var(--muted);
-    border-left:2px solid transparent; }
-  .pv-si .d{ width:8px; height:8px; border-radius:2px; background:var(--pv-primary); }
-  .pv-si.on{ color:var(--ink); font-weight:600; border-left-color:var(--pv-accent); background:var(--card); }
+  .pv-side{ border-right:1px solid var(--line); padding:var(--sp-3); background:var(--card-2); }
+  .pv-si{ display:flex; align-items:center; gap:8px; padding:7px 9px; font-size:var(--fs-xs); color:var(--muted); border-left:2px solid transparent; }
+  .pv-si .d{ width:8px; height:8px; border-radius:2px; background:var(--pv-signal); }
+  .pv-si.on{ color:var(--ink); font-weight:600; border-left-color:var(--pv-signal); background:var(--card); }
   .pv-content{ padding:var(--sp-4); display:flex; flex-direction:column; gap:var(--sp-4); background:var(--card); }
   .pvb{ border-radius:var(--pv-radius-sm); padding:9px 16px; font:inherit; font-weight:600; font-size:var(--fs-sm);
-    cursor:pointer; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); min-height:38px; }
-  .preview[data-btn="solid"] .pvb.primary{ background:var(--pv-primary); border-color:var(--pv-primary-ink); color:#F7F5EE; }
-  .preview[data-btn="soft"] .pvb.primary{ background:color-mix(in srgb,var(--pv-primary) 12%, var(--card)); border-color:var(--rule-strong); color:var(--pv-primary); }
-  .preview[data-btn="outline"] .pvb.primary{ background:transparent; border-color:var(--pv-primary); color:var(--pv-primary); }
-  .pv-input{ width:100%; background:var(--card); border:1px solid var(--rule-strong); border-radius:var(--pv-radius-sm);
+    cursor:pointer; border:1px solid var(--line-strong); background:var(--card-2); color:var(--ink); min-height:38px; }
+  .preview[data-btn="solid"] .pvb.primary{ background:var(--pv-signal); border-color:var(--pv-signal); color:var(--on-signal); }
+  .preview[data-btn="soft"] .pvb.primary{ background:color-mix(in srgb,var(--pv-signal) 16%, var(--card)); border-color:var(--line-strong); color:var(--pv-signal); }
+  .preview[data-btn="outline"] .pvb.primary{ background:transparent; border-color:var(--pv-signal); color:var(--pv-signal); }
+  .pv-input{ width:100%; background:var(--bg-2); border:1px solid var(--line-strong); border-radius:var(--pv-radius-sm);
     padding:10px 12px; font:inherit; font-size:var(--fs-sm); color:var(--ink); outline:none; min-height:42px; }
-  .pv-input:focus{ border-color:var(--pv-primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--pv-primary) 20%, transparent); }
-  .pv-answer{ font-family:var(--pv-serif); font-size:var(--fs-md); line-height:1.55; }
-  .pv-cite{ font-family:var(--font-mono); font-size:.68em; font-weight:700; color:var(--pv-accent); vertical-align:super; line-height:0; }
-  .pv-fns{ margin:8px 0 0; padding:7px 0 0; border-top:1px solid var(--rule); list-style:none;
-    font-family:var(--font-mono); font-size:10px; color:var(--muted); }
-  .pv-fns b{ color:var(--pv-accent); }
+  .pv-input:focus{ border-color:var(--pv-signal); box-shadow:0 0 0 3px color-mix(in srgb,var(--pv-signal) 20%, transparent); }
+  .pv-trace{ font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+  .pv-tr{ display:flex; align-items:center; gap:8px; padding:3px 0; }
+  .pv-tr .op{ color:var(--faint); width:10px; }
+  .pv-meter{ width:60px; height:4px; background:var(--card-3); border-radius:2px; overflow:hidden; margin-left:auto; flex:none; }
+  .pv-meter i{ display:block; height:100%; background:var(--pv-source); }
+  .pv-score{ color:var(--pv-source); width:28px; text-align:right; flex:none; }
+  .pv-cite{ display:inline-block; font-family:var(--font-mono); font-size:.7em; font-weight:700; color:var(--pv-source);
+    border:1px solid color-mix(in srgb,var(--pv-source) 45%,transparent); border-radius:3px; padding:0 4px; margin:0 2px; }
+  .pv-src{ font-family:var(--font-mono); font-size:9.5px; color:var(--muted); margin-top:6px; padding-top:6px; border-top:1px dashed var(--line-strong); }
+  .pv-src b{ color:var(--pv-source); }
 
-  /* mini widget preview */
-  .pv-widget{ width:250px; border:1px solid var(--rule-strong); border-radius:var(--pv-radius); overflow:hidden; }
-  .pv-wh{ display:flex; align-items:center; gap:9px; padding:11px 13px; color:#F7F5EE;
-    background:var(--pv-primary); border-bottom:1px solid var(--pv-primary-ink); }
-  .pv-wh .l{ width:24px; height:24px; border-radius:calc(var(--pv-radius) * .6); background:rgba(255,255,255,.18);
-    display:grid; place-items:center; font-family:var(--pv-serif); font-weight:700; font-size:12px; }
+  .pv-widget{ width:252px; border:1px solid var(--line-strong); border-radius:var(--pv-radius); overflow:hidden; }
+  .pv-wh{ display:flex; align-items:center; gap:9px; padding:10px 12px; background:var(--card-2); border-bottom:1px solid var(--line-strong); }
+  .pv-wh .l{ width:24px; height:24px; border-radius:calc(var(--pv-radius) * .6); background:var(--pv-signal);
+    color:var(--on-signal); display:grid; place-items:center; font-weight:800; font-size:12px; }
   .pv-wh b{ font-size:13px; }
   .pv-wb{ padding:12px; display:flex; flex-direction:column; gap:8px; background:var(--card); }
   .pv-m{ font-size:12px; line-height:1.5; }
-  .pv-m.u{ align-self:flex-end; max-width:85%; color:#F7F5EE; background:var(--pv-primary);
+  .pv-m.u{ align-self:flex-end; max-width:85%; color:var(--on-signal); background:var(--pv-signal);
     padding:7px 10px; border-radius:var(--pv-radius-sm); border-bottom-right-radius:3px; }
-  .pv-m.a{ background:var(--card-2); border:1px solid var(--rule); border-radius:var(--pv-radius-sm);
-    padding:9px 11px; font-family:var(--pv-serif); font-size:12.5px; }
+  .pv-m.a{ background:var(--card-2); border:1px solid var(--line); border-radius:var(--pv-radius-sm); padding:9px 11px; }
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
-      <svg width="34" height="34" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
-      <span class="wm">Nalar<b>.</b></span>
+      <svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--line-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--signal)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--signal)"/><circle cx="13" cy="24" r="3" fill="var(--signal)"/><circle cx="13" cy="33" r="3" fill="var(--signal)"/><circle cx="34" cy="24" r="5.5" fill="var(--source)"/></svg>
+      nalar<b>.</b>
     </div>
     <div class="nav-label">Workspace</div>
     <button class="nav-item">Dashboard</button>
@@ -132,43 +126,37 @@
 
     <div class="content">
       <div class="page-head">
-        <span class="kicker">White-label</span>
-        <p class="sub">Sesuaikan logo, warna ink, bentuk, dan huruf. Berlaku untuk dashboard, halaman client, dan widget embed tenant ini — semua digerakkan satu theme config.</p>
+        <span class="kicker">white-label</span>
+        <p class="sub">Sesuaikan logo, warna signal &amp; source, bentuk, dan huruf. Berlaku untuk dashboard, halaman client, dan widget embed — semua dari satu theme config.</p>
       </div>
 
       <!-- EDITOR -->
       <div class="card editor">
-        <div class="grp"><div class="gl">Preset ink</div><div class="presets" id="presets"></div></div>
+        <div class="grp"><div class="gl">Preset</div><div class="presets" id="presets"></div></div>
         <div class="grp"><div class="gl">Logo &amp; nama</div>
           <div class="row" style="align-items:flex-start;">
             <div class="logodrop" id="logoDrop">N</div>
-            <p class="marginalia" style="flex:1;">Unggah SVG/PNG, atau pakai inisial.<br/>Muncul di sidebar, navbar &amp; widget.</p>
+            <p class="microlabel" style="flex:1;">UNGGAH SVG/PNG ATAU PAKAI INISIAL.<br/>MUNCUL DI SIDEBAR, NAVBAR &amp; WIDGET.</p>
           </div>
           <div class="row"><label>Inisial</label><input class="input" type="text" id="brandLogo" value="N" maxlength="2" style="width:88px;min-height:38px;" /></div>
-          <div class="row"><label>Nama brand</label><input class="input" type="text" id="brandName" value="Nalar" style="width:170px;min-height:38px;" /></div>
+          <div class="row"><label>Nama brand</label><input class="input" type="text" id="brandName" value="Nalar" style="width:168px;min-height:38px;" /></div>
         </div>
-        <div class="grp"><div class="gl">Warna ink</div>
-          <div class="row"><label>Primary (interaktif)</label><input type="color" id="cPrimary" value="#3F35B5" /></div>
-          <div class="row"><label>Accent (sitasi/sumber)</label><input type="color" id="cAccent" value="#8A5E12" /></div>
+        <div class="grp"><div class="gl">Warna</div>
+          <div class="row"><label>Signal (interaktif)</label><input type="color" id="cSignal" value="#7D8CFF" /></div>
+          <div class="row"><label>Source (sitasi/skor)</label><input type="color" id="cSource" value="#E3B15C" /></div>
         </div>
-        <div class="grp"><div class="gl">Bentuk &amp; huruf</div>
-          <div class="row"><label>Radius <span class="marginalia" id="radVal">8px</span></label><input type="range" id="cRadius" min="0" max="20" value="8" /></div>
-          <div class="row"><label>Huruf jawaban</label>
-            <select class="select" id="cFont" style="width:170px;min-height:38px;">
-              <option value='"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif'>Serif editorial</option>
-              <option value='"Segoe UI",system-ui,sans-serif'>Sans</option>
-              <option value='ui-monospace,Consolas,monospace'>Mono</option>
-            </select></div>
+        <div class="grp"><div class="gl">Bentuk</div>
+          <div class="row"><label>Radius <span class="microlabel" id="radVal">8PX</span></label><input type="range" id="cRadius" min="0" max="20" value="8" /></div>
         </div>
         <div class="grp"><div class="gl">Gaya tombol</div>
           <div class="seg" id="btnStyle"><button data-v="solid" class="on">Solid</button><button data-v="soft">Soft</button><button data-v="outline">Outline</button></div>
         </div>
-        <div class="grp"><div class="gl">Config JSON — disimpan per tenant</div><pre class="cfg" id="cfg"></pre></div>
+        <div class="grp"><div class="gl">Config JSON — per tenant</div><pre class="cfg" id="cfg"></pre></div>
       </div>
 
-      <!-- LIVE PREVIEW -->
+      <!-- PREVIEW -->
       <div class="preview" id="preview" data-btn="solid">
-        <p class="pv-label">Pratinjau langsung — semua elemen ikut token</p>
+        <p class="pv-label">◉ Pratinjau langsung — semua elemen ikut token</p>
         <div class="pv-frame">
           <div class="pv-nav">
             <div class="pv-brandrow"><span class="pv-logo" id="pvLogo">N</span><span id="pvName">Nalar</span></div>
@@ -183,22 +171,24 @@
             <div class="pv-content">
               <div class="cluster gap-2"><button class="pvb primary">Simpan</button><button class="pvb">Batal</button></div>
               <input class="pv-input" placeholder="Klik untuk melihat focus ring…" />
-              <div class="pv-answer">Garansi produk Pro adalah <strong>24 bulan</strong> sejak pembelian.<span class="pv-cite">1</span>
-                <ul class="pv-fns"><li><b>1.</b> kebijakan-garansi.pdf — hlm. 3</li></ul>
+              <div>
+                <div class="pv-trace">
+                  <div class="pv-tr"><span class="op">└</span><span>kebijakan-garansi.pdf</span><span class="pv-meter"><i style="width:91%"></i></span><span class="pv-score">0.91</span></div>
+                </div>
+                <div style="font-size:var(--fs-sm);margin-top:6px;">Garansi Pro <strong>24 bulan</strong> sejak pembelian.<span class="pv-cite">1</span></div>
+                <div class="pv-src"><b>[1]</b> kebijakan-garansi.pdf · hlm. 3</div>
               </div>
             </div>
           </div>
         </div>
 
-        <p class="pv-label">Widget embed</p>
+        <p class="pv-label">◉ Widget embed</p>
         <div class="pv-widget">
           <div class="pv-wh"><span class="l" id="pvWLogo">N</span><b id="pvWName">Nalar</b></div>
           <div class="pv-wb">
-            <div class="pv-m a" style="font-family:inherit;">Halo! Ada yang bisa dibantu?</div>
+            <div class="pv-m a">Halo! Ada yang bisa dibantu?</div>
             <div class="pv-m u">Berapa lama garansinya?</div>
-            <div class="pv-m a">24 bulan sejak pembelian.<span class="pv-cite">1</span>
-              <ul class="pv-fns"><li><b>1.</b> garansi.pdf</li></ul>
-            </div>
+            <div class="pv-m a">24 bulan sejak pembelian.<span class="pv-cite">1</span><div class="pv-src"><b>[1]</b> garansi.pdf</div></div>
           </div>
         </div>
       </div>
@@ -206,56 +196,53 @@
   </div>
 </div>
 
-<div class="toast" id="toast"><span class="dot"></span><span id="toastMsg">Tersimpan</span></div>
+<div class="toast" id="toast"><span class="led"></span><span id="toastMsg">Tersimpan</span></div>
 
 <script>
-  const pv = document.getElementById('preview');
+  const pv=document.getElementById('preview');
   function setV(k,v){ pv.style.setProperty(k,v); cfg(); }
   function shade(hex,p){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+p,g=((n>>8)&255)+p,b=(n&255)+p;
     r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
     return '#'+(0x1000000+(r<<16)+(g<<8)+b).toString(16).slice(1); }
 
-  cPrimary.addEventListener('input',e=>{ setV('--pv-primary',e.target.value); setV('--pv-primary-ink',shade(e.target.value,-18)); });
-  cAccent.addEventListener('input',e=> setV('--pv-accent',e.target.value));
-  cRadius.addEventListener('input',e=>{ setV('--pv-radius',e.target.value+'px'); setV('--pv-radius-sm',Math.max(3,e.target.value-2)+'px'); radVal.textContent=e.target.value+'px'; });
-  cFont.addEventListener('change',e=> setV('--pv-serif',e.target.value));
+  cSignal.addEventListener('input',e=>{ setV('--pv-signal',e.target.value); setV('--pv-signal-strong',shade(e.target.value,18)); });
+  cSource.addEventListener('input',e=>setV('--pv-source',e.target.value));
+  cRadius.addEventListener('input',e=>{ setV('--pv-radius',e.target.value+'px'); setV('--pv-radius-sm',Math.max(3,e.target.value-2)+'px'); radVal.textContent=e.target.value+'PX'; });
   brandName.addEventListener('input',e=>{ const v=e.target.value||'Nalar'; pvName.textContent=v; pvWName.textContent=v; cfg(); });
   brandLogo.addEventListener('input',e=>{ const v=e.target.value||'N'; logoDrop.textContent=v; pvLogo.textContent=v; pvWLogo.textContent=v; cfg(); });
-  document.querySelectorAll('#btnStyle button').forEach(b=> b.addEventListener('click',()=>{
+  document.querySelectorAll('#btnStyle button').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('#btnStyle button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     pv.setAttribute('data-btn',b.dataset.v); cfg(); }));
 
   const PRESETS=[
-    {n:'Nalar',   p:'#3F35B5', a:'#8A5E12'},
-    {n:'Forest',  p:'#2F5D46', a:'#8A5E12'},
-    {n:'Oxblood', p:'#7E2A24', a:'#9C7A2E'},
-    {n:'Sepia',   p:'#5C4632', a:'#8A5E12'},
-    {n:'Slate',   p:'#3E4A5A', a:'#6E7B8C'}
+    {n:'Nalar', s:'#7D8CFF', a:'#E3B15C'},
+    {n:'Mint',  s:'#4ECF96', a:'#E3B15C'},
+    {n:'Amber', s:'#E8A268', a:'#7D8CFF'},
+    {n:'Cyan',  s:'#4FC3C8', a:'#E3B15C'},
+    {n:'Mono',  s:'#9AA3B2', a:'#C8CDD6'}
   ];
   PRESETS.forEach((pr,i)=>{ const b=document.createElement('div'); b.className='preset'+(i===0?' on':'');
-    b.style.background='linear-gradient(135deg,'+pr.p+' 50%,'+pr.a+' 50%)'; b.title=pr.n;
+    b.style.background='linear-gradient(135deg,'+pr.s+' 50%,'+pr.a+' 50%)'; b.title=pr.n;
     b.addEventListener('click',()=>{ document.querySelectorAll('.preset').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-      cPrimary.value=pr.p; cAccent.value=pr.a;
-      setV('--pv-primary',pr.p); setV('--pv-primary-ink',shade(pr.p,-18)); setV('--pv-accent',pr.a); });
+      cSignal.value=pr.s; cSource.value=pr.a;
+      setV('--pv-signal',pr.s); setV('--pv-signal-strong',shade(pr.s,18)); setV('--pv-source',pr.a); });
     presets.appendChild(b); });
 
-  function cfg(){ document.getElementById('cfg').textContent = JSON.stringify({
+  function cfg(){ document.getElementById('cfg').textContent=JSON.stringify({
     brand:{ name:brandName.value, logo:brandLogo.value },
-    theme:{ primary:cPrimary.value, accent:cAccent.value, radius:cRadius.value+'px',
-      answerFont:cFont.value.split(',')[0].replace(/"/g,''), button:pv.getAttribute('data-btn') }
+    theme:{ signal:cSignal.value, source:cSource.value, radius:cRadius.value+'px', button:pv.getAttribute('data-btn') }
   },null,2); }
   function resetTheme(){
-    cPrimary.value='#3F35B5'; cAccent.value='#8A5E12'; cRadius.value=8; radVal.textContent='8px';
-    brandName.value='Nalar'; brandLogo.value='N'; cFont.selectedIndex=0;
+    cSignal.value='#7D8CFF'; cSource.value='#E3B15C'; cRadius.value=8; radVal.textContent='8PX';
+    brandName.value='Nalar'; brandLogo.value='N';
     pv.setAttribute('data-btn','solid'); document.querySelectorAll('#btnStyle button').forEach((x,i)=>x.classList.toggle('on',i===0));
-    setV('--pv-primary','#3F35B5'); setV('--pv-primary-ink','#322A93'); setV('--pv-accent','#8A5E12');
+    setV('--pv-signal','#7D8CFF'); setV('--pv-signal-strong','#98A5FF'); setV('--pv-source','#E3B15C');
     setV('--pv-radius','8px'); setV('--pv-radius-sm','6px');
-    setV('--pv-serif','"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif');
     pvName.textContent='Nalar'; pvWName.textContent='Nalar'; logoDrop.textContent='N'; pvLogo.textContent='N'; pvWLogo.textContent='N';
     cfg(); toast('Dikembalikan ke default Nalar');
   }
-  let tt; function toast(m){ const el=document.getElementById('toast'); document.getElementById('toastMsg').textContent=m;
-    el.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),2200); }
+  let tt; function toast(m){ toastMsg.textContent=m; document.getElementById('toast').classList.add('show');
+    clearTimeout(tt); tt=setTimeout(()=>document.getElementById('toast').classList.remove('show'),2200); }
   document.getElementById('themeBtn').addEventListener('click',()=>{ const r=document.documentElement;
     r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark'); });
   cfg();

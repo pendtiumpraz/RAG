@@ -10,7 +10,7 @@
 | Item | Status |
 |------|--------|
 | **Project** | `Nalar — Multi-tenant RAG Engine` |
-| **Fase Aktif** | `02-WIREFRAME-AUDIT` |
+| **Fase Aktif** | `03-BACKEND` (mockup approved; re-skin D4v2 selesai) |
 | **Status Loop** | `active` |
 | **Dimulai** | `2026-07-23` |
 | **Target Selesai** | `TBD (menunggu keputusan arsitektur)` |
@@ -43,12 +43,15 @@
 - [x] Mockup halaman Branding (white-label + live preview) → `wireframes/branding-mockup.html`
 - [👀] User approve SEMUA mockup — **GATE menunggu approve/revisi → lalu Fase 03**
 
-### ⬜ Fase 03: Backend — `Belum (scaffold ada, belum compliant)`
-- [ ] Migration tanpa FK constraint + `deleted_at` di semua tabel
-- [ ] Restrukturisasi ke Modules/ (Core, Tenant, Chatbot, Knowledge, Chat, Settings)
-- [ ] Service + Repository layer per module
-- [ ] API endpoints + soft delete/restore
-- [ ] Auth nyata (ganti stub cookie)
+### ➡️ Fase 03: Backend — `In Progress (inti selesai)`
+- [x] Schema compliant: No-FK + `deleted_at` semua tabel + theme_config + tabel memory (notes/edges)
+- [x] Restrukturisasi Modular Monolith → `src/modules/{core,chatbot,knowledge,chat,settings,memory}`
+- [x] Repository + Service + Event bus per module; integritas referensial + cascade soft-delete di service
+- [x] API: CRUD chatbots + `/trashed` + `/:id/restore`; documents delete/trashed/restore; ingest; settings; chat SSE + GET theme (white-label served)
+- [x] Memory primitives: wikilink parser, upsert note+edges, graph, export vault
+- [ ] Auth nyata NextAuth (ganti stub cookie) + signup→tenant
+- [ ] Rate limit + kuota; worker sync Drive/OneDrive/SharePoint
+- [ ] API documentation (OpenAPI)
 
 ### ⬜ Fase 04: Frontend — `Belum`
 - [ ] Sidebar 1-color icon
@@ -96,4 +99,5 @@
 | 2026-07-23 | 02 | Mockup auth (login/register, split brand + retrieval-field) + halaman Branding white-label (live preview navbar/sidebar/widget). Semua mockup Fase 02 lengkap; menunggu approval final |
 | 2026-07-23 | 02 | UI/UX assessment (~6.4/10). Arah desain baru **Editorial Ledger** (D4) untuk anti AI-slop + target 10. Design system `nalar-ds.css` + referensi `design-system.html` dibuat. TODO: re-skin semua surface ke DS ini |
 | 2026-07-23 | 02 | Requirement baru: **Obsidian Memory Agent** (Drive/OneDrive/SharePoint → vault markdown [[wikilink]] + graph-RAG) dicatat di user_requirement + idea.md. **Full gap assessment 14 dimensi** ditulis di `docs/assessment.md` (rata-rata ~5.3/10). `git init` + commit pertama `11f6bac` (Rule #15 ✅) |
+| 2026-07-23 | 02→03 | Fase 02 APPROVED → Fase 03 backend inti selesai (modular monolith, soft-delete endpoints, theme_config, memory). **D4v2 pivot: "Retrieval Instrument"** (user: editorial = "museum") — DS v3 + SEMUA surface di-re-skin: trace retrieval + skor similarity + streaming sebagai bahasa visual. Commit: 4c55dd6 + berikutnya |
 | 2026-07-23 | 02 | **RE-SKIN SEMUA surface ke Editorial Ledger** (`nalar-ds.css`): dashboard (+ halaman Memory graph baru, chart ber-axis/tooltip, footnote-sitasi di Conversations), landing (masthead + proof-card streaming), embed-demo (widget paper + footnote + preset ink editorial), auth (split terbitan), branding (preview ink). Gap dim-7 surfaces & data-viz tertutup |

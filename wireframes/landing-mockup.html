@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id" data-theme="light">
+<html lang="id" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,291 +8,282 @@
 <style>
   .wrap{ max-width:1080px; margin:0 auto; padding:0 var(--sp-6); }
 
-  /* Masthead ala surat kabar */
-  header.mast{ border-bottom:3px double var(--rule-strong); position:sticky; top:0; z-index:50; background:var(--paper); }
-  .mast-in{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); height:68px; }
-  .mast .wm{ font-family:var(--font-display); font-size:26px; letter-spacing:-0.02em; display:flex; align-items:center; gap:var(--sp-3); }
-  .mast .wm b{ color:var(--gold-mark); font-weight:600; }
-  .mast nav{ display:flex; gap:var(--sp-6); }
-  .mast nav a{ font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--muted); }
-  .mast nav a:hover{ color:var(--ink); text-decoration:none; }
-  @media (max-width:860px){ .mast nav{ display:none; } }
+  header.nav{ position:sticky; top:0; z-index:50; background:color-mix(in srgb,var(--bg) 86%,transparent);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line-strong); }
+  .nav-in{ display:flex; align-items:center; justify-content:space-between; height:62px; gap:var(--sp-4); }
+  .wm{ display:flex; align-items:center; gap:var(--sp-2); font-weight:750; font-size:19px; letter-spacing:var(--tk-tight); }
+  .wm b{ color:var(--source); }
+  .nav-in nav{ display:flex; gap:var(--sp-6); }
+  .nav-in nav a{ font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--muted); }
+  .nav-in nav a:hover{ color:var(--ink); text-decoration:none; }
+  @media (max-width:860px){ .nav-in nav{ display:none; } }
 
-  /* Hero — dua kolom: klaim + jawaban bersumber */
-  .hero{ padding:var(--sp-16) 0 var(--sp-12); border-bottom:1px solid var(--rule); }
-  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:var(--sp-12); align-items:start; }
-  @media (max-width:880px){ .hero-grid{ grid-template-columns:1fr; gap:var(--sp-8); } }
-  .hero h1{ font-size:var(--fs-5xl); line-height:1.02; margin:var(--sp-4) 0 0; }
-  .hero h1 em{ font-style:italic; color:var(--gold-ink); }
-  .hero .lede{ font-size:var(--fs-lg); line-height:var(--lh-read); color:var(--muted); margin-top:var(--sp-5); max-width:46ch; }
+  .hero{ padding:var(--sp-16) 0 var(--sp-12); border-bottom:1px solid var(--line); }
+  .hero-grid{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-10); align-items:center; }
+  @media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; } }
+  .hero h1{ font-size:var(--fs-5xl); line-height:1.05; margin-top:var(--sp-4); }
+  .hero h1 .src{ color:var(--source); }
+  .hero .lede{ color:var(--muted); font-size:var(--fs-lg); line-height:var(--lh-read); margin-top:var(--sp-5); max-width:46ch; }
   .hero .cta{ display:flex; gap:var(--sp-3); margin-top:var(--sp-6); flex-wrap:wrap; }
-  .hero .micro{ margin-top:var(--sp-4); }
 
-  /* Kartu jawaban-bersumber (signature) */
-  .proof{ border:1px solid var(--rule-strong); border-radius:var(--rad-lg); background:var(--card); overflow:hidden; }
-  .proof .ph{ display:flex; justify-content:space-between; align-items:center; padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--rule); }
-  .proof .body{ padding:var(--sp-5); }
-  .proof .q{ font-weight:600; font-size:var(--fs-md); margin-bottom:var(--sp-4); }
-  .proof .a{ font-family:var(--font-display); font-size:var(--fs-xl); line-height:1.5; }
-  .typing::after{ content:"▌"; color:var(--gold-mark); animation:blink 1s step-end infinite; }
-  @keyframes blink{ 50%{ opacity:0; } }
+  /* live trace terminal */
+  .term{ border:1px solid var(--line-strong); border-radius:var(--rad-lg); background:var(--panel); overflow:hidden; box-shadow:var(--pop); }
+  .term .th{ display:flex; align-items:center; justify-content:space-between; padding:var(--sp-3) var(--sp-4);
+    border-bottom:1px solid var(--line); background:var(--card-2); }
+  .term .tb{ padding:var(--sp-4); min-height:250px; }
+  .term .ans{ margin-top:var(--sp-3); font-size:var(--fs-md); line-height:1.6; }
 
-  section.blk{ padding:var(--sp-16) 0; border-bottom:1px solid var(--rule); }
-  .sec-head{ margin-bottom:var(--sp-8); max-width:620px; }
+  section.blk{ padding:var(--sp-16) 0; border-bottom:1px solid var(--line); }
+  .sec-head{ max-width:600px; margin-bottom:var(--sp-8); }
   .sec-head h2{ font-size:var(--fs-3xl); margin-top:var(--sp-3); }
   .sec-head p{ color:var(--muted); margin-top:var(--sp-3); font-size:var(--fs-md); line-height:var(--lh-read); }
-
   .grid{ display:grid; gap:var(--sp-4); }
-  .g3{ grid-template-columns:repeat(3,1fr); } .g4{ grid-template-columns:repeat(4,1fr); }
-  @media (max-width:880px){ .g3,.g4{ grid-template-columns:1fr; } }
+  .g3{ grid-template-columns:repeat(3,1fr); }
+  @media (max-width:880px){ .g3{ grid-template-columns:1fr; } }
 
-  /* Pilar — entri indeks, bukan icon-card */
-  .pillar{ border-top:2px solid var(--ink); padding-top:var(--sp-4); }
-  .pillar .no{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); }
-  .pillar h3{ font-size:var(--fs-xl); margin:var(--sp-2) 0; }
+  .pillar{ border-top:2px solid var(--line-strong); padding-top:var(--sp-4); }
+  .pillar .no{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--source); }
+  .pillar h3{ margin:var(--sp-2) 0; }
   .pillar p{ color:var(--muted); font-size:var(--fs-sm); line-height:var(--lh-read); }
 
-  /* Cara kerja — daftar bernomor (proses nyata = penomoran sah) */
-  .steps{ counter-reset:s; display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1px solid var(--rule-strong); border-radius:var(--rad-md); overflow:hidden; }
+  .steps{ counter-reset:s; display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line-strong); border-radius:var(--rad-md); overflow:hidden; }
   @media (max-width:880px){ .steps{ grid-template-columns:1fr; } }
-  .step{ padding:var(--sp-5); border-right:1px solid var(--rule); background:var(--card); }
+  .step{ padding:var(--sp-5); border-right:1px solid var(--line); background:var(--card); }
   .step:last-child{ border-right:none; }
-  @media (max-width:880px){ .step{ border-right:none; border-bottom:1px solid var(--rule); } .step:last-child{ border-bottom:none; } }
-  .step::before{ counter-increment:s; content:counter(s,decimal-leading-zero); font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); }
-  .step h4{ font-size:var(--fs-md); margin:var(--sp-2) 0 var(--sp-2); }
+  @media (max-width:880px){ .step{ border-right:none; border-bottom:1px solid var(--line); } .step:last-child{ border-bottom:none; } }
+  .step::before{ counter-increment:s; content:"0" counter(s); font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--source); }
+  .step h4{ margin:var(--sp-2) 0; font-size:var(--fs-md); }
   .step p{ color:var(--muted); font-size:var(--fs-xs); line-height:1.6; }
 
-  /* Fitur split */
-  .feat{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-12); align-items:center; }
-  @media (max-width:880px){ .feat{ grid-template-columns:1fr; gap:var(--sp-6); } .feat.rev .txt{ order:0; } }
+  .feat{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-10); align-items:center; }
+  @media (max-width:880px){ .feat{ grid-template-columns:1fr; } .feat.rev .txt{ order:0; } }
   .feat.rev .txt{ order:2; }
-  .feat h2{ font-size:var(--fs-2xl); margin-top:var(--sp-3); }
   .feat .txt p{ color:var(--muted); margin-top:var(--sp-4); line-height:var(--lh-read); }
   .checklist{ margin:var(--sp-5) 0 0; padding:0; list-style:none; }
-  .checklist li{ display:flex; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--rule); font-size:var(--fs-sm); }
+  .checklist li{ display:flex; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--line); font-size:var(--fs-sm); }
   .checklist li:last-child{ border-bottom:none; }
   .checklist .tick{ color:var(--good); font-weight:700; }
-  .codecard{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-5); }
-  .codebox{ font-family:var(--font-mono); font-size:var(--fs-xs); background:var(--sunken); border:1px solid var(--rule);
-    border-radius:var(--rad-sm); padding:var(--sp-4); line-height:1.9; color:var(--muted); overflow-x:auto; }
-  .codebox .k{ color:var(--indigo); } .codebox .v{ color:var(--gold-ink); } .codebox .c{ color:var(--faint); }
+  .codebox{ font-family:var(--font-mono); font-size:var(--fs-xs); background:var(--bg-2); border:1px solid var(--line-strong);
+    border-radius:var(--rad-md); padding:var(--sp-5); line-height:1.9; color:var(--muted); overflow-x:auto; }
+  .codebox .k{ color:var(--signal); } .codebox .v{ color:var(--source); } .codebox .c{ color:var(--faint); }
   .mchips{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
-  .mchip{ font-family:var(--font-mono); font-size:var(--fs-xs); border:1px solid var(--rule-strong); border-radius:var(--rad-xs);
+  .mchip{ font-family:var(--font-mono); font-size:var(--fs-xs); border:1px solid var(--line-strong); border-radius:var(--rad-xs);
     padding:5px 11px; color:var(--muted); background:var(--card-2); }
-  .mchip.on{ background:var(--indigo); border-color:var(--indigo); color:var(--on-indigo); }
+  .mchip.on{ background:var(--signal); border-color:var(--signal); color:var(--on-signal); }
 
-  /* Harga — tarif ledger */
   .tiers{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-4); align-items:start; }
   @media (max-width:880px){ .tiers{ grid-template-columns:1fr; } }
-  .tier{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-6); }
-  .tier.pop{ border-color:var(--ink); border-width:2px; position:relative; }
-  .tier.pop .flag{ position:absolute; top:-11px; left:var(--sp-6); background:var(--gold-mark); color:#1B1207;
+  .tier{ border:1px solid var(--line-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-6); }
+  .tier.pop{ border-color:var(--signal); border-width:2px; position:relative; }
+  .tier.pop .flag{ position:absolute; top:-11px; left:var(--sp-6); background:var(--source); color:#141005;
     font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps); padding:3px 10px; border-radius:var(--rad-xs); font-weight:700; }
-  .tier .amt{ font-family:var(--font-display); font-size:40px; letter-spacing:-0.02em; margin:var(--sp-3) 0 2px; }
-  .tier .amt small{ font-family:var(--wl-font); font-size:var(--fs-sm); color:var(--muted); }
+  .tier .amt{ font-family:var(--font-mono); font-size:34px; font-weight:700; letter-spacing:-0.02em; margin:var(--sp-3) 0 2px; }
+  .tier .amt small{ font-family:var(--wl-font); font-size:var(--fs-sm); color:var(--muted); font-weight:500; }
   .tier ul{ list-style:none; margin:var(--sp-4) 0 var(--sp-5); padding:0; }
-  .tier li{ display:flex; gap:var(--sp-2); padding:7px 0; border-bottom:1px solid var(--rule); font-size:var(--fs-sm); color:var(--muted); }
+  .tier li{ display:flex; gap:var(--sp-2); padding:7px 0; border-bottom:1px solid var(--line); font-size:var(--fs-sm); color:var(--muted); }
   .tier li:last-child{ border-bottom:none; }
-  .tier .tick{ color:var(--indigo); font-weight:700; }
+  .tier .tick{ color:var(--signal); font-weight:700; }
 
-  /* Final CTA */
-  .colophon{ text-align:center; padding:var(--sp-16) var(--sp-6); border:1px solid var(--rule-strong); border-radius:var(--rad-lg); background:var(--card); }
+  .colophon{ text-align:center; padding:var(--sp-16) var(--sp-6); border:1px solid var(--line-strong); border-radius:var(--rad-lg); background:var(--card); }
   .colophon h2{ font-size:var(--fs-3xl); }
   .colophon p{ color:var(--muted); font-size:var(--fs-md); margin:var(--sp-4) auto 0; max-width:46ch; line-height:var(--lh-read); }
-
   footer{ padding:var(--sp-10) 0; }
   .foot{ display:flex; justify-content:space-between; gap:var(--sp-4); flex-wrap:wrap; align-items:center;
-    border-top:3px double var(--rule-strong); padding-top:var(--sp-6); }
+    border-top:1px solid var(--line-strong); padding-top:var(--sp-6); }
 </style>
 </head>
 <body>
 
-<header class="mast">
-  <div class="wrap mast-in">
-    <div class="wm">
-      <svg width="30" height="30" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
-      Nalar<b>.</b>
-    </div>
-    <nav>
-      <a href="#pilar">Kenapa</a><a href="#cara">Cara kerja</a><a href="#model">Model</a><a href="#harga">Harga</a><a href="idea.html">Docs</a>
-    </nav>
-    <div class="cluster gap-2">
-      <button class="icon-btn" id="themeBtn" aria-label="Tema" style="width:38px;height:36px;">◐</button>
-      <a class="btn btn-sm" href="auth-mockup.html">Masuk</a>
-      <a class="btn btn-primary btn-sm" href="auth-mockup.html">Mulai gratis</a>
-    </div>
+<header class="nav"><div class="wrap nav-in">
+  <div class="wm">
+    <svg width="28" height="28" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--line-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--signal)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--signal)"/><circle cx="13" cy="24" r="3" fill="var(--signal)"/><circle cx="13" cy="33" r="3" fill="var(--signal)"/><circle cx="34" cy="24" r="5.5" fill="var(--source)"/></svg>
+    nalar<b>.</b>
   </div>
-</header>
+  <nav><a href="#pilar">Kenapa</a><a href="#cara">Cara kerja</a><a href="#model">Model</a><a href="#harga">Harga</a><a href="idea.html">Docs</a></nav>
+  <div class="cluster gap-2">
+    <button class="icon-btn" id="themeBtn" aria-label="Tema" style="width:38px;height:36px;">◐</button>
+    <a class="btn btn-sm" href="auth-mockup.html">Masuk</a>
+    <a class="btn btn-primary btn-sm" href="auth-mockup.html">Mulai gratis</a>
+  </div>
+</div></header>
 
 <!-- HERO -->
-<section class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <span class="kicker">RAG multi-tenant · SaaS &amp; on-prem · white-label</span>
-      <h1>Chatbot yang jawabannya <em>bisa ditelusuri.</em></h1>
-      <p class="lede">Hubungkan Google Drive-mu, pilih model apa pun, sematkan di website mana pun. Setiap jawaban dikutip dari dokumenmu — dengan catatan kaki, seperti terbitan yang baik.</p>
-      <div class="cta">
-        <a class="btn btn-primary btn-lg" href="auth-mockup.html">Mulai gratis</a>
-        <a class="btn btn-lg" href="embed-demo.html">Lihat demo widget</a>
-      </div>
-      <p class="marginalia micro">tanpa kartu kredit · &lt;script&gt; satu baris · isolasi RLS bawaan</p>
+<section class="hero"><div class="wrap hero-grid">
+  <div>
+    <span class="badge badge-ok"><span class="led led-live"></span>RAG multi-tenant · SaaS &amp; on-prem · white-label</span>
+    <h1>Chatbot yang memperlihatkan <span class="src">sumbernya.</span></h1>
+    <p class="lede">Hubungkan Google Drive-mu, pilih model apa pun, sematkan di website mana pun. Setiap jawaban membawa skor retrieval dan sitasi — bukan tebakan yang meyakinkan.</p>
+    <div class="cta">
+      <a class="btn btn-primary btn-lg" href="auth-mockup.html">Mulai gratis</a>
+      <a class="btn btn-lg" href="embed-demo.html">Lihat demo widget</a>
     </div>
+    <p class="microlabel" style="margin-top:var(--sp-4);">TANPA KARTU KREDIT · &lt;SCRIPT&gt; SATU BARIS · ISOLASI RLS BAWAAN</p>
+  </div>
 
-    <!-- signature proof card -->
-    <div class="proof">
-      <div class="ph"><span class="kicker">Support Bot · live</span><span class="badge badge-ok"><span class="dot"></span>sourced</span></div>
-      <div class="body">
-        <div class="q">Berapa lama garansi produk Pro?</div>
-        <div class="a" id="typeTarget"></div>
-        <ul class="footnotes" id="fns" style="visibility:hidden;">
-          <li><b>1.</b> kebijakan-garansi.pdf — hlm. 3 · <span class="source-tag">gdrive</span></li>
-          <li><b>2.</b> syarat-layanan.pdf — §4.2 · <span class="source-tag">sharepoint</span></li>
-        </ul>
+  <!-- LIVE retrieval trace -->
+  <div class="term">
+    <div class="th"><span class="kicker">support-bot ▸ retrieval trace</span><span class="badge badge-ok"><span class="led led-live"></span>LIVE</span></div>
+    <div class="tb">
+      <div class="trace" id="traceBox">
+        <div class="trace-row"><span class="op">›</span><span class="lbl" style="color:var(--ink)">query&nbsp; "garansi produk pro"</span></div>
+      </div>
+      <div class="ans" id="ansBox"></div>
+      <div class="source-block" id="srcBox" style="visibility:hidden;">
+        <div class="source-line"><span class="n">[1]</span> kebijakan-garansi.pdf · hlm. 3 <span class="badge">gdrive</span></div>
+        <div class="source-line"><span class="n">[2]</span> syarat-layanan.pdf · §4.2 <span class="badge">sharepoint</span></div>
       </div>
     </div>
   </div>
-</section>
+</div></section>
 
 <!-- PILAR -->
-<section class="blk" id="pilar">
-  <div class="wrap">
-    <div class="sec-head"><span class="kicker">Kenapa Nalar</span><h2>Penalaran yang membumi, bukan tebakan yang meyakinkan.</h2></div>
-    <div class="grid g3">
-      <div class="pillar"><span class="no">I</span><h3>Bersumber</h3><p>Setiap jawaban ditarik dari dokumenmu dan diberi catatan kaki<span class="cite">n</span> yang bisa diklik. Tidak ada klaim tanpa sumber.</p></div>
-      <div class="pillar"><span class="no">II</span><h3>Terisolasi</h3><p>Tiap tenant dikurung Row-Level Security di database. Basis pengetahuan mustahil bocor antar tenant — dijamin mesin, bukan janji.</p></div>
-      <div class="pillar"><span class="no">III</span><h3>Terbuka &amp; milikmu</h3><p>Model apa pun — lokal 80MB/2GB atau API. White-label penuh: logo, warna, radius, huruf. On-prem bila perlu.</p></div>
-    </div>
+<section class="blk" id="pilar"><div class="wrap">
+  <div class="sec-head"><span class="kicker">Kenapa Nalar</span><h2>Penalaran yang membumi, bukan tebakan yang meyakinkan.</h2></div>
+  <div class="grid g3">
+    <div class="pillar"><span class="no">01</span><h3>Bersumber &amp; terukur</h3><p>Setiap jawaban membawa sitasi <span class="cite">n</span> dan skor similarity-nya. Kamu bisa audit kenapa mesin menjawab begitu.</p></div>
+    <div class="pillar"><span class="no">02</span><h3>Terisolasi</h3><p>Tiap tenant dikurung Row-Level Security di database. Basis pengetahuan mustahil bocor — dijamin mesin, bukan janji.</p></div>
+    <div class="pillar"><span class="no">03</span><h3>Terbuka &amp; milikmu</h3><p>Model apa pun — lokal 80MB/2GB atau API. White-label penuh. On-prem bila perlu, air-gapped sekalipun.</p></div>
   </div>
-</section>
+</div></section>
 
 <!-- CARA KERJA -->
-<section class="blk" id="cara" style="background:var(--paper-2);">
-  <div class="wrap">
-    <div class="sec-head"><span class="kicker">Cara kerja</span><h2>Dari dokumen ke jawaban dalam empat langkah.</h2></div>
-    <div class="steps">
-      <div class="step"><h4>Hubungkan sumber</h4><p>Google Drive, OneDrive, SharePoint milikmu — atau unggah file.</p></div>
-      <div class="step"><h4>Pilih model</h4><p>Satu model embedding &amp; satu LLM aktif, dari semua provider.</p></div>
-      <div class="step"><h4>Sematkan widget</h4><p>Satu baris &lt;script&gt; di website mana pun. API key tetap di server.</p></div>
-      <div class="step"><h4>Jawab &amp; kutip</h4><p>Pengunjung bertanya; Nalar menjawab dari KB-mu, lengkap dengan catatan kaki.</p></div>
-    </div>
+<section class="blk" id="cara" style="background:var(--bg-2);"><div class="wrap">
+  <div class="sec-head"><span class="kicker">Pipeline</span><h2>Dari dokumen ke jawaban dalam empat tahap.</h2></div>
+  <div class="steps">
+    <div class="step"><h4>Connect</h4><p>Google Drive, OneDrive, SharePoint milikmu — atau unggah file.</p></div>
+    <div class="step"><h4>Index</h4><p>Chunk + embed dengan model pilihanmu (80MB / 2GB / API).</p></div>
+    <div class="step"><h4>Embed widget</h4><p>Satu baris &lt;script&gt;. API key tetap di server — tak pernah ke browser.</p></div>
+    <div class="step"><h4>Answer + trace</h4><p>Retrieval berskor, jawaban streaming, sitasi menempel.</p></div>
   </div>
-</section>
+</div></section>
 
 <!-- FEATURE: EMBED -->
-<section class="blk">
-  <div class="wrap feat">
-    <div class="txt">
-      <span class="kicker">Embed di mana saja</span>
-      <h2>Satu ID chatbot, satu knowledge base.</h2>
-      <p>Setiap chatbot punya <b>public key</b> sendiri. Tempel di situs mana pun; respons mengalir kata demi kata. ID berbeda berarti pengetahuan berbeda — terisolasi sepenuhnya.</p>
-      <ul class="checklist">
-        <li><span class="tick">✓</span> Origin allow-list per chatbot</li>
-        <li><span class="tick">✓</span> White-label: warna, radius, huruf, logo</li>
-        <li><span class="tick">✓</span> API key server-to-server — tak pernah menyentuh browser</li>
-      </ul>
-    </div>
-    <div class="codecard">
-      <div class="kicker" style="margin-bottom:var(--sp-3);">pasang di situs pelanggan</div>
-      <div class="codebox"><span class="c">&lt;!-- satu baris, selesai --&gt;</span>
+<section class="blk"><div class="wrap feat">
+  <div class="txt">
+    <span class="kicker">Embed di mana saja</span>
+    <h2>Satu ID chatbot, satu knowledge base.</h2>
+    <p>Setiap chatbot punya <b>public key</b> sendiri. Tempel di situs mana pun; respons mengalir token demi token. ID berbeda berarti pengetahuan berbeda — terisolasi sepenuhnya.</p>
+    <ul class="checklist">
+      <li><span class="tick">✓</span> Origin allow-list per chatbot</li>
+      <li><span class="tick">✓</span> White-label: warna, radius, huruf, logo</li>
+      <li><span class="tick">✓</span> API key server-to-server</li>
+    </ul>
+  </div>
+  <div class="codebox"><span class="c">&lt;!-- satu baris, selesai --&gt;</span>
 &lt;<span class="k">script</span>
   src=<span class="v">"https://app.nalar.id/embed.js"</span>
   data-chatbot=<span class="v">"cb_live_9f2a…c1"</span>&gt;
 &lt;/<span class="k">script</span>&gt;</div>
-    </div>
-  </div>
-</section>
+</div></section>
 
 <!-- FEATURE: MODELS -->
-<section class="blk" id="model" style="background:var(--paper-2);">
-  <div class="wrap feat rev">
-    <div class="codecard">
-      <div class="kicker" style="margin-bottom:var(--sp-3);">LLM aktif — pilih satu</div>
-      <div class="mchips" style="margin-bottom:var(--sp-5);">
-        <span class="mchip on">Claude Sonnet 5</span><span class="mchip">GPT-5.6 Sol</span><span class="mchip">Gemini 3.5</span><span class="mchip">Grok 4</span><span class="mchip">DeepSeek</span>
-      </div>
-      <div class="kicker" style="margin-bottom:var(--sp-3);">Embedding — 80MB / 2GB / API</div>
-      <div class="mchips">
-        <span class="mchip">MiniLM ~80MB</span><span class="mchip on">BGE-M3 ~2GB</span><span class="mchip">OpenAI API</span><span class="mchip">Cohere v4</span>
-      </div>
+<section class="blk" id="model" style="background:var(--bg-2);"><div class="wrap feat rev">
+  <div>
+    <div class="kicker" style="margin-bottom:var(--sp-3);">LLM aktif — pilih satu</div>
+    <div class="mchips" style="margin-bottom:var(--sp-5);">
+      <span class="mchip on">claude-sonnet-5</span><span class="mchip">gpt-5.6-sol</span><span class="mchip">gemini-3.5</span><span class="mchip">grok-4</span><span class="mchip">deepseek</span>
     </div>
-    <div class="txt">
-      <span class="kicker">Semua provider</span>
-      <h2>Model apa pun. Kamu yang memilih.</h2>
-      <p>Model terbaru Anthropic, OpenAI, Google, xAI, DeepSeek, Cohere. Embedding lokal untuk on-prem yang terputus internet, atau API untuk kualitas maksimum. Ganti kapan saja dari Settings.</p>
-      <ul class="checklist">
-        <li><span class="tick">✓</span> API key tersimpan terenkripsi (AES-256)</li>
-        <li><span class="tick">✓</span> File model di-host terpusat, diunduh sekali</li>
-        <li><span class="tick">✓</span> Memory Agent: peta pengetahuan ala Obsidian</li>
-      </ul>
+    <div class="kicker" style="margin-bottom:var(--sp-3);">Embedding — 80MB / 2GB / API</div>
+    <div class="mchips">
+      <span class="mchip">minilm ~80MB</span><span class="mchip on">bge-m3 ~2GB</span><span class="mchip">openai api</span><span class="mchip">cohere v4</span>
     </div>
   </div>
-</section>
+  <div class="txt">
+    <span class="kicker">Semua provider</span>
+    <h2>Model apa pun. Kamu yang memilih.</h2>
+    <p>Model terbaru Anthropic, OpenAI, Google, xAI, DeepSeek, Cohere. Embedding lokal untuk on-prem tanpa internet, atau API untuk kualitas maksimum. Ganti kapan saja.</p>
+    <ul class="checklist">
+      <li><span class="tick">✓</span> API key terenkripsi AES-256, server-only</li>
+      <li><span class="tick">✓</span> File model di-host terpusat, di-cache lokal</li>
+      <li><span class="tick">✓</span> Memory Agent: knowledge graph ala Obsidian</li>
+    </ul>
+  </div>
+</div></section>
 
 <!-- HARGA -->
-<section class="blk" id="harga">
-  <div class="wrap">
-    <div class="sec-head"><span class="kicker">Tarif</span><h2>Mulai gratis. Naikkan saat siap.</h2></div>
-    <div class="tiers">
-      <div class="tier">
-        <span class="kicker">Starter</span>
-        <div class="amt">Rp0<small>/bln</small></div>
-        <ul><li><span class="tick">✓</span> 1 chatbot</li><li><span class="tick">✓</span> Embedding lokal 80MB</li><li><span class="tick">✓</span> 1.000 pesan/bln</li><li><span class="tick">✓</span> Riwayat 7 hari</li></ul>
-        <a class="btn" href="auth-mockup.html" style="width:100%;">Mulai gratis</a>
-      </div>
-      <div class="tier pop">
-        <span class="flag">Populer</span>
-        <span class="kicker">Pro</span>
-        <div class="amt">Rp490k<small>/bln</small></div>
-        <ul><li><span class="tick">✓</span> 10 chatbot</li><li><span class="tick">✓</span> Semua model + API keys</li><li><span class="tick">✓</span> 50.000 pesan/bln</li><li><span class="tick">✓</span> Drive/SharePoint sync</li><li><span class="tick">✓</span> White-label penuh</li></ul>
-        <a class="btn btn-primary" href="auth-mockup.html" style="width:100%;">Coba Pro</a>
-      </div>
-      <div class="tier">
-        <span class="kicker">On-prem</span>
-        <div class="amt">Custom</div>
-        <ul><li><span class="tick">✓</span> Chatbot tak terbatas</li><li><span class="tick">✓</span> Air-gapped, data milikmu</li><li><span class="tick">✓</span> Embedding 2GB lokal</li><li><span class="tick">✓</span> Docker satu perintah</li><li><span class="tick">✓</span> SLA &amp; dukungan</li></ul>
-        <a class="btn" href="#" style="width:100%;">Hubungi kami</a>
-      </div>
+<section class="blk" id="harga"><div class="wrap">
+  <div class="sec-head"><span class="kicker">Harga</span><h2>Mulai gratis. Naikkan saat siap.</h2></div>
+  <div class="tiers">
+    <div class="tier">
+      <span class="kicker">Starter</span>
+      <div class="amt">Rp0<small>/bln</small></div>
+      <ul><li><span class="tick">✓</span> 1 chatbot</li><li><span class="tick">✓</span> Embedding lokal 80MB</li><li><span class="tick">✓</span> 1.000 pesan/bln</li><li><span class="tick">✓</span> Riwayat 7 hari</li></ul>
+      <a class="btn" href="auth-mockup.html" style="width:100%;">Mulai gratis</a>
+    </div>
+    <div class="tier pop">
+      <span class="flag">POPULER</span>
+      <span class="kicker">Pro</span>
+      <div class="amt">Rp490k<small>/bln</small></div>
+      <ul><li><span class="tick">✓</span> 10 chatbot</li><li><span class="tick">✓</span> Semua model + API keys</li><li><span class="tick">✓</span> 50.000 pesan/bln</li><li><span class="tick">✓</span> Drive/SharePoint sync</li><li><span class="tick">✓</span> White-label penuh</li></ul>
+      <a class="btn btn-primary" href="auth-mockup.html" style="width:100%;">Coba Pro</a>
+    </div>
+    <div class="tier">
+      <span class="kicker">On-prem</span>
+      <div class="amt">Custom</div>
+      <ul><li><span class="tick">✓</span> Chatbot tak terbatas</li><li><span class="tick">✓</span> Air-gapped, data milikmu</li><li><span class="tick">✓</span> Embedding 2GB lokal</li><li><span class="tick">✓</span> Docker satu perintah</li><li><span class="tick">✓</span> SLA &amp; dukungan</li></ul>
+      <a class="btn" href="#" style="width:100%;">Hubungi kami</a>
     </div>
   </div>
-</section>
+</div></section>
 
-<!-- FINAL CTA -->
-<section class="blk" style="border-bottom:none;">
-  <div class="wrap">
-    <div class="colophon">
-      <span class="kicker">Siap mencoba?</span>
-      <h2>Jadikan dokumenmu bisa menjawab.</h2>
-      <p>Pasang chatbot pertamamu dalam hitungan menit — setiap jawaban bersumber, setiap tenant terisolasi.</p>
-      <div class="cluster" style="justify-content:center; margin-top:var(--sp-6);">
-        <a class="btn btn-primary btn-lg" href="auth-mockup.html">Mulai gratis</a>
-        <a class="btn btn-lg" href="idea.html">Baca dokumentasi</a>
-      </div>
+<!-- CTA -->
+<section class="blk" style="border-bottom:none;"><div class="wrap">
+  <div class="colophon">
+    <span class="kicker">Siap mencoba?</span>
+    <h2>Jadikan dokumenmu bisa menjawab.</h2>
+    <p>Pasang chatbot pertamamu dalam hitungan menit — setiap jawaban bersumber &amp; berskor, setiap tenant terisolasi.</p>
+    <div class="cluster" style="justify-content:center; margin-top:var(--sp-6);">
+      <a class="btn btn-primary btn-lg" href="auth-mockup.html">Mulai gratis</a>
+      <a class="btn btn-lg" href="idea.html">Baca dokumentasi</a>
     </div>
   </div>
-</section>
+</div></section>
 
-<footer>
-  <div class="wrap foot">
-    <div class="wm" style="font-family:var(--font-display);font-size:20px;">Nalar<b style="color:var(--gold-mark)">.</b></div>
-    <span class="marginalia">© 2026 Nalar · by Sainskerta · Reasoning, sourced.</span>
-  </div>
-</footer>
+<footer><div class="wrap foot">
+  <div class="wm" style="font-size:16px;">nalar<b>.</b></div>
+  <span class="microlabel">© 2026 NALAR · BY SAINSKERTA · REASONING, SOURCED.</span>
+</div></footer>
 
 <script>
-  document.getElementById('themeBtn').addEventListener('click', function(){
-    var r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
-  });
-  // Streaming jawaban di proof card (hormati reduced-motion)
+  document.getElementById('themeBtn').addEventListener('click',()=>{ const r=document.documentElement;
+    r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark'); });
+
+  // Live retrieval-trace hero (hormati reduced-motion)
   (function(){
-    var el=document.getElementById('typeTarget'), fns=document.getElementById('fns');
-    var html='Garansi produk Pro adalah <strong>24 bulan</strong> sejak tanggal pembelian, mencakup cacat produksi.<span class="cite">1</span> Kerusakan akibat cairan tidak tercakup garansi standar.<span class="cite">2</span>';
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches){ el.innerHTML=html; fns.style.visibility='visible'; return; }
-    var txt='Garansi produk Pro adalah 24 bulan sejak tanggal pembelian, mencakup cacat produksi.';
-    var i=0; el.classList.add('typing');
-    var t=setInterval(function(){
-      el.textContent = txt.slice(0, ++i);
-      if (i>=txt.length){ clearInterval(t); el.classList.remove('typing'); el.innerHTML=html; fns.style.visibility='visible'; }
-    }, 22);
+    const box=document.getElementById('traceBox'), ans=document.getElementById('ansBox'), src=document.getElementById('srcBox');
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rows=[
+      {op:'├', lbl:'embed · bge-m3 · 1024d', ms:'12ms'},
+      {op:'├', lbl:'kebijakan-garansi.pdf #ch3', score:0.91},
+      {op:'├', lbl:'syarat-layanan.pdf #ch7', score:0.84},
+      {op:'└', lbl:'answer ▸ claude-sonnet-5', stream:true},
+    ];
+    const answer='Garansi produk Pro adalah 24 bulan sejak tanggal pembelian, mencakup cacat produksi.';
+    const answerHtml='Garansi produk Pro adalah <strong>24 bulan</strong> sejak tanggal pembelian, mencakup cacat produksi.<span class="cite">1</span> Kerusakan cairan tidak tercakup.<span class="cite">2</span>';
+
+    function addRow(r, animate){
+      const d=document.createElement('div'); d.className='trace-row'+(r.score?' hit':'');
+      let inner='<span class="op">'+r.op+'</span><span class="lbl'+(r.stream?' caret':'')+'"'+(r.stream?' style="color:var(--ink)"':'')+'>'+r.lbl+'</span>';
+      if(r.ms) inner+='<span class="ms">'+r.ms+'</span>';
+      if(r.score){ const w=Math.round(r.score*100);
+        inner+='<span class="meter src"><i style="width:'+(animate?0:w)+'%"></i></span><span class="score">'+r.score.toFixed(2)+'</span>';
+      }
+      d.innerHTML=inner; box.appendChild(d);
+      if(r.score&&animate){ requestAnimationFrame(()=>{ const i=d.querySelector('.meter i');
+        i.style.transition='width .5s cubic-bezier(.2,.7,.2,1)'; i.style.width=Math.round(r.score*100)+'%'; }); }
+      return d;
+    }
+    function typeAnswer(cb){
+      let i=0; const t=setInterval(()=>{ ans.textContent=answer.slice(0,++i);
+        if(i>=answer.length){ clearInterval(t); ans.innerHTML=answerHtml; cb(); } },18);
+    }
+    if(reduce){ rows.forEach(r=>addRow(r,false)); box.querySelector('.caret')?.classList.remove('caret');
+      ans.innerHTML=answerHtml; src.style.visibility='visible'; return; }
+    let idx=0;
+    (function next(){
+      if(idx<rows.length){ const r=rows[idx++]; addRow(r,true); setTimeout(next, r.ms?350:550); }
+      else setTimeout(()=>typeAnswer(()=>{ box.querySelector('.caret')?.classList.remove('caret'); src.style.visibility='visible'; }),300);
+    })();
   })();
 </script>
 </body>

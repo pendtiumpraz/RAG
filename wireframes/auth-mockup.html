@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id" data-theme="light">
+<html lang="id" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,53 +9,45 @@
   .shell{ display:grid; grid-template-columns:1fr 1fr; min-height:100vh; }
   @media (max-width:880px){ .shell{ grid-template-columns:1fr; } }
 
-  /* ── Panel brand (kiri) — halaman terbitan ── */
-  .brandside{ background:var(--paper-2); border-right:1px solid var(--rule-strong);
+  .brandside{ background:var(--bg-2); border-right:1px solid var(--line-strong);
     padding:var(--sp-10); display:flex; flex-direction:column; gap:var(--sp-8); }
   @media (max-width:880px){ .brandside{ display:none; } }
-  .lockup{ display:flex; align-items:center; gap:var(--sp-3); padding-bottom:var(--sp-5);
-    border-bottom:3px double var(--rule-strong); }
-  .lockup .wm{ font-family:var(--font-display); font-size:28px; letter-spacing:-0.02em; }
-  .lockup .wm b{ color:var(--gold-mark); font-weight:600; }
-  .brandside h2{ font-size:var(--fs-4xl); line-height:1.05; max-width:14ch; }
-  .brandside h2 em{ font-style:italic; color:var(--gold-ink); }
-  .brandside .sub{ color:var(--muted); font-size:var(--fs-md); line-height:var(--lh-read); max-width:38ch; margin-top:var(--sp-4); }
+  .lockup{ display:flex; align-items:center; gap:var(--sp-3); font-weight:750; font-size:22px; letter-spacing:var(--tk-tight); }
+  .lockup b{ color:var(--source); }
+  .brandside h2{ font-size:var(--fs-4xl); line-height:1.08; max-width:15ch; }
+  .brandside h2 .src{ color:var(--source); }
+  .brandside .sub{ color:var(--muted); font-size:var(--fs-md); line-height:var(--lh-read); max-width:40ch; margin-top:var(--sp-4); }
 
-  .proof{ border:1px solid var(--rule-strong); border-radius:var(--rad-md); background:var(--card); padding:var(--sp-5); max-width:420px; }
-  .proof .q{ font-weight:600; font-size:var(--fs-sm); margin-bottom:var(--sp-3); }
-  .proof .a{ font-family:var(--font-display); font-size:var(--fs-md); line-height:1.55; }
-
-  .creed{ margin-top:auto; }
+  .term{ border:1px solid var(--line-strong); border-radius:var(--rad-md); background:var(--panel); overflow:hidden; max-width:430px; }
+  .creed{ margin-top:auto; padding:0; }
   .creed li{ list-style:none; display:flex; gap:var(--sp-3); padding:var(--sp-2) 0;
-    border-bottom:1px solid var(--rule); font-size:var(--fs-sm); color:var(--muted); }
+    border-bottom:1px solid var(--line); font-size:var(--fs-sm); color:var(--muted); }
   .creed li:last-child{ border-bottom:none; }
-  .creed .no{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--gold-ink); width:18px; flex:none; }
+  .creed .no{ font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--source); width:22px; flex:none; }
 
-  /* ── Panel form (kanan) ── */
   .formside{ display:grid; place-items:center; padding:var(--sp-10) var(--sp-6); }
   .fcard{ width:100%; max-width:392px; }
   .ftop{ display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--sp-6); }
-  .mini-lockup{ display:flex; align-items:center; gap:var(--sp-2); font-family:var(--font-display); font-size:19px; }
-  .mini-lockup b{ color:var(--gold-mark); }
+  .mini-lockup{ display:flex; align-items:center; gap:var(--sp-2); font-weight:750; font-size:18px; }
+  .mini-lockup b{ color:var(--source); }
   @media (min-width:881px){ .mini-lockup{ visibility:hidden; } }
 
-  .seg{ display:flex; border-bottom:1px solid var(--rule-strong); margin-bottom:var(--sp-6); }
+  .seg{ display:flex; border-bottom:1px solid var(--line-strong); margin-bottom:var(--sp-6); }
   .seg button{ flex:1; padding:var(--sp-3); border:none; background:none; font-family:var(--font-mono);
-    font-size:var(--fs-xs); letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--muted);
+    font-size:var(--fs-2xs); letter-spacing:var(--tk-caps); text-transform:uppercase; color:var(--muted);
     cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
-  .seg button[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--indigo); font-weight:700; }
+  .seg button[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--signal); font-weight:700; }
 
   .tt{ font-size:var(--fs-2xl); margin-bottom:var(--sp-2); }
   .sub{ color:var(--muted); font-size:var(--fs-sm); margin-bottom:var(--sp-6); }
   .oauth .btn{ width:100%; margin-bottom:var(--sp-2); justify-content:center; }
   .divider{ display:flex; align-items:center; gap:var(--sp-3); color:var(--faint);
-    font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-caps); text-transform:uppercase; margin:var(--sp-4) 0 var(--sp-5); }
-  .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--rule); }
+    font-family:var(--font-mono); font-size:10px; letter-spacing:var(--tk-caps); text-transform:uppercase; margin:var(--sp-4) 0 var(--sp-5); }
+  .divider::before,.divider::after{ content:""; height:1px; flex:1; background:var(--line); }
   .rowbtwn{ display:flex; justify-content:space-between; align-items:center; margin:var(--sp-2) 0 var(--sp-5); font-size:var(--fs-sm); }
   .check{ display:flex; align-items:center; gap:var(--sp-2); color:var(--muted); cursor:pointer; }
-  .check input{ accent-color:var(--indigo); width:15px; height:15px; }
+  .check input{ accent-color:var(--signal); width:15px; height:15px; }
   .foot{ text-align:center; margin-top:var(--sp-5); color:var(--muted); font-size:var(--fs-sm); }
-  .legal{ text-align:center; margin-top:var(--sp-8); }
   [hidden]{ display:none !important; }
 </style>
 </head>
@@ -65,27 +57,32 @@
   <!-- BRAND -->
   <aside class="brandside">
     <div class="lockup">
-      <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--indigo)"/><circle cx="13" cy="24" r="3" fill="var(--indigo)"/><circle cx="13" cy="33" r="3" fill="var(--indigo)"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
-      <span class="wm">Nalar<b>.</b></span>
+      <svg width="34" height="34" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="var(--card)" stroke="var(--line-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--signal)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="3" fill="var(--signal)"/><circle cx="13" cy="24" r="3" fill="var(--signal)"/><circle cx="13" cy="33" r="3" fill="var(--signal)"/><circle cx="34" cy="24" r="5.5" fill="var(--source)"/></svg>
+      nalar<b>.</b>
     </div>
 
     <div>
       <span class="kicker">Reasoning, sourced</span>
-      <h2 style="margin-top:var(--sp-3);">Jawaban yang <em>bisa ditelusuri.</em></h2>
+      <h2 style="margin-top:var(--sp-3);">Jawaban yang memperlihatkan <span class="src">sumbernya.</span></h2>
       <p class="sub">Masuk untuk mengelola chatbot, knowledge base, dan model — semua terisolasi per tenant.</p>
     </div>
 
-    <div class="proof">
-      <div class="kicker" style="margin-bottom:var(--sp-3);">Contoh keluaran</div>
-      <div class="q">Berapa lama garansi produk Pro?</div>
-      <div class="a">Garansi produk Pro adalah <strong>24 bulan</strong> sejak pembelian.<span class="cite">1</span></div>
-      <ul class="footnotes"><li><b>1.</b> kebijakan-garansi.pdf — hlm. 3 · <span class="source-tag">gdrive</span></li></ul>
+    <div class="term">
+      <div class="panel-head"><span class="t">contoh keluaran</span><span class="badge badge-ok"><span class="led led-live"></span>LIVE</span></div>
+      <div class="card-pad">
+        <div class="trace">
+          <div class="trace-row"><span class="op">›</span><span class="lbl" style="color:var(--ink)">"garansi produk pro"</span></div>
+          <div class="trace-row hit"><span class="op">└</span><span class="lbl">kebijakan-garansi.pdf</span><span class="meter src"><i style="width:91%"></i></span><span class="score">0.91</span></div>
+        </div>
+        <div style="margin-top:var(--sp-3);font-size:var(--fs-sm);">Garansi produk Pro adalah <strong>24 bulan</strong>.<span class="cite">1</span></div>
+        <div class="source-block"><div class="source-line"><span class="n">[1]</span> kebijakan-garansi.pdf · hlm. 3</div></div>
+      </div>
     </div>
 
-    <ul class="creed" style="margin-bottom:0;padding:0;">
-      <li><span class="no">I</span> Isolasi Row-Level Security per tenant</li>
-      <li><span class="no">II</span> White-label penuh — logo, warna, huruf</li>
-      <li><span class="no">III</span> Semua model; satu aktif, ganti kapan saja</li>
+    <ul class="creed" style="margin-bottom:0;">
+      <li><span class="no">01</span> Isolasi Row-Level Security per tenant</li>
+      <li><span class="no">02</span> White-label penuh — logo, warna, huruf</li>
+      <li><span class="no">03</span> Semua model; satu aktif, ganti kapan saja</li>
     </ul>
   </aside>
 
@@ -94,8 +91,8 @@
     <div class="fcard">
       <div class="ftop">
         <div class="mini-lockup">
-          <svg width="24" height="24" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="none" stroke="var(--rule-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--indigo)" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="24" r="5.5" fill="var(--gold-mark)"/></svg>
-          Nalar<b>.</b>
+          <svg width="24" height="24" viewBox="0 0 48 48" fill="none"><rect x="1" y="1" width="46" height="46" rx="9" fill="none" stroke="var(--line-strong)"/><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="var(--signal)" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="24" r="5.5" fill="var(--source)"/></svg>
+          nalar<b>.</b>
         </div>
         <button class="icon-btn" id="themeBtn" aria-label="Ganti tema">◐</button>
       </div>
@@ -105,7 +102,6 @@
         <button id="segReg" role="tab" aria-selected="false" onclick="showTab('register')">Daftar</button>
       </div>
 
-      <!-- LOGIN -->
       <form id="tab-login" onsubmit="return false;">
         <h1 class="tt">Selamat datang kembali</h1>
         <p class="sub">Masuk ke workspace Nalar kamu.</p>
@@ -115,7 +111,7 @@
         </div>
         <div class="divider">atau email</div>
         <div class="stack gap-4">
-          <div class="field"><label>Email</label><input class="input" type="email" placeholder="nama@perusahaan.com" value="galih@sainskerta.id" /></div>
+          <div class="field"><label>Email</label><input class="input" type="email" value="galih@sainskerta.id" /></div>
           <div class="field"><label>Password</label><input class="input" type="password" value="password" /></div>
         </div>
         <div class="rowbtwn">
@@ -126,7 +122,6 @@
         <p class="foot">Belum punya akun? <a href="#" onclick="showTab('register');return false;">Daftar gratis</a></p>
       </form>
 
-      <!-- REGISTER -->
       <form id="tab-register" hidden onsubmit="return false;">
         <h1 class="tt">Buat workspace baru</h1>
         <p class="sub">Setiap pendaftaran menjadi tenant baru yang terisolasi.</p>
@@ -138,25 +133,25 @@
           <div class="field"><label>Nama organisasi</label><input class="input" placeholder="PT Nusantara" /></div>
           <div class="field"><label>Nama lengkap</label><input class="input" placeholder="Galih Praz" /></div>
           <div class="field"><label>Email</label><input class="input" type="email" placeholder="nama@perusahaan.com" /></div>
-          <div class="field"><label>Password</label><input class="input" type="password" placeholder="Minimal 8 karakter" /><span class="hint">Gunakan campuran huruf, angka, dan simbol.</span></div>
+          <div class="field"><label>Password</label><input class="input" type="password" placeholder="Minimal 8 karakter" /><span class="hint">Campuran huruf, angka, dan simbol.</span></div>
         </div>
         <button class="btn btn-primary btn-lg" style="width:100%;margin-top:var(--sp-4);">Buat workspace</button>
         <p class="foot">Sudah punya akun? <a href="#" onclick="showTab('login');return false;">Masuk</a></p>
       </form>
 
-      <p class="legal marginalia">Dengan melanjutkan, kamu menyetujui Ketentuan &amp; Kebijakan Privasi Nalar.</p>
+      <p class="microlabel" style="text-align:center;margin-top:var(--sp-8);">DENGAN MELANJUTKAN KAMU MENYETUJUI KETENTUAN &amp; PRIVASI NALAR.</p>
     </div>
   </main>
 </div>
 
 <script>
   function showTab(t){
-    document.getElementById('tab-login').hidden = (t!=='login');
-    document.getElementById('tab-register').hidden = (t!=='register');
-    document.getElementById('segLogin').setAttribute('aria-selected', t==='login');
-    document.getElementById('segReg').setAttribute('aria-selected', t==='register');
+    document.getElementById('tab-login').hidden=(t!=='login');
+    document.getElementById('tab-register').hidden=(t!=='register');
+    document.getElementById('segLogin').setAttribute('aria-selected',t==='login');
+    document.getElementById('segReg').setAttribute('aria-selected',t==='register');
   }
-  document.getElementById('themeBtn').addEventListener('click', function(){
+  document.getElementById('themeBtn').addEventListener('click',function(){
     var r=document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme')==='dark'?'light':'dark');
   });
 </script>

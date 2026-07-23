@@ -58,7 +58,17 @@ menunggu approval user (ditandai 👀).
 
 ---
 
-### D4 — Arah desain visual (anti AI-slop)
+### D4v2 — REVISI arah desain: "Retrieval Instrument" (2026-07-23)
+- **Status:** ✅ APPROVED — menggantikan D4v1 "Editorial Ledger" (feedback user:
+  "kayak museum, gak AI/RAG banget").
+- Konsol graphite presisi; **mesin RAG diperlihatkan**: skor similarity, trace
+  retrieval (query→embed→matches→answer), streaming token, status LED/pipeline.
+- Mono+sans; **signal indigo** = interaktif; **source gold** = sitasi/skor sumber.
+- Tetap anti-slop: tanpa gradient/glow/purple-hero. Dua tema: Instrument (dark) / Bench (light).
+- `nalar-ds.css` v3 + semua surface di-re-skin (design-system, dashboard+Memory,
+  landing dgn hero live-trace, embed dgn mini-trace, auth, branding).
+
+### D4 — Arah desain visual (anti AI-slop) — SUPERSEDED oleh D4v2
 - **Status:** ✅ APPROVED — **"Editorial Ledger"** (2026-07-23).
   Ink-on-paper; serif display + sans body + mono data; **sitasi/footnote sebagai
   bahasa visual utama**; garis hairline "ledger" bermakna; indigo hemat + gold
