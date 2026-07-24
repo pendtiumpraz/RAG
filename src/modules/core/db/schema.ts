@@ -184,6 +184,9 @@ export const oauthConnections = pgTable('oauth_connections', {
   tenantId: uuid('tenant_id').notNull(),
   userId: uuid('user_id').notNull(),
   provider: text('provider').notNull(),           // 'google' | 'microsoft'
+  /** Email akun yang terhubung — memungkinkan BANYAK akun per provider. */
+  accountEmail: text('account_email').default('').notNull(),
+  accountLabel: text('account_label'),            // nama tampilan opsional
   encryptedAccessToken: text('encrypted_access_token').notNull(),
   encryptedRefreshToken: text('encrypted_refresh_token'),
   expiresAt: timestamp('expires_at'),
