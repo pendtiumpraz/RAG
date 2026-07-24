@@ -16,6 +16,7 @@ export const config = {
     '/api/ingest/:path*',
     '/api/settings/:path*',
     '/api/usage/:path*',
+    '/api/chat/internal',
     '/api/memory/:path*',
     '/api/sources/:path*',
     '/api/connections/:path*',

@@ -1,0 +1,39 @@
+/* Layar Chat + Citations — replika PRODUCT UI resmi Nalar. */
+.chat-shell{ display:grid; grid-template-columns:1fr 330px; gap:0; height:calc(100vh - 61px); margin:calc(var(--sp-6) * -1); }
+@media (max-width:1080px){ .chat-shell{ grid-template-columns:1fr; } .cites-panel{ display:none; } }
+
+.chat-main{ display:flex; flex-direction:column; min-width:0; }
+.chat-bar{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-6); border-bottom:1px solid var(--line); background:var(--panel); }
+.chat-bar h1{ font-size:var(--fs-xl); }
+.thread{ flex:1; overflow-y:auto; padding:var(--sp-6); display:flex; flex-direction:column; gap:var(--sp-5); }
+
+.m-user{ align-self:flex-end; max-width:72%; background:var(--card); border:1px solid var(--line);
+  border-radius:14px 14px 4px 14px; padding:12px 16px; font-size:14px; color:var(--ink); box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.answer{ max-width:84%; }
+.ans-head{ display:flex; align-items:center; gap:9px; margin-bottom:10px; }
+.ans-head .mk{ width:26px; height:26px; border-radius:7px; background:var(--ink); display:grid; place-items:center; flex:none; }
+.ans-head b{ font-family:var(--font-display); font-size:14px; font-weight:700; }
+.ans-body{ line-height:1.65; color:var(--ink); white-space:pre-wrap; }
+.ans-body .cite{ cursor:pointer; }
+.typing{ display:inline-flex; gap:4px; }
+.typing i{ width:6px; height:6px; border-radius:50%; background:var(--faint); animation:pulse 1.2s infinite; }
+.typing i:nth-child(2){ animation-delay:.2s; } .typing i:nth-child(3){ animation-delay:.4s; }
+
+.composer{ padding:var(--sp-4) var(--sp-6) var(--sp-6); }
+.composer .box{ display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line-strong);
+  border-radius:12px; padding:6px 6px 6px 16px; box-shadow:0 2px 6px rgba(15,23,42,.05); }
+.composer input{ flex:1; border:none; outline:none; font:inherit; font-size:14px; color:var(--ink); background:none; padding:11px 0; }
+.composer .send{ width:40px; height:40px; border-radius:9px; background:var(--signal); border:none; color:#fff; cursor:pointer; display:grid; place-items:center; }
+.composer .send:disabled{ opacity:.5; cursor:not-allowed; }
+.composer .hint{ text-align:center; font-family:var(--font-mono); font-size:10px; color:var(--faint); margin-top:10px; letter-spacing:.04em; text-transform:uppercase; }
+
+.cites-panel{ background:var(--panel); border-left:1px solid var(--line); padding:var(--sp-5); overflow-y:auto; }
+.cites-head{ display:flex; align-items:center; gap:8px; margin-bottom:var(--sp-4); }
+.cites-head b{ font-family:var(--font-display); font-size:15px; font-weight:700; }
+.cites-head .cnt{ background:var(--card-2); color:var(--muted); font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:999px; }
+.cite-card{ border:1px solid var(--line); border-radius:11px; padding:14px; margin-bottom:12px; }
+.cite-card .fn{ display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; margin-bottom:8px; }
+.cite-card .fn .ic{ width:22px; height:22px; border-radius:6px; background:var(--tint-signal); color:var(--signal); display:grid; place-items:center; flex:none; }
+.cite-card .fn .sc{ margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--source); }
+.cite-card .ex{ font-size:12.5px; color:var(--muted); line-height:1.55; border-left:2px solid var(--source-mark); padding-left:10px; }

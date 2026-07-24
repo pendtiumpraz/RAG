@@ -54,7 +54,12 @@ export interface ChatTurnInput {
  * Satu giliran RAG: load history → retrieve KB chatbot → stream jawaban →
  * simpan user+assistant message + sitasi. Yield delta teks (dipakai SSE).
  */
-export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, void> {
+export interface ChatSource { documentId: string; title: string | null; score: number; content: string }
+
+export async function* chatTurn(
+  input: ChatTurnInput,
+  onSources?: (sources: ChatSource[]) => void,
+): AsyncGenerator<string, void> {
   // Guardrail L1: sanitasi input (rate/kuota sudah di route).
   input.question = guardInput(input.question);
 
@@ -76,6 +81,8 @@ export async function* chatTurn(input: ChatTurnInput): AsyncGenerator<string, vo
   const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';
 
   const context = await retrievalService.retrieve(input.tenantId, input.chatbotId, embeddingModel, input.question);
+  // Beri tahu pemanggil sumber yang ditemukan (utk panel Citations) SEBELUM streaming.
+  onSources?.(context.map((c) => ({ documentId: c.documentId, title: c.title, score: c.score, content: c.content.slice(0, 240) })));
   // Guardrail L2: konteks dikeraskan (dokumen = data, injeksi disaring).
   const { messages: prompt, injectionFlagged } = buildPrompt(settings?.systemPrompt ?? null, context, history, input.question);
 

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nalar — Chat (Product UI, brand resmi)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0F172A; --royal:#2563EB; --royal-600:#1D4ED8; --emerald:#10B981; --amber:#F59E0B; --amber-ink:#B45309;
+    --slate800:#1E293B; --slate600:#475569; --slate400:#94A3B8; --slate300:#CBD5E1; --slate200:#E2E8F0;
+    --light:#F1F5F9; --white:#FFFFFF;
+    --display:'Manrope',sans-serif; --ui:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--light); color:var(--navy); font-family:var(--ui); font-size:14px;
+    -webkit-font-smoothing:antialiased; }
+  .app{ display:grid; grid-template-columns:236px 1fr 320px; height:100vh; }
+  @media(max-width:1080px){ .app{ grid-template-columns:236px 1fr; } .cites{ display:none; } }
+  @media(max-width:720px){ .app{ grid-template-columns:1fr; } .side{ display:none; } }
+
+  /* Sidebar */
+  .side{ background:var(--white); border-right:1px solid var(--slate200); padding:16px 12px; display:flex; flex-direction:column; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:6px 8px 16px; }
+  .brand svg{ flex:none; }
+  .brand .wm{ font-family:var(--display); font-weight:800; font-size:20px; letter-spacing:-0.02em; }
+  .brand .wm small{ display:block; font-family:var(--ui); font-weight:500; font-size:8.5px; letter-spacing:.14em; color:var(--slate400); text-transform:uppercase; margin-top:-2px; }
+  .newchat{ display:flex; align-items:center; gap:9px; margin:0 4px 14px; padding:10px 12px; border:1px solid var(--slate200);
+    border-radius:10px; color:var(--royal); font-weight:600; font-size:13px; cursor:pointer; background:var(--white); }
+  .newchat:hover{ background:#EFF4FF; }
+  .nav-item{ display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:9px; color:var(--slate600);
+    font-size:13.5px; font-weight:500; cursor:pointer; }
+  .nav-item svg{ color:var(--slate400); flex:none; }
+  .nav-item:hover{ background:var(--light); color:var(--navy); }
+  .nav-item.active{ background:#EFF4FF; color:var(--royal); }
+  .nav-item.active svg{ color:var(--royal); }
+  .side-foot{ margin-top:auto; border-top:1px solid var(--slate200); padding-top:12px; display:flex; align-items:center; gap:10px; }
+  .side-foot .av{ width:32px; height:32px; border-radius:50%; background:var(--navy); color:#fff; display:grid; place-items:center; font-weight:700; font-family:var(--display); }
+  .side-foot .who{ font-size:12.5px; line-height:1.35; } .side-foot .who small{ color:var(--slate400); display:block; font-size:11px; }
+
+  /* Main chat */
+  .main{ display:flex; flex-direction:column; min-width:0; background:var(--light); }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:16px 26px; border-bottom:1px solid var(--slate200); background:var(--white); }
+  .topbar h1{ font-family:var(--display); font-size:18px; font-weight:700; margin:0; }
+  .thread{ flex:1; overflow-y:auto; padding:26px; display:flex; flex-direction:column; gap:20px; }
+
+  .msg-user{ align-self:flex-end; max-width:70%; background:var(--white); border:1px solid var(--slate200);
+    border-radius:14px 14px 4px 14px; padding:13px 16px; font-size:14px; color:var(--slate800); box-shadow:0 1px 2px rgba(15,23,42,.04); }
+
+  .answer{ max-width:82%; }
+  .ans-head{ display:flex; align-items:center; gap:9px; margin-bottom:10px; }
+  .ans-head .mk{ width:26px; height:26px; border-radius:7px; background:var(--navy); display:grid; place-items:center; flex:none; }
+  .ans-head b{ font-family:var(--display); font-size:14.5px; font-weight:700; }
+  .card{ background:var(--white); border:1px solid var(--slate200); border-radius:14px; padding:18px 20px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+  .card p{ margin:0 0 12px; line-height:1.6; color:var(--slate800); }
+  table.appr{ width:100%; border-collapse:collapse; margin:6px 0 14px; }
+  table.appr th{ text-align:left; font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--slate400);
+    padding:8px 12px; background:var(--light); border:1px solid var(--slate200); }
+  table.appr td{ padding:10px 12px; border:1px solid var(--slate200); font-size:13.5px; }
+  table.appr td:first-child{ font-family:var(--mono); color:var(--slate600); }
+  .sumber{ margin-top:6px; }
+  .sumber .lbl{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--slate400); margin-bottom:8px; }
+  .src-row{ display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--slate200); font-size:13px; }
+  .src-row:last-child{ border-bottom:none; }
+  .src-row .n{ width:20px; height:20px; border-radius:5px; background:#FEF3E2; color:var(--amber-ink); display:grid; place-items:center; font-family:var(--mono); font-size:11px; font-weight:700; flex:none; }
+  .src-row .pg{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--slate400); }
+
+  .composer{ padding:16px 26px 22px; }
+  .composer .box{ display:flex; align-items:center; gap:10px; background:var(--white); border:1px solid var(--slate300);
+    border-radius:12px; padding:6px 6px 6px 16px; box-shadow:0 2px 6px rgba(15,23,42,.05); }
+  .composer input{ flex:1; border:none; outline:none; font:inherit; font-size:14px; color:var(--navy); background:none; padding:10px 0; }
+  .composer .send{ width:40px; height:40px; border-radius:9px; background:var(--royal); border:none; color:#fff; cursor:pointer; display:grid; place-items:center; }
+  .composer .send:hover{ background:var(--royal-600); }
+  .composer .hint{ text-align:center; font-family:var(--mono); font-size:10px; color:var(--slate400); margin-top:10px; letter-spacing:.04em; }
+
+  /* Citations panel */
+  .cites{ background:var(--white); border-left:1px solid var(--slate200); padding:20px; overflow-y:auto; }
+  .cites-head{ display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+  .cites-head b{ font-family:var(--display); font-size:15px; font-weight:700; }
+  .cites-head .cnt{ background:var(--light); color:var(--slate600); font-family:var(--mono); font-size:11px; padding:2px 8px; border-radius:999px; }
+  .cite-card{ border:1px solid var(--slate200); border-radius:11px; padding:14px; margin-bottom:12px; }
+  .cite-card .fn{ display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; margin-bottom:8px; }
+  .cite-card .fn .ic{ width:22px; height:22px; border-radius:6px; background:#EFF4FF; color:var(--royal); display:grid; place-items:center; flex:none; }
+  .cite-card .ex{ font-size:12.5px; color:var(--slate600); line-height:1.55; border-left:2px solid var(--amber); padding-left:10px; }
+  .cite-card .meta{ margin-top:9px; display:flex; gap:6px; }
+  .tag{ font-family:var(--mono); font-size:10.5px; color:var(--slate600); background:var(--light); border:1px solid var(--slate200); border-radius:5px; padding:2px 8px; }
+  .tag.amber{ color:var(--amber-ink); background:#FEF3E2; border-color:#F6D89A; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 48 48" fill="none"><path d="M13 15 L34 24 M13 24 L34 24 M13 33 L34 24" stroke="#2563EB" stroke-width="2.4" stroke-linecap="round"/><circle cx="13" cy="15" r="3.4" fill="#0F172A"/><circle cx="13" cy="24" r="3.4" fill="#2563EB"/><circle cx="13" cy="33" r="3.4" fill="#2563EB"/><circle cx="34" cy="15" r="3.4" fill="none" stroke="#2563EB" stroke-width="2"/><circle cx="34" cy="24" r="4.4" fill="#0F172A"/></svg>
+      <span class="wm">NALAR<small>Enterprise Knowledge</small></span>
+    </div>
+    <div class="newchat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New Chat</div>
+    <nav>
+      <div class="nav-item"><ic-dash></ic-dash><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</div>
+      <div class="nav-item active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 011 1v9a1 1 0 01-1 1H9l-4 4v-4H4a1 1 0 01-1-1V6a1 1 0 011-1Z"/></svg>Chat</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a2 2 0 012 2v14l-4-2-3 1.5L8 18l-3 1.5V6a2 2 0 012-2Z"/></svg>Knowledge</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1Z"/><path d="M14 3v4h4"/></svg>Documents</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="7" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7.8 7.2 10.4 16M16.4 8.6 13.4 16.4"/></svg>Knowledge Graph</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9.5 2v3M14.5 2v3M9.5 19v3M14.5 19v3M2 9.5h3M2 14.5h3M19 9.5h3M19 14.5h3"/></svg>Agents</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analytics</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6M15 3v6M6 9h12v2a6 6 0 01-12 0V9ZM12 17v4"/></svg>Integrations</div>
+      <div class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.4l1.8 1.1M18 16.5l1.8 1.1M2.5 12h3M18.5 12h3M4.2 17.6l1.8-1.1M18 7.5l1.8-1.1"/></svg>Settings</div>
+    </nav>
+    <div class="side-foot"><span class="av">A</span><div class="who"><b>Admin</b><small>Enterprise Admin</small></div></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar"><h1>Chat</h1><span class="tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> Sourced</span></div>
+    <div class="thread">
+      <div class="msg-user">Apa ketentuan limit approval untuk pengadaan barang dan jasa?</div>
+
+      <div class="answer">
+        <div class="ans-head">
+          <span class="mk"><svg width="15" height="15" viewBox="0 0 48 48" fill="none"><path d="M15 16 L33 24 M15 24 L33 24 M15 32 L33 24" stroke="#60A5FA" stroke-width="2.6" stroke-linecap="round"/><circle cx="15" cy="16" r="3" fill="#fff"/><circle cx="33" cy="24" r="4" fill="#F59E0B"/></svg></span>
+          <b>Berdasarkan SOP Procurement v4.2 Pasal 8:</b>
+        </div>
+        <div class="card">
+          <p>Limit approval pengadaan barang dan jasa adalah sebagai berikut:</p>
+          <table class="appr">
+            <thead><tr><th>Nilai Pengadaan</th><th>Level Approval</th></tr></thead>
+            <tbody>
+              <tr><td>≤ Rp 50.000.000</td><td>Manager</td></tr>
+              <tr><td>Rp 50.000.000 – Rp 500.000.000</td><td>Director</td></tr>
+              <tr><td>&gt; Rp 500.000.000</td><td>VP / CEO</td></tr>
+            </tbody>
+          </table>
+          <div class="sumber">
+            <div class="lbl">Sumber (3)</div>
+            <div class="src-row"><span class="n">1</span> SOP Procurement v4.2.pdf <span class="pg">Pasal 8</span></div>
+            <div class="src-row"><span class="n">2</span> Work Instruction Procurement.pdf <span class="pg">Hal. 12</span></div>
+            <div class="src-row"><span class="n">3</span> Policy Authorization Matrix.xlsx <span class="pg">Sheet 1</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="box">
+        <input placeholder="Tanyakan sesuatu…" />
+        <button class="send" aria-label="Kirim"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20l18-8L3 4v6l12 2-12 2z"/></svg></button>
+      </div>
+      <div class="hint">JAWABAN BERDASARKAN DOKUMEN PERUSAHAAN · SELALU DENGAN SITASI</div>
+    </div>
+  </div>
+
+  <!-- CITATIONS -->
+  <aside class="cites">
+    <div class="cites-head"><b>Citations</b><span class="cnt">3</span></div>
+
+    <div class="cite-card">
+      <div class="fn"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1Z"/><path d="M14 3v4h4"/></svg></span>SOP Procurement v4.2.pdf</div>
+      <div class="ex">8.1 Semua pengadaan barang dan jasa harus melalui proses approval sesuai dengan matrix authorization…</div>
+      <div class="meta"><span class="tag amber">Halaman 8</span><span class="tag">pdf</span></div>
+    </div>
+
+    <div class="cite-card">
+      <div class="fn"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1Z"/><path d="M14 3v4h4"/></svg></span>Work Instruction Procurement.pdf</div>
+      <div class="ex">Proses approval dilakukan secara berjenjang sesuai dengan nilai pengadaan…</div>
+      <div class="meta"><span class="tag amber">Halaman 12</span><span class="tag">pdf</span></div>
+    </div>
+
+    <div class="cite-card">
+      <div class="fn"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></span>Policy Authorization Matrix.xlsx</div>
+      <div class="ex">Matriks kewenangan approval per level jabatan &amp; nilai transaksi.</div>
+      <div class="meta"><span class="tag amber">Sheet 1</span><span class="tag">Matrix Approval</span></div>
+    </div>
+
+    <p style="font-family:var(--mono);font-size:10px;color:var(--slate400);text-align:center;margin-top:16px;letter-spacing:.04em;">SETIAP KLAIM DAPAT DITELUSURI KE SUMBERNYA</p>
+  </aside>
+</div>
+</body>
+</html>

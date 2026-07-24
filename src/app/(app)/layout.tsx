@@ -11,6 +11,7 @@ import { toggleTheme } from '../providers';
 
 const NAV: Array<{ group: string; items: Array<{ href: string; label: string; icon: IconName }> }> = [
   { group: 'Workspace', items: [
+    { href: '/chat', label: 'Chat', icon: 'chat' },
     { href: '/dashboard', label: 'Dashboard', icon: 'dash' },
     { href: '/chatbots', label: 'Chatbots', icon: 'bot' },
     { href: '/knowledge', label: 'Knowledge Base', icon: 'book' },
