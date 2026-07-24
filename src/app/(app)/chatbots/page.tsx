@@ -61,6 +61,7 @@ export default function ChatbotsPage() {
                     <td className="mono" style={{ color: 'var(--source)' }}>{b.publicKey.slice(0, 14)}…</td>
                     <td><span className={`badge ${b.enabled ? 'badge-ok' : ''}`}><span className={`led ${b.enabled ? 'led-live' : 'led-off'}`} />{b.enabled ? 'enabled' : 'disabled'}</span></td>
                     <td><div className="rowact">
+                      <a className="icon-btn" href={`/demo/${b.publicKey}`} target="_blank" rel="noreferrer" aria-label="Demo" title="Buka halaman demo"><Icon name="chat" size={15} /></a>
                       <button className="icon-btn" aria-label="Edit" onClick={() => setEditing(b)}><Icon name="edit" size={15} /></button>
                       <button className="icon-btn" aria-label="Hapus" onClick={() => remove(b.id)}><Icon name="trash" size={15} /></button>
                     </div></td>

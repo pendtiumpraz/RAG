@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@xenova/transformers', 'postgres', 'pdf-parse', 'mammoth', 'googleapis'],
+  images: { unoptimized: true },  // logo PNG statis — tak perlu sharp
   async headers() {
     return [
       {

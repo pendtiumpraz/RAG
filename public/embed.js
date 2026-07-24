@@ -8,8 +8,8 @@
  * ke #nalar-embed agar tidak bentrok dengan situs host.
  */
 (function () {
-  var script = document.currentScript;
-  var key = script.getAttribute('data-chatbot');
+  var script = document.currentScript || document.querySelector('script[data-chatbot]');
+  var key = script && script.getAttribute('data-chatbot');
   var host = new URL(script.src).origin;
   if (!key) { console.error('[nalar] data-chatbot wajib'); return; }
 
