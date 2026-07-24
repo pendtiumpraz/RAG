@@ -15,37 +15,27 @@ import { downloadSuperadminSharepointFile } from './sharepoint';
  * knowledge base (the vectors) is never shared â€” see db/tenant.ts.
  */
 export async function ensureModelFile(model: EmbeddingModel): Promise<string> {
+  const source = process.env.EMBEDDING_MODEL_SOURCE || 'gdrive';
+
+  // Sumber 'http'/'local' ATAU model tanpa modelFile → biarkan transformers.js
+  // memakai cache HF-nya sendiri; kembalikan repo id (JANGAN folder lokal kosong).
+  if (source === 'http' || source === 'local' || !model.modelFile) {
+    return model.hfRepo ?? model.id;
+  }
+
   const cacheDir = process.env.MODEL_CACHE_DIR || './.model-cache';
   const modelDir = path.join(cacheDir, model.id);
   const marker = path.join(modelDir, '.ready');
 
-  // Already downloaded?
+  // Sudah diunduh dari Drive/SharePoint superadmin?
   try {
     await fs.access(marker);
     return modelDir;
-  } catch { /* need to fetch */ }
+  } catch { /* perlu fetch */ }
 
   await fs.mkdir(modelDir, { recursive: true });
-
-  const source = process.env.EMBEDDING_MODEL_SOURCE || 'gdrive';
-  if (model.modelFile) {
-    switch (source) {
-      case 'gdrive':
-        await downloadSuperadminDriveFile(model.modelFile, modelDir);
-        break;
-      case 'sharepoint':
-        await downloadSuperadminSharepointFile(model.modelFile, modelDir);
-        break;
-      case 'http':
-      case 'local':
-        // transformers.js will fall back to its HF repo (env.allowRemoteModels)
-        break;
-    }
-  }
-
+  if (source === 'gdrive') await downloadSuperadminDriveFile(model.modelFile, modelDir);
+  else if (source === 'sharepoint') await downloadSuperadminSharepointFile(model.modelFile, modelDir);
   await fs.writeFile(marker, new Date().toISOString());
-  // If nothing was downloaded, hand back the HF repo id so transformers.js
-  // can resolve it from the hub as a fallback.
-  const hasLocal = model.modelFile !== undefined && source !== 'local' && source !== 'http';
-  return hasLocal ? modelDir : (model.hfRepo ?? model.id);
+  return modelDir;
 }

@@ -8,7 +8,11 @@ import postgres from 'postgres';
  * (db:push creates tables from schema; this adds pgvector + RLS policies.)
  */
 async function main() {
-  const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
+  // DDL (CREATE EXTENSION/INDEX) → pakai endpoint UNPOOLED bila ada (hindari
+  // kuirk pgbouncer). TLS untuk Neon/cloud.
+  const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL!;
+  const needSsl = /sslmode=require|neon\.tech|\.aws\./.test(url);
+  const sql = postgres(url, { max: 1, prepare: false, ssl: needSsl ? 'require' : undefined });
   const dir = path.join(process.cwd(), 'migrations');
   const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
   for (const f of files) {

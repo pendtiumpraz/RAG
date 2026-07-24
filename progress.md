@@ -92,7 +92,9 @@
 - [x] Laporan audit → `audit-report.md`
 - [ ] Verifikasi runtime DB (Postgres+pgvector) — **butuh user (Docker/cloud)**
 - [x] **Unit test 8/8 LULUS** (`npm test`, Node test runner): password, crypto AES-GCM, rate-limit, guardrails L1/L2/L4, wikilink parser, padVector
-- [ ] Integration/e2e test (butuh DB); security scan; performance
+- [x] **Verifikasi runtime DB di Neon nyata (PG 17.10 + pgvector 0.8.0)** — db:push+db:migrate+smoke LULUS: signup→tenant, login, **isolasi RLS terbukti**, ingest→embed→pgvector→retrieve (skor 0.752)
+- [x] **2 bug runtime fixed**: (D) RLS bocor krn owner BYPASSRLS → role `nalar_app` NOBYPASSRLS; (E) model-host caching http/local
+- [ ] Integration/e2e formal (CI); security scan (deps); performance/load
 
 ### ⬜ Fase 06: Deployment — `Disiapkan (D5: Vercel + Postgres)`
 - [x] Keputusan: **Vercel + Vercel Postgres (Neon/pgvector)** — tanpa Docker

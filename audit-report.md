@@ -40,12 +40,30 @@ via param `dimensions`).
 
 Rebuild pasca-fix: ✅ exit 0.
 
-## 4. BELUM diverifikasi (butuh Postgres+pgvector) — ⏳ USER
+## 4. Verifikasi runtime DB (Neon Postgres 17.10 + pgvector 0.8.0) — ✅ LULUS
 
-Docker tak ada di mesin ini. Alur bergantung-DB **belum dijalankan**:
-signup→tenant · RLS isolasi · ingest→embed→pgvector · retrieve · chat SSE ·
-soft-delete/restore · sync worker · memory agent. Kode compile & typecheck bersih,
-tapi **runtime DB harus diuji**.
+DB nyata (Neon, tanpa Docker). Migrasi: `db:push` (tabel) + `db:migrate`
+(pgvector+RLS+index). Smoke test end-to-end (`npm run smoke`):
+
+| Uji | Hasil |
+|---|---|
+| signup → 1 tenant + admin + settings (transaksi RLS-aware) | ✅ |
+| login benar / password salah ditolak | ✅ |
+| **Isolasi RLS antar-tenant** (user tenant B tak terlihat dari tenant A) | ✅ (setelah fix D+E) |
+| chatbot create + tolak owner lintas-tenant | ✅ |
+| **ingest → embed(MiniLM 384→pad1536) → pgvector insert → retrieve cosine** | ✅ top score 0.752 |
+
+### 🔴 Temuan D · RLS BOCOR — role `neondb_owner` punya `rolbypassrls=true`
+Neon memberi atribut **BYPASSRLS** pada role owner → melewati SEMUA RLS
+(walau ENABLE+FORCE benar). Query lintas-tenant bocor. **Fix:** buat role
+aplikasi khusus **`nalar_app` (NOBYPASSRLS)** + grant DML; `DATABASE_URL` app
+memakai role ini; owner hanya untuk migrasi/DDL (`db:setup-role`). Diverifikasi:
+kebocoran hilang. **WAJIB dipakai juga di production Vercel** (DATABASE_URL = nalar_app).
+
+### 🟡 Temuan E · model-host caching salah untuk sumber 'http'/'local'
+Marker `.ready` membuat run kedua mengembalikan folder lokal kosong alih-alih
+repo HF → embedding gagal di run berikutnya. **Fix:** untuk source http/local,
+selalu kembalikan repo id (transformers pakai cache-nya sendiri). Diverifikasi: robust.
 
 ### Cara verifikasi (jalankan di terminal-mu; `!` prefix di sesi ini)
 
@@ -79,6 +97,9 @@ set `DATABASE_URL` ke connection string, lalu `db:push` + `db:migrate`.
 
 ---
 
-## Skor assessment diperbarui
-- **Testing & quality gates**: 1.5 → **4.0** (build+typecheck+smoke otomatis lulus; unit/integration/e2e masih kosong).
-- Dimensi lain menunggu verifikasi runtime DB sebelum dinaikkan.
+## Skor assessment diperbarui (pasca verifikasi DB nyata)
+- **Testing & quality gates**: 1.5 → **5.5** (build+typecheck, 8 unit test, smoke e2e DB lulus).
+- **Database & isolasi**: 7.5 → **8.5** (RLS isolasi terbukti di DB nyata; migrasi teruji).
+- **Auth & SaaS**: 6.5 → **8.0** (signup→tenant + login + isolasi terverifikasi runtime).
+- **Keamanan**: 6.5 → **7.5** (bug RLS-bypass kritis ditemukan & ditutup).
+- **Engine RAG**: 6.5 → **7.5** (ingest→embed→pgvector→retrieve terbukti jalan).

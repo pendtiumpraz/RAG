@@ -13,8 +13,19 @@ Vercel Postgres ditenagai **Neon** yang sudah mendukung **pgvector** — tak per
 2. Sambungkan ke project. Vercel meng-inject beberapa env otomatis
    (`POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, …).
 3. Set env aplikasi kita:
-   - **`DATABASE_URL`** = nilai **`POSTGRES_URL`** (endpoint **pooled** — wajib untuk
-     serverless; kode sudah `prepare:false` + `max:1` saat di Vercel).
+   - **`DATABASE_URL`** = endpoint **pooled**, TAPI dengan **role `nalar_app`**
+     (BUKAN owner `neondb_owner`) — lihat kotak ⚠️ di bawah.
+
+> ⚠️ **WAJIB (keamanan RLS):** role owner Neon (`neondb_owner`) punya atribut
+> **BYPASSRLS** → melewati Row-Level Security → **isolasi tenant tidak berlaku**.
+> Buat role aplikasi non-bypassrls sekali: `APP_PW=<pw> npm run db:setup-role`
+> (jalan sbg owner via `DATABASE_URL_UNPOOLED`). Lalu set `DATABASE_URL` app ke
+> `postgresql://nalar_app:<pw>@<pooled-host>/neondb?sslmode=require`.
+> **Migrasi/DDL** tetap pakai owner (`DATABASE_URL_UNPOOLED`). Sudah diverifikasi
+> di audit: tanpa ini, query lintas-tenant BOCOR.
+
+Catatan: buang `channel_binding=require` dari URL (driver `postgres-js` tak
+mendukungnya); cukup `sslmode=require`.
 
 > Alternatif: Neon langsung (neon.tech, free tier). Aktifkan pgvector: `CREATE EXTENSION vector;` (migrasi kita sudah menjalankan `CREATE EXTENSION IF NOT EXISTS vector`).
 
