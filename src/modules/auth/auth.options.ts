@@ -80,6 +80,7 @@ export const authOptions: NextAuthOptions = {
           const provider = account.provider === 'google' ? 'google' : 'microsoft';
           await connectionService.save({
             tenantId: u.tenantId, userId: u.id, provider,
+            accountEmail: token.email, accountLabel: token.email,
             accessToken: account.access_token,
             refreshToken: account.refresh_token ?? null,
             expiresAt: account.expires_at ?? null,

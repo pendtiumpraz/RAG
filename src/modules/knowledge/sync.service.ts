@@ -7,8 +7,8 @@ import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService } from './knowledge.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
-import { listUserDriveFiles, downloadUserDriveFile } from './storage/gdrive';
-import { listUserSharepointFiles, downloadUserSharepointFile } from './storage/sharepoint';
+import { crawlUserDrive, downloadUserDriveFile } from './storage/gdrive';
+import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/sharepoint';
 
 /**
  * SYNC WORKER — crawl storage user → ekstrak teks → ingest KB →
@@ -26,7 +26,7 @@ import { listUserSharepointFiles, downloadUserSharepointFile } from './storage/s
 
 interface SyncPayload { tenantId: string; userId: string; sourceId: string; }
 
-const MAX_FILES_PER_SYNC = 60;
+const MAX_FILES_PER_SYNC = 300; // cap per-run (whole-drive bisa besar); sisa di run berikut
 const MAX_FILE_CHARS = 200_000;
 
 registerJobHandler('source.sync', async (payload) => {
@@ -97,29 +97,25 @@ interface CrawledFile { name: string; content: Buffer; }
 async function crawl(
   tenantId: string, userId: string, kind: string, config: Record<string, unknown>,
 ): Promise<CrawledFile[]> {
+  // scope: 'all' = SELURUH drive (rekursif) · 'folder' = folder tertentu (rekursif)
+  const scope = (config.scope === 'all' ? 'all' : 'folder') as 'all' | 'folder';
+  const accountEmail = config.accountEmail ? String(config.accountEmail) : undefined;
+
   if (kind === 'gdrive') {
-    const token = await connectionService.getAccessToken(tenantId, userId, 'google');
-    if (!token) throw new Error('Google Drive belum terhubung (login Google dgn izin Drive)');
-    const folderId = String(config.folderId ?? 'root');
-    const list = await listUserDriveFiles(token, folderId);
+    const token = await connectionService.getAccessToken(tenantId, userId, 'google', accountEmail);
+    if (!token) throw new Error('Akun Google belum terhubung (hubungkan di Knowledge → Connect Google)');
+    const files = await crawlUserDrive(token, { scope, folderId: config.folderId ? String(config.folderId) : undefined, maxFiles: MAX_FILES_PER_SYNC });
     const out: CrawledFile[] = [];
-    for (const f of list) {
-      if (!f.id || !f.name || f.mimeType === 'application/vnd.google-apps.folder') continue;
-      out.push({ name: f.name, content: await downloadUserDriveFile(token, f.id) });
-    }
+    for (const f of files) out.push({ name: f.name, content: await downloadUserDriveFile(token, f.id) });
     return out;
   }
 
   if (kind === 'onedrive' || kind === 'sharepoint') {
-    const token = await connectionService.getAccessToken(tenantId, userId, 'microsoft');
-    if (!token) throw new Error('Microsoft belum terhubung (login Microsoft dgn izin Files.Read)');
-    const folderPath = String(config.folderPath ?? '');
-    const list = await listUserSharepointFiles(token, folderPath);
+    const token = await connectionService.getAccessToken(tenantId, userId, 'microsoft', accountEmail);
+    if (!token) throw new Error('Akun Microsoft belum terhubung (hubungkan di Knowledge → Connect Microsoft)');
+    const items = await crawlUserSharepoint(token, { scope, folderPath: config.folderPath ? String(config.folderPath) : undefined, maxFiles: MAX_FILES_PER_SYNC });
     const out: CrawledFile[] = [];
-    for (const f of list) {
-      if (!f.file) continue; // folder
-      out.push({ name: f.name, content: await downloadUserSharepointFile(token, f.id) });
-    }
+    for (const it of items) out.push({ name: it.name, content: await downloadUserSharepointFile(token, it.id) });
     return out;
   }
 

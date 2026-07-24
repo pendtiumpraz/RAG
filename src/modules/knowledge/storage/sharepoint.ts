@@ -53,3 +53,38 @@ export async function listUserSharepointFiles(userToken: string, folderPath: str
 export async function downloadUserSharepointFile(userToken: string, itemId: string): Promise<Buffer> {
   return (await graph(userToken, `/me/drive/items/${itemId}/content`, 'buffer')) as Buffer;
 }
+
+export interface GraphItem { id: string; name: string; file?: unknown; folder?: unknown }
+
+/**
+ * Crawl OneDrive/SharePoint user via Microsoft Graph.
+ *  • scope 'all'    → SELURUH drive (rekursif dari root).
+ *  • scope 'folder' → satu path + REKURSIF ke subfolder.
+ */
+export async function crawlUserSharepoint(
+  userToken: string,
+  opts: { scope: 'all' | 'folder'; folderPath?: string; maxFiles?: number },
+): Promise<GraphItem[]> {
+  const max = opts.maxFiles ?? 2000;
+  const out: GraphItem[] = [];
+  // endpoint children utk root/path
+  const rootEndpoint = opts.scope === 'all' || !opts.folderPath
+    ? '/me/drive/root/children'
+    : `/me/drive/root:/${opts.folderPath}:/children`;
+
+  const queue: string[] = [rootEndpoint];
+  while (queue.length && out.length < max) {
+    const endpoint = queue.shift()!;
+    let next: string | null = endpoint;
+    while (next && out.length < max) {
+      const page = (await graph(userToken, next)) as { value: Array<GraphItem & { id: string }>; '@odata.nextLink'?: string };
+      for (const it of page.value ?? []) {
+        if (it.folder) queue.push(`/me/drive/items/${it.id}/children`);
+        else if (it.file) out.push(it);
+      }
+      const link = page['@odata.nextLink'];
+      next = link ? link.replace('https://graph.microsoft.com/v1.0', '') : null;
+    }
+  }
+  return out.slice(0, max);
+}

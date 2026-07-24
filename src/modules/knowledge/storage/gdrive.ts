@@ -62,6 +62,62 @@ export async function listUserDriveFiles(accessToken: string, folderId: string) 
   return res.data.files ?? [];
 }
 
+export interface DriveFile { id: string; name: string; mimeType?: string; parents?: string[] }
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+
+/**
+ * Crawl file Drive user.
+ *  • scope 'all'    → SELURUH Drive (semua file yang bisa diakses, paginated).
+ *  • scope 'folder' → satu folder + REKURSIF ke semua subfolder.
+ * File Google-native (Docs/Sheets) di-skip di sini (butuh export terpisah).
+ */
+export async function crawlUserDrive(
+  accessToken: string,
+  opts: { scope: 'all' | 'folder'; folderId?: string; maxFiles?: number },
+): Promise<DriveFile[]> {
+  const drive = userDrive(accessToken);
+  const max = opts.maxFiles ?? 2000;
+  const out: DriveFile[] = [];
+
+  if (opts.scope === 'all') {
+    let pageToken: string | undefined;
+    do {
+      const res = await drive.files.list({
+        q: `trashed = false and mimeType != '${FOLDER_MIME}'`,
+        fields: 'nextPageToken, files(id,name,mimeType)',
+        pageSize: 1000, pageToken,
+        spaces: 'drive',
+      });
+      for (const f of res.data.files ?? []) if (f.id && f.name) out.push(f as DriveFile);
+      pageToken = res.data.nextPageToken ?? undefined;
+    } while (pageToken && out.length < max);
+    return out.slice(0, max);
+  }
+
+  // rekursif dari folderId
+  const queue: string[] = [opts.folderId || 'root'];
+  const seen = new Set<string>();
+  while (queue.length && out.length < max) {
+    const parent = queue.shift()!;
+    if (seen.has(parent)) continue; seen.add(parent);
+    let pageToken: string | undefined;
+    do {
+      const res = await drive.files.list({
+        q: `'${parent}' in parents and trashed = false`,
+        fields: 'nextPageToken, files(id,name,mimeType)',
+        pageSize: 1000, pageToken,
+      });
+      for (const f of res.data.files ?? []) {
+        if (!f.id || !f.name) continue;
+        if (f.mimeType === FOLDER_MIME) queue.push(f.id);
+        else out.push(f as DriveFile);
+      }
+      pageToken = res.data.nextPageToken ?? undefined;
+    } while (pageToken && out.length < max);
+  }
+  return out.slice(0, max);
+}
+
 export async function downloadUserDriveFile(accessToken: string, fileId: string): Promise<Buffer> {
   const drive = userDrive(accessToken);
   const res = await drive.files.get(
