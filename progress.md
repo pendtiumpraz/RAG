@@ -116,6 +116,8 @@
       dilewati; chunk warisan pra-delta dibuang sekali; `?full=1` utk ingest ulang penuh.
       UI Knowledge menampilkan hasil (+baru ~ubah −hapus · tetap/dilewati/antre).
       **Menutup bug**: sebelumnya tiap re-sync menduplikasi seluruh KB + bayar embedding ulang.
+      **LIVE di production** 2026-07-26 (commit `d8df7a0` → rag.sainskerta.net; migrasi 0007
+      diterapkan ke Neon SEBELUM push, jadi tak ada jendela kode-baru vs skema-lama).
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`
