@@ -86,8 +86,15 @@ export interface EmbeddingModel {
   provider?: Provider;  // for api models
   /** filename inside the superadmin model folder, for local models */
   modelFile?: string;
-  /** transformers.js repo id, used as fallback if not hosted on Drive */
+  /** transformers.js repo id — juga tata letak berkas di model host (blob/HF) */
   hfRepo?: string;
+  /**
+   * Pakai bobot ONNX terkuantisasi (default transformers.js). `false` =
+   * presisi penuh `onnx/model.onnx` — jauh lebih besar & butuh RAM lebih
+   * banyak, tapi akurasi tertinggi. Menentukan berkas mana yang diunggah
+   * ke model host DAN mana yang dimuat runtime — keduanya harus cocok.
+   */
+  quantized?: boolean;
   bucket: 'small' | 'large' | 'api';
 }
 
@@ -95,23 +102,33 @@ export const EMBEDDING_MODELS: EmbeddingModel[] = [
   // ~80MB bucket — fast, runs anywhere, good for edge / on-prem CPU
   {
     id: 'all-MiniLM-L6-v2',
-    label: 'MiniLM L6 v2 (~80MB, fast, CPU-friendly)',
-    kind: 'local', bucket: 'small', dimensions: 384, sizeMB: 80,
+    label: 'MiniLM L6 v2 (~22MB, cepat, ramah CPU)',
+    // ukuran = berkas yang BENAR-BENAR dimuat (onnx/model_quantized.onnx
+    // 21,9 MB); varian fp32 repo ini 86,2 MB. Diverifikasi 2026-07-26.
+    kind: 'local', bucket: 'small', dimensions: 384, sizeMB: 22,
     modelFile: 'all-MiniLM-L6-v2.onnx', hfRepo: 'Xenova/all-MiniLM-L6-v2',
   },
   {
     id: 'nomic-embed-text-v1.5',
-    label: 'Nomic Embed Text v1.5 (~140MB, 8k context)',
-    kind: 'local', bucket: 'small', dimensions: 768, sizeMB: 140,
-    modelFile: 'nomic-embed-text-v1.5.onnx', hfRepo: 'Xenova/nomic-embed-text-v1.5',
+    label: 'Nomic Embed Text v1.5 (~131MB, 8k context)',
+    kind: 'local', bucket: 'small', dimensions: 768, sizeMB: 131,
+    // repo `Xenova/…` kini 401 (tergated); repo resmi nomic-ai punya ONNX
+    // mandiri (quantized 131MB · fp32 522MB) — diverifikasi 2026-07-26.
+    modelFile: 'nomic-embed-text-v1.5.onnx', hfRepo: 'nomic-ai/nomic-embed-text-v1.5',
   },
 
   // ~2GB bucket — higher accuracy, multilingual, needs more RAM
   {
     id: 'bge-m3',
-    label: 'BGE-M3 (~2.2GB, multilingual, 100+ langs)',
-    kind: 'local', bucket: 'large', dimensions: 1024, sizeMB: 2200,
+    label: 'BGE-M3 (~543MB, multilingual, 100+ langs)',
+    kind: 'local', bucket: 'large', dimensions: 1024, sizeMB: 543,
     modelFile: 'bge-m3.onnx', hfRepo: 'Xenova/bge-m3',
+    // Sengaja terkuantisasi (543MB, berkas mandiri). Varian presisi penuh
+    // repo ini adalah model.onnx 0,6MB + model.onnx_data 2,16GB (bobot
+    // EKSTERNAL). transformers.js v2 membuat sesi dari buffer di memori
+    // (InferenceSession.create(buffer)) dan tak mengenal berkas pendamping,
+    // jadi varian 2GB itu TIDAK bisa dimuat di stack ini — lihat
+    // docs/MODEL-HOSTING.md. Diverifikasi 2026-07-26.
   },
   // NB: dimensi embedding di-cap ≤1536 (kolom pgvector vector(1536), HNSW ≤2000).
   // Model >1536 dims (mis. Qwen3-8B 4096d) tidak didaftarkan agar index valid.

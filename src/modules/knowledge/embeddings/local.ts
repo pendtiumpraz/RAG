@@ -1,6 +1,7 @@
 ﻿import { pipeline, env } from '@xenova/transformers';
 import type { EmbeddingModel } from '@/modules/core/registry';
 import { ensureModelFile } from '@/modules/knowledge/storage/model-host';
+import { blobBaseUrl, BLOB_MODEL_PREFIX } from '@/modules/knowledge/storage/blob-host';
 
 /**
  * Local ONNX embeddings via transformers.js.
@@ -18,6 +19,24 @@ import { ensureModelFile } from '@/modules/knowledge/storage/model-host';
 env.cacheDir = process.env.MODEL_CACHE_DIR || './.model-cache';
 env.allowRemoteModels = true; // fallback to HF hub if not on Drive
 
+/**
+ * Model host = Vercel Blob publik. Alih-alih mengunduh sendiri, kita
+ * arahkan transformers.js ke blob: ia akan menarik tiap berkas repo
+ * (config/tokenizer/onnx) dari sana dan menyimpannya di env.cacheDir.
+ * Berlaku untuk bucket ~80MB maupun ~2GB — berkas ditarik satu per satu,
+ * bukan sekali telan, jadi tak ada lonjakan memori saat mengunduh.
+ *
+ * Tata letak harus sama dengan yang ditulis `npm run models:push`:
+ *   <base>/models/<hfRepo>/<berkas>
+ */
+if ((process.env.EMBEDDING_MODEL_SOURCE || '') === 'blob') {
+  const base = blobBaseUrl();
+  if (base) {
+    env.remoteHost = `${base}/`;
+    env.remotePathTemplate = `${BLOB_MODEL_PREFIX}/{model}/`;
+  }
+}
+
 type Extractor = (texts: string[], opts: object) => Promise<{ data: Float32Array; dims: number[] }>;
 const extractors = new Map<string, Promise<Extractor>>();
 
@@ -25,9 +44,13 @@ async function getExtractor(model: EmbeddingModel): Promise<Extractor> {
   let p = extractors.get(model.id);
   if (!p) {
     p = (async () => {
-      // Make sure the weight file exists locally (from Drive/SharePoint).
+      // Tentukan sumber bobot (blob / HF / folder superadmin).
       const localRepo = await ensureModelFile(model);
-      const pipe = await pipeline('feature-extraction', localRepo);
+      // `quantized` HARUS cocok dengan berkas yang diunggah ke model host,
+      // kalau tidak transformers meminta berkas yang tak ada di sana.
+      const pipe = await pipeline('feature-extraction', localRepo, {
+        quantized: model.quantized !== false,
+      });
       return (texts: string[], opts: object) =>
         pipe(texts, opts) as Promise<{ data: Float32Array; dims: number[] }>;
     })();

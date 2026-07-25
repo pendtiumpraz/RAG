@@ -42,7 +42,7 @@ walau ada bug di kode app (`migrations/0001_rls.sql`,
 | Yang kamu minta | Implementasi |
 |---|---|
 | Pilih embedding model (80MB / 2GB / API OpenAI) | `src/lib/models/registry.ts` (bucket small/large/api), `src/app/settings` |
-| Model embedding dari Google Drive / SharePoint | `src/lib/storage/model-host.ts` + `gdrive.ts` + `sharepoint.ts` |
+| Host bobot model embedding (Vercel Blob / Drive / SharePoint) | `src/modules/knowledge/storage/blob-host.ts` + `model-host.ts` (+ `gdrive.ts`, `sharepoint.ts`) |
 | Semua provider & model terbaru (Jul 2026), pilih 1 aktif | `registry.ts` (`LLM_MODELS`), `tenant_settings.activeLlmModel` |
 | Simpan API key | `provider_credentials` (AES-256-GCM, `src/lib/crypto.ts`) |
 | History semua chat | tabel `conversations` + `messages` |
@@ -59,10 +59,15 @@ walau ada bug di kode app (`migrations/0001_rls.sql`,
 Mistral, DeepSeek, xAI Grok 4, Groq/Llama, Cohere. Tambah model baru =
 tambah satu baris di `LLM_MODELS`.
 
-**Embedding**
-- **~80MB**: `all-MiniLM-L6-v2`, `nomic-embed-text-v1.5`
-- **~2GB**: `bge-m3` (multilingual), `qwen3-embedding-8b` (SOTA open-source)
+**Embedding** (ukuran berkas yang benar-benar dimuat, diverifikasi 2026-07-26)
+- **kecil**: `all-MiniLM-L6-v2` (21,9 MB), `nomic-embed-text-v1.5` (130,9 MB)
+- **besar**: `bge-m3` multilingual (543 MB terkuantisasi — varian presisi
+  penuh 2,16 GB memakai bobot eksternal dan **tidak bisa dimuat**
+  transformers.js v2, lihat `docs/MODEL-HOSTING.md`)
 - **API**: OpenAI `text-embedding-3-small/large`, Cohere `embed-v4.0`
+
+Bobot di-host di **Vercel Blob** publik; unggah dengan
+`npm run models:push -- --all`. Rincian: [`docs/MODEL-HOSTING.md`](docs/MODEL-HOSTING.md).
 
 ---
 

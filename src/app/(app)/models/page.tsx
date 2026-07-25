@@ -61,8 +61,10 @@ export default function ModelsPage() {
           <div className="card"><div className="panel-head"><span className="t">model embedding aktif</span><span className="badge badge-source">1 aktif</span></div>
             <div className="card-pad"><div className="field"><label>Model</label>
               <select className="select" value={emb} onChange={(e) => setEmb(e.target.value)}>
-                <optgroup label="~80MB — lokal">{buckets.small.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
-                <optgroup label="~2GB — akurasi tinggi">{buckets.large.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
+                {/* Ukuran nyata ada di label tiap model (dari registry) — jangan
+                    menuliskannya lagi di sini supaya tak pernah bertentangan. */}
+                <optgroup label="Lokal — ringan">{buckets.small.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
+                <optgroup label="Lokal — akurasi tinggi">{buckets.large.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
                 <optgroup label="API">{buckets.api.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
               </select></div></div></div>
 

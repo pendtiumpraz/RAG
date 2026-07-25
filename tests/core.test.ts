@@ -98,6 +98,63 @@ test('gdrive native detection + export mime map', async () => {
   assert.equal(googleNativeExportMime('application/pdf'), null);
 });
 
+/* ── model host di Vercel Blob ─────────────────────────────────────── */
+test('blob model host: path & base URL', async () => {
+  const { modelBlobPath, modelBlobUrl, blobBaseUrl, onnxFileFor, modelFileManifest } =
+    await import('../src/modules/knowledge/storage/blob-host');
+
+  // Tata letak harus meniru repo HF supaya transformers.js bisa menariknya
+  // langsung lewat remoteHost/remotePathTemplate.
+  assert.equal(modelBlobPath('Xenova/all-MiniLM-L6-v2', 'config.json'),
+    'models/Xenova/all-MiniLM-L6-v2/config.json');
+  assert.equal(modelBlobPath('Xenova/bge-m3', '/onnx/model.onnx'),
+    'models/Xenova/bge-m3/onnx/model.onnx');
+  assert.equal(modelBlobUrl('https://x.public.blob.vercel-storage.com/', 'Xenova/bge-m3', 'config.json'),
+    'https://x.public.blob.vercel-storage.com/models/Xenova/bge-m3/config.json');
+
+  // slash di ujung tak boleh menghasilkan URL dobel-slash
+  process.env.EMBEDDING_MODEL_BLOB_URL = 'https://x.public.blob.vercel-storage.com///';
+  assert.equal(blobBaseUrl(), 'https://x.public.blob.vercel-storage.com');
+  delete process.env.EMBEDDING_MODEL_BLOB_URL;
+  assert.equal(blobBaseUrl(), null);
+
+  // berkas yang diunggah HARUS sama dengan yang dimuat runtime
+  assert.equal(onnxFileFor({ quantized: undefined }), 'onnx/model_quantized.onnx');
+  assert.equal(onnxFileFor({ quantized: true }), 'onnx/model_quantized.onnx');
+  assert.equal(onnxFileFor({ quantized: false }), 'onnx/model.onnx');
+  assert.ok(modelFileManifest({ quantized: true }).required.includes('config.json'));
+});
+
+test('registry: semua model lokal memakai bobot ONNX mandiri', async () => {
+  const { EMBEDDING_MODELS } = await import('../src/modules/core/registry');
+  const { onnxFileFor } = await import('../src/modules/knowledge/storage/blob-host');
+  // transformers.js v2 membuat sesi dari buffer → model dengan bobot eksternal
+  // (.onnx_data) TIDAK bisa dimuat. Registry tak boleh memilih varian seperti itu.
+  for (const m of EMBEDDING_MODELS.filter((x) => x.kind === 'local')) {
+    assert.equal(onnxFileFor(m), 'onnx/model_quantized.onnx',
+      `${m.id} harus memakai varian terkuantisasi yang mandiri`);
+    assert.ok(m.hfRepo, `${m.id} wajib punya hfRepo untuk tata letak model host`);
+    assert.ok(!m.hfRepo!.startsWith('Xenova/nomic'), 'repo nomic Xenova sudah 401 — pakai nomic-ai/');
+  }
+});
+
+test('model host blob tanpa base URL → gagal jelas, bukan diam-diam ke HF', async () => {
+  const { ensureModelFile } = await import('../src/modules/knowledge/storage/model-host');
+  const { getEmbeddingModel } = await import('../src/modules/core/registry');
+  const prevSrc = process.env.EMBEDDING_MODEL_SOURCE;
+  const prevUrl = process.env.EMBEDDING_MODEL_BLOB_URL;
+  process.env.EMBEDDING_MODEL_SOURCE = 'blob';
+  delete process.env.EMBEDDING_MODEL_BLOB_URL;
+  await assert.rejects(
+    () => ensureModelFile(getEmbeddingModel('all-MiniLM-L6-v2')!),
+    /EMBEDDING_MODEL_BLOB_URL/,
+  );
+  process.env.EMBEDDING_MODEL_BLOB_URL = 'https://x.public.blob.vercel-storage.com';
+  assert.equal(await ensureModelFile(getEmbeddingModel('all-MiniLM-L6-v2')!), 'Xenova/all-MiniLM-L6-v2');
+  process.env.EMBEDDING_MODEL_SOURCE = prevSrc;
+  if (prevUrl) process.env.EMBEDDING_MODEL_BLOB_URL = prevUrl; else delete process.env.EMBEDDING_MODEL_BLOB_URL;
+});
+
 /* ── delta / incremental sync ──────────────────────────────────────── */
 test('planDelta: baru / berubah / tak berubah / hilang', async () => {
   const { planDelta } = await import('../src/modules/knowledge/sync.service');

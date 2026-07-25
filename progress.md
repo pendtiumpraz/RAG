@@ -118,6 +118,18 @@
       **Menutup bug**: sebelumnya tiap re-sync menduplikasi seluruh KB + bayar embedding ulang.
       **LIVE di production** 2026-07-26 (commit `d8df7a0` → rag.sainskerta.net; migrasi 0007
       diterapkan ke Neon SEBELUM push, jadi tak ada jendela kode-baru vs skema-lama).
+- [x] **Model host di Vercel Blob** (2026-07-26, D6): bobot embedding diunggah ke
+      blob publik 10 GB dengan tata letak `models/<hfRepo>/…`; sisi baca hanya
+      mengarahkan `env.remoteHost`/`remotePathTemplate` transformers.js — tanpa kode
+      unduh sendiri. `npm run models:push` (CLI superadmin, multipart >50 MB, lewati
+      berkas yang sudah ada) + `npm run models:verify` (bukti jalur baca tanpa
+      menyentuh blob). Diverifikasi: embedding 384-dim nyata ditarik dari blob dengan
+      cache kosong.
+      **2 koreksi fakta registry**: repo `Xenova/nomic-…` kini 401 → `nomic-ai/…`;
+      BGE-M3 "2,2 GB" ternyata `model.onnx` 0,6 MB + `model.onnx_data` 2,16 GB (bobot
+      EKSTERNAL) yang **tak bisa dimuat** transformers.js v2 → dipakai varian
+      terkuantisasi 543 MB yang mandiri. Varian 2 GB butuh upgrade ke
+      `@huggingface/transformers` v3 — **keputusan user, belum dikerjakan**.
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`
@@ -170,5 +182,6 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 | 2026-07-23 | 02 | UI/UX assessment (~6.4/10). Arah desain baru **Editorial Ledger** (D4) untuk anti AI-slop + target 10. Design system `nalar-ds.css` + referensi `design-system.html` dibuat. TODO: re-skin semua surface ke DS ini |
 | 2026-07-23 | 02 | Requirement baru: **Obsidian Memory Agent** (Drive/OneDrive/SharePoint → vault markdown [[wikilink]] + graph-RAG) dicatat di user_requirement + idea.md. **Full gap assessment 14 dimensi** ditulis di `docs/assessment.md` (rata-rata ~5.3/10). `git init` + commit pertama `11f6bac` (Rule #15 ✅) |
 | 2026-07-23 | 02→03 | Fase 02 APPROVED → Fase 03 backend inti selesai (modular monolith, soft-delete endpoints, theme_config, memory). **D4v2 pivot: "Retrieval Instrument"** (user: editorial = "museum") — DS v3 + SEMUA surface di-re-skin: trace retrieval + skor similarity + streaming sebagai bahasa visual. Commit: 4c55dd6 + berikutnya |
+| 2026-07-26 | pasca-deploy | **Model host Vercel Blob** (D6): `blob-host.ts` + sumber `blob` di `model-host.ts` + remoteHost transformers, skrip `models:push` (multipart) & `models:verify`, `docs/MODEL-HOSTING.md`. 16/16 unit test, build lulus, embedding nyata dari blob LULUS. Registry dikoreksi (repo nomic 401→nomic-ai; bge-m3 pakai varian mandiri 543 MB, bukan varian bobot-eksternal 2,16 GB yang tak bisa dimuat) |
 | 2026-07-25 | pasca-deploy | **Delta sync**: kolom `external_id`/`external_version` + migrasi 0007 (diterapkan ke Neon), `planDelta()` + 4 unit test baru (13/13 lulus), build lulus, **smoke e2e di Neon nyata LULUS** (manifest→plan→remove→buang warisan, di bawah RLS). Re-sync tak lagi menduplikasi KB; UI Knowledge menampilkan ringkasan perubahan + tombol "Penuh". `CLAUDE.md` dibuat (panduan repo utk Claude Code) |
 | 2026-07-23 | 02 | **RE-SKIN SEMUA surface ke Editorial Ledger** (`nalar-ds.css`): dashboard (+ halaman Memory graph baru, chart ber-axis/tooltip, footnote-sitasi di Conversations), landing (masthead + proof-card streaming), embed-demo (widget paper + footnote + preset ink editorial), auth (split terbitan), branding (preview ink). Gap dim-7 surfaces & data-viz tertutup |

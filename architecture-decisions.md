@@ -98,9 +98,26 @@ menunggu approval user (ditandai 👀).
   KV/Upstash utk production; (3) background job → Pro+waitUntil atau worker eksternal.
 - `vercel.json`: maxDuration chat/ingest 60s, memory/sync 300s.
 
+### D6 — Model host bobot embedding: Vercel Blob publik (2026-07-26)
+- **Status:** ✅ APPROVED (user menyediakan blob store publik 10 GB + token).
+- Bobot ONNX di-host di Blob dengan tata letak meniru repo HF
+  (`models/<hfRepo>/…`). Sisi baca tanpa kode unduh sendiri: `env.remoteHost` +
+  `env.remotePathTemplate` transformers.js diarahkan ke blob, hasilnya di-cache
+  ke `MODEL_CACHE_DIR`. Unggah lewat CLI superadmin (`npm run models:push`,
+  multipart >50 MB) — BUKAN lewat serverless function (body limit ~4,5 MB).
+- Menggantikan Drive/SharePoint superadmin sebagai default; keduanya masih didukung.
+- **Batas yang ditemukan saat implementasi:** varian BGE-M3 "2 GB" di HF adalah
+  `model.onnx` 0,6 MB + `model.onnx_data` 2,16 GB (bobot eksternal).
+  transformers.js v2.17.2 membuat sesi dari buffer memori dan tak mengenal
+  berkas pendamping → varian itu **tak bisa dimuat**. Registry memakai
+  varian terkuantisasi 543 MB yang mandiri. Membuka varian 2 GB berarti pindah
+  ke `@huggingface/transformers` v3 (dukungan `externalData`+`dtype`) —
+  **keputusan user, belum dikerjakan**. Detail: `docs/MODEL-HOSTING.md`.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-26 | D6 = model host Vercel Blob; batas varian 2 GB (bobot eksternal) dicatat | User+AI |
 | 2026-07-23 | A1–A5 dicatat; D1–D3 diangkat ke user | AI |
 | 2026-07-23 | D1=Next.js modular, D2=No-FK+soft-delete penuh, D3=Hybrid — semua APPROVED | User |
 | 2026-07-23 | `schema.ts` direfactor compliant (No-FK + soft-delete + index) | AI |
