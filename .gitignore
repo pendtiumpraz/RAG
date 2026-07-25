@@ -10,3 +10,6 @@ next-env.d.ts
 # Fase 05 build artifacts
 .next/
 server*.log
+
+# TS incremental build cache
+tsconfig.tsbuildinfo

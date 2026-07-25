@@ -7,7 +7,7 @@ import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService } from './knowledge.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
-import { crawlUserDrive, downloadUserDriveFile } from './storage/gdrive';
+import { crawlUserDrive, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
 import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/sharepoint';
 
 /**
@@ -20,8 +20,9 @@ import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/share
  *  • sharepoint — path yang sama (delegated Graph token); drive spesifik
  *                 tinggal isi config.folderPath
  *
- * Ekstraksi: txt/md/csv/json/html langsung; PDF/DOCX dilewati dgn catatan
- * (parser biner menyusul) — jumlah yang diskip dilaporkan, tidak diam-diam.
+ * Ekstraksi: txt/md/csv/json/html langsung; PDF (pdf-parse), DOCX (mammoth);
+ * Google Docs/Sheets/Slides via export teks. Format tak didukung dihitung
+ * skipped — dilaporkan, tidak diam-diam.
  */
 
 interface SyncPayload { tenantId: string; userId: string; sourceId: string; }
@@ -62,7 +63,7 @@ async function runSync({ tenantId, userId, sourceId }: SyncPayload): Promise<voi
     let ingested = 0, skipped = 0;
 
     for (const f of files.slice(0, MAX_FILES_PER_SYNC)) {
-      const text = await extractText(f.name, f.content);
+      const text = await extractText(f.name, f.content, f.mime);
       if (text === null) { skipped++; continue; }
       await knowledgeService.ingest(tenantId, {
         chatbotId: source.chatbotId,
@@ -92,7 +93,7 @@ async function runSync({ tenantId, userId, sourceId }: SyncPayload): Promise<voi
 
 /* ── crawl per storage ────────────────────────────────────────────── */
 
-interface CrawledFile { name: string; content: Buffer; }
+interface CrawledFile { name: string; content: Buffer; mime?: string; }
 
 async function crawl(
   tenantId: string, userId: string, kind: string, config: Record<string, unknown>,
@@ -106,7 +107,24 @@ async function crawl(
     if (!token) throw new Error('Akun Google belum terhubung (hubungkan di Knowledge → Connect Google)');
     const files = await crawlUserDrive(token, { scope, folderId: config.folderId ? String(config.folderId) : undefined, maxFiles: MAX_FILES_PER_SYNC });
     const out: CrawledFile[] = [];
-    for (const f of files) out.push({ name: f.name, content: await downloadUserDriveFile(token, f.id) });
+    for (const f of files) {
+      // guard per-file: 1 file gagal TIDAK boleh mematikan seluruh sync
+      try {
+        if (isGoogleNative(f.mimeType)) {
+          const exportMime = googleNativeExportMime(f.mimeType);
+          if (!exportMime) { // Forms/Drawing/Site/dll — tak bisa jadi teks
+            out.push({ name: f.name, content: Buffer.alloc(0), mime: 'application/octet-stream' });
+            continue;
+          }
+          out.push({ name: f.name, content: await exportUserDriveFile(token, f.id, exportMime), mime: exportMime });
+        } else {
+          out.push({ name: f.name, content: await downloadUserDriveFile(token, f.id) });
+        }
+      } catch (err) {
+        console.error(`[sync] gagal ambil file ${f.name}:`, err);
+        out.push({ name: f.name, content: Buffer.alloc(0), mime: 'application/octet-stream' }); // → skipped
+      }
+    }
     return out;
   }
 
@@ -131,7 +149,14 @@ const TEXT_EXT = ['.txt', '.md', '.markdown', '.csv', '.json', '.log', '.yaml', 
  * PDF via pdf-parse, DOCX via mammoth (dynamic import — modul berat hanya
  * dimuat saat dibutuhkan). Parser gagal ⇒ null, JANGAN mematikan sync.
  */
-export async function extractText(name: string, buf: Buffer): Promise<string | null> {
+export async function extractText(name: string, buf: Buffer, mime?: string): Promise<string | null> {
+  // Konten yang sudah berupa teks (mis. hasil export Google Docs/Sheets → text/plain,
+  // text/csv). Buffer kosong (native tak didukung / gagal ambil) → null = skipped.
+  if (mime && mime.startsWith('text/')) {
+    const t = buf.toString('utf8').trim();
+    return t || null;
+  }
+
   const lower = name.toLowerCase();
   if (TEXT_EXT.some((e) => lower.endsWith(e))) return buf.toString('utf8');
 

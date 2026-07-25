@@ -96,11 +96,18 @@
 - [x] **2 bug runtime fixed**: (D) RLS bocor krn owner BYPASSRLS → role `nalar_app` NOBYPASSRLS; (E) model-host caching http/local
 - [ ] Integration/e2e formal (CI); security scan (deps); performance/load
 
-### ⬜ Fase 06: Deployment — `Disiapkan (D5: Vercel + Postgres)`
-- [x] Keputusan: **Vercel + Vercel Postgres (Neon/pgvector)** — tanpa Docker
-- [x] Penyesuaian serverless: db pool max:1 di Vercel, embedding lokal lazy-import, `vercel.json` maxDuration
-- [x] Panduan `docs/DEPLOY-VERCEL.md` + 3 batasan serverless didokumentasikan
-- [ ] Buat DB di Vercel/Neon → set env → `db:push` + `db:migrate` → `vercel --prod` (butuh akun user)
+### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
+- [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
+- [x] Penyesuaian serverless (db pool, lazy embeddings, vercel.json) + `docs/DEPLOY-VERCEL.md`
+- [x] DB dimigrasi ke Neon (0001–0006); role `nalar_app` NOBYPASSRLS utk RLS
+- [x] Push GitHub `pendtiumpraz/RAG` + deploy production **rag.sainskerta.net** (landing light + auth light + PNG logo LIVE, diverifikasi via HTTP)
+
+### Fitur pasca-deploy (2026-07-24/25)
+- [x] **Multi-akun** Google/Microsoft (connect banyak akun) + **scan seluruh Drive rekursif** (scope all/folder)
+- [x] Landing page publik `/` (bukan redirect ke login) + `/auth` di-relight ke brand resmi
+- [x] Halaman **Chat + Citations** nyata + demo page per chatbot `/demo/[publicKey]`
+- [x] Halaman **Conversations** nyata (list + transcript + sitasi)
+- [ ] Google-native export (Docs/Sheets), incremental/delta sync, Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`

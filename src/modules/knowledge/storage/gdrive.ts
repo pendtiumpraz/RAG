@@ -69,7 +69,8 @@ const FOLDER_MIME = 'application/vnd.google-apps.folder';
  * Crawl file Drive user.
  *  • scope 'all'    → SELURUH Drive (semua file yang bisa diakses, paginated).
  *  • scope 'folder' → satu folder + REKURSIF ke semua subfolder.
- * File Google-native (Docs/Sheets) di-skip di sini (butuh export terpisah).
+ * File Google-native (Docs/Sheets/Slides) IKUT terdaftar di sini; pengambilannya
+ * lewat export (lihat exportUserDriveFile), bukan download biner.
  */
 export async function crawlUserDrive(
   accessToken: string,
@@ -122,6 +123,43 @@ export async function downloadUserDriveFile(accessToken: string, fileId: string)
   const drive = userDrive(accessToken);
   const res = await drive.files.get(
     { fileId, alt: 'media' },
+    { responseType: 'arraybuffer' },
+  );
+  return Buffer.from(res.data as ArrayBuffer);
+}
+
+/* ── Google-native (Docs Editors) → export teks ───────────────────────
+   File Docs/Sheets/Slides TIDAK bisa diunduh via alt=media (403). Harus
+   di-export ke format lain. Kita ambil sebagai teks agar langsung masuk
+   pipeline embedding.
+   CATATAN Sheets: export text/csv hanya mengambil SHEET PERTAMA — batas
+   Drive export, dilaporkan apa adanya (bukan diam-diam memangkas). */
+
+const GOOGLE_NATIVE_EXPORT: Record<string, string> = {
+  'application/vnd.google-apps.document': 'text/plain',
+  'application/vnd.google-apps.spreadsheet': 'text/csv',
+  'application/vnd.google-apps.presentation': 'text/plain',
+};
+
+/** true bila mimeType adalah file Docs Editors (document/spreadsheet/dll). */
+export function isGoogleNative(mimeType?: string): boolean {
+  return !!mimeType && mimeType.startsWith('application/vnd.google-apps.');
+}
+
+/** Target MIME export utk file native yang didukung, atau null bila tak didukung
+ *  (mis. Forms, Drawing, Site, Script). */
+export function googleNativeExportMime(mimeType?: string): string | null {
+  if (!mimeType) return null;
+  return GOOGLE_NATIVE_EXPORT[mimeType] ?? null;
+}
+
+/** Export file Google-native (Docs/Sheets/Slides) sebagai teks. */
+export async function exportUserDriveFile(
+  accessToken: string, fileId: string, exportMime: string,
+): Promise<Buffer> {
+  const drive = userDrive(accessToken);
+  const res = await drive.files.export(
+    { fileId, mimeType: exportMime },
     { responseType: 'arraybuffer' },
   );
   return Buffer.from(res.data as ArrayBuffer);

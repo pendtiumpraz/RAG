@@ -78,6 +78,26 @@ test('memory wikilink parser + slugify', async () => {
   assert.deepEqual(links.sort(), ['garansi', 'klaim-retur']);
 });
 
+/* ── Google-native routing (Docs/Sheets export) ────────────────────── */
+test('gdrive native detection + export mime map', async () => {
+  const { isGoogleNative, googleNativeExportMime } = await import('../src/modules/knowledge/storage/gdrive');
+  // Docs Editors → dikenali native
+  assert.equal(isGoogleNative('application/vnd.google-apps.document'), true);
+  assert.equal(isGoogleNative('application/vnd.google-apps.spreadsheet'), true);
+  assert.equal(isGoogleNative('application/vnd.google-apps.presentation'), true);
+  assert.equal(isGoogleNative('application/vnd.google-apps.form'), true);
+  // file biner biasa → BUKAN native
+  assert.equal(isGoogleNative('application/pdf'), false);
+  assert.equal(isGoogleNative(undefined), false);
+  // peta export teks
+  assert.equal(googleNativeExportMime('application/vnd.google-apps.document'), 'text/plain');
+  assert.equal(googleNativeExportMime('application/vnd.google-apps.spreadsheet'), 'text/csv');
+  assert.equal(googleNativeExportMime('application/vnd.google-apps.presentation'), 'text/plain');
+  // native tak didukung (Forms/Drawing/dll) → null = akan di-skip
+  assert.equal(googleNativeExportMime('application/vnd.google-apps.form'), null);
+  assert.equal(googleNativeExportMime('application/pdf'), null);
+});
+
 /* ── vector padding (fix pgvector) ─────────────────────────────────── */
 test('padVector zero-pads & preserves cosine', async () => {
   const { padVector, VECTOR_DIM } = await import('../src/modules/knowledge/embeddings');
