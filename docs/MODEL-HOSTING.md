@@ -68,11 +68,19 @@ Transformers.js lalu menarik tiap berkas sesuai kebutuhan dan
 menyimpannya di `MODEL_CACHE_DIR`. Karena ditarik **satu per satu**, tidak
 ada lonjakan memori saat mengunduh model besar.
 
-Buktikan tanpa menyentuh blob sungguhan:
+Buktikan bahwa bobotnya benar-benar ditarik dari model host **dan** modelnya
+bisa dimuat — cache runtime dikosongkan dulu, lalu embedding dijalankan
+betulan:
 
 ```bash
-npm run models:verify        # sajikan cache lokal sbg model host, embed betulan
+npm run models:verify                    # host tiruan dari cache lokal (cepat, tanpa jaringan)
+npm run models:verify -- bge-m3          # model tertentu
+npm run models:verify -- --live --all    # BLOB SUNGGUHAN, semua model lokal
 ```
+
+`--live` adalah bukti terkuat setelah `models:push`: ia memakai
+`EMBEDDING_MODEL_BLOB_URL` dari `.env` dengan cache kosong, jadi kalau ada
+berkas yang lupa diunggah, ia akan gagal di sini — bukan nanti di produksi.
 
 ## 4. Ukuran nyata (HF, 2026-07-26)
 
@@ -82,8 +90,12 @@ npm run models:verify        # sajikan cache lokal sbg model host, embed betulan
 | `nomic-embed-text-v1.5` | `nomic-ai/nomic-embed-text-v1.5` | `onnx/model_quantized.onnx` | 130,9 MB |
 | `bge-m3` | `Xenova/bge-m3` | `onnx/model_quantized.onnx` | 543,3 MB |
 
-Termasuk tokenizer/config, ketiganya **± 720 MB** — sekitar 7% dari kuota
-10 GB.
+Termasuk tokenizer/config, ketiganya **718,2 MB** — sekitar 7% dari kuota
+10 GB (angka nyata hasil `models:push -- --all`, 2026-07-26).
+
+Perkiraan waktu unggah (HF → blob, koneksi rumahan): berkas 130,9 MB ≈ 91
+detik, 543,3 MB ≈ 353 detik. Keduanya lewat multipart. Menjalankan ulang
+perintahnya aman — berkas yang sudah ada dilewati, bukan diunggah lagi.
 
 > `Xenova/nomic-embed-text-v1.5` kini membalas **401** (tergated). Registry
 > sudah dialihkan ke repo resmi `nomic-ai/…` yang ONNX-nya mandiri.
