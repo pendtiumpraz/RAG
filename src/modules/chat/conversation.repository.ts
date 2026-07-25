@@ -1,7 +1,19 @@
-import { and, eq, asc, isNull } from 'drizzle-orm';
+import { and, eq, asc, desc, isNull, sql } from 'drizzle-orm';
 import { conversations, messages, type Db } from '@/modules/core/db';
 
 export const conversationRepository = {
+  /** Daftar percakapan (opsional filter chatbot) + preview pesan pertama. */
+  list(tx: Db, tenantId: string, chatbotId: string | null, limit = 50) {
+    const conds = [eq(conversations.tenantId, tenantId), isNull(conversations.deletedAt)];
+    if (chatbotId) conds.push(eq(conversations.chatbotId, chatbotId));
+    return tx.select({
+      id: conversations.id, chatbotId: conversations.chatbotId, visitorId: conversations.visitorId,
+      startedAt: conversations.startedAt,
+      preview: sql<string>`(select content from messages m where m.conversation_id = ${conversations.id} and m.role = 'user' and m.deleted_at is null order by m.created_at asc limit 1)`,
+      count: sql<number>`(select count(*)::int from messages m where m.conversation_id = ${conversations.id} and m.deleted_at is null)`,
+    }).from(conversations).where(and(...conds)).orderBy(desc(conversations.startedAt)).limit(limit);
+  },
+
   async findOrCreate(tx: Db, tenantId: string, chatbotId: string, conversationId?: string, visitorId?: string) {
     if (conversationId) {
       const rows = await tx.select({ id: conversations.id }).from(conversations)
