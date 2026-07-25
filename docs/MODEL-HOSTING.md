@@ -84,11 +84,15 @@ berkas yang lupa diunggah, ia akan gagal di sini — bukan nanti di produksi.
 
 ## 4. Ukuran nyata (HF, 2026-07-26)
 
-| Model | repo | berkas dimuat | ukuran |
-|---|---|---|---|
-| `all-MiniLM-L6-v2` | `Xenova/all-MiniLM-L6-v2` | `onnx/model_quantized.onnx` | 21,9 MB |
-| `nomic-embed-text-v1.5` | `nomic-ai/nomic-embed-text-v1.5` | `onnx/model_quantized.onnx` | 130,9 MB |
-| `bge-m3` | `Xenova/bge-m3` | `onnx/model_quantized.onnx` | 543,3 MB |
+| Model | repo | berkas dimuat | ukuran | muat pertama dari blob |
+|---|---|---|---|---|
+| `all-MiniLM-L6-v2` | `Xenova/all-MiniLM-L6-v2` | `onnx/model_quantized.onnx` | 21,9 MB | 22 dtk · 384 dim |
+| `nomic-embed-text-v1.5` | `nomic-ai/nomic-embed-text-v1.5` | `onnx/model_quantized.onnx` | 130,9 MB | 109 dtk · 768 dim |
+| `bge-m3` | `Xenova/bge-m3` | `onnx/model_quantized.onnx` | 543,3 MB | 377 dtk · 1024 dim |
+
+Kolom terakhir = hasil `models:verify -- --live` nyata (cache kosong,
+2026-07-26): unduh dari blob + bangun sesi ONNX + embed. Setelah bobot
+ter-cache di `MODEL_CACHE_DIR`, pemuatan berikutnya hitungan detik.
 
 Termasuk tokenizer/config, ketiganya **718,2 MB** — sekitar 7% dari kuota
 10 GB (angka nyata hasil `models:push -- --all`, 2026-07-26).
@@ -132,8 +136,18 @@ tangan user (RULES-OF-THE-GAME #10) — belum dikerjakan.
 
 Model lokal **tidak** realistis di lambda: `/tmp` hanya ~512 MB, memori
 terbatas, dan filesystem-nya sementara sehingga bobot ditarik ulang tiap
-cold start. Di Vercel pakai **embedding API** (OpenAI/Cohere); jalur model
-lokal dari blob ditujukan untuk **VPS / on-prem / Docker**, di mana
-`MODEL_CACHE_DIR` bisa dipetakan ke volume persisten.
+cold start. Angka di tabel atas membuktikannya — muat pertama BGE-M3
+**377 detik**, sementara `vercel.json` membatasi chat 60 dtk dan sync 300
+dtk. Bahkan MiniLM yang 22 MB butuh ~22 dtk per cold start.
+
+Di Vercel pakai **embedding API** (OpenAI/Cohere); jalur model lokal dari
+blob ditujukan untuk **VPS / on-prem / Docker**, di mana `MODEL_CACHE_DIR`
+dipetakan ke volume persisten sehingga unduhan cukup sekali seumur volume.
+
+> Catatan produksi: default `tenant_settings.active_embedding_model` adalah
+> `all-MiniLM-L6-v2` (model LOKAL). Di deployment Vercel, tenant yang
+> memakai default itu akan tersendat/gagal saat ingest. Setel default ke
+> model API, atau pastikan `EMBEDDING_MODEL_SOURCE`+`EMBEDDING_MODEL_BLOB_URL`
+> terisi dan terima konsekuensi cold-start di atas.
 
 Ini konsisten dengan batasan #1 di `docs/DEPLOY-VERCEL.md`.

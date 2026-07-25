@@ -122,9 +122,10 @@
       blob publik 10 GB dengan tata letak `models/<hfRepo>/…`; sisi baca hanya
       mengarahkan `env.remoteHost`/`remotePathTemplate` transformers.js — tanpa kode
       unduh sendiri. `npm run models:push` (CLI superadmin, multipart >50 MB, lewati
-      berkas yang sudah ada) + `npm run models:verify` (bukti jalur baca tanpa
-      menyentuh blob). Diverifikasi: embedding 384-dim nyata ditarik dari blob dengan
-      cache kosong.
+      berkas yang sudah ada) + `npm run models:verify [-- --live --all]`.
+      **3 model terunggah & TERBUKTI dimuat dari blob** (cache kosong):
+      MiniLM 22,8 MB→384 dim (22 dtk) · nomic 130,9 MB→768 dim (109 dtk) ·
+      bge-m3 543,3 MB→1024 dim (377 dtk) · total 718,2 MB (7% dari 10 GB).
       **2 koreksi fakta registry**: repo `Xenova/nomic-…` kini 401 → `nomic-ai/…`;
       BGE-M3 "2,2 GB" ternyata `model.onnx` 0,6 MB + `model.onnx_data` 2,16 GB (bobot
       EKSTERNAL) yang **tak bisa dimuat** transformers.js v2 → dipakai varian
