@@ -60,6 +60,15 @@ aplikasi khusus **`nalar_app` (NOBYPASSRLS)** + grant DML; `DATABASE_URL` app
 memakai role ini; owner hanya untuk migrasi/DDL (`db:setup-role`). Diverifikasi:
 kebocoran hilang. **WAJIB dipakai juga di production Vercel** (DATABASE_URL = nalar_app).
 
+### 🔴 Temuan F · re-sync menduplikasi seluruh knowledge base (2026-07-25)
+Sync lama meng-ingest ULANG semua file tiap run — tak ada penanda identitas/versi
+file upstream. Akibatnya sync kedua menggandakan chunk di `documents` (retrieval
+mengembalikan duplikat, biaya embedding dibayar berulang). **Fix:** delta sync —
+`external_id` + `external_version` per chunk (migrasi 0007) + `planDelta()`;
+hanya file baru/berubah yang diunduh & di-embed, file hilang di-soft-delete.
+Diverifikasi lewat `npm run smoke` di Neon nyata (manifest → plan → remove →
+pembuangan chunk warisan, di bawah RLS) + 4 unit test.
+
 ### 🟡 Temuan E · model-host caching salah untuk sumber 'http'/'local'
 Marker `.ready` membuat run kedua mengembalikan folder lokal kosong alih-alih
 repo HF → embedding gagal di run berikutnya. **Fix:** untuk source http/local,

@@ -1,5 +1,6 @@
 /* Smoke test end-to-end terhadap Neon nyata. Jalankan:
    node --env-file=.env --import tsx scripts/smoke.ts */
+import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { authService } from '../src/modules/auth/auth.service';
 import { chatbotService } from '../src/modules/chatbot/chatbot.service';
@@ -48,6 +49,52 @@ async function main() {
     console.log('✓ retrieve=' + hits.length + ' hit · top score=' + (hits[0]?.score?.toFixed(3) ?? 'n/a') + ' · "' + (hits[0]?.content?.slice(0, 40) ?? '') + '…"');
   } catch (e) {
     console.log('⚠ ingest/retrieve dilewati: ' + (e as Error).message);
+  }
+
+  // 7) DELTA SYNC — manifest & pembuangan chunk lewat DB nyata (di bawah RLS).
+  //    Rule #2 (tanpa FK) berarti sourceId sintetis cukup untuk uji ini.
+  try {
+    const { planDelta } = await import('../src/modules/knowledge/sync.service');
+    const sourceId = randomUUID();
+    const doc = (externalId: string, externalVersion: string, text: string) =>
+      knowledgeService.ingest(a.tenantId, {
+        chatbotId: bot.id, title: externalId, text, sourceId, externalId, externalVersion,
+      });
+
+    await doc('f1', 'v1', 'Kebijakan retur berlaku 14 hari setelah barang diterima.');
+    await doc('f2', 'v1', 'Pengiriman reguler memakan waktu 3 sampai 5 hari kerja.');
+
+    const m1 = await knowledgeService.manifestBySource(a.tenantId, sourceId);
+    console.log('✓ manifest=' + m1.size + ' file · f1=' + m1.get('f1') + ' f2=' + m1.get('f2'));
+
+    // f1 berubah versi · f2 lenyap dari upstream · f3 baru
+    const plan = planDelta(
+      [{ externalId: 'f1', name: 'f1', version: 'v2' }, { externalId: 'f3', name: 'f3', version: 'v1' }],
+      m1,
+    );
+    console.log('✓ plan: create=' + plan.create.map((f) => f.externalId)
+      + ' update=' + plan.update.map((f) => f.externalId)
+      + ' remove=' + plan.remove + ' unchanged=' + plan.unchanged);
+
+    const removed = await knowledgeService.removeExternal(a.tenantId, sourceId, plan.remove);
+    const m2 = await knowledgeService.manifestBySource(a.tenantId, sourceId);
+    console.log('✓ remove f2: ' + removed + ' chunk soft-delete · manifest sekarang=' + [...m2.keys()]);
+
+    // chunk warisan pra-delta (tanpa external_id) harus bisa dibuang sekali jalan
+    await knowledgeService.ingest(a.tenantId, {
+      chatbotId: bot.id, title: 'warisan.txt', sourceId,
+      text: 'Dokumen hasil sync lama tanpa penanda versi upstream.',
+    });
+    const legacy = await knowledgeService.removeLegacy(a.tenantId, sourceId);
+    const m3 = await knowledgeService.manifestBySource(a.tenantId, sourceId);
+    console.log('✓ buang warisan: ' + legacy + ' chunk · manifest tak terpengaruh=' + [...m3.keys()]);
+
+    const pass = m1.size === 2 && plan.update.length === 1 && plan.create.length === 1
+      && plan.remove.join() === 'f2' && removed > 0 && !m2.has('f2') && legacy > 0 && m3.size === 1;
+    console.log((pass ? '✓' : '✗') + ' DELTA SYNC ' + (pass ? 'OK' : 'GAGAL'));
+    if (!pass) process.exitCode = 1;
+  } catch (e) {
+    console.log('⚠ uji delta dilewati: ' + (e as Error).message);
   }
 
   console.log('\nSMOKE OK');
