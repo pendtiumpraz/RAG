@@ -54,7 +54,12 @@ export async function downloadUserSharepointFile(userToken: string, itemId: stri
   return (await graph(userToken, `/me/drive/items/${itemId}/content`, 'buffer')) as Buffer;
 }
 
-export interface GraphItem { id: string; name: string; file?: unknown; folder?: unknown }
+export interface GraphItem {
+  id: string; name: string; file?: unknown; folder?: unknown;
+  /** eTag berubah tiap konten/metadata berubah — penanda versi delta sync. */
+  eTag?: string;
+  lastModifiedDateTime?: string;
+}
 
 /**
  * Crawl OneDrive/SharePoint user via Microsoft Graph.

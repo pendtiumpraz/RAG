@@ -14,6 +14,18 @@ import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/share
  * SYNC WORKER — crawl storage user → ekstrak teks → ingest KB →
  * auto-trigger Memory Agent. Job 'source.sync' di antrean core/jobs.
  *
+ * INCREMENTAL / DELTA SYNC
+ * ------------------------
+ * Sync TIDAK meng-ingest ulang seluruh drive tiap kali jalan. Tiap chunk
+ * menyimpan `external_id` (id file upstream) + `external_version` (Drive
+ * modifiedTime / Graph eTag). Satu run:
+ *   1. listing metadata saja (murah, tanpa download)
+ *   2. bandingkan dengan manifest DB → planDelta()
+ *   3. hanya file BARU / BERUBAH yang diunduh + di-embed;
+ *      file yang HILANG di upstream chunk-nya di-soft-delete
+ * Tanpa ini, sync kedua menduplikasi seluruh KB dan membayar biaya
+ * embedding berulang.
+ *
  * Storage:
  *  • gdrive     — Google Drive user (OAuth google, drive.readonly)
  *  • onedrive   — /me/drive user via Microsoft Graph (OAuth microsoft)
@@ -25,9 +37,12 @@ import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/share
  * skipped — dilaporkan, tidak diam-diam.
  */
 
-interface SyncPayload { tenantId: string; userId: string; sourceId: string; }
+interface SyncPayload { tenantId: string; userId: string; sourceId: string; full?: boolean }
 
-const MAX_FILES_PER_SYNC = 300; // cap per-run (whole-drive bisa besar); sisa di run berikut
+/** Listing metadata murah → boleh besar; menentukan akurasi deteksi file terhapus. */
+const MAX_LIST_FILES = 2000;
+/** Kerja mahal (download + embed) dibatasi per run; sisanya lanjut run berikutnya. */
+const MAX_INGEST_PER_SYNC = 150;
 const MAX_FILE_CHARS = 200_000;
 
 registerJobHandler('source.sync', async (payload) => {
@@ -35,15 +50,68 @@ registerJobHandler('source.sync', async (payload) => {
 });
 
 export const syncService = {
-  enqueue(tenantId: string, userId: string, sourceId: string): JobStatus {
-    return enqueueJob('source.sync', sourceId, { tenantId, userId, sourceId } satisfies SyncPayload);
+  /** `full: true` → paksa re-ingest semua file (abaikan versi tersimpan). */
+  enqueue(tenantId: string, userId: string, sourceId: string, full = false): JobStatus {
+    return enqueueJob('source.sync', sourceId, { tenantId, userId, sourceId, full } satisfies SyncPayload);
   },
   status(sourceId: string): JobStatus | null {
     return getJobStatus('source.sync', sourceId);
   },
 };
 
-async function runSync({ tenantId, userId, sourceId }: SyncPayload): Promise<void> {
+/* ── perencanaan delta (murni — diuji tanpa DB) ───────────────────── */
+
+export interface RemoteFile {
+  externalId: string;
+  name: string;
+  /** Penanda versi upstream; string kosong = upstream tak memberi versi. */
+  version: string;
+  mimeType?: string;
+}
+
+export interface SyncPlan {
+  /** Belum pernah di-ingest. */
+  create: RemoteFile[];
+  /** Sudah ada tapi versinya berbeda → chunk lama dibuang, di-ingest ulang. */
+  update: RemoteFile[];
+  /** Tak berubah — tidak diunduh, tidak di-embed. */
+  unchanged: number;
+  /** external_id yang ada di DB tapi lenyap dari upstream → soft-delete. */
+  remove: string[];
+}
+
+/**
+ * Bandingkan listing upstream dengan manifest DB.
+ *
+ * `truncated` = listing kena batas MAX_LIST_FILES, jadi kita TIDAK melihat
+ * seluruh drive. Dalam kondisi itu penghapusan DILEWATI — file yang sekadar
+ * berada di luar jendela listing tidak boleh dikira terhapus.
+ */
+export function planDelta(
+  remote: RemoteFile[],
+  manifest: Map<string, string>,
+  opts: { full?: boolean; truncated?: boolean } = {},
+): SyncPlan {
+  const plan: SyncPlan = { create: [], update: [], unchanged: 0, remove: [] };
+  const seen = new Set<string>();
+
+  for (const f of remote) {
+    seen.add(f.externalId);
+    const prev = manifest.get(f.externalId);
+    if (prev === undefined) plan.create.push(f);
+    else if (opts.full || prev !== f.version || f.version === '') plan.update.push(f);
+    else plan.unchanged++;
+  }
+
+  if (!opts.truncated) {
+    for (const id of manifest.keys()) if (!seen.has(id)) plan.remove.push(id);
+  }
+  return plan;
+}
+
+/* ── job utama ────────────────────────────────────────────────────── */
+
+async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promise<void> {
   const source = await withTenant(tenantId, async (tx) =>
     (await tx.select().from(dataSources).where(and(
       eq(dataSources.id, sourceId), isNull(dataSources.deletedAt),
@@ -59,45 +127,101 @@ async function runSync({ tenantId, userId, sourceId }: SyncPayload): Promise<voi
   await setStatus('syncing');
 
   try {
-    const files = await crawl(tenantId, userId, source.kind, source.config as Record<string, unknown>);
-    let ingested = 0, skipped = 0;
+    const conn = await connect(tenantId, userId, source.kind, source.config as Record<string, unknown>);
 
-    for (const f of files.slice(0, MAX_FILES_PER_SYNC)) {
-      const text = await extractText(f.name, f.content, f.mime);
-      if (text === null) { skipped++; continue; }
-      await knowledgeService.ingest(tenantId, {
-        chatbotId: source.chatbotId,
-        title: f.name,
-        text: text.slice(0, MAX_FILE_CHARS),
-        sourceId,
-        metadata: { syncedFrom: source.kind },
-      });
-      ingested++;
+    // Format yang pasti tak bisa jadi teks tidak perlu diunduh sama sekali.
+    const supported: RemoteFile[] = [];
+    let skipped = 0;
+    for (const f of conn.files) {
+      if (isExtractable(f.name, f.mimeType)) supported.push(f);
+      else skipped++;
     }
 
-    await setStatus('synced', { ingested, skipped, at: new Date().toISOString() });
+    const manifest = await knowledgeService.manifestBySource(tenantId, sourceId);
+    const plan = planDelta(supported, manifest, { full, truncated: conn.truncated });
+
+    // File hilang di upstream → chunk-nya keluar dari KB (soft-delete, bisa di-restore).
+    let removed = 0;
+    if (plan.remove.length) {
+      removed = await knowledgeService.removeExternal(tenantId, sourceId, plan.remove);
+    }
+
+    // Migrasi dari sync pra-delta: chunk lama tak punya external_id sehingga tak
+    // terlihat di manifest — tanpa dibuang ia akan berdampingan dgn ingest baru
+    // (KB dobel). Sekali jalan saat source pertama kali di-sync secara delta.
+    if (manifest.size === 0 || full) {
+      removed += await knowledgeService.removeLegacy(tenantId, sourceId);
+    }
+
+    // Kerja mahal dibatasi per run; sisanya dilaporkan sebagai `pending`.
+    const work = [...plan.create, ...plan.update];
+    const batch = work.slice(0, MAX_INGEST_PER_SYNC);
+    const pending = work.length - batch.length;
+    const isUpdate = new Set(plan.update.map((f) => f.externalId));
+
+    let ingested = 0, updated = 0, failed = 0;
+    for (const f of batch) {
+      try {
+        const { content, mime } = await conn.fetch(f);
+        const text = await extractText(f.name, content, mime);
+        if (text === null) { skipped++; continue; }
+
+        // Versi baru menggantikan yang lama — buang chunk lama DULU agar
+        // KB tidak berisi dua versi dokumen yang sama.
+        if (isUpdate.has(f.externalId)) {
+          await knowledgeService.removeExternal(tenantId, sourceId, [f.externalId]);
+        }
+
+        await knowledgeService.ingest(tenantId, {
+          chatbotId: source.chatbotId,
+          title: f.name,
+          text: text.slice(0, MAX_FILE_CHARS),
+          sourceId,
+          externalId: f.externalId,
+          externalVersion: f.version,
+          metadata: { syncedFrom: source.kind },
+        });
+        if (isUpdate.has(f.externalId)) updated++; else ingested++;
+      } catch (err) {
+        // 1 file gagal TIDAK boleh mematikan seluruh sync.
+        console.error(`[sync] gagal memproses ${f.name}:`, err);
+        failed++;
+      }
+    }
+
+    const stats = {
+      ingested, updated, removed, unchanged: plan.unchanged,
+      skipped, failed, pending, at: new Date().toISOString(),
+    };
+    await setStatus(pending > 0 ? 'partial' : 'synced', stats);
     await audit(tenantId, 'system', 'source.sync', sourceId, {
-      kind: source.kind, chatbotId: source.chatbotId, ingested, skipped,
+      kind: source.kind, chatbotId: source.chatbotId, ...stats,
     });
     await dispatch('source.connected', {
       tenantId, chatbotId: source.chatbotId, sourceId, kind: source.kind,
     });
 
-    // rantai otomatis: KB berubah → petakan ulang memory (L1–L5)
-    memoryAgent.enqueueRun(tenantId, source.chatbotId);
+    // rantai otomatis: KB berubah → petakan ulang memory (L1–L5).
+    // Tak ada perubahan ⇒ tak perlu jalankan agent.
+    if (ingested || updated || removed) memoryAgent.enqueueRun(tenantId, source.chatbotId);
   } catch (err) {
     await setStatus('error', { message: (err as Error).message });
     throw err;
   }
 }
 
-/* ── crawl per storage ────────────────────────────────────────────── */
+/* ── konektor per storage (listing murah + fetch malas) ───────────── */
 
-interface CrawledFile { name: string; content: Buffer; mime?: string; }
+interface Connector {
+  files: RemoteFile[];
+  /** true bila listing kena batas → deteksi file terhapus tidak dapat dipercaya. */
+  truncated: boolean;
+  fetch(f: RemoteFile): Promise<{ content: Buffer; mime?: string }>;
+}
 
-async function crawl(
+async function connect(
   tenantId: string, userId: string, kind: string, config: Record<string, unknown>,
-): Promise<CrawledFile[]> {
+): Promise<Connector> {
   // scope: 'all' = SELURUH drive (rekursif) · 'folder' = folder tertentu (rekursif)
   const scope = (config.scope === 'all' ? 'all' : 'folder') as 'all' | 'folder';
   const accountEmail = config.accountEmail ? String(config.accountEmail) : undefined;
@@ -105,36 +229,46 @@ async function crawl(
   if (kind === 'gdrive') {
     const token = await connectionService.getAccessToken(tenantId, userId, 'google', accountEmail);
     if (!token) throw new Error('Akun Google belum terhubung (hubungkan di Knowledge → Connect Google)');
-    const files = await crawlUserDrive(token, { scope, folderId: config.folderId ? String(config.folderId) : undefined, maxFiles: MAX_FILES_PER_SYNC });
-    const out: CrawledFile[] = [];
-    for (const f of files) {
-      // guard per-file: 1 file gagal TIDAK boleh mematikan seluruh sync
-      try {
+    const raw = await crawlUserDrive(token, {
+      scope,
+      folderId: config.folderId ? String(config.folderId) : undefined,
+      maxFiles: MAX_LIST_FILES,
+    });
+    return {
+      files: raw.map((f) => ({
+        externalId: f.id, name: f.name, mimeType: f.mimeType,
+        version: f.modifiedTime ?? '',
+      })),
+      truncated: raw.length >= MAX_LIST_FILES,
+      async fetch(f) {
         if (isGoogleNative(f.mimeType)) {
-          const exportMime = googleNativeExportMime(f.mimeType);
-          if (!exportMime) { // Forms/Drawing/Site/dll — tak bisa jadi teks
-            out.push({ name: f.name, content: Buffer.alloc(0), mime: 'application/octet-stream' });
-            continue;
-          }
-          out.push({ name: f.name, content: await exportUserDriveFile(token, f.id, exportMime), mime: exportMime });
-        } else {
-          out.push({ name: f.name, content: await downloadUserDriveFile(token, f.id) });
+          // Docs Editors tak bisa alt=media; harus di-export.
+          const exportMime = googleNativeExportMime(f.mimeType)!; // isExtractable menjamin ada
+          return { content: await exportUserDriveFile(token, f.externalId, exportMime), mime: exportMime };
         }
-      } catch (err) {
-        console.error(`[sync] gagal ambil file ${f.name}:`, err);
-        out.push({ name: f.name, content: Buffer.alloc(0), mime: 'application/octet-stream' }); // → skipped
-      }
-    }
-    return out;
+        return { content: await downloadUserDriveFile(token, f.externalId) };
+      },
+    };
   }
 
   if (kind === 'onedrive' || kind === 'sharepoint') {
     const token = await connectionService.getAccessToken(tenantId, userId, 'microsoft', accountEmail);
     if (!token) throw new Error('Akun Microsoft belum terhubung (hubungkan di Knowledge → Connect Microsoft)');
-    const items = await crawlUserSharepoint(token, { scope, folderPath: config.folderPath ? String(config.folderPath) : undefined, maxFiles: MAX_FILES_PER_SYNC });
-    const out: CrawledFile[] = [];
-    for (const it of items) out.push({ name: it.name, content: await downloadUserSharepointFile(token, it.id) });
-    return out;
+    const raw = await crawlUserSharepoint(token, {
+      scope,
+      folderPath: config.folderPath ? String(config.folderPath) : undefined,
+      maxFiles: MAX_LIST_FILES,
+    });
+    return {
+      files: raw.map((it) => ({
+        externalId: it.id, name: it.name,
+        version: it.eTag ?? it.lastModifiedDateTime ?? '',
+      })),
+      truncated: raw.length >= MAX_LIST_FILES,
+      async fetch(f) {
+        return { content: await downloadUserSharepointFile(token, f.externalId) };
+      },
+    };
   }
 
   throw new Error(`Jenis sumber belum didukung sync: ${kind}`);
@@ -143,6 +277,18 @@ async function crawl(
 /* ── ekstraksi teks ───────────────────────────────────────────────── */
 
 const TEXT_EXT = ['.txt', '.md', '.markdown', '.csv', '.json', '.log', '.yaml', '.yml'];
+const DOC_EXT = ['.html', '.htm', '.pdf', '.docx'];
+
+/**
+ * Bisakah file ini jadi teks? Dipakai SEBELUM download agar format tak
+ * didukung (gambar, XLSX, Forms, …) tidak pernah diunduh percuma.
+ */
+export function isExtractable(name: string, mimeType?: string): boolean {
+  if (isGoogleNative(mimeType)) return googleNativeExportMime(mimeType) !== null;
+  if (mimeType?.startsWith('text/')) return true;
+  const lower = name.toLowerCase();
+  return [...TEXT_EXT, ...DOC_EXT].some((e) => lower.endsWith(e));
+}
 
 /**
  * name+buffer → teks, atau null bila format tak didukung (dihitung skipped).

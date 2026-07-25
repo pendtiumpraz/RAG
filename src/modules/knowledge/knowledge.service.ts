@@ -33,10 +33,27 @@ export const knowledgeService = {
     return withTenant(tenantId, (tx) => docs.listTrashed(tx, tenantId, chatbotId));
   },
 
+  /** Manifest file upstream (delta sync) — lihat documentRepository.manifestBySource. */
+  manifestBySource(tenantId: string, sourceId: string) {
+    return withTenant(tenantId, (tx) => docs.manifestBySource(tx, tenantId, sourceId));
+  },
+
+  /** Soft-delete semua chunk dari file upstream tertentu (versi lama / file hilang). */
+  removeExternal(tenantId: string, sourceId: string, externalIds: string[]) {
+    return withTenant(tenantId, (tx) => docs.softDeleteByExternalIds(tx, tenantId, sourceId, externalIds));
+  },
+
+  /** Buang chunk warisan pra-delta dari source ini (lihat repository). */
+  removeLegacy(tenantId: string, sourceId: string) {
+    return withTenant(tenantId, (tx) => docs.softDeleteLegacyBySource(tx, tenantId, sourceId));
+  },
+
   /** Chunk → embed → simpan. Validasi chatbot hidup (integritas app-level). */
   async ingest(tenantId: string, input: {
     chatbotId: string; text: string; title?: string;
     sourceId?: string; metadata?: Record<string, unknown>;
+    /** Delta sync: identitas + versi file di storage asal. */
+    externalId?: string; externalVersion?: string;
   }): Promise<number> {
     const modelId = await withTenant(tenantId, async (tx) => {
       const bot = await tx.select({ id: chatbots.id }).from(chatbots)
@@ -62,6 +79,8 @@ export const knowledgeService = {
         content,
         embeddingModel: modelId,
         embedding: vectors[i],
+        externalId: input.externalId,
+        externalVersion: input.externalVersion,
         metadata: { ...input.metadata, chunk: i },
       }))),
     );

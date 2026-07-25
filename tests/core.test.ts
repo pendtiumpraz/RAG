@@ -98,6 +98,55 @@ test('gdrive native detection + export mime map', async () => {
   assert.equal(googleNativeExportMime('application/pdf'), null);
 });
 
+/* ── delta / incremental sync ──────────────────────────────────────── */
+test('planDelta: baru / berubah / tak berubah / hilang', async () => {
+  const { planDelta } = await import('../src/modules/knowledge/sync.service');
+  const remote = [
+    { externalId: 'a', name: 'a.md', version: 'v1' }, // tak berubah
+    { externalId: 'b', name: 'b.md', version: 'v2' }, // berubah (DB v1)
+    { externalId: 'c', name: 'c.md', version: 'v1' }, // baru
+  ];
+  const manifest = new Map([['a', 'v1'], ['b', 'v1'], ['d', 'v1']]); // d hilang upstream
+
+  const plan = planDelta(remote, manifest);
+  assert.deepEqual(plan.create.map((f) => f.externalId), ['c']);
+  assert.deepEqual(plan.update.map((f) => f.externalId), ['b']);
+  assert.equal(plan.unchanged, 1);
+  assert.deepEqual(plan.remove, ['d']);
+});
+
+test('planDelta: listing terpotong TIDAK menghapus apa pun', async () => {
+  const { planDelta } = await import('../src/modules/knowledge/sync.service');
+  const manifest = new Map([['a', 'v1'], ['zz', 'v1']]);
+  // 'zz' tak terlihat karena listing kena batas — bukan berarti terhapus.
+  const plan = planDelta([{ externalId: 'a', name: 'a.md', version: 'v1' }], manifest, { truncated: true });
+  assert.deepEqual(plan.remove, []);
+  assert.equal(plan.unchanged, 1);
+});
+
+test('planDelta: full memaksa re-ingest; versi kosong selalu di-refresh', async () => {
+  const { planDelta } = await import('../src/modules/knowledge/sync.service');
+  const remote = [{ externalId: 'a', name: 'a.md', version: 'v1' }];
+  const full = planDelta(remote, new Map([['a', 'v1']]), { full: true });
+  assert.equal(full.update.length, 1);
+  assert.equal(full.unchanged, 0);
+  // upstream tak memberi versi → tak bisa dipastikan sama ⇒ ambil ulang
+  const noVer = planDelta([{ externalId: 'a', name: 'a.md', version: '' }], new Map([['a', '']]));
+  assert.equal(noVer.update.length, 1);
+});
+
+test('isExtractable menyaring sebelum download', async () => {
+  const { isExtractable } = await import('../src/modules/knowledge/sync.service');
+  assert.equal(isExtractable('catatan.md'), true);
+  assert.equal(isExtractable('laporan.PDF'), true);
+  assert.equal(isExtractable('surat.docx'), true);
+  assert.equal(isExtractable('data.xlsx'), false);   // belum didukung
+  assert.equal(isExtractable('foto.png'), false);
+  assert.equal(isExtractable('Proposal', 'application/vnd.google-apps.document'), true);
+  assert.equal(isExtractable('Form Isian', 'application/vnd.google-apps.form'), false);
+  assert.equal(isExtractable('tanpa-ekstensi', 'text/plain'), true);
+});
+
 /* ── vector padding (fix pgvector) ─────────────────────────────────── */
 test('padVector zero-pads & preserves cosine', async () => {
   const { padVector, VECTOR_DIM } = await import('../src/modules/knowledge/embeddings');

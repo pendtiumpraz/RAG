@@ -107,7 +107,16 @@
 - [x] Landing page publik `/` (bukan redirect ke login) + `/auth` di-relight ke brand resmi
 - [x] Halaman **Chat + Citations** nyata + demo page per chatbot `/demo/[publicKey]`
 - [x] Halaman **Conversations** nyata (list + transcript + sitasi)
-- [ ] Google-native export (Docs/Sheets), incremental/delta sync, Team invite backend, billing, observability
+- [x] **Google-native export** (Docs/Sheets/Slides → teks) masuk pipeline KB
+- [x] **Incremental / delta sync** (2026-07-25): `documents.external_id` + `external_version`
+      (migrasi 0007) + `planDelta()` murni. Satu run = listing metadata (murah) →
+      diff manifest DB → hanya file **baru/berubah** yang diunduh & di-embed; file
+      hilang di upstream chunk-nya di-soft-delete; format tak didukung disaring
+      **sebelum** download (`isExtractable`). Pengaman: listing terpotong ⇒ penghapusan
+      dilewati; chunk warisan pra-delta dibuang sekali; `?full=1` utk ingest ulang penuh.
+      UI Knowledge menampilkan hasil (+baru ~ubah −hapus · tetap/dilewati/antre).
+      **Menutup bug**: sebelumnya tiap re-sync menduplikasi seluruh KB + bayar embedding ulang.
+- [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`
@@ -159,4 +168,5 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 | 2026-07-23 | 02 | UI/UX assessment (~6.4/10). Arah desain baru **Editorial Ledger** (D4) untuk anti AI-slop + target 10. Design system `nalar-ds.css` + referensi `design-system.html` dibuat. TODO: re-skin semua surface ke DS ini |
 | 2026-07-23 | 02 | Requirement baru: **Obsidian Memory Agent** (Drive/OneDrive/SharePoint → vault markdown [[wikilink]] + graph-RAG) dicatat di user_requirement + idea.md. **Full gap assessment 14 dimensi** ditulis di `docs/assessment.md` (rata-rata ~5.3/10). `git init` + commit pertama `11f6bac` (Rule #15 ✅) |
 | 2026-07-23 | 02→03 | Fase 02 APPROVED → Fase 03 backend inti selesai (modular monolith, soft-delete endpoints, theme_config, memory). **D4v2 pivot: "Retrieval Instrument"** (user: editorial = "museum") — DS v3 + SEMUA surface di-re-skin: trace retrieval + skor similarity + streaming sebagai bahasa visual. Commit: 4c55dd6 + berikutnya |
+| 2026-07-25 | pasca-deploy | **Delta sync**: kolom `external_id`/`external_version` + migrasi 0007 (diterapkan ke Neon), `planDelta()` + 4 unit test baru (13/13 lulus), build lulus. Re-sync tak lagi menduplikasi KB; UI Knowledge menampilkan ringkasan perubahan + tombol "Penuh". `CLAUDE.md` dibuat (panduan repo utk Claude Code) |
 | 2026-07-23 | 02 | **RE-SKIN SEMUA surface ke Editorial Ledger** (`nalar-ds.css`): dashboard (+ halaman Memory graph baru, chart ber-axis/tooltip, footnote-sitasi di Conversations), landing (masthead + proof-card streaming), embed-demo (widget paper + footnote + preset ink editorial), auth (split terbitan), branding (preview ink). Gap dim-7 surfaces & data-viz tertutup |

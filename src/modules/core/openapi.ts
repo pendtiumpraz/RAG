@@ -130,8 +130,14 @@ export const openApiSpec = {
         responses: { 201: err('source + jobStatus') } },
     },
     '/api/sources/{id}/sync': {
-      post: { summary: 'Re-sync manual (job, dedup otomatis)', security: [sessionAuth],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+      post: {
+        summary: 'Re-sync manual — DELTA (hanya file baru/berubah) kecuali full=1',
+        security: [sessionAuth],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: uuid },
+          { name: 'full', in: 'query', required: false, schema: { type: 'string', enum: ['1'] },
+            description: 'Paksa ingest ulang SEMUA file (abaikan versi tersimpan)' },
+        ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
     '/api/connections': {

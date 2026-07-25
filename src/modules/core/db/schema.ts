@@ -126,11 +126,16 @@ export const documents = pgTable('documents', {
   embeddingModel: text('embedding_model').notNull(),
   embedding: vector('embedding', { dimensions: 1536 }),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+  /** Delta sync: id file di storage asal (Drive fileId / Graph itemId). */
+  externalId: text('external_id'),
+  /** Versi upstream (Drive modifiedTime / Graph eTag) — pembanding delta sync. */
+  externalVersion: text('external_version'),
   ...stamps,
 }, (t) => ({
   embIdx: index('idx_documents_embedding').using('hnsw', t.embedding.op('vector_cosine_ops')),
   scopeIdx: index('idx_documents_scope').on(t.tenantId, t.chatbotId, t.embeddingModel),
   chatbotIdx: index('idx_documents_chatbot_id').on(t.chatbotId),
+  externalIdx: index('idx_documents_external').on(t.sourceId, t.externalId),
   delIdx: index('idx_documents_deleted_at').on(t.deletedAt),
 }));
 

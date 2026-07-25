@@ -6,6 +6,9 @@ import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
 
 interface Chatbot { id: string; name: string }
+/** Ringkasan run delta terakhir — ditulis sync.service ke config.lastSync. */
+interface LastSync { ingested?: number; updated?: number; removed?: number; unchanged?: number;
+  skipped?: number; failed?: number; pending?: number; message?: string }
 interface Source { id: string; kind: string; status: string; config: Record<string, unknown>;
   lastSyncedAt: string | null; jobStatus: { state: string } | null }
 interface Conn { id: string; provider: string; accountEmail: string; accountLabel: string | null }
@@ -29,9 +32,13 @@ export default function KnowledgePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function resync(id: string) {
-    try { await api(`/api/sources/${id}/sync`, { method: 'POST' }); toast('Sync dijalankan'); sources.refetch(); }
-    catch (e) { toast((e as Error).message, 'error'); }
+  /** Delta (default) hanya memproses file baru/berubah; penuh meng-ingest ulang semua. */
+  async function resync(id: string, full = false) {
+    try {
+      await api(`/api/sources/${id}/sync${full ? '?full=1' : ''}`, { method: 'POST' });
+      toast(full ? 'Sync penuh dijalankan' : 'Sync dijalankan (hanya perubahan)');
+      sources.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
   }
   async function disconnect(id: string) {
     try { await api(`/api/connections?id=${id}`, { method: 'DELETE' }); toast('Akun diputus'); conns.refetch(); }
@@ -85,7 +92,7 @@ export default function KnowledgePage() {
               action={<button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}>Tambah sumber</button>} />
           : (
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Jenis</th><th>Akun</th><th>Cakupan</th><th>Status</th><th>Terakhir</th><th /></tr></thead>
+              <thead><tr><th>Jenis</th><th>Akun</th><th>Cakupan</th><th>Status</th><th>Hasil terakhir</th><th>Terakhir</th><th /></tr></thead>
               <tbody>
                 {sources.data.map((s) => (
                   <tr key={s.id}>
@@ -93,8 +100,15 @@ export default function KnowledgePage() {
                     <td style={{ color: 'var(--muted)' }}>{String(s.config.accountEmail ?? '—')}</td>
                     <td className="mono" style={{ color: 'var(--muted)' }}>{s.config.scope === 'all' ? 'seluruh drive' : String(s.config.folderId ?? s.config.folderPath ?? 'folder')}</td>
                     <td><StatusBadge s={s} /></td>
+                    <td><DeltaSummary last={s.config.lastSync as LastSync | undefined} /></td>
                     <td className="mono" style={{ color: 'var(--muted)' }}>{s.lastSyncedAt?.slice(0, 16).replace('T', ' ') ?? '—'}</td>
-                    <td><button className="btn btn-sm" onClick={() => resync(s.id)}><Icon name="sync" size={14} /> Sync</button></td>
+                    <td>
+                      <div className="cluster gap-2">
+                        <button className="btn btn-sm" onClick={() => resync(s.id)}><Icon name="sync" size={14} /> Sync</button>
+                        <button className="btn btn-sm btn-ghost" title="Abaikan versi tersimpan, ingest ulang semua file"
+                          onClick={() => resync(s.id, true)}>Penuh</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -105,6 +119,34 @@ export default function KnowledgePage() {
       {adding && <SourceDrawer chatbotId={chatbotId} accounts={conns.data ?? []} onClose={() => setAdding(false)}
         onSaved={() => { setAdding(false); sources.refetch(); }} />}
     </>
+  );
+}
+
+/**
+ * Hasil run delta terakhir — apa yang BERUBAH, bukan sekadar "selesai".
+ * +baru ~diperbarui −dihapus · sisanya tak disentuh (tak ada biaya embedding).
+ */
+function DeltaSummary({ last }: { last?: LastSync }) {
+  if (!last) return <span className="microlabel" style={{ color: 'var(--muted)' }}>—</span>;
+  if (last.message) return <span style={{ color: 'var(--danger)', fontSize: 12 }}>{last.message}</span>;
+
+  const parts: Array<[string, number, string]> = [
+    ['+', last.ingested ?? 0, 'var(--good)'],
+    ['~', last.updated ?? 0, 'var(--signal)'],
+    ['−', last.removed ?? 0, 'var(--danger)'],
+  ];
+  const changed = parts.filter(([, n]) => n > 0);
+
+  return (
+    <span className="cluster gap-2 mono" style={{ fontSize: 12 }}>
+      {changed.length === 0
+        ? <span style={{ color: 'var(--muted)' }}>tak ada perubahan</span>
+        : changed.map(([sym, n, color]) => <span key={sym} style={{ color }}>{sym}{n}</span>)}
+      {!!last.unchanged && <span style={{ color: 'var(--muted)' }}>· {last.unchanged} tetap</span>}
+      {!!last.skipped && <span style={{ color: 'var(--muted)' }}>· {last.skipped} dilewati</span>}
+      {!!last.failed && <span style={{ color: 'var(--danger)' }}>· {last.failed} gagal</span>}
+      {!!last.pending && <span style={{ color: 'var(--source)' }}>· {last.pending} antre</span>}
+    </span>
   );
 }
 

@@ -62,7 +62,11 @@ export async function listUserDriveFiles(accessToken: string, folderId: string) 
   return res.data.files ?? [];
 }
 
-export interface DriveFile { id: string; name: string; mimeType?: string; parents?: string[] }
+export interface DriveFile {
+  id: string; name: string; mimeType?: string; parents?: string[];
+  /** RFC-3339; dipakai sebagai penanda versi utk delta sync. */
+  modifiedTime?: string;
+}
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 /**
@@ -85,7 +89,7 @@ export async function crawlUserDrive(
     do {
       const res = await drive.files.list({
         q: `trashed = false and mimeType != '${FOLDER_MIME}'`,
-        fields: 'nextPageToken, files(id,name,mimeType)',
+        fields: 'nextPageToken, files(id,name,mimeType,modifiedTime)',
         pageSize: 1000, pageToken,
         spaces: 'drive',
       });
@@ -105,7 +109,7 @@ export async function crawlUserDrive(
     do {
       const res = await drive.files.list({
         q: `'${parent}' in parents and trashed = false`,
-        fields: 'nextPageToken, files(id,name,mimeType)',
+        fields: 'nextPageToken, files(id,name,mimeType,modifiedTime)',
         pageSize: 1000, pageToken,
       });
       for (const f of res.data.files ?? []) {
