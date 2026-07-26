@@ -4,7 +4,11 @@ import postgres from 'postgres';
 const owner = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 const pw = process.env.APP_PW;
 if (!pw) { console.error('APP_PW wajib'); process.exit(1); }
-const sql = postgres(owner, { ssl: 'require', max: 1, prepare: false });
+// TLS hanya untuk endpoint cloud. Dipatok 'require' sebelumnya, sehingga
+// skrip ini gagal terhadap Postgres lokal — termasuk docker-compose on-prem
+// yang justru didokumentasikan di README.
+const needSsl = /sslmode=require|neon\.tech|\.aws\./.test(owner);
+const sql = postgres(owner, { ssl: needSsl ? 'require' : undefined, max: 1, prepare: false });
 try {
   // buat role bila belum ada
   const exists = await sql.unsafe("select 1 from pg_roles where rolname='nalar_app'");

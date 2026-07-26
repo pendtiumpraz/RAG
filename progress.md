@@ -10,11 +10,12 @@
 | Item | Status |
 |------|--------|
 | **Project** | `Nalar — Multi-tenant RAG Engine` |
-| **Fase Aktif** | `04-FRONTEND` (Fase 03 SELESAI ✅ 2026-07-23) |
+| **Fase Aktif** | `07-IMPROVEMENT` — Fase 03/04/06 SELESAI, Fase 05 tersisa uji beban |
 | **Status Loop** | `active` |
 | **Dimulai** | `2026-07-23` |
-| **Target Selesai** | `TBD (menunggu keputusan arsitektur)` |
-| **Progress** | `~20% (scaffold engine ada, pre-loop; butuh refactor kepatuhan)` |
+| **Live sejak** | `2026-07-24` di `rag.sainskerta.net` (Vercel + Neon PG17/pgvector 0.8) |
+| **Terakhir diperbarui** | `2026-07-27` |
+| **Progress** | `~90% — semua fitur roadmap tayang & terverifikasi di produksi; sisa: uji beban, optimasi storage vektor, integrasi pembayaran (menunggu pilihan penyedia)` |
 
 ---
 
@@ -23,9 +24,9 @@
 ### ✅ Fase 00: Prerequisites — `Sebagian`
 - [x] Requirement dasar dari user (terkumpul dari percakapan)
 - [x] Framework di-scaffold awal (Next.js) — **perlu approval ulang via Loop**
-- [ ] Database credentials dari user (Rule #8) — **belum**
-- [ ] Environment setup final
-- [ ] Git initialized (git baru dipasang di sesi ini)
+- [x] Database credentials dari user (Rule #8) — Neon PG17 + pgvector 0.8
+- [x] Environment setup final (`.env` + `.env.example`; Vercel Blob utk model host)
+- [x] Git initialized + remote `pendtiumpraz/RAG`
 
 ### ➡️ Fase 01: Planning — `In Progress`
 - [x] Analisa requirement
@@ -111,6 +112,17 @@
       `chatbots_public_lookup` via GUC `app.embed_context` (migrasi 0013, pola sama dgn
       `users_auth_lookup`) + unique index `public_key`. Isolasi RLS diverifikasi TETAP utuh.
       Tes regresi ditambahkan ke `npm run smoke`.
+- [x] **CI menjalankan uji BER-DATABASE** (2026-07-27): job `integration` menyalakan
+      Postgres+pgvector sungguhan, `drizzle-kit push` → migrasi → **migrasi dijalankan
+      ULANG** (uji idempotensi) → buat role `nalar_app` NOBYPASSRLS → `smoke` sebagai
+      role itu. Alasannya konkret: bug widget embed lolos justru karena unit test tak
+      bisa menyentuh kelas bug RLS. Ditambah `SMOKE_STRICT=1` — bagian yang gagal
+      dihitung GAGAL, bukan "dilewati", supaya pipeline tak bisa hijau sambil tak
+      menguji apa pun. Diverifikasi dua arah: bersih → lulus, embedding dirusak → gagal.
+- [x] **4 skrip DB tak bisa dipakai di luar cloud** (2026-07-27): `create-app-role`,
+      `apply-migration`, `db-setup`, `diag-rls` mematok `ssl:'require'` sehingga gagal
+      terhadap Postgres lokal — termasuk docker-compose on-prem yang didokumentasikan
+      README. Kini mendeteksi TLS seperti `migrate.ts`.
 - [ ] Performance/load test
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`

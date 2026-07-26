@@ -1,6 +1,8 @@
 import postgres from 'postgres';
 const url = process.env.DATABASE_URL;
-const sql = postgres(url, { ssl: 'require', max: 1, prepare: false });
+// TLS hanya untuk endpoint cloud; Postgres lokal/Docker tak melayaninya.
+const needSsl = /sslmode=require|neon[.]tech|[.]aws[.]/.test(url);
+const sql = postgres(url, { ssl: needSsl ? 'require' : undefined, max: 1, prepare: false });
 try {
   const role = await sql.unsafe("select current_user");
   const attr = await sql.unsafe("select rolname, rolsuper, rolbypassrls from pg_roles where rolname = current_user");

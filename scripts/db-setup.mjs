@@ -2,7 +2,9 @@ import postgres from 'postgres';
 
 const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 if (!url) { console.error('DATABASE_URL tidak ada'); process.exit(1); }
-const sql = postgres(url, { ssl: 'require', max: 1, prepare: false });
+// TLS hanya untuk endpoint cloud; Postgres lokal/Docker tak melayaninya.
+const needSsl = /sslmode=require|neon[.]tech|[.]aws[.]/.test(url);
+const sql = postgres(url, { ssl: needSsl ? 'require' : undefined, max: 1, prepare: false });
 
 try {
   const v = await sql.unsafe('select version()');

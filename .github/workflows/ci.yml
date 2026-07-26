@@ -47,6 +47,75 @@ jobs:
           CREDENTIALS_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
         run: npm run build
 
+  # Uji ber-DATABASE. ALASANNYA KONKRET: widget embed pernah rusak TOTAL di
+  # produksi (setiap /api/chat/<publicKey> membalas 404) karena RLS memblokir
+  # lookup publik — dan lolos justru karena tak ada tes yang menyentuh jalur
+  # itu. Unit test tak bisa menangkap kelas bug ini; hanya Postgres sungguhan
+  # dengan RLS aktif yang bisa.
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: nalar_owner
+          POSTGRES_PASSWORD: ci_owner_pw
+          POSTGRES_DB: nalar_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nalar_owner -d nalar_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      # DDL & migrasi dijalankan sebagai OWNER.
+      DATABASE_URL_UNPOOLED: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+      DATABASE_URL_ADMIN: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+      APP_PW: ci_app_pw
+      NEXTAUTH_SECRET: ci-dummy-secret-cukup-panjang-untuk-lolos
+      NEXTAUTH_URL: http://localhost:3000
+      CREDENTIALS_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      # Bobot embedding ditarik dari Hugging Face; blob milik superadmin tak
+      # boleh jadi syarat CI.
+      EMBEDDING_MODEL_SOURCE: local
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+
+      - name: Skema (drizzle push, sbg owner)
+        env:
+          DATABASE_URL: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+        run: npx drizzle-kit push --force
+
+      - name: Migrasi SQL (pgvector + RLS + policy)
+        env:
+          DATABASE_URL: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+        run: npx tsx src/modules/core/db/migrate.ts
+
+      # Migrasi HARUS idempoten — pernah tidak, dan jalan kedua selalu gagal.
+      - name: Migrasi dijalankan ULANG (uji idempotensi)
+        env:
+          DATABASE_URL: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+        run: npx tsx src/modules/core/db/migrate.ts
+
+      - name: Role aplikasi NOBYPASSRLS
+        env:
+          DATABASE_URL: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+        run: node scripts/create-app-role.mjs
+
+      # Smoke berjalan sebagai nalar_app — kalau dijalankan sebagai owner,
+      # RLS akan dilewati dan uji isolasinya jadi tak berarti.
+      # SMOKE_STRICT=1: bagian yang gagal dihitung GAGAL, bukan "dilewati".
+      # Tanpa ini pipeline bisa hijau sambil tak menguji apa pun.
+      - name: Smoke e2e (RLS, delta sync, gerbang verifikasi, embed publik)
+        env:
+          DATABASE_URL: postgres://nalar_app:ci_app_pw@localhost:5432/nalar_ci
+          SMOKE_STRICT: '1'
+        run: npx tsx scripts/smoke.ts
+
   # Dipisah supaya kerentanan dependensi tidak memblokir rilis fitur, tapi
   # tetap terlihat. `--omit=dev` karena kerentanan di perkakas build tidak
   # ikut tayang ke produksi.

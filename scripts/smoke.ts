@@ -11,6 +11,28 @@ import { users, client } from '../src/modules/core/db';
 
 const rnd = () => Math.random().toString(36).slice(2, 8);
 
+/**
+ * Bagian yang gagal dijalankan.
+ *
+ * Di mesin lokal, melewati bagian yang butuh unduhan model itu wajar. Di CI
+ * tidak: kalau semua bagian "dilewati", pipeline akan hijau padahal tak
+ * menguji apa pun — persis kondisi yang membuat bug widget embed lolos ke
+ * produksi. Karena itu SMOKE_STRICT=1 mengubah lewatan jadi kegagalan.
+ */
+const STRICT = process.env.SMOKE_STRICT === '1';
+let skippedCount = 0;
+
+function skipped(bagian: string, e: unknown) {
+  skippedCount++;
+  const msg = (e as Error)?.message ?? String(e);
+  if (STRICT) {
+    console.error(`✗ ${bagian} GAGAL (mode ketat): ${msg}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`⚠ uji ${bagian} dilewati: ${msg}`);
+  }
+}
+
 async function main() {
   // 1) signup dua tenant
   const emailA = `a_${rnd()}@smoke.nalar`;
@@ -48,7 +70,7 @@ async function main() {
     const hits = await retrievalService.retrieve(a.tenantId, bot.id, 'all-MiniLM-L6-v2', 'berapa lama masa garansi produk pro?', 3);
     console.log('✓ retrieve=' + hits.length + ' hit · top score=' + (hits[0]?.score?.toFixed(3) ?? 'n/a') + ' · "' + (hits[0]?.content?.slice(0, 40) ?? '') + '…"');
   } catch (e) {
-    console.log('⚠ ingest/retrieve dilewati: ' + (e as Error).message);
+    skipped('ingest/retrieve', e);
   }
 
   // 7) DELTA SYNC — manifest & pembuangan chunk lewat DB nyata (di bawah RLS).
@@ -94,7 +116,7 @@ async function main() {
     console.log((pass ? '✓' : '✗') + ' DELTA SYNC ' + (pass ? 'OK' : 'GAGAL'));
     if (!pass) process.exitCode = 1;
   } catch (e) {
-    console.log('⚠ uji delta dilewati: ' + (e as Error).message);
+    skipped('delta sync', e);
   }
 
   // 8) GERBANG VERIFIKASI PENDAFTARAN — daftar terbuka, login ditahan sampai
@@ -124,7 +146,7 @@ async function main() {
       + `password salah tetap "invalid" · muncul di antrean=${inQueue} · setelah verifikasi=${!!allowed} · ditolak lagi=${reblocked === null}`);
     if (!pass) process.exitCode = 1;
   } catch (e) {
-    console.log('⚠ uji gerbang verifikasi dilewati: ' + (e as Error).message);
+    skipped('gerbang verifikasi', e);
   }
 
   // 9) JALUR PUBLIK WIDGET EMBED — pernah rusak TOTAL tanpa jejak: `chatbots`
@@ -147,10 +169,13 @@ async function main() {
     console.log(`${pass ? '✓' : '✗'} embed publik: chatbot ditemukan=${!!served} · greeting terkirim=${served?.greeting === 'Halo dari smoke!'} · tema terkirim=${th.theme?.signal === '#E11D48'} · key ngawur ditolak=${bogus === null}`);
     if (!pass) process.exitCode = 1;
   } catch (e) {
-    console.log('⚠ uji embed publik dilewati: ' + (e as Error).message);
+    skipped('embed publik', e);
   }
 
-  console.log('\nSMOKE OK');
+  if (skippedCount > 0 && !STRICT) {
+    console.log(`\n⚠ ${skippedCount} bagian dilewati — jalankan dengan SMOKE_STRICT=1 agar itu dihitung gagal.`);
+  }
+  console.log(process.exitCode ? '\nSMOKE ADA YANG GAGAL' : '\nSMOKE OK');
   await client.end();
 }
 
