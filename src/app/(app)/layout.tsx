@@ -18,6 +18,7 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
     { href: '/conversations', label: 'Conversations', icon: 'chat' },
     { href: '/memory', label: 'Memory', icon: 'graph' },
     { href: '/models', label: 'Models & Keys', icon: 'cpu' },
+    { href: '/branding', label: 'Branding', icon: 'edit' },
   ] },
   { group: 'Organisasi', items: [
     { href: '/team', label: 'Team', icon: 'users' },

@@ -37,7 +37,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chatbotId: 
   if (!cors) return new Response('Origin not allowed', { status: 403 });
 
   return Response.json(
-    { themeConfig: bot.theme_config ?? null },
+    // `greeting` ikut dikirim: widget menampilkan bubble sapaan dari nilai ini,
+    // tapi sebelumnya tak pernah dilayani sehingga sapaan yang diatur per
+    // chatbot tidak pernah muncul.
+    { themeConfig: bot.theme_config ?? null, greeting: bot.greeting ?? null },
     { headers: { 'Access-Control-Allow-Origin': cors, 'Cache-Control': 'public, max-age=300' } },
   );
 }

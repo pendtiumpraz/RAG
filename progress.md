@@ -83,7 +83,10 @@
 - [x] **8 halaman wired ke API NYATA (Rule #7 no dummy)**: Dashboard (usage), Chatbots (CRUD penuh + drawer + Sampah/restore), Knowledge (sumber+koneksi+connect drawer), Memory (run+graph SVG+vault sync), Models&Keys (settings), Conversations/Team/Settings (state jujur + branding save)
 - [x] **embed.js produksi**: GET themeConfig → white-label scoped + SSE streaming + sitasi + rate-limit aware
 - [ ] Verifikasi end-to-end (npm install + DB) → Fase 05 Audit
-- [ ] Landing page publik React (mockup ada) · halaman Branding lengkap
+- [x] Landing page publik React · **halaman Branding lengkap** (2026-07-26): `/branding`
+      per-chatbot (nama merek, inisial logo, warna utama & sitasi, radius, tema, posisi,
+      sapaan, jejak retrieval) + **pratinjau langsung** yang meniru embed.js, plus snippet
+      pasang & tautan ke demo.
 
 ### ➡️ Fase 05: Audit — `In Progress`
 - [x] **Build + typecheck LULUS** (`next build` exit 0, 28 rute) — fix: tipe pdf-parse
@@ -94,7 +97,21 @@
 - [x] **Unit test 8/8 LULUS** (`npm test`, Node test runner): password, crypto AES-GCM, rate-limit, guardrails L1/L2/L4, wikilink parser, padVector
 - [x] **Verifikasi runtime DB di Neon nyata (PG 17.10 + pgvector 0.8.0)** — db:push+db:migrate+smoke LULUS: signup→tenant, login, **isolasi RLS terbukti**, ingest→embed→pgvector→retrieve (skor 0.752)
 - [x] **2 bug runtime fixed**: (D) RLS bocor krn owner BYPASSRLS → role `nalar_app` NOBYPASSRLS; (E) model-host caching http/local
-- [ ] Integration/e2e formal (CI); security scan (deps); performance/load
+- [x] **CI GitHub Actions** (2026-07-26): lint + unit test + build (typecheck) tiap push/PR,
+      sengaja TANPA database agar PR dari luar tetap terverifikasi; audit dependensi
+      sebagai job non-blocking. **Temuan: `npm run lint` tak pernah berfungsi** — tanpa
+      config ESLint, `next lint` masuk mode interaktif dan tak memeriksa apa pun. Dipasang
+      eslint 8 + eslint-config-next 15 (versi diselaraskan dgn Next 15.5.21); 3 temuan
+      pertama diperbaiki: 2 unused var/import + a11y `aria-selected` pada button tanpa
+      `role="tab"`.
+- [x] 🔴 **BUG PRODUKSI KRITIS ditemukan & diperbaiki** (2026-07-26): **setiap widget embed
+      membalas 404**. `resolveChatbotByPublicKey()` mencari tanpa konteks tenant sementara
+      `chatbots` FORCE RLS → nol baris, TANPA galat, jadi gagalnya senyap. Fitur andalan
+      produk mati di produksi dan tak ada tes yang menyentuh jalur itu. Fix: policy
+      `chatbots_public_lookup` via GUC `app.embed_context` (migrasi 0013, pola sama dgn
+      `users_auth_lookup`) + unique index `public_key`. Isolasi RLS diverifikasi TETAP utuh.
+      Tes regresi ditambahkan ke `npm run smoke`.
+- [ ] Performance/load test
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
@@ -248,11 +265,11 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 | # | Issue | Severity | Status |
 |---|-------|----------|--------|
 | 1 | Schema Drizzle pakai FK `.references()` — langgar Rule #2 (No FK) | high | ✅ fixed (schema.ts) |
-| 2 | Tabel belum punya `deleted_at` + endpoint restore | high | 🔄 schema fixed; endpoint /trashed+/restore pending |
-| 3 | Struktur `src/lib/*` belum Modular Monolith (`Modules/`) — Rule #1 | medium | open (D1 approved, restrukturisasi berikutnya) |
+| 2 | Tabel belum punya `deleted_at` + endpoint restore | high | ✅ selesai — /trashed + /restore ada di chatbots, documents, invitations, embedding-servers |
+| 3 | Struktur `src/lib/*` belum Modular Monolith — Rule #1 | medium | ✅ selesai (Fase 03) — semua di `src/modules/*` |
 | 4 | Arah UI dashboard vs standar Sainskerta | high | ✅ resolved (D3=Hybrid) |
 | 5 | DB credentials belum diberikan user (Rule #8) | medium | open |
-| 6 | White-label (theme_config per tenant/chatbot: logo, warna, radius, font, focus, dll) | high | 🔄 mockup demo jadi; implementasi backend pending |
+| 6 | White-label (theme_config per chatbot) | high | ✅ selesai 2026-07-26 — halaman /branding + pratinjau langsung; tipe ThemeConfig diselaraskan dgn embed.js |
 | 7 | Server-to-server API key per client (key tak pernah ke browser) | high | ✅ arsitektur ada (providerCredentials + apiKeyResolver); didokumentasi di docs/idea.md |
 
 ---

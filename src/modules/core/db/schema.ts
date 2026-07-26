@@ -83,13 +83,34 @@ export const tenantSettings = pgTable('tenant_settings', {
   ...stamps,
 });
 
-/** White-label theme shape shared by tenant dashboard & chatbot widgets. */
+/**
+ * Bentuk tema white-label — HARUS cocok dengan yang dibaca `public/embed.js`.
+ *
+ * Nama field di sini adalah kontrak: widget hanya menghormati kunci di bawah.
+ * (Versi sebelumnya menyebut `primary`/`accent`/`answerFont`/`button` yang tak
+ * pernah dibaca siapa pun, sementara `signal`/`source`/`showTrace` yang justru
+ * dipakai tidak terdaftar — akibatnya kode yang menuruti tipe ini menghasilkan
+ * pengaturan yang diam-diam tak berefek.)
+ */
 export interface ThemeConfig {
-  brand?: { name?: string; logo?: string; logoUrl?: string };
+  brand?: {
+    /** Nama yang tampil di kepala widget. */
+    name?: string;
+    /** Satu-dua huruf untuk kotak logo. */
+    logo?: string;
+    logoUrl?: string;
+  };
   theme?: {
-    primary?: string; accent?: string; radius?: string;
-    answerFont?: string; button?: 'solid' | 'soft' | 'outline';
-    mode?: 'light' | 'dark'; position?: 'left' | 'right';
+    /** Warna interaktif utama (tombol, bubble pengguna). */
+    signal?: string;
+    /** Warna sitasi/sumber. */
+    source?: string;
+    /** CSS length, mis. "12px". */
+    radius?: string;
+    mode?: 'light' | 'dark';
+    position?: 'left' | 'right';
+    /** Tampilkan jejak retrieval di widget. */
+    showTrace?: boolean;
   };
 }
 

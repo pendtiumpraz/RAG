@@ -26,6 +26,7 @@ export const config = {
     '/knowledge/:path*',
     '/memory/:path*',
     '/models/:path*',
+    '/branding/:path*',
     '/conversations/:path*',
     '/team/:path*',
     '/billing/:path*',

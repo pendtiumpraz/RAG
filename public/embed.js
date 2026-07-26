@@ -25,6 +25,8 @@
     .then(function (r) { return r.ok ? r.json() : {}; })
     .then(function (cfg) {
       var t = (cfg && cfg.themeConfig) || {};
+      // sapaan datang dari kolom chatbot, di luar themeConfig
+      if (cfg && cfg.greeting) T.greeting = cfg.greeting;
       if (t.brand) { if (t.brand.name) T.name = t.brand.name; if (t.brand.logo) T.logo = t.brand.logo; }
       if (t.theme) {
         var th = t.theme;

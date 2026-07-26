@@ -127,6 +127,29 @@ async function main() {
     console.log('⚠ uji gerbang verifikasi dilewati: ' + (e as Error).message);
   }
 
+  // 9) JALUR PUBLIK WIDGET EMBED — pernah rusak TOTAL tanpa jejak: `chatbots`
+  //    FORCE RLS, dan lookup by publicKey berjalan tanpa konteks tenant, jadi
+  //    RLS mengembalikan nol baris (bukan galat) dan SETIAP widget membalas
+  //    404. Diuji di sini supaya tak bisa diam-diam rusak lagi.
+  try {
+    const { resolveChatbotByPublicKey } = await import('../src/modules/core/db/tenant-context');
+    await chatbotService.update(a.tenantId, bot.id, {
+      greeting: 'Halo dari smoke!',
+      themeConfig: { brand: { name: 'Smoke Co', logo: 'SC' }, theme: { signal: '#E11D48' } },
+    });
+    const served = await resolveChatbotByPublicKey(bot.publicKey);
+    const bogus = await resolveChatbotByPublicKey('cb_live_tidak_ada');
+    // Kunci tema harus yang BENAR-BENAR dibaca public/embed.js.
+    const th = (served?.theme_config ?? {}) as { brand?: { name?: string }; theme?: { signal?: string } };
+    const pass = !!served && bogus === null
+      && served.greeting === 'Halo dari smoke!'
+      && th.brand?.name === 'Smoke Co' && th.theme?.signal === '#E11D48';
+    console.log(`${pass ? '✓' : '✗'} embed publik: chatbot ditemukan=${!!served} · greeting terkirim=${served?.greeting === 'Halo dari smoke!'} · tema terkirim=${th.theme?.signal === '#E11D48'} · key ngawur ditolak=${bogus === null}`);
+    if (!pass) process.exitCode = 1;
+  } catch (e) {
+    console.log('⚠ uji embed publik dilewati: ' + (e as Error).message);
+  }
+
   console.log('\nSMOKE OK');
   await client.end();
 }
