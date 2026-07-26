@@ -207,7 +207,26 @@
       E2E LULUS: undang → pratinjau tanpa sesi → terima → masuk tenant pengundang →
       langsung bisa login → token ditolak saat dipakai ulang → kuota kursi ditegakkan
       dan kembali saat undangan dicabut.
-- [ ] Billing, observability
+- [x] **Billing** (2026-07-26): `tenants.plan_expires_at` (migrasi 0011) +
+      `effectivePlan()` — plan berbayar yang lewat masa berlaku TURUN ke free, dihitung
+      di service sehingga benar-benar menegakkan kuota (bukan label). `maxMembers` per
+      plan. Halaman `/billing`: meter pemakaian vs kuota (pesan/chatbot/kursi), katalog
+      paket, peringatan saat kedaluwarsa; panel superadmin menyetel plan + tanggal
+      berakhir semua tenant (satu query agregat, bukan N+1). **SENGAJA belum**: tabel
+      invoice/langganan — bentuknya ditentukan penyedia pembayaran yang dipilih user.
+      Terverifikasi: free(2 kursi)→pro(15)→enterprise(∞); kedaluwarsa turun ke free;
+      plan ngawur & tanggal lampau ditolak.
+- [x] **Observability** (2026-07-26): `GET /api/health` publik & minim (503 bila DB
+      tak terjangkau — 200+"ok:false" akan terbaca sehat oleh monitor). Log terstruktur
+      JSON ke stdout (`core/observability.ts`) dengan **redaksi otomatis** kunci
+      token/password/apikey dan pemotongan teks panjang — log dibaca lebih banyak orang
+      daripada DB. `recordError()` menulis ke stdout + audit_logs; job yang gagal
+      permanen (sync Drive, memory agent) tak lagi hilang di stdout. Halaman
+      `/observability` (superadmin): kesehatan, aksi per jenis, galat terakhir,
+      pemakaian, tenant tersibuk — semua dari data NYATA (audit_logs + usage_counters,
+      lintas tenant via policy `audit_logs_platform_admin_read`, migrasi 0012).
+      Tanpa vendor pihak ketiga: stdout sudah ditangkap Vercel/journalctl.
+      Terverifikasi dgn data nyata + 2 unit test yang mengunci redaksi rahasia.
 
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`

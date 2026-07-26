@@ -155,6 +155,48 @@ test('model host blob tanpa base URL → gagal jelas, bukan diam-diam ke HF', as
   if (prevUrl) process.env.EMBEDDING_MODEL_BLOB_URL = prevUrl; else delete process.env.EMBEDDING_MODEL_BLOB_URL;
 });
 
+/* ── observability: log tak boleh membocorkan rahasia ──────────────── */
+test('log terstruktur meredaksi rahasia & memotong teks panjang', async () => {
+  const { log } = await import('../src/modules/core/observability');
+  const captured: string[] = [];
+  const orig = console.log;
+  console.log = (line: string) => { captured.push(line); };
+  try {
+    log('info', {
+      event: 'uji',
+      token: 'rahasia-jangan-bocor',
+      apiKey: 'sk-ant-abcdef',
+      authorization: 'Bearer xyz',
+      password: 'p4ssw0rd',
+      tenantId: 'abc',
+      // konten pengguna: panjang ⇒ harus dipotong, jangan disalin utuh ke log
+      pertanyaan: 'x'.repeat(500),
+    });
+  } finally { console.log = orig; }
+
+  assert.equal(captured.length, 1);
+  const line = captured[0];
+  for (const bocor of ['rahasia-jangan-bocor', 'sk-ant-abcdef', 'Bearer xyz', 'p4ssw0rd']) {
+    assert.ok(!line.includes(bocor), `nilai rahasia "${bocor}" bocor ke log`);
+  }
+  const parsed = JSON.parse(line);
+  assert.equal(parsed.token, '[redacted]');
+  assert.equal(parsed.apiKey, '[redacted]');
+  assert.equal(parsed.tenantId, 'abc');            // yang bukan rahasia tetap utuh
+  assert.ok(parsed.pertanyaan.length < 260, 'teks panjang harus dipotong');
+  assert.match(parsed.pertanyaan, /dipotong/);
+  assert.equal(parsed.level, 'info');
+});
+
+test('level log dihormati (debug tak tercetak pada level info)', async () => {
+  const { log } = await import('../src/modules/core/observability');
+  const captured: string[] = [];
+  const orig = console.log;
+  console.log = (l: string) => { captured.push(l); };
+  try { log('debug', { event: 'jangan-muncul' }); } finally { console.log = orig; }
+  assert.equal(captured.length, 0);
+});
+
 /* ── billing: masa berlaku plan ────────────────────────────────────── */
 test('effectivePlan: plan kedaluwarsa turun ke free', async () => {
   const { effectivePlan } = await import('../src/modules/usage/usage.service');

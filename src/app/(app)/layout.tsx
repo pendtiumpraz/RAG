@@ -22,6 +22,7 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
   { group: 'Organisasi', items: [
     { href: '/team', label: 'Team', icon: 'users' },
     { href: '/billing', label: 'Billing', icon: 'card' },
+    { href: '/observability', label: 'Observability', icon: 'pulse' },
     { href: '/settings', label: 'Settings', icon: 'gear' },
   ] },
 ];

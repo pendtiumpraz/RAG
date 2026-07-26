@@ -140,6 +140,28 @@ export const openApiSpec = {
         ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
+    /* ── billing & observability ── */
+    '/api/health': {
+      get: { summary: 'Health check (PUBLIK, minim) — 503 bila DB tak terjangkau',
+        responses: { 200: err('ok, db.latencyMs, mode'), 503: err('database tak terjangkau') } },
+    },
+    '/api/billing': {
+      get: { summary: 'Plan tenant, pemakaian vs kuota, katalog paket', security: [sessionAuth],
+        responses: { 200: err('plan, usage, limits, plans') } },
+    },
+    '/api/admin/billing': {
+      get: { summary: 'Semua tenant + plan & pemakaian', security: [sessionAuth],
+        responses: { 200: err('tenants[], plans[]') } },
+      patch: { summary: 'Setel plan sebuah tenant (+ masa berlaku)', security: [sessionAuth],
+        requestBody: json(obj({ tenantId: uuid, plan: str, expiresAt: str }, ['tenantId', 'plan'])),
+        responses: { 200: err('billing tenant'), 422: err('plan tak dikenal / tanggal lampau') } },
+    },
+    '/api/admin/ops': {
+      get: { summary: 'Ringkasan operasional lintas tenant', security: [sessionAuth],
+        parameters: [{ name: 'hours', in: 'query', required: false, schema: { type: 'integer' } }],
+        responses: { 200: err('actions, errors, guardrail, usage, topTenants') } },
+    },
+
     /* ── team & undangan ── */
     '/api/team/members': {
       get: { summary: 'Anggota tenant saat ini', security: [sessionAuth],

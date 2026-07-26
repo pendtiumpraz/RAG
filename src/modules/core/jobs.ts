@@ -66,7 +66,12 @@ async function pump(): Promise<void> {
           queue.push(job);
         } else {
           status.state = 'failed';
-          console.error(`[jobs] ${id} gagal permanen:`, err);
+          // Job yang gagal permanen (sync Drive, memory agent) selama ini hanya
+          // muncul di stdout. Dicatat juga ke audit_logs supaya terlihat di
+          // halaman Observability — kegagalan diam-diam itu yang paling mahal.
+          const tenantId = (job.payload as { tenantId?: string })?.tenantId ?? null;
+          const { recordError } = await import('./observability');
+          await recordError(tenantId, 'system', err, { job: job.name, key: job.key, attempts: job.attempts });
         }
       }
     }

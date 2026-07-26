@@ -4,6 +4,9 @@ export { default } from 'next-auth/middleware';
  * Proteksi route ber-sesi. SENGAJA TIDAK dilindungi:
  *  • /api/chat/*  — endpoint embed publik (auth via publicKey + origin check)
  *  • /api/auth/*  — NextAuth + signup + pra-cek alasan login
+ *  • /api/invitations/* — pratinjau & penerimaan undangan (belum ada sesi)
+ *  • /api/health  — uptime monitor
+ *  • /invite/*    — halaman penerimaan undangan
  *  • /            — landing
  *  • /auth        — halaman masuk/daftar
  *  • /demo/*      — halaman coba chatbot per publicKey
@@ -26,6 +29,7 @@ export const config = {
     '/conversations/:path*',
     '/team/:path*',
     '/billing/:path*',
+    '/observability/:path*',
     '/settings/:path*',
     // API ber-sesi
     '/api/chatbots/:path*',
