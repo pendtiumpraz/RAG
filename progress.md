@@ -131,6 +131,17 @@
       EKSTERNAL) yang **tak bisa dimuat** transformers.js v2 → dipakai varian
       terkuantisasi 543 MB yang mandiri. Varian 2 GB butuh upgrade ke
       `@huggingface/transformers` v3 — **keputusan user, belum dikerjakan**.
+- [x] **Server embedding sendiri di VPS** (2026-07-26, D7): jenis embedder baru
+      `selfhosted` (`embeddings/selfhosted.ts`) memanggil `POST /v1/embeddings`
+      **kompatibel OpenAI**, jadi server boleh ditukar ke HF TEI/vLLM. Service-nya
+      `services/embedding-server/` — paket TERPISAH dengan transformers **v3** +
+      `use_external_data_format`, sehingga **BGE-M3 presisi penuh 2,16 GB akhirnya
+      bisa dipakai** (app utama tetap v2 agar bundle Next.js ramping).
+      Pengaman: URL non-https ditolak (kecuali loopback) & wajib token — yang
+      melintas adalah isi dokumen tenant. Dimensi balasan diperiksa agar KB tak
+      tercemar vektor tak sebanding.
+      Terverifikasi: server sehat, token salah/absen → 401, app→server 384-dim
+      norma 1.0000, dimensi meleset ditolak. 19/19 unit test, build lulus.
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`

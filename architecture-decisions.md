@@ -114,9 +114,27 @@ menunggu approval user (ditandai 👀).
   ke `@huggingface/transformers` v3 (dukungan `externalData`+`dtype`) —
   **keputusan user, belum dikerjakan**. Detail: `docs/MODEL-HOSTING.md`.
 
+### D7 — Embedding model besar lewat server sendiri di VPS (2026-07-26)
+- **Status:** ✅ APPROVED (user: cronjob & model 2GB akan dijalankan di VPS sendiri,
+  dihubungkan ke aplikasi lewat jaringan).
+- Jenis embedder baru **`selfhosted`**: app memanggil `POST {base}/v1/embeddings`
+  (**kompatibel OpenAI**, jadi server boleh ditukar ke HF TEI/vLLM tanpa ubah app).
+  Konfigurasi infrastruktur lewat env (`EMBEDDING_SELFHOSTED_URL`/`_TOKEN`), bukan
+  per-tenant — sama seperti model host.
+- Server: `services/embedding-server/` — **paket terpisah** dengan
+  `@huggingface/transformers` v3 + `use_external_data_format: true`. App utama
+  SENGAJA tetap di v2 agar bundle Next.js tak menanggung dependensi berat.
+  Ini menyelesaikan batas D6: varian BGE-M3 2,16 GB akhirnya bisa dipakai.
+- **Keamanan:** app MENOLAK `EMBEDDING_SELFHOSTED_URL` non-https (kecuali loopback)
+  dan menolak jalan tanpa token. Alasannya: yang melintas adalah isi dokumen tenant —
+  isolasi RLS jadi sia-sia bila titik ini tak dijaga.
+- Konsekuensi baik: bobot tak pernah masuk proses app, sehingga batasan serverless
+  (cold-start 377 dtk, `/tmp` 512 MB) tidak berlaku untuk jalur ini.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-26 | D7 = embedder `selfhosted` + service VPS (transformers v3) — membuka varian 2 GB | User+AI |
 | 2026-07-26 | D6 = model host Vercel Blob; batas varian 2 GB (bobot eksternal) dicatat | User+AI |
 | 2026-07-23 | A1–A5 dicatat; D1–D3 diangkat ke user | AI |
 | 2026-07-23 | D1=Next.js modular, D2=No-FK+soft-delete penuh, D3=Hybrid — semua APPROVED | User |

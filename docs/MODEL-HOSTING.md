@@ -127,10 +127,25 @@ dimuat.
 Pengunggah tetap ikut me-mirror `.onnx_data` bila repo menyediakannya,
 supaya isi blob lengkap begitu runtime di-upgrade.
 
-**Kalau varian 2 GB memang dibutuhkan**, jalannya adalah pindah ke
-`@huggingface/transformers` v3 yang mendukung `externalData` + pemilihan
-`dtype`. Itu penggantian dependensi inti embedding, jadi keputusannya di
-tangan user (RULES-OF-THE-GAME #10) — belum dikerjakan.
+### Jalan keluarnya: server embedding sendiri (VPS)
+
+Varian 2 GB **bisa** dipakai — tapi tidak di dalam app ini, melainkan di
+service terpisah `services/embedding-server/` yang memakai
+`@huggingface/transformers` **v3** dengan `use_external_data_format: true`
+(dokumentasi v3 menyebutnya persis "used for models >= 2GB in size"). Di
+Node, v3 mengoper **path berkas** ke onnxruntime, bukan buffer — itulah yang
+membuat bobot pendamping bisa ditemukan.
+
+Diverifikasi 2026-07-26: v3 menarik `onnx/model.onnx` (607 KB, hanya graf)
+**dan** `onnx/model.onnx_data` (2,16 GB) — perilaku yang tak ada di v2.
+
+App memanggilnya lewat HTTP kompatibel OpenAI; pilih model **"BGE-M3
+presisi penuh — server sendiri (VPS)"** di halaman Models & Keys. Karena
+bobot tak pernah masuk ke proses app, batasan serverless di §6 jadi tidak
+relevan untuk jalur ini. Panduan lengkap: `services/embedding-server/README.md`.
+
+App utama **tetap** di transformers v2 — sengaja, supaya dependensi berat
+itu tidak masuk ke bundle Next.js.
 
 ## 6. Batas serverless (Vercel)
 

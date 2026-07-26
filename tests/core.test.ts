@@ -155,6 +155,47 @@ test('model host blob tanpa base URL → gagal jelas, bukan diam-diam ke HF', as
   if (prevUrl) process.env.EMBEDDING_MODEL_BLOB_URL = prevUrl; else delete process.env.EMBEDDING_MODEL_BLOB_URL;
 });
 
+/* ── server embedding sendiri (VPS) ────────────────────────────────── */
+test('selfhosted: HTTP polos ke host publik DITOLAK', async () => {
+  const { assertSecureEndpoint } = await import('../src/modules/knowledge/embeddings/selfhosted');
+  // Isi dokumen tenant melintas di sini — isolasi RLS jadi sia-sia bila polos.
+  assert.throws(() => assertSecureEndpoint('http://203.0.113.9:8081'), /https/);
+  assert.throws(() => assertSecureEndpoint('http://embed.contoh.com'), /https/);
+  assert.throws(() => assertSecureEndpoint('bukan-url'), /bukan URL valid/);
+  // https ke mana pun boleh; http hanya untuk loopback (dev)
+  assert.doesNotThrow(() => assertSecureEndpoint('https://embed.contoh.com'));
+  assert.doesNotThrow(() => assertSecureEndpoint('http://localhost:8081'));
+  assert.doesNotThrow(() => assertSecureEndpoint('http://127.0.0.1:8081'));
+});
+
+test('selfhosted: endpoint tanpa token DITOLAK + normalisasi config', async () => {
+  const { assertAuthenticated, selfhostedConfig } =
+    await import('../src/modules/knowledge/embeddings/selfhosted');
+  assert.throws(() => assertAuthenticated({ baseUrl: 'https://x', token: null }), /TOKEN/);
+  assert.doesNotThrow(() => assertAuthenticated({ baseUrl: 'https://x', token: 'a' }));
+
+  const prevU = process.env.EMBEDDING_SELFHOSTED_URL;
+  const prevT = process.env.EMBEDDING_SELFHOSTED_TOKEN;
+  delete process.env.EMBEDDING_SELFHOSTED_URL;
+  assert.equal(selfhostedConfig(), null);
+  process.env.EMBEDDING_SELFHOSTED_URL = 'https://embed.contoh.com///';
+  process.env.EMBEDDING_SELFHOSTED_TOKEN = 'rahasia';
+  assert.deepEqual(selfhostedConfig(), { baseUrl: 'https://embed.contoh.com', token: 'rahasia' });
+  if (prevU) process.env.EMBEDDING_SELFHOSTED_URL = prevU; else delete process.env.EMBEDDING_SELFHOSTED_URL;
+  if (prevT) process.env.EMBEDDING_SELFHOSTED_TOKEN = prevT; else delete process.env.EMBEDDING_SELFHOSTED_TOKEN;
+});
+
+test('registry: model selfhosted tak ikut jalur bobot lokal', async () => {
+  const { EMBEDDING_MODELS } = await import('../src/modules/core/registry');
+  const sh = EMBEDDING_MODELS.filter((m) => m.kind === 'selfhosted');
+  assert.ok(sh.length > 0, 'harus ada entri selfhosted');
+  for (const m of sh) {
+    assert.ok(m.dimensions <= 1536, `${m.id} melebihi kolom pgvector 1536`);
+    // bobotnya di VPS — app tak boleh mencoba mengunduhnya
+    assert.equal(m.quantized, undefined, `${m.id} tak perlu flag bobot lokal`);
+  }
+});
+
 /* ── delta / incremental sync ──────────────────────────────────────── */
 test('planDelta: baru / berubah / tak berubah / hilang', async () => {
   const { planDelta } = await import('../src/modules/knowledge/sync.service');

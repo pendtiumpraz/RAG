@@ -5,7 +5,7 @@ import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, useToast } from '../../_components/ui';
 
 interface LlmModel { id: string; label: string; provider: string }
-interface EmbModel { id: string; label: string; bucket: string }
+interface EmbModel { id: string; label: string; bucket: string; kind: string }
 interface Catalog {
   llmModels: LlmModel[]; embeddingModels: EmbModel[]; providers: string[];
   active: { activeLlmModel: string; activeEmbeddingModel: string; systemPrompt: string | null } | null;
@@ -40,8 +40,17 @@ export default function ModelsPage() {
   if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
   if (loading || !data) return <div className="card"><Skeleton rows={4} /></div>;
 
-  const buckets = { small: [] as EmbModel[], large: [] as EmbModel[], api: [] as EmbModel[] };
-  data.embeddingModels.forEach((m) => buckets[m.bucket as keyof typeof buckets]?.push(m));
+  // Dikelompokkan menurut DI MANA model dijalankan (`kind`), bukan sekadar
+  // ukurannya — itu yang menentukan konsekuensinya bagi pengguna.
+  const g = {
+    localSmall: [] as EmbModel[], localLarge: [] as EmbModel[],
+    selfhosted: [] as EmbModel[], api: [] as EmbModel[],
+  };
+  data.embeddingModels.forEach((m) => {
+    if (m.kind === 'selfhosted') g.selfhosted.push(m);
+    else if (m.kind === 'api') g.api.push(m);
+    else (m.bucket === 'large' ? g.localLarge : g.localSmall).push(m);
+  });
 
   return (
     <>
@@ -63,9 +72,10 @@ export default function ModelsPage() {
               <select className="select" value={emb} onChange={(e) => setEmb(e.target.value)}>
                 {/* Ukuran nyata ada di label tiap model (dari registry) — jangan
                     menuliskannya lagi di sini supaya tak pernah bertentangan. */}
-                <optgroup label="Lokal — ringan">{buckets.small.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
-                <optgroup label="Lokal — akurasi tinggi">{buckets.large.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
-                <optgroup label="API">{buckets.api.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
+                <optgroup label="Lokal — ringan">{g.localSmall.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
+                <optgroup label="Lokal — akurasi tinggi">{g.localLarge.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
+                {!!g.selfhosted.length && <optgroup label="Server sendiri (VPS)">{g.selfhosted.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>}
+                <optgroup label="API">{g.api.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
               </select></div></div></div>
 
           <div className="card"><div className="panel-head"><span className="t">system prompt</span></div>

@@ -44,6 +44,10 @@ export async function embed(
   if (model.kind === 'local') {
     const { embedLocal } = await import('./local');
     vectors = await embedLocal(model, texts);
+  } else if (model.kind === 'selfhosted') {
+    // Bobot tinggal di VPS; tak ada model berat yang dimuat di proses ini.
+    const { embedSelfhosted } = await import('./selfhosted');
+    vectors = await embedSelfhosted(model, texts);
   } else {
     const apiKey = await ctx.getApiKey(model.provider!);
     if (!apiKey) throw new Error(`No API key configured for ${model.provider}`);

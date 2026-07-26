@@ -1,0 +1,15 @@
+{
+  "name": "nalar-embedding-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server embedding mandiri untuk VPS — melayani model ONNX besar (mis. BGE-M3 presisi penuh) lewat API kompatibel OpenAI. Sengaja TERPISAH dari app Next.js agar app tak ikut menanggung transformers v3 + onnxruntime.",
+  "scripts": {
+    "start": "node server.mjs",
+    "warm": "node server.mjs --warm-only"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.3.1"
+  },
+  "engines": { "node": ">=20" }
+}

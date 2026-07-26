@@ -13,3 +13,4 @@ server*.log
 
 # TS incremental build cache
 tsconfig.tsbuildinfo
+services/embedding-server/node_modules/

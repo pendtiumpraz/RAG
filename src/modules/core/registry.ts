@@ -75,7 +75,13 @@ export const LLM_MODELS: LlmModel[] = [
  * `sizeMB` lets the UI group them into the "~80MB / ~2GB / API" buckets
  * the user asked for.
  */
-export type EmbeddingKind = 'local' | 'api';
+/**
+ * local      — ONNX di proses yang sama (transformers.js)
+ * api        — penyedia pihak ketiga (OpenAI/Cohere), kunci per-tenant
+ * selfhosted — server embedding sendiri (VPS) lewat HTTP kompatibel OpenAI;
+ *              satu-satunya cara memakai model besar tanpa membebani lambda
+ */
+export type EmbeddingKind = 'local' | 'api' | 'selfhosted';
 
 export interface EmbeddingModel {
   id: string;
@@ -95,6 +101,12 @@ export interface EmbeddingModel {
    * ke model host DAN mana yang dimuat runtime — keduanya harus cocok.
    */
   quantized?: boolean;
+  /**
+   * Nama model yang dikirim ke server embedding sendiri, bila berbeda dari
+   * `id`. Memisahkan id di registry (yang tersimpan di `tenant_settings` dan
+   * di kolom `documents.embedding_model`) dari nama yang dikenal server.
+   */
+  servedModel?: string;
   bucket: 'small' | 'large' | 'api';
 }
 
@@ -132,6 +144,19 @@ export const EMBEDDING_MODELS: EmbeddingModel[] = [
   },
   // NB: dimensi embedding di-cap ≤1536 (kolom pgvector vector(1536), HNSW ≤2000).
   // Model >1536 dims (mis. Qwen3-8B 4096d) tidak didaftarkan agar index valid.
+
+  /* ── server embedding sendiri (VPS) ──────────────────────────────────
+     Bobot tinggal di VPS; aplikasi hanya memanggil HTTP. Inilah jalur untuk
+     BGE-M3 PRESISI PENUH (~2,16 GB, bobot eksternal) yang tak bisa dimuat
+     transformers.js v2 maupun dijalankan di lambda Vercel. Server-nya ada di
+     `services/embedding-server/` (transformers v3). Endpoint & token diatur
+     lewat EMBEDDING_SELFHOSTED_URL / _TOKEN. */
+  {
+    id: 'bge-m3-selfhosted',
+    label: 'BGE-M3 presisi penuh — server sendiri (VPS)',
+    kind: 'selfhosted', bucket: 'large', dimensions: 1024,
+    hfRepo: 'Xenova/bge-m3', servedModel: 'bge-m3',
+  },
 
   // API bucket — no local weights, best quality-per-effort
   {
