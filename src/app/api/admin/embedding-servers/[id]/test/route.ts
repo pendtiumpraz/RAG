@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireRole } from '@/modules/core/auth';
+import { NextResponse } from 'next/server';
 import { embeddingServerService } from '@/modules/settings/embedding-server.service';
-import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { superadminRoute } from '../../../_guard';
 
 export const runtime = 'nodejs';
 
@@ -12,13 +11,7 @@ export const runtime = 'nodejs';
  * jaringan DAN token sekaligus. Model yang ditemukan disimpan dan langsung
  * muncul di dropdown model embedding — tanpa deploy ulang.
  */
-export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  await requireRole('superadmin');
+export const POST = superadminRoute<{ params: Promise<{ id: string }> }>(async (_req, ctx) => {
   const { id } = await ctx.params;
-  try {
-    return NextResponse.json(await embeddingServerService.testAndDiscover(id));
-  } catch (e) {
-    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
-    throw e;
-  }
-}
+  return NextResponse.json(await embeddingServerService.testAndDiscover(id));
+});

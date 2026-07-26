@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireRole } from '@/modules/core/auth';
 import { userApprovalService } from '@/modules/auth/user-approval.service';
-import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { superadminRoute } from '../../../_guard';
 
 export const runtime = 'nodejs';
 
@@ -11,8 +10,7 @@ const Body = z.object({ status: z.enum(['active', 'rejected', 'pending']) });
 /**
  * PATCH /api/admin/users/:id/status — verifikasi / tolak / kembalikan ke antrean.
  */
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const actor = await requireRole('superadmin');
+export const PATCH = superadminRoute<{ params: Promise<{ id: string }> }>(async (req, ctx, actor) => {
   const { id } = await ctx.params;
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: 'status tidak valid' }, { status: 400 });
@@ -30,10 +28,5 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
-  try {
-    return NextResponse.json(await userApprovalService.setStatus(actor, id, parsed.data.status));
-  } catch (e) {
-    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });
-    throw e;
-  }
-}
+  return NextResponse.json(await userApprovalService.setStatus(actor, id, parsed.data.status));
+});

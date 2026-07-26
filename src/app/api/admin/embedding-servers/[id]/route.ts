@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireRole } from '@/modules/core/auth';
 import { embeddingServerService } from '@/modules/settings/embedding-server.service';
-import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { superadminRoute } from '../../_guard';
 
 export const runtime = 'nodejs';
 
@@ -14,28 +13,18 @@ const Body = z.object({
   enabled: z.boolean().optional(),
 });
 
+type Ctx = { params: Promise<{ id: string }> };
+
 /** PATCH /api/admin/embedding-servers/:id — ubah server. */
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  await requireRole('superadmin');
+export const PATCH = superadminRoute<Ctx>(async (req, ctx) => {
   const { id } = await ctx.params;
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
-  try {
-    return NextResponse.json(await embeddingServerService.update(id, parsed.data));
-  } catch (e) {
-    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
-    return NextResponse.json({ error: (e as Error).message }, { status: 422 });
-  }
-}
+  return NextResponse.json(await embeddingServerService.update(id, parsed.data));
+});
 
 /** DELETE /api/admin/embedding-servers/:id — soft delete (Rule #3). */
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  await requireRole('superadmin');
+export const DELETE = superadminRoute<Ctx>(async (_req, ctx) => {
   const { id } = await ctx.params;
-  try {
-    return NextResponse.json(await embeddingServerService.softDelete(id));
-  } catch (e) {
-    if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });
-    throw e;
-  }
-}
+  return NextResponse.json(await embeddingServerService.softDelete(id));
+});
