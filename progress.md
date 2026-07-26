@@ -194,7 +194,20 @@
       kedua PASTI gagal ("policy already exists") — padahal README menyuruhnya sebagai
       langkah setup normal. Semua dibungkus cek `pg_policies`. Diverifikasi: 0001–0009
       lulus dua kali berturut-turut.
-- [ ] Team invite backend, billing, observability
+- [x] **Team invite** (2026-07-26): tabel `invitations` (migrasi 0010, RLS + policy
+      `invitations_accept_lookup` utk penerimaan sebelum tenant diketahui — pola sama
+      dgn `users_auth_lookup`). Token 256-bit, disimpan sbg **SHA-256** (bocornya tabel
+      tak memberi akses), ditampilkan SEKALI, sekali pakai, kedaluwarsa 7 hari.
+      Yang diundang **masuk ke tenant pengundang** (bukan tenant baru) dan **langsung
+      aktif** — undangan itu sendiri yang jadi verifikasinya, jadi tak menunggu
+      superadmin. `maxMembers` per plan ditambahkan (free 2 / pro 15 / enterprise ∞);
+      kursi terpakai = anggota + undangan yang masih berlaku, mencegah mengundang
+      banyak orang sekaligus di plan free. Halaman /invite/[token] publik + UI Team
+      (daftar anggota nyata, undangan, drawer kanan Rule #5, cabut/trashed/restore).
+      E2E LULUS: undang → pratinjau tanpa sesi → terima → masuk tenant pengundang →
+      langsung bisa login → token ditolak saat dipakai ulang → kuota kursi ditegakkan
+      dan kembali saat undangan dicabut.
+- [ ] Billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`
 ### ⬜ Fase 07: Improvement — `Belum`

@@ -140,6 +140,44 @@ export const openApiSpec = {
         ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
+    /* ── team & undangan ── */
+    '/api/team/members': {
+      get: { summary: 'Anggota tenant saat ini', security: [sessionAuth],
+        responses: { 200: err('daftar anggota') } },
+    },
+    '/api/team/invitations': {
+      get: { summary: 'Undangan tenant ini', security: [sessionAuth],
+        responses: { 200: err('daftar undangan') } },
+      post: { summary: 'Undang anggota — token & tautan dibalas SEKALI', security: [sessionAuth],
+        requestBody: json(obj({ email: str, role: str }, ['email'])),
+        responses: { 201: err('invitation + token + inviteUrl'), 422: err('kuota kursi penuh / sudah anggota') } },
+    },
+    '/api/team/invitations/{id}': {
+      delete: { summary: 'Cabut undangan (soft delete)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('dicabut') } },
+    },
+    '/api/team/invitations/trashed': {
+      get: { summary: 'Undangan yang dicabut', security: [sessionAuth],
+        responses: { 200: err('daftar Sampah') } },
+    },
+    '/api/team/invitations/{id}/restore': {
+      patch: { summary: 'Kembalikan undangan dari Sampah', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('dipulihkan') } },
+    },
+    '/api/invitations/{token}': {
+      get: { summary: 'Pratinjau undangan (PUBLIK, tanpa sesi)',
+        parameters: [{ name: 'token', in: 'path', required: true, schema: str }],
+        responses: { 200: err('email, role, tenantName'), 404: err('tidak berlaku') } },
+    },
+    '/api/invitations/{token}/accept': {
+      post: { summary: 'Terima undangan — masuk ke TENANT PENGUNDANG (PUBLIK)',
+        parameters: [{ name: 'token', in: 'path', required: true, schema: str }],
+        requestBody: json(obj({ name: str, password: str }, ['password'])),
+        responses: { 201: err('user dibuat & langsung aktif'), 422: err('token dipakai/kedaluwarsa') } },
+    },
+
     /* ── verifikasi pendaftaran — SUPERADMIN ── */
     '/api/auth/login-status': {
       post: {

@@ -15,13 +15,15 @@ export interface PlanLimits {
   chatRefillPerSec: number;
   /** jumlah chatbot maksimum */
   maxChatbots: number;
+  /** kursi anggota per tenant — anggota aktif + undangan yang masih berlaku */
+  maxMembers: number;
 }
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free:       { messagesPerMonth: 1_000,   chatBurst: 10, chatRefillPerSec: 0.5,  maxChatbots: 1 },
-  pro:        { messagesPerMonth: 50_000,  chatBurst: 40, chatRefillPerSec: 5,    maxChatbots: 10 },
-  enterprise: { messagesPerMonth: Infinity, chatBurst: 120, chatRefillPerSec: 20, maxChatbots: Infinity },
-  onprem:     { messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40, maxChatbots: Infinity },
+  free:       { messagesPerMonth: 1_000,    chatBurst: 10,  chatRefillPerSec: 0.5, maxChatbots: 1,        maxMembers: 2 },
+  pro:        { messagesPerMonth: 50_000,   chatBurst: 40,  chatRefillPerSec: 5,   maxChatbots: 10,       maxMembers: 15 },
+  enterprise: { messagesPerMonth: Infinity, chatBurst: 120, chatRefillPerSec: 20,  maxChatbots: Infinity, maxMembers: Infinity },
+  onprem:     { messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40,  maxChatbots: Infinity, maxMembers: Infinity },
 };
 
 export function limitsForPlan(plan: string | null | undefined): PlanLimits {

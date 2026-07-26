@@ -10,35 +10,183 @@ interface PendingUser {
   id: string; email: string; name: string | null; role: string; status: string;
   tenantId: string; tenantName: string | null; createdAt: string; approvedAt: string | null;
 }
+interface Member { id: string; email: string; name: string | null; role: string; status: string; createdAt: string }
+interface Invitation { id: string; email: string; role: string; expiresAt: string; acceptedAt: string | null; createdAt: string; expired: boolean }
 
 /** Anggota tenant. Saat ini menampilkan user aktif (nyata dari sesi);
  *  undang anggota + daftar penuh menyusul (endpoint team belum dibuat). */
 export default function TeamPage() {
   const { data: session } = useSession();
   const u = session?.user;
-  const toast = useToast();
+  const canInvite = u?.role === 'superadmin' || u?.role === 'admin';
+
+  const members = useApi<Member[]>('/api/team/members');
+  const invites = useApi<Invitation[]>(canInvite ? '/api/team/invitations' : null);
+  const [inviting, setInviting] = useState(false);
 
   return (
     <>
       <div className="page-head">
         <div><h1>Team</h1><p className="sub">Anggota &amp; peran tenant. Data terisolasi oleh Row-Level Security.</p></div>
-        <button className="btn btn-primary" onClick={() => toast('Undang anggota — segera hadir')}><Icon name="plus" size={16} /> Undang anggota</button>
+        {canInvite && (
+          <button className="btn btn-primary" onClick={() => setInviting(true)}>
+            <Icon name="plus" size={16} /> Undang anggota
+          </button>
+        )}
       </div>
-      <div className="card"><div className="table-wrap"><table className="table">
-        <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><b>{u?.name ?? 'Kamu'}</b></td>
-            <td style={{ color: 'var(--muted)' }}>{u?.email ?? '—'}</td>
-            <td><span className="badge badge-source">{(u?.role ?? 'admin')}</span></td>
-            <td><span className="badge badge-ok"><span className="led led-live" />aktif</span></td>
-          </tr>
-        </tbody>
-      </table></div></div>
+
+      <div className="card">
+        <div className="panel-head"><span className="t">anggota</span>
+          <span className="microlabel">{members.data?.length ?? 0} ORANG</span></div>
+        {members.error ? <ErrorState message={members.error} onRetry={members.refetch} />
+          : members.loading || !members.data ? <Skeleton rows={2} />
+          : (
+            <div className="table-wrap"><table className="table">
+              <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th><th>Bergabung</th></tr></thead>
+              <tbody>
+                {members.data.map((m) => (
+                  <tr key={m.id}>
+                    <td><b>{m.name ?? '—'}</b>{m.email === u?.email && <span className="microlabel" style={{ marginLeft: 8 }}>KAMU</span>}</td>
+                    <td style={{ color: 'var(--muted)' }}>{m.email}</td>
+                    <td><span className="badge badge-source">{m.role}</span></td>
+                    <td><StatusBadge status={m.status} /></td>
+                    <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{m.createdAt?.slice(0, 10)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
+      </div>
+
+      {canInvite && <Invitations feed={invites} onInvite={() => setInviting(true)} />}
+      {inviting && <InviteDrawer onClose={() => setInviting(false)}
+        onSent={() => { invites.refetch(); members.refetch(); }} />}
 
       {/* Antrean verifikasi menembus batas tenant (tiap signup = tenant sendiri),
           jadi hanya peran platform yang boleh melihatnya. */}
       {u?.role === 'superadmin' && <SignupApprovals />}
+    </>
+  );
+}
+
+/* ── undangan anggota ───────────────────────────────────────────────── */
+
+function Invitations({ feed, onInvite }: {
+  feed: ReturnType<typeof useApi<Invitation[]>>; onInvite: () => void;
+}) {
+  const toast = useToast();
+
+  async function revoke(inv: Invitation) {
+    try {
+      await api(`/api/team/invitations/${inv.id}`, { method: 'DELETE' });
+      toast(`Undangan ${inv.email} dicabut`); feed.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">undangan</span>
+        <button className="btn btn-sm" onClick={onInvite}><Icon name="plus" size={14} /> Undang</button></div>
+
+      {feed.error ? <ErrorState message={feed.error} onRetry={feed.refetch} />
+        : feed.loading || !feed.data ? <Skeleton rows={2} />
+        : feed.data.length === 0 ? <EmptyState title="Belum ada undangan"
+            hint="Undang rekan lewat email; mereka bergabung ke workspace ini, bukan membuat baru."
+            action={<button className="btn btn-primary btn-sm" onClick={onInvite}>Undang anggota</button>} />
+        : (
+          <div className="table-wrap"><table className="table">
+            <thead><tr><th>Email</th><th>Peran</th><th>Status</th><th>Berlaku sampai</th><th /></tr></thead>
+            <tbody>
+              {feed.data.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.email}</td>
+                  <td><span className="badge badge-source">{i.role}</span></td>
+                  <td>
+                    {i.acceptedAt
+                      ? <span className="badge badge-ok"><span className="led led-live" />diterima</span>
+                      : i.expired
+                        ? <span className="badge"><span className="led led-off" />kedaluwarsa</span>
+                        : <span className="badge badge-signal"><span className="led led-off" />menunggu</span>}
+                  </td>
+                  <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{i.expiresAt?.slice(0, 10)}</td>
+                  <td>{!i.acceptedAt && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => revoke(i)}>Cabut</button>
+                  )}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+    </div>
+  );
+}
+
+function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'admin' | 'member'>('member');
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function send() {
+    setBusy(true);
+    try {
+      const r = await api<{ inviteUrl: string }>('/api/team/invitations', {
+        method: 'POST', body: JSON.stringify({ email, role }),
+      });
+      setLink(r.inviteUrl);      // hanya muncul SEKALI — sesudah ini cuma hash yg tersimpan
+      onSent();
+    } catch (e) { toast((e as Error).message, 'error'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Undang anggota">
+        <div className="dh"><h3>Undang anggota</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
+
+        {link ? (
+          <div className="db stack gap-4">
+            <p style={{ fontSize: 14, lineHeight: 1.6 }}>
+              Undangan dibuat. <b>Salin tautan ini sekarang</b> — hanya hash-nya
+              yang tersimpan, jadi tautannya tidak bisa ditampilkan lagi.
+            </p>
+            <textarea className="textarea mono" readOnly rows={3} value={link}
+              onFocus={(e) => e.currentTarget.select()} style={{ fontSize: 12 }} />
+            <button className="btn" onClick={() => {
+              navigator.clipboard?.writeText(link).then(() => toast('Tautan disalin'));
+            }}>Salin tautan</button>
+            <p className="microlabel">BERLAKU 7 HARI · SEKALI PAKAI</p>
+          </div>
+        ) : (
+          <div className="db stack gap-4">
+            <div className="field"><label>Email</label>
+              <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="rekan@perusahaan.com" /></div>
+            <div className="field"><label>Peran</label>
+              <select className="select" value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>
+                <option value="member">Member — pakai chatbot &amp; knowledge</option>
+                <option value="admin">Admin — kelola tim &amp; pengaturan</option>
+              </select></div>
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+              Yang diundang bergabung ke workspace ini dan langsung aktif —
+              tidak perlu menunggu verifikasi, karena undangan ini sendiri yang
+              menjadi jaminannya.
+            </p>
+          </div>
+        )}
+
+        <div className="df">
+          {link
+            ? <button className="btn btn-primary" onClick={onClose}>Selesai</button>
+            : <>
+                <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy || !email} onClick={send}>Buat undangan</button>
+                <button className="btn btn-ghost" onClick={onClose}>Batal</button>
+              </>}
+        </div>
+      </aside>
     </>
   );
 }

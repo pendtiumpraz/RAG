@@ -82,6 +82,36 @@ export interface ThemeConfig {
   };
 }
 
+/* ── undangan anggota tim ──────────────────────────────────────────── */
+/**
+ * Undangan bergabung ke tenant yang SUDAH ADA.
+ *
+ * Bedanya dengan pendaftaran biasa: signup publik selalu membuat tenant baru,
+ * sedangkan undangan menempelkan user ke tenant pengundang. Karena itu
+ * penerimaannya punya jalur sendiri, bukan lewat /api/auth/signup.
+ *
+ * `token_hash` = SHA-256 dari token. Token aslinya hanya pernah ada di layar
+ * pengundang; bocornya isi tabel ini tidak memberi siapa pun akses masuk.
+ * SHA-256 (bukan scrypt) karena tokennya sudah 256-bit acak — tak ada yang
+ * bisa ditebak — dan pencarian harus deterministik.
+ */
+export const invitations = pgTable('invitations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  email: text('email').notNull(),
+  role: text('role').default('member').notNull(),   // 'admin' | 'member'
+  tokenHash: text('token_hash').notNull(),
+  invitedBy: uuid('invited_by').notNull(),          // tanpa FK (Rule #2)
+  expiresAt: timestamp('expires_at').notNull(),
+  acceptedAt: timestamp('accepted_at'),
+  acceptedUserId: uuid('accepted_user_id'),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_invitations_tenant_id').on(t.tenantId),
+  tokenIdx: index('idx_invitations_token_hash').on(t.tokenHash),
+  delIdx: index('idx_invitations_deleted_at').on(t.deletedAt),
+}));
+
 /* ── settings / credentials ────────────────────────────────────────── */
 export const providerCredentials = pgTable('provider_credentials', {
   id: uuid('id').defaultRandom().primaryKey(),
