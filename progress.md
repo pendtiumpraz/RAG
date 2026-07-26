@@ -178,6 +178,17 @@
       dirinya sendiri.
       E2E LULUS (di smoke): daftar=pending → login ditahan → muncul di antrean →
       diverifikasi → bisa masuk → ditolak → tertahan lagi.
+- [x] **Auth 500→401 + matcher middleware dilengkapi** (2026-07-26): ketahuan saat
+      verifikasi PRODUKSI — `/api/admin/*` tanpa sesi membalas 500 karena tak ada di
+      matcher middleware dan `requireRole()` melempar tanpa ditangkap. Menelusurinya
+      ketemu gap lebih lama: matcher cuma memuat `/settings` & `/dashboard` dari grup
+      `(app)`, sehingga chat/chatbots/knowledge/memory/models/conversations/team bisa
+      dibuka tanpa sesi (data tak bocor — API tetap dijaga — tapi cangkang aplikasi
+      tampil alih-alih diarahkan ke login). Fix: matcher dilengkapi + `superadminRoute()`
+      membungkus 7 rute admin (401/422). Diverifikasi di produksi: semua rute
+      terlindungi → 307, `/`, `/auth`, `/embed.js`, `/api/openapi` tetap 200, dan
+      **`/api/chat/<publicKey>` tetap publik (404, bukan 307)** — widget embed pelanggan
+      tidak ikut terkunci.
 - [x] **Migrasi jadi idempoten** (2026-07-26): `db:migrate` menerapkan ULANG semua
       berkas, tapi 0001–0005 punya `CREATE POLICY` tanpa pengaman sehingga jalan
       kedua PASTI gagal ("policy already exists") — padahal README menyuruhnya sebagai
