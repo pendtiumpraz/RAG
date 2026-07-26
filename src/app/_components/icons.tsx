@@ -5,7 +5,7 @@
 export type IconName =
   | 'dash' | 'bot' | 'book' | 'chat' | 'graph' | 'cpu' | 'users' | 'gear'
   | 'plus' | 'search' | 'edit' | 'trash' | 'restore' | 'close' | 'menu'
-  | 'sun' | 'moon' | 'plug' | 'sync' | 'logout';
+  | 'sun' | 'moon' | 'plug' | 'sync' | 'logout' | 'card' | 'pulse';
 
 const P: Record<IconName, React.ReactNode> = {
   dash: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="4.5" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="11.5" width="7" height="9.5" rx="1.5" /></>,
@@ -28,6 +28,8 @@ const P: Record<IconName, React.ReactNode> = {
   plug: <><path d="M9 3v6M15 3v6M6 9h12v2a6 6 0 0 1-12 0V9ZM12 17v4" /></>,
   sync: <><path d="M20 11a8 8 0 0 0-14.5-4.5M4 4v3h3" /><path d="M4 13a8 8 0 0 0 14.5 4.5M20 20v-3h-3" /></>,
   logout: <><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 12h10M17 9l3 3-3 3" /></>,
+  card: <><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6 15h4" /></>,
+  pulse: <path d="M2 12h4l3-7 4 14 3-7h6" />,
 };
 
 export function Icon({ name, size = 20, className, style }:

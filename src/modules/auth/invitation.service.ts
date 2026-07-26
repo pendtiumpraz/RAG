@@ -6,6 +6,7 @@ import { hashPassword } from './password';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { audit } from '@/modules/core/guardrails';
 import { limitsForPlan } from '@/modules/core/limits';
+import { effectivePlan } from '@/modules/usage/usage.service';
 import type { AuthUser } from './auth.service';
 
 /**
@@ -90,8 +91,8 @@ export const invitationService = {
     if (!email.includes('@')) throw new ValidationError('Email tidak valid');
 
     const { plan, memberCount, pendingCount } = await withTenant(tenantId, async (tx) => {
-      const t = await tx.select({ plan: tenants.plan }).from(tenants)
-        .where(eq(tenants.id, tenantId)).limit(1);
+      const t = await tx.select({ plan: tenants.plan, planExpiresAt: tenants.planExpiresAt })
+        .from(tenants).where(eq(tenants.id, tenantId)).limit(1);
       const members = await tx.select({ id: users.id }).from(users)
         .where(isNull(users.deletedAt));
       const pending = await tx.select({ id: invitations.id }).from(invitations)
@@ -101,7 +102,13 @@ export const invitationService = {
           isNull(invitations.acceptedAt),
           gt(invitations.expiresAt, new Date()),
         ));
-      return { plan: t[0]?.plan ?? 'free', memberCount: members.length, pendingCount: pending.length };
+      // Plan yang sudah lewat masa berlaku turun ke free — kursi ikut menyusut,
+      // sama seperti kuota lain. Kalau dibaca mentah, plan kedaluwarsa masih
+      // memberi jatah berbayar.
+      return {
+        plan: effectivePlan(t[0]?.plan, t[0]?.planExpiresAt),
+        memberCount: members.length, pendingCount: pending.length,
+      };
     });
 
     // Kursi terpakai = anggota + undangan yang masih berlaku. Menghitung

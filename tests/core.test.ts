@@ -155,6 +155,39 @@ test('model host blob tanpa base URL → gagal jelas, bukan diam-diam ke HF', as
   if (prevUrl) process.env.EMBEDDING_MODEL_BLOB_URL = prevUrl; else delete process.env.EMBEDDING_MODEL_BLOB_URL;
 });
 
+/* ── billing: masa berlaku plan ────────────────────────────────────── */
+test('effectivePlan: plan kedaluwarsa turun ke free', async () => {
+  const { effectivePlan } = await import('../src/modules/usage/usage.service');
+  const { limitsForPlan } = await import('../src/modules/core/limits');
+  const kemarin = new Date(Date.now() - 86_400_000);
+  const besok = new Date(Date.now() + 86_400_000);
+
+  assert.equal(effectivePlan('pro', besok), 'pro');
+  assert.equal(effectivePlan('pro', null), 'pro');        // tanpa batas waktu
+  assert.equal(effectivePlan('pro', kemarin), 'free');    // sudah lewat
+  assert.equal(effectivePlan('enterprise', kemarin), 'free');
+  assert.equal(effectivePlan('free', kemarin), 'free');
+  assert.equal(effectivePlan(null, null), 'free');
+
+  // Yang membuatnya bukan sekadar label: kuotanya ikut turun.
+  assert.equal(limitsForPlan(effectivePlan('pro', kemarin)).maxMembers,
+    limitsForPlan('free').maxMembers);
+  assert.ok(limitsForPlan('pro').maxMembers > limitsForPlan('free').maxMembers);
+});
+
+test('PLAN_LIMITS: tiap plan punya semua kuota', async () => {
+  const { PLAN_LIMITS } = await import('../src/modules/core/limits');
+  for (const [id, l] of Object.entries(PLAN_LIMITS)) {
+    for (const k of ['messagesPerMonth', 'chatBurst', 'chatRefillPerSec', 'maxChatbots', 'maxMembers'] as const) {
+      assert.equal(typeof l[k], 'number', `${id}.${k} harus angka`);
+      assert.ok(l[k] > 0, `${id}.${k} harus > 0`);
+    }
+  }
+  // free harus paling ketat — kalau tidak, upgrade tak ada artinya
+  assert.ok(PLAN_LIMITS.free.maxMembers < PLAN_LIMITS.pro.maxMembers);
+  assert.ok(PLAN_LIMITS.free.messagesPerMonth < PLAN_LIMITS.pro.messagesPerMonth);
+});
+
 /* ── server embedding sendiri (VPS) ────────────────────────────────── */
 test('selfhosted: HTTP polos ke host publik DITOLAK', async () => {
   const { assertSecureEndpoint } = await import('../src/modules/knowledge/embeddings/selfhosted');

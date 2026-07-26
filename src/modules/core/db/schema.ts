@@ -29,6 +29,17 @@ export const tenants = pgTable('tenants', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
   plan: text('plan').default('free').notNull(),
+  /**
+   * Plan berlaku sampai kapan. NULL = tanpa batas waktu.
+   *
+   * Sengaja tidak terikat penyedia pembayaran mana pun: penagihan manual
+   * (transfer → admin mengaktifkan sampai tanggal tertentu) sudah bisa jalan,
+   * dan integrasi gateway kelak tinggal mengisi kolom yang sama.
+   *
+   * Lewat tanggal ini plan EFEKTIF turun ke `free` — penegakannya di
+   * usageService.snapshot(), bukan sekadar hiasan di UI.
+   */
+  planExpiresAt: timestamp('plan_expires_at'),
   ...stamps,
 }, (t) => ({
   delIdx: index('idx_tenants_deleted_at').on(t.deletedAt),

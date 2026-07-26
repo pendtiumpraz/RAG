@@ -14,17 +14,34 @@ function currentPeriod(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+/**
+ * Plan yang BENAR-BENAR berlaku sekarang.
+ *
+ * Plan berbayar yang sudah lewat masa berlakunya turun ke `free`. Ini dihitung
+ * di sini — bukan di UI — supaya masa berlaku benar-benar menegakkan kuota,
+ * bukan sekadar tampilan.
+ */
+export function effectivePlan(plan: string | null | undefined, expiresAt: Date | null | undefined): string {
+  if (!plan || plan === 'free') return 'free';
+  if (expiresAt && expiresAt.getTime() < Date.now()) return 'free';
+  return plan;
+}
+
 export const usageService = {
   /** Plan + limit + pemakaian periode berjalan (untuk dashboard & guard). */
   async snapshot(tenantId: string): Promise<{
-    plan: string; limits: PlanLimits; period: string;
+    plan: string; planOnPaper: string; planExpiresAt: Date | null; expired: boolean;
+    limits: PlanLimits; period: string;
     messages: number; tokensIn: number; tokensOut: number;
   }> {
     const period = currentPeriod();
     // plan dibaca dari tabel root `tenants` (tanpa RLS)
-    const t = await db.select({ plan: tenants.plan }).from(tenants)
+    const t = await db.select({ plan: tenants.plan, planExpiresAt: tenants.planExpiresAt })
+      .from(tenants)
       .where(and(eq(tenants.id, tenantId), isNull(tenants.deletedAt))).limit(1);
-    const plan = t[0]?.plan ?? 'free';
+    const planOnPaper = t[0]?.plan ?? 'free';
+    const planExpiresAt = t[0]?.planExpiresAt ?? null;
+    const plan = effectivePlan(planOnPaper, planExpiresAt);
 
     const row = await withTenant(tenantId, async (tx) =>
       (await tx.select().from(usageCounters).where(and(
@@ -35,7 +52,9 @@ export const usageService = {
     );
 
     return {
-      plan, limits: limitsForPlan(plan), period,
+      plan, planOnPaper, planExpiresAt,
+      expired: plan !== planOnPaper,
+      limits: limitsForPlan(plan), period,
       messages: row?.messages ?? 0,
       tokensIn: row?.tokensIn ?? 0,
       tokensOut: row?.tokensOut ?? 0,

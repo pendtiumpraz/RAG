@@ -25,6 +25,7 @@ export const config = {
     '/models/:path*',
     '/conversations/:path*',
     '/team/:path*',
+    '/billing/:path*',
     '/settings/:path*',
     // API ber-sesi
     '/api/chatbots/:path*',
@@ -37,6 +38,8 @@ export const config = {
     '/api/memory/:path*',
     '/api/sources/:path*',
     '/api/connections/:path*',
+    '/api/team/:path*',
+    '/api/billing/:path*',
     '/api/admin/:path*',
   ],
 };
