@@ -16,7 +16,11 @@ const Body = z.object({
 /**
  * POST /api/auth/signup — buat workspace baru.
  * 1 signup = 1 tenant terisolasi (RLS) + user admin + settings default.
- * Setelah sukses, client melakukan signIn('credentials', …) NextAuth.
+ *
+ * Akun dibuat berstatus `pending`: pendaftaran terbuka, tapi superadmin
+ * memverifikasi dulu sebelum bisa login. Karena itu client TIDAK lagi
+ * auto-login setelah sukses — responsnya membawa `status` supaya UI
+ * menampilkan "menunggu verifikasi", bukan mencoba masuk lalu gagal.
  */
 export async function POST(req: NextRequest) {
   // Anti-abuse: maks ~5 signup/menit per IP.
@@ -33,7 +37,9 @@ export async function POST(req: NextRequest) {
   }
   try {
     const user = await authService.signup(parsed.data);
-    return NextResponse.json({ ok: true, tenantId: user.tenantId, userId: user.id }, { status: 201 });
+    return NextResponse.json({
+      ok: true, tenantId: user.tenantId, userId: user.id, status: user.status,
+    }, { status: 201 });
   } catch (e) {
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
     throw e;

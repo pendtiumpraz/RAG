@@ -1,9 +1,15 @@
 -- RLS untuk oauth_connections. Pola sama dengan 0001.
 ALTER TABLE oauth_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE oauth_connections FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON oauth_connections
-  USING (tenant_id = app_current_tenant())
-  WITH CHECK (tenant_id = app_current_tenant());
+-- Dijaga agar berkas ini aman dijalankan ULANG oleh `db:migrate`.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='oauth_connections' AND policyname='tenant_isolation') THEN
+    CREATE POLICY tenant_isolation ON oauth_connections
+      USING (tenant_id = app_current_tenant())
+      WITH CHECK (tenant_id = app_current_tenant());
+  END IF;
+END $$;
 
 -- Satu koneksi aktif per (user, provider).
 CREATE UNIQUE INDEX IF NOT EXISTS uq_oauth_connections_user_provider

@@ -20,11 +20,18 @@ BEGIN
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
-    EXECUTE format($f$
-      CREATE POLICY tenant_isolation ON %I
-      USING (tenant_id = app_current_tenant())
-      WITH CHECK (tenant_id = app_current_tenant());
-    $f$, t);
+    -- Dijaga agar migrasi bisa dijalankan ULANG: `db:migrate` menerapkan semua
+    -- berkas setiap kali, dan CREATE POLICY polos akan menggagalkannya
+    -- ("policy already exists") sejak berkas pertama.
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = 'tenant_isolation'
+    ) THEN
+      EXECUTE format($f$
+        CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = app_current_tenant())
+        WITH CHECK (tenant_id = app_current_tenant());
+      $f$, t);
+    END IF;
   END LOOP;
 END $$;
 

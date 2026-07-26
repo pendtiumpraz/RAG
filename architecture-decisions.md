@@ -142,9 +142,32 @@ menunggu approval user (ditandai 👀).
   hasil deteksi berawalan `vps:`, sehingga menambah model di VPS tak perlu deploy ulang.
 - Token terenkripsi AES-256-GCM dan tak pernah dikirim ke browser.
 
+### D9 — Pendaftaran terbuka + verifikasi superadmin (2026-07-26)
+- **Status:** ✅ APPROVED (user). Siapa pun boleh mendaftar; akun berstatus
+  `pending` dan TIDAK bisa login sampai superadmin memverifikasi.
+- `users.status` ('pending'|'active'|'rejected') + `approved_at`/`approved_by`
+  (migrasi 0009). Akun yang sudah ada di-backfill `active` — jangan sampai
+  pengguna lama ikut terkunci.
+- **Gerbang berlaku di SEMUA jalur**, termasuk OAuth: tanpa itu orang tinggal
+  lewat Google dan gerbangnya bocor. Jalur kredensial dijaga di
+  `verifyCredentials()`, jalur OAuth di callback `signIn` NextAuth.
+- **Anti kebocoran informasi:** NextAuth menolak akun pending PERSIS seperti
+  password salah, supaya endpoint login tak bisa dipakai menebak email
+  terdaftar. Alasan sebenarnya hanya lewat `POST /api/auth/login-status`, yang
+  baru menjawab SETELAH password terbukti benar (rate-limited 10/menit/IP).
+- Daftar antrean menembus batas tenant (tiap signup = tenant sendiri) padahal
+  `users` FORCE RLS. Dipakai pola yang sama dengan `users_auth_lookup` (0002):
+  policy tambahan `users_platform_admin_*` yang HANYA terbuka lewat GUC
+  `app.admin_context='platform_admin'`, diset hanya di user-approval.service
+  setelah `requireRole('superadmin')`.
+- Pengaman: superadmin aktif TERAKHIR tak boleh menonaktifkan dirinya sendiri —
+  kalau tidak, tak ada lagi yang bisa memverifikasi siapa pun dan platform hanya
+  bisa dipulihkan lewat akses database langsung.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-26 | D9 = pendaftaran terbuka + verifikasi superadmin (berlaku juga di jalur OAuth) | User |
 | 2026-07-26 | D8 = server embedding VPS dikelola superadmin & global (per-tenant ditolak krn SSRF) | User |
 | 2026-07-26 | D7 = embedder `selfhosted` + service VPS (transformers v3) — membuka varian 2 GB | User+AI |
 | 2026-07-26 | D6 = model host Vercel Blob; batas varian 2 GB (bobot eksternal) dicatat | User+AI |

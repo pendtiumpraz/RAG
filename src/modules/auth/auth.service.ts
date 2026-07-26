@@ -10,7 +10,18 @@ export interface AuthUser {
   email: string;
   name: string | null;
   role: string;
+  status: string;
 }
+
+/**
+ * Hasil pemeriksaan kredensial, dipakai HANYA oleh endpoint pra-cek login
+ * agar UI bisa menjelaskan kenapa login gagal.
+ *  invalid  — email/password salah (jangan bocorkan yang mana)
+ *  pending  — benar, tapi belum diverifikasi superadmin
+ *  rejected — ditolak superadmin
+ *  active   — boleh masuk
+ */
+export type CredentialOutcome = 'invalid' | 'pending' | 'rejected' | 'active';
 
 /**
  * AUTH SERVICE — signup → tenant, verifikasi kredensial, provisioning OAuth.
@@ -46,20 +57,48 @@ export const authService = {
 
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
 
-      return { id: user.id, tenantId: user.tenantId, email: user.email, name: user.name, role: user.role };
+      return {
+        id: user.id, tenantId: user.tenantId, email: user.email,
+        name: user.name, role: user.role, status: user.status,
+      };
     }).then(async (u) => {
-      await audit(u.tenantId, u.id, 'auth.signup', undefined, { email: u.email });
+      await audit(u.tenantId, u.id, 'auth.signup', undefined, { email: u.email, status: u.status });
       return u;
     });
   },
 
-  /** Login email+password. Return null bila tidak cocok (jangan bocorkan alasan). */
+  /**
+   * Login email+password.
+   *
+   * Return null bila kredensial salah ATAU akun belum diverifikasi — dari sisi
+   * NextAuth keduanya sama-sama "tidak boleh masuk", dan menyamakannya di sini
+   * mencegah endpoint login jadi alat menebak email mana yang terdaftar.
+   * Alasan yang sebenarnya hanya diberikan lewat `credentialOutcome()`, yang
+   * baru menjawab setelah password TERBUKTI benar.
+   */
   async verifyCredentials(email: string, password: string): Promise<AuthUser | null> {
     const user = await findByEmailForAuth(email.trim().toLowerCase());
     if (!user?.passwordHash) return null;
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) return null;
-    return { id: user.id, tenantId: user.tenantId, email: user.email, name: user.name, role: user.role };
+    if (user.status !== 'active') return null;
+    return {
+      id: user.id, tenantId: user.tenantId, email: user.email,
+      name: user.name, role: user.role, status: user.status,
+    };
+  },
+
+  /**
+   * Kenapa login gagal — hanya untuk UI, dan hanya setelah password benar.
+   * Tanpa syarat itu, endpoint ini akan membocorkan status akun orang lain.
+   */
+  async credentialOutcome(email: string, password: string): Promise<CredentialOutcome> {
+    const user = await findByEmailForAuth(email.trim().toLowerCase());
+    if (!user?.passwordHash) return 'invalid';
+    if (!(await verifyPassword(password, user.passwordHash))) return 'invalid';
+    if (user.status === 'pending') return 'pending';
+    if (user.status === 'rejected') return 'rejected';
+    return 'active';
   },
 
   /**
@@ -70,7 +109,10 @@ export const authService = {
     const email = profile.email.trim().toLowerCase();
     const existing = await findByEmailForAuth(email);
     if (existing) {
-      return { id: existing.id, tenantId: existing.tenantId, email: existing.email, name: existing.name, role: existing.role };
+      return {
+        id: existing.id, tenantId: existing.tenantId, email: existing.email,
+        name: existing.name, role: existing.role, status: existing.status,
+      };
     }
     const display = profile.name?.trim() || email.split('@')[0];
     return db.transaction(async (tx) => {
@@ -78,11 +120,16 @@ export const authService = {
         .values({ name: `${display} Workspace` })
         .returning({ id: tenants.id });
       await tx.execute(sql`select set_config('app.current_tenant', ${tenant.id}, true)`);
+      // status default 'pending' — gerbang verifikasi HARUS berlaku juga di
+      // jalur OAuth, kalau tidak orang tinggal lewat Google dan gerbangnya bocor.
       const [user] = await tx.insert(users).values({
         tenantId: tenant.id, email, name: display, role: 'admin', passwordHash: null,
       }).returning();
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
-      return { id: user.id, tenantId: user.tenantId, email: user.email, name: user.name, role: user.role };
+      return {
+        id: user.id, tenantId: user.tenantId, email: user.email,
+        name: user.name, role: user.role, status: user.status,
+      };
     });
   },
 };

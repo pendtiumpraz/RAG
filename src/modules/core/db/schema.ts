@@ -42,9 +42,22 @@ export const users = pgTable('users', {
   role: text('role').default('member').notNull(), // 'superadmin' | 'admin' | 'member'
   /** scrypt hash utk login kredensial; NULL utk user OAuth. */
   passwordHash: text('password_hash'),
+  /**
+   * Gerbang pendaftaran: siapa pun boleh mendaftar, tapi TIDAK bisa login
+   * sampai superadmin memverifikasi.
+   *   pending  — baru daftar, belum bisa masuk
+   *   active   — diverifikasi, boleh masuk
+   *   rejected — ditolak superadmin
+   * Default 'pending' berlaku untuk SEMUA jalur pendaftaran, termasuk OAuth —
+   * kalau tidak, orang tinggal lewat Google dan gerbangnya bocor.
+   */
+  status: text('status').default('pending').notNull(),
+  approvedAt: timestamp('approved_at'),
+  approvedBy: uuid('approved_by'),                // tanpa FK (Rule #2)
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_users_tenant_id').on(t.tenantId),
+  statusIdx: index('idx_users_status').on(t.status),
   delIdx: index('idx_users_deleted_at').on(t.deletedAt),
 }));
 

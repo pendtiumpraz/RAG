@@ -140,6 +140,25 @@ export const openApiSpec = {
         ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
+    /* ── verifikasi pendaftaran — SUPERADMIN ── */
+    '/api/auth/login-status': {
+      post: {
+        summary: 'Alasan login gagal (hanya menjawab setelah password benar)',
+        requestBody: json(obj({ email: str, password: str }, ['email', 'password'])),
+        responses: { 200: err('outcome: invalid | pending | rejected | active') } },
+    },
+    '/api/admin/users': {
+      get: { summary: 'Antrean verifikasi pendaftaran (lintas tenant)', security: [sessionAuth],
+        parameters: [{ name: 'status', in: 'query', required: false, schema: { type: 'string', enum: ['pending', 'all'] } }],
+        responses: { 200: err('daftar user + organisasi') } },
+    },
+    '/api/admin/users/{id}/status': {
+      patch: { summary: 'Verifikasi / tolak / kembalikan ke antrean', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ status: str }, ['status'])),
+        responses: { 200: err('status diperbarui'), 422: err('superadmin aktif terakhir') } },
+    },
+
     /* ── server embedding sendiri (VPS) — SUPERADMIN ── */
     '/api/admin/embedding-servers': {
       get: { summary: 'Daftar server embedding VPS (tanpa token)', security: [sessionAuth],

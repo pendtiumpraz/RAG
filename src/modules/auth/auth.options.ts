@@ -61,6 +61,26 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
+    /**
+     * Gerbang verifikasi untuk jalur OAuth.
+     *
+     * Login kredensial sudah dijaga di `authorize()` (verifyCredentials menolak
+     * akun non-active). OAuth tidak lewat sana, jadi tanpa callback ini orang
+     * bisa mendaftar lewat Google dan langsung masuk — gerbangnya bocor.
+     *
+     * Mengembalikan string = redirect; user pending diarahkan ke /auth dengan
+     * pesan yang jelas, bukan kegagalan diam-diam.
+     */
+    async signIn({ account, profile, user }) {
+      if (!account || account.provider === 'credentials') return true;
+      const email = (profile?.email ?? user?.email ?? '').trim().toLowerCase();
+      if (!email) return '/auth?error=oauth_no_email';
+      const u = await authService.findOrCreateFromOAuth({ email, name: profile?.name ?? user?.name });
+      if (u.status === 'rejected') return '/auth?error=rejected';
+      if (u.status !== 'active') return '/auth?error=pending';
+      return true;
+    },
+
     async jwt({ token, user, account }) {
       // Login kredensial: authorize() sudah membawa tenantId/role.
       if (user && (user as { tenantId?: string }).tenantId) {

@@ -97,6 +97,36 @@ async function main() {
     console.log('⚠ uji delta dilewati: ' + (e as Error).message);
   }
 
+  // 8) GERBANG VERIFIKASI PENDAFTARAN — daftar terbuka, login ditahan sampai
+  //    superadmin memverifikasi. Diuji lewat DB nyata (policy lintas-tenant).
+  try {
+    const { userApprovalService } = await import('../src/modules/auth/user-approval.service');
+    const gateEmail = `gate_${rnd()}@smoke.nalar`;
+    const g = await authService.signup({
+      orgName: 'Smoke Gate', name: 'Gate', email: gateEmail, password: 'password123',
+    });
+    const blocked = await authService.verifyCredentials(gateEmail, 'password123');
+    const why = await authService.credentialOutcome(gateEmail, 'password123');
+    const wrongPw = await authService.credentialOutcome(gateEmail, 'salah');
+
+    const queue = await userApprovalService.listPending();
+    const inQueue = queue.some((p) => p.email === gateEmail);
+
+    await userApprovalService.setStatus({ id: g.id, tenantId: g.tenantId }, g.id, 'active');
+    const allowed = await authService.verifyCredentials(gateEmail, 'password123');
+
+    await userApprovalService.setStatus({ id: g.id, tenantId: g.tenantId }, g.id, 'rejected');
+    const reblocked = await authService.verifyCredentials(gateEmail, 'password123');
+
+    const pass = g.status === 'pending' && blocked === null && why === 'pending'
+      && wrongPw === 'invalid' && inQueue && !!allowed && reblocked === null;
+    console.log(`${pass ? '✓' : '✗'} gerbang verifikasi: daftar=pending · login ditahan (alasan "${why}") · `
+      + `password salah tetap "invalid" · muncul di antrean=${inQueue} · setelah verifikasi=${!!allowed} · ditolak lagi=${reblocked === null}`);
+    if (!pass) process.exitCode = 1;
+  } catch (e) {
+    console.log('⚠ uji gerbang verifikasi dilewati: ' + (e as Error).message);
+  }
+
   console.log('\nSMOKE OK');
   await client.end();
 }

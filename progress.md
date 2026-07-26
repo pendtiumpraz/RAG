@@ -165,9 +165,24 @@
       tak mengenai baris apa pun DAN TIDAK error — skrip tampak sukses padahal peran
       tetap `admin`. Sekarang promosi lewat `withTenant()` + `.returning()`, dan peran
       yang ditampilkan dibaca ULANG dari DB.
-- [ ] **Pendaftaran terbuka + verifikasi superadmin** (requirement #10, 2026-07-26) —
-      siapa pun boleh daftar, superadmin memverifikasi sebelum akun bisa login.
-      Belum diimplementasi; lihat catatan konsekuensi di `user_requirement.md`.
+- [x] **Pendaftaran terbuka + verifikasi superadmin** (req #10, D9, 2026-07-26):
+      `users.status` + `approved_at`/`approved_by` (migrasi 0009; akun lama
+      di-backfill `active` agar tak ikut terkunci). Gerbang berlaku di SEMUA jalur
+      **termasuk OAuth** (callback `signIn`) — kalau tidak, orang tinggal lewat Google.
+      Login pending ditolak PERSIS seperti password salah (anti penebakan email);
+      alasannya hanya lewat `POST /api/auth/login-status` yang baru menjawab setelah
+      password benar. Antrean lintas-tenant lewat policy `users_platform_admin_*`
+      (GUC `app.admin_context`, pola sama dgn `users_auth_lookup`). Panel verifikasi
+      di halaman Team (superadmin). Signup **tak lagi auto-login** — UI menampilkan
+      "menunggu verifikasi". Pengaman: superadmin aktif terakhir tak bisa mengunci
+      dirinya sendiri.
+      E2E LULUS (di smoke): daftar=pending → login ditahan → muncul di antrean →
+      diverifikasi → bisa masuk → ditolak → tertahan lagi.
+- [x] **Migrasi jadi idempoten** (2026-07-26): `db:migrate` menerapkan ULANG semua
+      berkas, tapi 0001–0005 punya `CREATE POLICY` tanpa pengaman sehingga jalan
+      kedua PASTI gagal ("policy already exists") — padahal README menyuruhnya sebagai
+      langkah setup normal. Semua dibungkus cek `pg_policies`. Diverifikasi: 0001–0009
+      lulus dua kali berturut-turut.
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`

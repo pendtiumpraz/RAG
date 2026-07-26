@@ -13,6 +13,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
 --   set_config('app.auth_context', 'credential_login', true)
 -- inside its lookup transaction and nowhere else. Policies OR together,
 -- so normal application queries remain fully tenant-isolated.
-CREATE POLICY users_auth_lookup ON users
-  FOR SELECT
-  USING (current_setting('app.auth_context', true) = 'credential_login');
+-- Dijaga agar berkas ini aman dijalankan ulang oleh `db:migrate`.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='users' AND policyname='users_auth_lookup') THEN
+    CREATE POLICY users_auth_lookup ON users
+      FOR SELECT
+      USING (current_setting('app.auth_context', true) = 'credential_login');
+  END IF;
+END $$;

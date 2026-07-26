@@ -40,7 +40,8 @@ Belum ditentukan.
     (mis. `approved_at`/`status`), penolakan login untuk akun pending (pesan jelas,
     bukan "password salah"), halaman superadmin utk approve/tolak, dan nasib akun
     OAuth (Google/Microsoft) yang saat ini auto-provisioning tenant begitu login.
-    — **BELUM DIIMPLEMENTASI**
+    — ✅ **SELESAI 2026-07-26** (D9). Gerbang berlaku juga di jalur OAuth;
+    detail & alasan desain di `architecture-decisions.md` D9.
 
 ---
 
