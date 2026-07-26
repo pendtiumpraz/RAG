@@ -1,5 +1,5 @@
 import { sql, and, eq, isNull } from 'drizzle-orm';
-import { documents, tenantSettings, memoryNotes, memoryEdges } from '@/modules/core/db';
+import { tenantSettings, memoryNotes, memoryEdges } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { getLlmModel } from '@/modules/core/registry';
 import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/modules/core/jobs';

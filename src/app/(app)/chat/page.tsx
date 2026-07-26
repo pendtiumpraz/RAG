@@ -113,7 +113,7 @@ export default function ChatPage() {
         <div className="cites-head"><b>Citations</b><span className="cnt">{lastSources.length}</span></div>
         {lastSources.length === 0
           ? <p className="microlabel">SUMBER JAWABAN AKAN MUNCUL DI SINI.</p>
-          : lastSources.map((s, i) => (
+          : lastSources.map((s) => (
             <div key={s.documentId} className="cite-card">
               <div className="fn"><span className="ic"><Icon name="book" size={13} /></span>{s.title ?? 'dokumen'}<span className="sc">{s.score.toFixed(2)}</span></div>
               <div className="ex">{s.content}…</div>

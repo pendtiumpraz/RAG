@@ -1,0 +1,65 @@
+name: CI
+
+# Gerbang sebelum kode mendarat di main — dan main auto-deploy ke produksi,
+# jadi yang lolos di sini yang tayang. Sengaja TIDAK memakai database: unit
+# test dan build harus bisa jalan tanpa rahasia apa pun, supaya PR dari luar
+# pun tetap terverifikasi. Uji yang butuh DB ada di `npm run smoke`, dijalankan
+# manual terhadap Neon.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit test
+        run: npm test
+
+      # `next build` sekaligus typecheck TS strict — itu gerbang tipe kita.
+      # Nilai dummy dipakai supaya modul yang membaca env saat import tidak
+      # meledak; tak satu pun menyentuh layanan nyata saat build.
+      - name: Build (termasuk typecheck)
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          NEXTAUTH_SECRET: ci-dummy-secret-cukup-panjang-untuk-lolos
+          NEXTAUTH_URL: http://localhost:3000
+          CREDENTIALS_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: npm run build
+
+  # Dipisah supaya kerentanan dependensi tidak memblokir rilis fitur, tapi
+  # tetap terlihat. `--omit=dev` karena kerentanan di perkakas build tidak
+  # ikut tayang ke produksi.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Audit dependensi produksi
+        run: npm audit --omit=dev --audit-level=high

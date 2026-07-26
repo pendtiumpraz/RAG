@@ -65,9 +65,13 @@ export default function AuthPage() {
           <span className="microlabel">ENTERPRISE KNOWLEDGE</span>
         </div>
 
-        <div className="tabs" style={{ marginBottom: 24 }}>
-          <button className="tab" aria-selected={tab === 'login'} onClick={() => setTab('login')}>Masuk</button>
-          <button className="tab" aria-selected={tab === 'register'} onClick={() => setTab('register')}>Daftar</button>
+        {/* aria-selected hanya sah pada role="tab" — tanpa role+tablist,
+            pembaca layar mengabaikannya dan tab jadi tak terbaca statusnya. */}
+        <div className="tabs" role="tablist" aria-label="Masuk atau daftar" style={{ marginBottom: 24 }}>
+          <button type="button" role="tab" className="tab" aria-selected={tab === 'login'}
+            onClick={() => setTab('login')}>Masuk</button>
+          <button type="button" role="tab" className="tab" aria-selected={tab === 'register'}
+            onClick={() => setTab('register')}>Daftar</button>
         </div>
 
         <div className="stack gap-2" style={{ marginBottom: 18 }}>
