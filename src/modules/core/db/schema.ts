@@ -182,6 +182,45 @@ export const usageCounters = pgTable('usage_counters', {
   delIdx: index('idx_usage_counters_deleted_at').on(t.deletedAt),
 }));
 
+/* ── server embedding sendiri (VPS) — PLATFORM, bukan per-tenant ───── */
+/**
+ * PERKECUALIAN yang disengaja: tabel ini **tidak punya `tenant_id`** dan
+ * **tidak dilindungi RLS**, berbeda dari semua tabel lain di skema ini.
+ *
+ * Alasannya: server embedding adalah INFRASTRUKTUR bersama — sama seperti
+ * model host — bukan data milik tenant. Satu server melayani semua tenant;
+ * yang tetap terpisah per-tenant adalah vektor hasilnya.
+ *
+ * Karena RLS tidak menjaga tabel ini, kendali aksesnya ada di layer aplikasi:
+ * SEMUA rute yang menyentuhnya wajib `requireRole('superadmin')`. Tokennya
+ * disimpan terenkripsi AES-256-GCM, jadi bocornya baris pun tak membuka token
+ * tanpa CREDENTIALS_ENCRYPTION_KEY.
+ */
+export const embeddingServers = pgTable('embedding_servers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  /** Base URL, tanpa slash akhir. Wajib https kecuali loopback. */
+  baseUrl: text('base_url').notNull(),
+  encryptedToken: text('encrypted_token'),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** Model yang dilaporkan server saat "Test koneksi" — sumber dropdown. */
+  models: jsonb('models').$type<DiscoveredModel[]>().default([]).notNull(),
+  lastCheckedAt: timestamp('last_checked_at'),
+  lastError: text('last_error'),
+  ...stamps,
+}, (t) => ({
+  enabledIdx: index('idx_embedding_servers_enabled').on(t.enabled),
+  delIdx: index('idx_embedding_servers_deleted_at').on(t.deletedAt),
+}));
+
+/** Satu model yang dilayani sebuah server embedding. */
+export interface DiscoveredModel {
+  id: string;
+  dimensions: number;
+  dtype?: string;
+  loaded?: boolean;
+}
+
 /* ── koneksi OAuth per-user (Drive/OneDrive/SharePoint) ────────────── */
 /** Token OAuth user utk akses storage MEREKA sendiri. Terenkripsi AES-256-GCM. */
 export const oauthConnections = pgTable('oauth_connections', {

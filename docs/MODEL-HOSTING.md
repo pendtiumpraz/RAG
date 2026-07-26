@@ -155,10 +155,39 @@ detik**, bukan 377 detik per cold start.
 Lewat jalur app penuh (`embed('bge-m3-selfhosted', …)`) hasilnya 1024 dim
 yang lalu di-zero-pad ke 1536 sesuai kolom pgvector, 476 ms.
 
-App memanggilnya lewat HTTP kompatibel OpenAI; pilih model **"BGE-M3
-presisi penuh — server sendiri (VPS)"** di halaman Models & Keys. Karena
-bobot tak pernah masuk ke proses app, batasan serverless di §6 jadi tidak
-relevan untuk jalur ini. Panduan lengkap: `services/embedding-server/README.md`.
+App memanggilnya lewat HTTP kompatibel OpenAI. Karena bobot tak pernah masuk
+ke proses app, batasan serverless di §6 jadi tidak relevan untuk jalur ini.
+Panduan deploy: `services/embedding-server/README.md`; instruksi langkah demi
+langkah untuk agen di VPS: `services/embedding-server/SETUP-VPS.md`.
+
+### Mendaftarkan server dari dashboard (tanpa deploy ulang)
+
+**Models & Keys → Server embedding (VPS) → Tambah server** — panel ini hanya
+tampil untuk peran `superadmin`. Isi nama, alamat `https://…`, dan token yang
+sama dengan `EMBEDDING_TOKEN` di VPS, lalu tekan **Test koneksi**.
+
+Tombol itu memanggil `/v1/models` **ber-auth** di server, jadi satu klik
+menguji jaringan DAN token sekaligus — token salah ketahuan di situ, bukan
+nanti saat ingest pertama. Model yang dilaporkan (beserta dimensinya) disimpan
+dan langsung muncul di dropdown model embedding dengan id berawalan `vps:`.
+**Menambah model di VPS tidak perlu deploy ulang aplikasi** — cukup Test
+koneksi lagi.
+
+Beberapa hal yang ditegakkan di sisi ini:
+
+- Alamat non-`https` ditolak (kecuali loopback) — isi dokumen tenant melintas.
+- Token wajib, disimpan terenkripsi AES-256-GCM, dan **tak pernah** dikirim ke
+  browser; API hanya melaporkan `hasToken: true/false`.
+- Model dengan dimensi >1536 ditolak saat deteksi, karena kolom pgvector 1536
+  (HNSW ≤2000) tak akan bisa menyimpannya.
+- Panel & seluruh rute `/api/admin/embedding-servers` dikunci
+  `requireRole('superadmin')`: tabelnya tak dilindungi RLS, dan menerima URL
+  dari pihak tak tepercaya akan membuka SSRF.
+- Server dihapus = soft delete (Rule #3), dan model-modelnya langsung hilang
+  dari katalog.
+
+Jalur env (`EMBEDDING_SELFHOSTED_URL`) tetap didukung untuk dev/on-prem, dan
+entri statisnya hanya muncul di dropdown bila env itu memang diisi.
 
 App utama **tetap** di transformers v2 — sengaja, supaya dependensi berat
 itu tidak masuk ke bundle Next.js.

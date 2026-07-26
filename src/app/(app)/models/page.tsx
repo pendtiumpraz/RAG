@@ -2,13 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
-import { Skeleton, ErrorState, useToast } from '../../_components/ui';
+import { Icon } from '../../_components/icons';
+import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
 
 interface LlmModel { id: string; label: string; provider: string }
 interface EmbModel { id: string; label: string; bucket: string; kind: string }
 interface Catalog {
   llmModels: LlmModel[]; embeddingModels: EmbModel[]; providers: string[];
   active: { activeLlmModel: string; activeEmbeddingModel: string; systemPrompt: string | null } | null;
+  role: string;
+}
+/** Server embedding VPS — bentuk publik: token TAK PERNAH dikirim ke browser. */
+interface EmbServer {
+  id: string; name: string; baseUrl: string; enabled: boolean; hasToken: boolean;
+  models: Array<{ id: string; dimensions: number; dtype?: string; loaded?: boolean }>;
+  lastCheckedAt: string | null; lastError: string | null;
 }
 
 export default function ModelsPage() {
@@ -95,6 +103,186 @@ export default function ModelsPage() {
           </div>
         </div>
       </div>
+
+      {/* Infrastruktur platform — hanya superadmin. Server ini dipakai BERSAMA
+          semua tenant, dan menerima alamat dari pihak tak tepercaya akan
+          membuka SSRF; karena itu panel & API-nya dikunci peran. */}
+      {data.role === 'superadmin' && <EmbeddingServers onChanged={refetch} />}
+    </>
+  );
+}
+
+/* ── server embedding sendiri (VPS) ─────────────────────────────────── */
+
+function EmbeddingServers({ onChanged }: { onChanged: () => void }) {
+  const { data, loading, error, refetch } = useApi<EmbServer[]>('/api/admin/embedding-servers');
+  const [editing, setEditing] = useState<EmbServer | 'new' | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function test(s: EmbServer) {
+    setTesting(s.id);
+    try {
+      const r = await api<EmbServer>(`/api/admin/embedding-servers/${s.id}/test`, { method: 'POST' });
+      toast(`${r.models.length} model terdeteksi: ${r.models.map((m) => m.id).join(', ')}`);
+      refetch(); onChanged();          // model baru harus muncul di dropdown
+    } catch (e) { toast((e as Error).message, 'error'); refetch(); }
+    finally { setTesting(null); }
+  }
+
+  async function remove(s: EmbServer) {
+    try {
+      await api(`/api/admin/embedding-servers/${s.id}`, { method: 'DELETE' });
+      toast('Server dipindah ke Sampah'); refetch(); onChanged();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  async function toggle(s: EmbServer) {
+    try {
+      await api(`/api/admin/embedding-servers/${s.id}`, {
+        method: 'PATCH', body: JSON.stringify({ enabled: !s.enabled }),
+      });
+      refetch(); onChanged();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head">
+        <span className="t">server embedding (VPS)</span>
+        <div className="cluster gap-2">
+          <span className="microlabel">TOKEN AES-256 · SERVER-ONLY</span>
+          <button className="btn btn-sm btn-primary" onClick={() => setEditing('new')}>
+            <Icon name="plus" size={14} /> Tambah server
+          </button>
+        </div>
+      </div>
+
+      {error ? <ErrorState message={error} onRetry={refetch} />
+        : loading || !data ? <Skeleton rows={2} />
+        : data.length === 0 ? <EmptyState title="Belum ada server embedding"
+            hint="Daftarkan VPS yang menjalankan services/embedding-server agar model besar bisa dipilih tenant."
+            action={<button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>Tambah server</button>} />
+        : (
+          <div className="table-wrap"><table className="table">
+            <thead><tr><th>Nama</th><th>Alamat</th><th>Model terdeteksi</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {data.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.name}</td>
+                  <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{s.baseUrl}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>
+                    {s.models.length
+                      ? s.models.map((m) => `${m.id} (${m.dimensions}d)`).join(', ')
+                      : <span style={{ color: 'var(--muted)' }}>belum dideteksi</span>}
+                  </td>
+                  <td>
+                    {s.lastError
+                      ? <span className="badge badge-danger" title={s.lastError}><span className="led led-err" />gagal</span>
+                      : s.models.length
+                        ? <span className={`badge ${s.enabled ? 'badge-ok' : ''}`}><span className={`led ${s.enabled ? '' : 'led-off'}`} />{s.enabled ? 'aktif' : 'nonaktif'}</span>
+                        : <span className="badge badge-signal"><span className="led led-off" />belum diuji</span>}
+                  </td>
+                  <td>
+                    <div className="cluster gap-2">
+                      <button className={`btn btn-sm${testing === s.id ? ' is-loading' : ''}`}
+                        disabled={testing === s.id} onClick={() => test(s)}>Test koneksi</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => setEditing(s)}>Ubah</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => toggle(s)}>
+                        {s.enabled ? 'Nonaktifkan' : 'Aktifkan'}
+                      </button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => remove(s)}>Hapus</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+
+      {data && data.some((s) => s.lastError) && (
+        <div className="card-pad">
+          {data.filter((s) => s.lastError).map((s) => (
+            <p key={s.id} style={{ color: 'var(--danger)', fontSize: 13 }}>
+              <strong>{s.name}</strong>: {s.lastError}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {editing && <ServerDrawer server={editing === 'new' ? null : editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => { setEditing(null); refetch(); onChanged(); }} />}
+    </div>
+  );
+}
+
+function ServerDrawer({ server, onClose, onSaved }:
+  { server: EmbServer | null; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(server?.name ?? '');
+  const [baseUrl, setBaseUrl] = useState(server?.baseUrl ?? '');
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  async function save() {
+    setBusy(true);
+    try {
+      if (server) {
+        await api(`/api/admin/embedding-servers/${server.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name, baseUrl, ...(token ? { token } : {}) }),
+        });
+      } else {
+        await api('/api/admin/embedding-servers', {
+          method: 'POST', body: JSON.stringify({ name, baseUrl, token }),
+        });
+      }
+      toast(server ? 'Server diperbarui' : 'Server ditambahkan — jalankan Test koneksi');
+      onSaved();
+    } catch (e) { toast((e as Error).message, 'error'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <aside className="drawer open" role="dialog" aria-modal="true"
+        aria-label={server ? 'Ubah server embedding' : 'Tambah server embedding'}>
+        <div className="dh">
+          <h3>{server ? 'Ubah server' : 'Tambah server embedding'}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button>
+        </div>
+        <div className="db stack gap-4">
+          <div className="field"><label>Nama</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="mis. VPS Singapura" /></div>
+
+          <div className="field"><label>Alamat</label>
+            <input className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://embed.domainmu.com" />
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              WAJIB HTTPS — ISI DOKUMEN TENANT MELINTAS DI SINI.
+            </p></div>
+
+          <div className="field"><label>Token</label>
+            <input className="input mono" type="password" value={token} onChange={(e) => setToken(e.target.value)}
+              placeholder={server?.hasToken ? 'kosongkan untuk tidak mengubah' : 'EMBEDDING_TOKEN di server'} />
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              SAMA PERSIS DENGAN EMBEDDING_TOKEN DI VPS. DISIMPAN TERENKRIPSI.
+            </p></div>
+
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Setelah disimpan, tekan <strong>Test koneksi</strong>. Aplikasi memanggil
+            <code> /v1/models</code> di server itu — sekali jalan menguji jaringan dan
+            token, lalu mendaftarkan model yang ditemukan ke dropdown.
+          </p>
+        </div>
+        <div className="df">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={save}>Simpan</button>
+          <button className="btn btn-ghost" onClick={onClose}>Batal</button>
+        </div>
+      </aside>
     </>
   );
 }

@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { tenantSettings, type ThemeConfig } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { getLlmModel, getEmbeddingModel } from '@/modules/core/registry';
+import { getLlmModel } from '@/modules/core/registry';
+import { resolveEmbeddingModel } from '@/modules/knowledge/embeddings/catalog';
 import { saveApiKey } from './credentials.repository';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
@@ -21,7 +22,9 @@ export const settingsService = {
   }>) {
     if (input.activeLlmModel && !getLlmModel(input.activeLlmModel))
       throw new ValidationError(`Model LLM tidak dikenal: ${input.activeLlmModel}`);
-    if (input.activeEmbeddingModel && !getEmbeddingModel(input.activeEmbeddingModel))
+    // Divalidasi terhadap KATALOG (registry + model VPS terdeteksi), bukan
+    // registry statis saja — kalau tidak, model dari VPS akan selalu ditolak.
+    if (input.activeEmbeddingModel && !(await resolveEmbeddingModel(input.activeEmbeddingModel)))
       throw new ValidationError(`Model embedding tidak dikenal: ${input.activeEmbeddingModel}`);
 
     await withTenant(tenantId, async (tx) => {

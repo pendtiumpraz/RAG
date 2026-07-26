@@ -131,9 +131,21 @@ menunggu approval user (ditandai 👀).
 - Konsekuensi baik: bobot tak pernah masuk proses app, sehingga batasan serverless
   (cold-start 377 dtk, `/tmp` 512 MB) tidak berlaku untuk jalur ini.
 
+### D8 — Server embedding VPS dikelola superadmin, global (2026-07-26)
+- **Status:** ✅ APPROVED — user memilih "Superadmin saja, berlaku global" dari 3 opsi.
+- Alternatif yang DITOLAK: per-tenant connect (tiap tenant menghubungkan VPS sendiri).
+  Alasan penolakan: membuka **SSRF** — tenant bisa mengarahkan server kita ke alamat
+  internal (metadata cloud, DB internal); perlu pemblokiran IP privat + allowlist.
+- Wujudnya: tabel PLATFORM `embedding_servers` (tanpa `tenant_id`, tanpa RLS — ini
+  perkecualian sadar dari pola skema, didokumentasikan di schema.ts), semua rutenya
+  `requireRole('superadmin')`. Katalog model jadi dinamis: registry statis + model
+  hasil deteksi berawalan `vps:`, sehingga menambah model di VPS tak perlu deploy ulang.
+- Token terenkripsi AES-256-GCM dan tak pernah dikirim ke browser.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-26 | D8 = server embedding VPS dikelola superadmin & global (per-tenant ditolak krn SSRF) | User |
 | 2026-07-26 | D7 = embedder `selfhosted` + service VPS (transformers v3) — membuka varian 2 GB | User+AI |
 | 2026-07-26 | D6 = model host Vercel Blob; batas varian 2 GB (bobot eksternal) dicatat | User+AI |
 | 2026-07-23 | A1–A5 dicatat; D1–D3 diangkat ke user | AI |

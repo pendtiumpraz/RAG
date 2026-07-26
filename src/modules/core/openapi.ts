@@ -140,6 +140,40 @@ export const openApiSpec = {
         ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
+    /* ── server embedding sendiri (VPS) — SUPERADMIN ── */
+    '/api/admin/embedding-servers': {
+      get: { summary: 'Daftar server embedding VPS (tanpa token)', security: [sessionAuth],
+        responses: { 200: err('daftar server + model terdeteksi') } },
+      post: { summary: 'Daftarkan server embedding VPS', security: [sessionAuth],
+        requestBody: json(obj({ name: str, baseUrl: str, token: str }, ['name', 'baseUrl', 'token'])),
+        responses: { 201: err('server dibuat'), 422: err('alamat non-https / duplikat') } },
+    },
+    '/api/admin/embedding-servers/{id}': {
+      patch: { summary: 'Ubah server (token kosong = tak diubah)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ name: str, baseUrl: str, token: str, enabled: { type: 'boolean' } }, [])),
+        responses: { 200: err('server diperbarui') } },
+      delete: { summary: 'Soft delete server', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('dipindah ke Sampah') } },
+    },
+    '/api/admin/embedding-servers/trashed': {
+      get: { summary: 'Server yang di-soft-delete', security: [sessionAuth],
+        responses: { 200: err('daftar Sampah') } },
+    },
+    '/api/admin/embedding-servers/{id}/restore': {
+      patch: { summary: 'Restore server dari Sampah', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('dipulihkan') } },
+    },
+    '/api/admin/embedding-servers/{id}/test': {
+      post: {
+        summary: 'Uji koneksi + deteksi model (memanggil /v1/models di server)',
+        security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('model terdeteksi & tersimpan'), 422: err('koneksi/token gagal') } },
+    },
+
     '/api/connections': {
       get: { summary: 'Status koneksi storage user (tanpa token)', security: [sessionAuth],
         responses: { 200: err('provider, scope, expiresAt') } },

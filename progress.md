@@ -145,6 +145,19 @@
       3×1024 dim, norma 1,0000, similarity garansi↔tanya-garansi 0,8918 vs
       garansi↔pengiriman 0,6081; permintaan 0,87 dtk (vs cold-start 377 dtk di
       serverless). Jalur app penuh: 1024 dim → zero-pad 1536, 476 ms.
+- [x] **Kelola server embedding VPS dari dashboard** (2026-07-26, D8): tabel PLATFORM
+      `embedding_servers` (migrasi 0008, tanpa tenant_id/RLS — infrastruktur bersama,
+      dijaga `requireRole('superadmin')`), CRUD + `/trashed` + `/restore` (Rule #3),
+      tombol **Test koneksi** memanggil `/v1/models` ber-auth di server → menguji
+      jaringan+token sekaligus lalu **mendeteksi model + dimensinya**. Katalog model
+      jadi DINAMIS (`embeddings/catalog.ts`): registry statis + model VPS berawalan
+      `vps:` — **tambah model di VPS tak perlu deploy ulang**. Token terenkripsi
+      AES-256-GCM, tak pernah dikirim ke browser (`hasToken` saja). Model >1536 dim
+      ditolak saat deteksi (kolom pgvector).
+      E2E LULUS: daftar→deteksi(384d)→muncul di katalog→embed via `vps:` (norma
+      1.0000)→token tak bocor→server dihapus, model hilang dari katalog.
+      20/20 unit test, build lulus (33 rute), migrasi diterapkan ke Neon.
+      Panduan agen VPS: `services/embedding-server/SETUP-VPS.md`.
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`

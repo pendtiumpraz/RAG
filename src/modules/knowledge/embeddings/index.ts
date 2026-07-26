@@ -1,4 +1,4 @@
-﻿import { getEmbeddingModel } from '@/modules/core/registry';
+﻿import { resolveEmbeddingModel } from './catalog';
 import { embedApi } from './api';
 // './local' (transformers.js, berat) di-import DINAMIS hanya saat model lokal
 // dipakai — agar bundle fungsi serverless (Vercel) tetap ramping saat pakai
@@ -37,7 +37,9 @@ export async function embed(
   texts: string[],
   ctx: EmbedContext,
 ): Promise<number[][]> {
-  const model = getEmbeddingModel(modelId);
+  // Katalog = registry statis + model yang ditemukan di server VPS, jadi
+  // model baru di VPS bisa dipakai tanpa deploy ulang.
+  const model = await resolveEmbeddingModel(modelId);
   if (!model) throw new Error(`Unknown embedding model: ${modelId}`);
 
   let vectors: number[][];

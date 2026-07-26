@@ -84,11 +84,18 @@ langsung ke internet, dan biarkan hanya Caddy/nginx yang menjangkaunya.
 ## API
 
 ```
-GET  /health           → { ok, models, loaded }
+GET  /health           (tanpa auth, minimal)  → { ok, count }
+GET  /v1/models        Authorization: Bearer <token>
+  →  { "data": [ { "id": "bge-m3", "dimensions": 1024, "dtype": "fp32", "loaded": true } ] }
 POST /v1/embeddings    Authorization: Bearer <token>
      { "model": "bge-m3", "input": ["teks a", "teks b"] }
   →  { "data": [ { "index": 0, "embedding": [...] }, … ] }
 ```
+
+`/health` sengaja tidak menyebut model apa pun — itu untuk uptime check dan
+boleh publik. Daftar model ada di `/v1/models` yang ber-auth; dashboard Nalar
+memanggilnya saat "Test koneksi" sehingga satu tombol menguji jaringan **dan**
+token sekaligus, lalu mendaftarkan model yang ditemukan.
 
 Karena kompatibel OpenAI, server ini boleh ditukar dengan HF Text
 Embeddings Inference atau vLLM tanpa mengubah apa pun di app.

@@ -84,11 +84,24 @@ export async function embedSelfhosted(
   texts: string[],
   opts: { timeoutMs?: number } = {},
 ): Promise<number[][]> {
-  const cfg = selfhostedConfig();
+  const served = model.servedModel ?? model.id;
+
+  // Server yang terdaftar lewat dashboard menang atas env: itu yang bisa
+  // diubah superadmin tanpa deploy ulang. Import dinamis untuk memutus
+  // siklus modul (service → selfhosted → service).
+  let cfg: SelfhostedConfig | null = null;
+  const { embeddingServerService } = await import('@/modules/settings/embedding-server.service');
+  const registered = await embeddingServerService.resolveForModel(served);
+  if (registered) cfg = { baseUrl: registered.baseUrl, token: registered.token };
+
+  // Cadangan: konfigurasi lewat env (dev / on-prem tanpa dashboard).
+  if (!cfg) cfg = selfhostedConfig();
+
   if (!cfg) {
     throw new Error(
-      `Model "${model.id}" dilayani server embedding sendiri, tapi ` +
-      'EMBEDDING_SELFHOSTED_URL belum diatur.',
+      `Model "${model.id}" dilayani server embedding sendiri, tapi tak ada server ` +
+      'terdaftar yang melayaninya dan EMBEDDING_SELFHOSTED_URL juga kosong. ' +
+      'Daftarkan server di Models & Keys → Server embedding (VPS), lalu Test koneksi.',
     );
   }
   assertSecureEndpoint(cfg.baseUrl);
@@ -107,7 +120,7 @@ export async function embedSelfhosted(
         'Content-Type': 'application/json',
         ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
       },
-      body: JSON.stringify({ model: model.servedModel ?? model.id, input: texts }),
+      body: JSON.stringify({ model: served, input: texts }),
     });
   } catch (err) {
     const e = err as Error;

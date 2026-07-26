@@ -185,6 +185,24 @@ test('selfhosted: endpoint tanpa token DITOLAK + normalisasi config', async () =
   if (prevT) process.env.EMBEDDING_SELFHOSTED_TOKEN = prevT; else delete process.env.EMBEDDING_SELFHOSTED_TOKEN;
 });
 
+test('katalog: entri selfhosted statis disembunyikan bila env kosong', async () => {
+  const { resolveEmbeddingModel, VPS_PREFIX } =
+    await import('../src/modules/knowledge/embeddings/catalog');
+  const prev = process.env.EMBEDDING_SELFHOSTED_URL;
+
+  // Tanpa env, menampilkan model env-based hanya menjebak: pasti gagal saat dipakai.
+  delete process.env.EMBEDDING_SELFHOSTED_URL;
+  assert.equal(await resolveEmbeddingModel('bge-m3-selfhosted'), undefined);
+  // model statis lain tetap ada
+  assert.ok(await resolveEmbeddingModel('all-MiniLM-L6-v2'));
+
+  process.env.EMBEDDING_SELFHOSTED_URL = 'https://embed.contoh.com';
+  assert.ok(await resolveEmbeddingModel('bge-m3-selfhosted'));
+
+  assert.equal(VPS_PREFIX, 'vps:');
+  if (prev) process.env.EMBEDDING_SELFHOSTED_URL = prev; else delete process.env.EMBEDDING_SELFHOSTED_URL;
+});
+
 test('registry: model selfhosted tak ikut jalur bobot lokal', async () => {
   const { EMBEDDING_MODELS } = await import('../src/modules/core/registry');
   const sh = EMBEDDING_MODELS.filter((m) => m.kind === 'selfhosted');

@@ -126,8 +126,29 @@ function tokenOk(header) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
 
+  // Health TANPA auth: sengaja minimal — cukup untuk uptime check, tak
+  // membocorkan model apa yang dilayani.
   if (req.method === 'GET' && url.pathname === '/health') {
-    return send(res, 200, { ok: true, models: ENABLED, loaded: [...pipes.keys()] });
+    return send(res, 200, { ok: true, count: ENABLED.length });
+  }
+
+  // Katalog model BER-AUTH: dipakai app untuk "Test koneksi" sekaligus
+  // mendeteksi model + dimensinya. Ber-auth supaya satu panggilan menguji
+  // jaringan DAN token — token salah ketahuan di sini, bukan saat ingest.
+  if (req.method === 'GET' && url.pathname === '/v1/models') {
+    if (!tokenOk(req.headers.authorization)) {
+      return send(res, 401, { error: { message: 'token tidak valid' } });
+    }
+    return send(res, 200, {
+      object: 'list',
+      data: ENABLED.filter((n) => CATALOG[n]).map((n) => ({
+        id: n,
+        object: 'model',
+        dimensions: CATALOG[n].dimensions,
+        dtype: CATALOG[n].dtype,
+        loaded: pipes.has(n),
+      })),
+    });
   }
 
   if (req.method !== 'POST' || url.pathname !== '/v1/embeddings') {

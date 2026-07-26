@@ -3,19 +3,25 @@ import { z } from 'zod';
 import { getCurrentUser } from '@/modules/core/auth';
 import { settingsService } from '@/modules/settings/settings.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
-import { LLM_MODELS, EMBEDDING_MODELS, ALL_PROVIDERS } from '@/modules/core/registry';
+import { LLM_MODELS, ALL_PROVIDERS } from '@/modules/core/registry';
+import { listEmbeddingModels } from '@/modules/knowledge/embeddings/catalog';
 
 export const runtime = 'nodejs';
 
 /** GET /api/settings — katalog model + setelan aktif tenant. */
 export async function GET() {
   const user = await getCurrentUser();
-  const active = await settingsService.get(user.tenantId);
+  const [active, embeddingModels] = await Promise.all([
+    settingsService.get(user.tenantId),
+    listEmbeddingModels(), // registry statis + model dari server VPS terdaftar
+  ]);
   return NextResponse.json({
     llmModels: LLM_MODELS,
-    embeddingModels: EMBEDDING_MODELS,
+    embeddingModels,
     providers: ALL_PROVIDERS,
     active,
+    // dipakai UI untuk memutuskan menampilkan panel kelola server VPS
+    role: user.role,
   });
 }
 
