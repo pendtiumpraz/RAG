@@ -34,6 +34,13 @@ Belum ditentukan.
 7. **Per-user Google Drive/SharePoint** sebagai sumber data. — HIGH
 8. **Isolasi antar tenant** wajib (RLS, tidak boleh saling connect KB). — HIGH
 9. **SaaS + on-prem**. — HIGH
+10. **Pendaftaran terbuka + verifikasi superadmin** (dicatat 2026-07-26) — siapa pun
+    boleh mendaftar, tapi akun BELUM bisa login sampai diverifikasi superadmin.
+    Konsekuensi yang perlu diputuskan saat implementasi: kolom status di `users`
+    (mis. `approved_at`/`status`), penolakan login untuk akun pending (pesan jelas,
+    bukan "password salah"), halaman superadmin utk approve/tolak, dan nasib akun
+    OAuth (Google/Microsoft) yang saat ini auto-provisioning tenant begitu login.
+    — **BELUM DIIMPLEMENTASI**
 
 ---
 

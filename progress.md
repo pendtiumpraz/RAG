@@ -158,6 +158,16 @@
       1.0000)→token tak bocor→server dihapus, model hilang dari katalog.
       20/20 unit test, build lulus (33 rute), migrasi diterapkan ke Neon.
       Panduan agen VPS: `services/embedding-server/SETUP-VPS.md`.
+- [x] **Akun demo superadmin** (`npm run demo:account`, `--reset` utk password baru):
+      signup publik selalu memberi peran `admin`, jadi promosi ke `superadmin`
+      dilakukan skrip ini oleh pemegang akses DB. **Bug ditemukan & diperbaiki saat
+      verifikasi**: `users` ber-FORCE RLS sehingga `UPDATE` di luar `withTenant()`
+      tak mengenai baris apa pun DAN TIDAK error — skrip tampak sukses padahal peran
+      tetap `admin`. Sekarang promosi lewat `withTenant()` + `.returning()`, dan peran
+      yang ditampilkan dibaca ULANG dari DB.
+- [ ] **Pendaftaran terbuka + verifikasi superadmin** (requirement #10, 2026-07-26) —
+      siapa pun boleh daftar, superadmin memverifikasi sebelum akun bisa login.
+      Belum diimplementasi; lihat catatan konsekuensi di `user_requirement.md`.
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`

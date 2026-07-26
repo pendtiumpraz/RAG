@@ -12,6 +12,7 @@
     "smoke": "node --env-file=.env --import tsx scripts/smoke.ts",
     "models:push": "node --env-file=.env --import tsx scripts/push-model.ts",
     "models:verify": "node --env-file=.env --import tsx scripts/verify-model-host.ts",
+    "demo:account": "node --env-file=.env --import tsx scripts/create-demo-account.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file=.env --import tsx src/modules/core/db/migrate.ts",
     "db:push": "drizzle-kit push",
