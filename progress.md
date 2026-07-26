@@ -123,6 +123,22 @@
       `apply-migration`, `db-setup`, `diag-rls` mematok `ssl:'require'` sehingga gagal
       terhadap Postgres lokal — termasuk docker-compose on-prem yang didokumentasikan
       README. Kini mendeteksi TLS seperti `migrate.ts`.
+- [x] **Security scan dependensi** (2026-07-27, `docs/SECURITY-AUDIT.md`): 13 temuan
+      ditelusuri sampai apakah jalurnya benar-benar dieksekusi. **1 diperbaiki**:
+      `drizzle-orm` <0.45.2 SQL-injection lewat identifier tak di-escape [HIGH] — satu-
+      satunya yang ada di jalur query kita; dinaikkan ke 0.45.2 + drizzle-kit 0.31.10,
+      diverifikasi build + 24/24 test + smoke ketat terhadap Neon (skor retrieval tetap
+      0.752). Sisanya transitif & jalurnya mati: `protobufjs` [CRITICAL] lewat
+      onnxruntime-**web** (kita pakai onnxruntime-node), `sharp` lewat model gambar +
+      Next (kita hanya embedding teks, `images.unoptimized`), `postcss` build-time,
+      `uuid` cacat di v3/v5/v6 padahal pemakainya v4. `audit fix --force` DITOLAK karena
+      akan memundurkan transformers ke v1.4.2 dan memecah jalur embedding yang terbukti.
+- [x] **Bug urutan setup DB** (2026-07-27): `db:push` pada database BARU pasti gagal —
+      schema.ts memuat kolom `vector(1536)` + index HNSW, sedangkan ekstensi `vector`
+      baru dibuat di migrasi 0001 yang jalannya SESUDAH push. Tak pernah kelihatan di
+      Neon (ekstensi sudah lama ada); yang kena adalah CI dan pemasangan on-prem baru —
+      persis alur yang ditulis README. Fix: `scripts/ensure-extensions.mjs`, dipasang di
+      depan `db:push`.
 - [ ] Performance/load test
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`

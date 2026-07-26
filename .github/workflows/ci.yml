@@ -85,6 +85,13 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
 
+      # Ekstensi HARUS ada sebelum push: schema.ts memuat kolom vector(1536)
+      # dan index HNSW, yang tak bisa dibuat tanpa pgvector.
+      - name: Ekstensi pgvector
+        env:
+          DATABASE_URL: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
+        run: node scripts/ensure-extensions.mjs
+
       - name: Skema (drizzle push, sbg owner)
         env:
           DATABASE_URL: postgres://nalar_owner:ci_owner_pw@localhost:5432/nalar_ci
