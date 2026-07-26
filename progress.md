@@ -140,8 +140,11 @@
       Pengaman: URL non-https ditolak (kecuali loopback) & wajib token — yang
       melintas adalah isi dokumen tenant. Dimensi balasan diperiksa agar KB tak
       tercemar vektor tak sebanding.
-      Terverifikasi: server sehat, token salah/absen → 401, app→server 384-dim
-      norma 1.0000, dimensi meleset ditolak. 19/19 unit test, build lulus.
+      Terverifikasi: server sehat, token salah/absen → 401, dimensi meleset ditolak,
+      19/19 unit test, build lulus. **BGE-M3 fp32 2.266.820.608 B TERBUKTI JALAN**:
+      3×1024 dim, norma 1,0000, similarity garansi↔tanya-garansi 0,8918 vs
+      garansi↔pengiriman 0,6081; permintaan 0,87 dtk (vs cold-start 377 dtk di
+      serverless). Jalur app penuh: 1024 dim → zero-pad 1536, 476 ms.
 - [ ] Team invite backend, billing, observability
 
 ### ⬜ Fase 06: Deployment — `Belum`

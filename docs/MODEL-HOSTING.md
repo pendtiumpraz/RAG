@@ -136,8 +136,24 @@ service terpisah `services/embedding-server/` yang memakai
 Node, v3 mengoper **path berkas** ke onnxruntime, bukan buffer — itulah yang
 membuat bobot pendamping bisa ditemukan.
 
-Diverifikasi 2026-07-26: v3 menarik `onnx/model.onnx` (607 KB, hanya graf)
-**dan** `onnx/model.onnx_data` (2,16 GB) — perilaku yang tak ada di v2.
+**Diverifikasi jalan, 2026-07-26.** v3 menarik `onnx/model.onnx` (607.298 B —
+hanya graf) **dan** `onnx/model.onnx_data` (2.266.820.608 B) lalu memuatnya:
+
+```
+model   : bge-m3 (fp32, bobot eksternal)
+vektor  : 3 x 1024 dim · norma 1,0000
+similarity "garansi 24 bulan" vs "berapa lama garansi?"  0,8918
+similarity "garansi 24 bulan" vs "pengiriman 3-5 hari"   0,6081
+waktu permintaan: 0,87 dtk (model sudah di memori)
+```
+
+Semantiknya benar — pertanyaan garansi jauh lebih dekat ke jawaban garansi
+daripada ke kalimat pengiriman. Perhatikan bedanya dengan serverless: di VPS
+bobot dimuat sekali saat start, jadi permintaan berikutnya **di bawah 1
+detik**, bukan 377 detik per cold start.
+
+Lewat jalur app penuh (`embed('bge-m3-selfhosted', …)`) hasilnya 1024 dim
+yang lalu di-zero-pad ke 1536 sesuai kolom pgvector, 476 ms.
 
 App memanggilnya lewat HTTP kompatibel OpenAI; pilih model **"BGE-M3
 presisi penuh — server sendiri (VPS)"** di halaman Models & Keys. Karena
