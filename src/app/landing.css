@@ -113,5 +113,19 @@
 .lp-guarantee .g{ background:var(--card-2); padding:20px; }
 /* label di sini membawa makna, bukan dekorasi — --faint (3,2:1) terlalu tipis. */
 .lp-guarantee .g .microlabel{ color:var(--muted); letter-spacing:var(--tk-caps); }
+
+/* ringkasan bahasa Inggris untuk peninjau OAuth Google (lihat page.tsx) */
+.lp-en .lp-en-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:32px;
+  background:var(--line); border:1px solid var(--line); border-radius:var(--rad-lg);
+  gap:1px; overflow:hidden; }
+@media(max-width:820px){ .lp-en .lp-en-grid{ grid-template-columns:1fr; } }
+.lp-en .lp-en-grid > div{ background:var(--card); padding:22px; }
+.lp-en .microlabel{ display:block; color:var(--muted); letter-spacing:var(--tk-caps);
+  margin-bottom:12px; }
+.lp-en .lp-en-p{ color:var(--muted); font-size:14.5px; line-height:1.65; margin:0 0 4px; }
+.lp-en .lp-en-p b{ color:var(--ink); font-weight:600; }
+/* di sini .lp-can berdiri sendiri, bukan lanjutan kartu — garis atasnya mubazir */
+.lp-en .lp-can{ border-top:0; padding-top:0; margin-top:0; }
+.lp-en .lp-can b{ color:var(--ink); font-weight:600; font-family:var(--font-mono); font-size:.94em; }
 .lp-guarantee .g p{ color:var(--muted); font-size:14px; line-height:1.65; margin:9px 0 0; }
 .lp-guarantee .g b{ color:var(--ink); font-weight:600; }

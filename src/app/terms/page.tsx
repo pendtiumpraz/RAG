@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '../_components/legal';
+import { LegalPage, CONTACT_EMAIL } from '../_components/legal';
 
 export const metadata: Metadata = {
   // Layout sudah memakai template '%s · Nalar' — jangan diulang di sini.
@@ -174,6 +174,12 @@ export default function TermsPage() {
       <p>
         Ketentuan ini tunduk pada hukum Republik Indonesia. Perselisihan diupayakan
         diselesaikan secara musyawarah lebih dahulu.
+      </p>
+
+      <h2>12. Kontak</h2>
+      <p>
+        Pertanyaan soal ketentuan ini bisa dikirim ke{' '}
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
     </LegalPage>
   );

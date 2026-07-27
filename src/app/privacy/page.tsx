@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '../_components/legal';
+import { LegalPage, CONTACT_EMAIL } from '../_components/legal';
 
 export const metadata: Metadata = {
   // Layout sudah memakai template '%s · Nalar' — jangan diulang di sini.
@@ -24,6 +24,40 @@ export default function PrivacyPage() {
       title="Kebijakan Privasi"
       updated="27 Juli 2026"
       intro="Nalar adalah platform Retrieval-Augmented Generation: ia membaca dokumen milikmu, mengubahnya jadi basis pengetahuan, lalu menjawab pertanyaan berdasarkan isinya. Halaman ini menjelaskan data apa yang benar-benar kami simpan, ke mana ia mengalir, dan apa yang bisa kamu kendalikan."
+      english={(
+        <>
+          <p>
+            <b>Nalar</b> is a question-answering application for an organisation&apos;s own
+            documents. The full policy below is in Indonesian; this summary states the same
+            terms in English.
+          </p>
+          <p><b>Google user data we access, and why:</b></p>
+          <ul>
+            <li><b>drive.readonly</b> — reads only the files you explicitly select, so their
+              text can become your chatbot&apos;s knowledge base. It cannot modify or delete
+              anything in your Drive.</li>
+            <li><b>drive.file</b> — writes knowledge notes into a <code>_nalar-memory/</code>
+              folder created by this app. It cannot reach any other file in your Drive.</li>
+          </ul>
+          <p>
+            Connecting Google Drive is <b>optional</b> — Nalar works fully with direct
+            uploads. We store the <b>extracted text</b> of the files you select and its
+            numeric representation used for search; your original files stay in your own
+            storage. Your Google data is <b>never sold, never used for advertising, and never
+            used to train any AI model</b>. Question text is sent to the AI model provider you
+            choose in order to generate an answer.
+          </p>
+          <p>
+            You can disconnect a source at any time from the Knowledge page, or revoke access
+            directly in your Google Account security settings; revoking stops all further
+            access, while the knowledge base already built stays until you delete it. Deletion
+            in the app is a <b>soft delete</b> and is recoverable. There is currently
+            <b> no</b> automatic permanent deletion after a fixed period and <b>no</b>
+            self-serve button to erase an entire account — to have data erased permanently,
+            contact the operator at the address in the Contact section below.
+          </p>
+        </>
+      )}
     >
       <h2>1. Siapa yang bertanggung jawab</h2>
       <p>
@@ -234,6 +268,19 @@ export default function PrivacyPage() {
       <p>
         Bila kebijakan ini berubah secara berarti, tanggal berlaku di atas diperbarui
         dan pengguna aktif diberi tahu. Versi terbaru selalu tersedia di halaman ini.
+      </p>
+
+      <h2>11. Kontak</h2>
+      <p>
+        Pertanyaan soal kebijakan ini, permintaan akses atau koreksi data, dan
+        permintaan <b>penghapusan permanen</b> — yang dikerjakan manual seperti
+        disebut di bagian 7 — kirim ke{' '}
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+      </p>
+      <p lang="en" style={{ fontSize: 14.5 }}>
+        <b>In English:</b> for questions about this policy, or to request access,
+        correction, or permanent deletion of your data, write to{' '}
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
     </LegalPage>
   );

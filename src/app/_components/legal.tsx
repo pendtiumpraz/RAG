@@ -2,14 +2,33 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 /**
+ * Alamat kontak yang tercetak di Kebijakan Privasi & Ketentuan Layanan.
+ *
+ * Kedua dokumen itu menyuruh pengguna "hubungi pengelola" untuk permintaan
+ * penghapusan permanen, tapi sebelumnya tak pernah menyebut caranya — dan
+ * verifikasi OAuth Google mensyaratkan kanal kontak yang bisa dipakai.
+ *
+ * PENTING: kotak surat ini harus benar-benar ada dan dibaca. Diletakkan di
+ * satu tempat agar bisa diganti sekali untuk kedua halaman.
+ */
+export const CONTACT_EMAIL = 'privacy@sainskerta.net';
+
+/**
  * Kerangka halaman legal (Privasi & Ketentuan) — PUBLIK, tanpa sesi.
  *
  * Sengaja tidak memakai shell dashboard: halaman ini harus bisa dibuka siapa
  * pun, termasuk peninjau OAuth Google yang memeriksa URL kebijakan privasi
  * sebelum aplikasi disetujui.
  */
-export function LegalPage({ title, updated, intro, children }: {
-  title: string; updated: string; intro: string; children: React.ReactNode;
+export function LegalPage({ title, updated, intro, english, children }: {
+  title: string; updated: string; intro: string;
+  /**
+   * Ringkasan bahasa Inggris. Peninjau verifikasi OAuth Google membaca halaman
+   * ini dalam bahasa Inggris, sedangkan isinya berbahasa Indonesia — tanpa
+   * ringkasan ini kebijakan privasinya bisa dinilai tidak menjelaskan apa pun.
+   */
+  english?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <main className="legal">
@@ -28,6 +47,12 @@ export function LegalPage({ title, updated, intro, children }: {
         <h1>{title}</h1>
         <p className="legal-meta">Berlaku sejak {updated}</p>
         <p className="legal-intro">{intro}</p>
+        {english ? (
+          <section className="legal-en" lang="en">
+            <span className="legal-en-tag">ENGLISH SUMMARY</span>
+            {english}
+          </section>
+        ) : null}
         {children}
       </article>
 
@@ -60,6 +85,15 @@ export function LegalPage({ title, updated, intro, children }: {
           border-bottom:1px solid var(--line); vertical-align:top; }
         .legal-body th{ font-family:var(--font-mono); font-size:11px; letter-spacing:.08em;
           text-transform:uppercase; color:var(--muted); font-weight:600; }
+        .legal-en{ margin:26px 0 6px; padding:20px 22px; background:var(--card-2);
+          border:1px solid var(--line); border-left:3px solid var(--signal); border-radius:10px; }
+        .legal-en-tag{ display:block; font-family:var(--font-mono); font-size:10.5px;
+          letter-spacing:.12em; color:var(--signal); margin-bottom:10px; }
+        .legal-en p{ font-size:14.5px; color:var(--muted); margin:8px 0; }
+        .legal-en p:first-of-type{ margin-top:0; }
+        .legal-en b{ color:var(--ink); }
+        .legal-en ul{ padding-left:20px; margin:8px 0; }
+        .legal-en li{ font-size:14.5px; color:var(--muted); margin:5px 0; }
         .legal-note{ background:var(--card-2); border:1px solid var(--line);
           border-left:3px solid var(--source); border-radius:8px; padding:13px 16px; margin:18px 0; }
         .legal-note b{ display:block; margin-bottom:4px; }

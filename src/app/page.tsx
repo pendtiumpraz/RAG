@@ -47,6 +47,7 @@ export default function Landing() {
                 footer — peninjau Google memeriksa keterjangkauannya. */}
             <a href="#tentang">Tentang</a><a href="#data-google">Data Google</a>
             <a href="/privacy">Privasi</a><a href="/terms">Ketentuan</a>
+            <a href="#english" lang="en">English</a>
           </nav>
           <div className="cluster gap-2">
             <Link className="btn btn-sm" href="/auth">Masuk</Link>
@@ -200,6 +201,63 @@ export default function Landing() {
             Rincian lengkap ada di <a href="/privacy">Kebijakan Privasi</a> dan{' '}
             <a href="/terms">Ketentuan Layanan</a>.
           </p>
+        </div>
+      </section>
+
+      {/* RINGKASAN INGGRIS — bukan hiasan.
+          Peninjau verifikasi OAuth Google bekerja dalam bahasa Inggris, sedangkan
+          seluruh beranda ini berbahasa Indonesia (<html lang="id">). Halaman yang
+          tak terbaca peninjau dinilai persis seperti temuan mereka: "tidak
+          menjelaskan tujuan aplikasi". Bagian ini menyatakan nama aplikasi,
+          fungsinya, dan alasan tiap scope Drive diminta — dalam bahasa Inggris,
+          statis (tanpa perlu diklik), dan ditandai lang="en". */}
+      <section className="lp-wrap" id="english">
+        <div className="lp-sec lp-en" lang="en">
+          <span className="lp-eyebrow">ENGLISH SUMMARY</span>
+          <h2 className="lp-h2">What Nalar is, and why it asks for Google data</h2>
+          <p className="lp-sub">
+            <b>Nalar</b> is a question-answering application for an organisation&apos;s own
+            documents. You connect a document source, Nalar reads and indexes it, and your
+            team can then ask questions in plain language and get answers grounded in those
+            documents — every answer citing the file it came from. It is built for teams and
+            companies rather than personal use.
+          </p>
+
+          <div className="lp-en-grid">
+            <div>
+              <span className="microlabel">WHAT THE APP DOES</span>
+              <ul className="lp-can">
+                <li className="ok">Connects a document source you choose — Google Drive,
+                  OneDrive, SharePoint, or a direct upload</li>
+                <li className="ok">Extracts the text and builds a searchable index of it</li>
+                <li className="ok">Answers questions from that text, citing the source file</li>
+                <li className="ok">Publishes the result as a chatbot you can embed on your
+                  own website</li>
+              </ul>
+            </div>
+            <div>
+              <span className="microlabel">WHY IT REQUESTS GOOGLE DATA</span>
+              <p className="lp-en-p">Connecting Google Drive is <b>optional</b> — Nalar works
+                fully with direct uploads. If you do connect it:</p>
+              <ul className="lp-can">
+                <li className="ok"><b>drive.readonly</b> — reads only the documents you
+                  select, to build your knowledge base</li>
+                <li className="no">cannot modify or delete anything in your Drive</li>
+                <li className="ok"><b>drive.file</b> — writes knowledge summaries into a{' '}
+                  <code>_nalar-memory/</code> folder this app creates</li>
+                <li className="no">cannot reach any other file in your Drive</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="lp-note">
+            <b>How we handle your data.</b> We store only the extracted text and the numeric
+            representation used for search — not a copy of your original files. Your Google
+            data is never sold, never used for advertising, and never used to train any AI
+            model. You can disconnect at any time from the Knowledge page, or revoke access
+            directly in your Google Account settings. Full details:{' '}
+            <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>.
+          </div>
         </div>
       </section>
 
