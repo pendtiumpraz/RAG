@@ -64,7 +64,7 @@ Local model weights are hosted on **Vercel Blob** (`EMBEDDING_MODEL_SOURCE=blob`
 
 ### Serverless constraints (Vercel)
 
-Documented in `docs/DEPLOY-VERCEL.md`: db pool `max: 1` + `prepare: false` on Vercel; local ONNX embeddings are lazy-imported and effectively API-only on Vercel (local models are for VPS/on-prem); in-memory rate limiting doesn't share state across lambdas.
+Documented in `docs/DEPLOY-VERCEL.md`: db pool `max: 1` + `prepare: false` on Vercel; in-memory rate limiting doesn't share state across lambdas. Local ONNX embeddings are lazy-imported, and — measured in production 2026-07-27 — the 22MB MiniLM **does** run fine on a lambda (3.8s cold, 0.5s warm); it is the large models (543MB+) that exceed the ~512MB ephemeral `/tmp`, which is what `services/embedding-server/` on a VPS exists for. Don't repeat the older blanket claim that local embeddings are unusable on Vercel.
 
 ## UI / design system
 

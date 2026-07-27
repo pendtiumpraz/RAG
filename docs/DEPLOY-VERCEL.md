@@ -71,7 +71,7 @@ di arsitektur kita perlu penyesuaian di production:
 
 | # | Isu | Di Vercel | Solusi |
 |---|-----|-----------|--------|
-| **1** | **Embedding lokal** (transformers.js, 22MB–543MB) | ❌ tak praktis (ukuran bundle, cold-start, /tmp ~512MB & sementara) | **Pakai embedding API** (OpenAI/Cohere) di Vercel. Kode sudah lazy-load model lokal → bundle ramping. Model lokal untuk **on-prem/VPS**, bobot dari Vercel Blob — lihat `docs/MODEL-HOSTING.md`. |
+| **1** | **Embedding lokal** (transformers.js) | ✅ **MiniLM 22MB JALAN** (diukur 2026-07-27: 3,8 dtk cold, 0,5 dtk warm) · ❌ model besar (543MB+) melebihi `/tmp` ~512MB | Model kecil boleh dipakai apa adanya. Untuk akurasi lebih tinggi: embedding API, atau server embedding sendiri di VPS (`services/embedding-server/`). Lihat `docs/MODEL-HOSTING.md`. |
 | **2** | **Rate limiter in-memory** | ⚠️ per-instance, tak lintas-instance | Cukup untuk skala kecil. Production: pindah ke **Vercel KV / Upstash Redis** (interface `rateLimit()` tinggal ditukar). |
 | **3** | **Background jobs** (sync worker, memory agent) in-process | ⚠️ bisa ke-freeze setelah response | Vercel **Pro** (maxDuration 300s) + `waitUntil` untuk job pendek; ATAU offload ke **worker terpisah** (Railway/VPS) / **QStash**. Untuk sync besar, worker terpisah disarankan. |
 

@@ -194,11 +194,22 @@ itu tidak masuk ke bundle Next.js.
 
 ## 6. Batas serverless (Vercel)
 
-Model lokal **tidak** realistis di lambda: `/tmp` hanya ~512 MB, memori
-terbatas, dan filesystem-nya sementara sehingga bobot ditarik ulang tiap
-cold start. Angka di tabel atas membuktikannya — muat pertama BGE-M3
-**377 detik**, sementara `vercel.json` membatasi chat 60 dtk dan sync 300
-dtk. Bahkan MiniLM yang 22 MB butuh ~22 dtk per cold start.
+Tergantung UKURAN modelnya — dan ini sudah diukur langsung di produksi
+(2026-07-27), bukan diperkirakan:
+
+| Model | di lambda Vercel | catatan |
+|---|---|---|
+| MiniLM 22 MB | ✅ **jalan** — 3,8 dtk cold, **0,5 dtk warm** | terverifikasi lewat `POST /api/chat/<publicKey>` di rag.sainskerta.net |
+| BGE-M3 543 MB | ❌ | melebihi `/tmp` ~512 MB; muat pertama 377 dtk vs batas chat 60 dtk |
+| BGE-M3 2,16 GB | ❌ | bobot eksternal, tak bisa dimuat transformers v2 sama sekali |
+
+> Koreksi: dokumen ini sempat menyatakan model lokal "tidak realistis di
+> lambda" tanpa syarat. Untuk model **kecil** itu keliru — MiniLM terbukti
+> jalan dengan nyaman. Yang benar-benar terhalang adalah model besar.
+
+Yang tetap perlu diingat untuk model kecil: filesystem lambda bersifat
+sementara, jadi 3,8 detik itu dibayar ulang tiap cold start (bukan tiap
+permintaan).
 
 Di Vercel pakai **embedding API** (OpenAI/Cohere); jalur model lokal dari
 blob ditujukan untuk **VPS / on-prem / Docker**, di mana `MODEL_CACHE_DIR`
