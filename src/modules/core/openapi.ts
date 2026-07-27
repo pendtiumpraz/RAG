@@ -118,6 +118,42 @@ export const openApiSpec = {
         responses: { 200: err('restored') } },
     },
 
+    '/api/chat/internal': {
+      post: { summary: 'Giliran chat dari dashboard (SSE) — sesi, bukan publicKey',
+        security: [sessionAuth],
+        requestBody: json(obj({ chatbotId: uuid, message: str, conversationId: uuid }, ['chatbotId', 'message'])),
+        responses: { 200: err('text/event-stream'), 429: err('kuota/rate limit') } },
+    },
+    '/api/conversations': {
+      get: { summary: 'Riwayat percakapan (berhalaman)', security: [sessionAuth],
+        parameters: [
+          { name: 'chatbotId', in: 'query', required: false, schema: uuid },
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer' } },
+          { name: 'pageSize', in: 'query', required: false, schema: { type: 'integer' } },
+        ],
+        responses: { 200: err('{ rows, total, page, pageSize, pages }') } },
+    },
+    '/api/conversations/{id}': {
+      get: { summary: 'Transkrip satu percakapan + sitasi tiap jawaban', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('daftar pesan') } },
+    },
+    '/api/connections/{provider}/start': {
+      get: { summary: 'Mulai OAuth connect akun storage → redirect ke consent',
+        security: [sessionAuth],
+        parameters: [{ name: 'provider', in: 'path', required: true, schema: str }],
+        responses: { 302: err('redirect ke penyedia'), 400: err('OAuth belum dikonfigurasi') } },
+    },
+    '/api/connections/{provider}/callback': {
+      get: { summary: 'Callback OAuth connect — menyimpan token terenkripsi',
+        parameters: [
+          { name: 'provider', in: 'path', required: true, schema: str },
+          { name: 'code', in: 'query', required: false, schema: str },
+          { name: 'state', in: 'query', required: false, schema: str },
+        ],
+        responses: { 302: err('kembali ke /knowledge') } },
+    },
+
     /* ── sources & connections ── */
     '/api/sources': {
       get: { summary: 'Daftar sumber data + status sync', security: [sessionAuth],
@@ -140,6 +176,38 @@ export const openApiSpec = {
         ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
+    '/api/settings/test-key': {
+      post: {
+        summary: 'Uji kunci API TERSIMPAN ke penyedia (endpoint daftar model, tanpa biaya token)',
+        security: [sessionAuth],
+        requestBody: json(obj({ provider: str }, ['provider'])),
+        responses: { 200: err('ok, message'), 429: err('terlalu sering') } },
+    },
+    '/api/analytics': {
+      get: { summary: 'Analitik SATU chatbot: pertanyaan & dokumen sumber terbanyak', security: [sessionAuth],
+        parameters: [
+          { name: 'chatbotId', in: 'query', required: true, schema: uuid },
+          { name: 'days', in: 'query', required: false, schema: { type: 'integer' } },
+        ],
+        responses: { 200: err('totals, topQuestions, topKeywords, topDocuments, daily') } },
+    },
+    '/api/connections/providers': {
+      get: { summary: 'Provider storage mana yang siap dipakai (tanpa menyebut kredensial)',
+        security: [sessionAuth],
+        responses: { 200: err('{ google: bool, microsoft: bool }') } },
+    },
+    '/api/admin/oauth-apps': {
+      get: { summary: 'Kredensial OAuth app (tanpa secret)', security: [sessionAuth],
+        responses: { 200: err('provider, clientId, source, hasSecret') } },
+      put: { summary: 'Simpan/ubah kredensial OAuth (secret kosong = tak diubah)', security: [sessionAuth],
+        requestBody: json(obj({ provider: str, clientId: str, clientSecret: str, msTenantId: str }, ['provider', 'clientId'])),
+        responses: { 200: err('kredensial tersimpan') } },
+      delete: { summary: 'Hapus kredensial DB — sistem kembali memakai env bila ada',
+        security: [sessionAuth],
+        parameters: [{ name: 'provider', in: 'query', required: true, schema: str }],
+        responses: { 200: err('dihapus') } },
+    },
+
     /* ── billing & observability ── */
     '/api/health': {
       get: { summary: 'Health check (PUBLIK, minim) — 503 bila DB tak terjangkau',

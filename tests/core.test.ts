@@ -155,6 +155,44 @@ test('model host blob tanpa base URL → gagal jelas, bukan diam-diam ke HF', as
   if (prevUrl) process.env.EMBEDDING_MODEL_BLOB_URL = prevUrl; else delete process.env.EMBEDDING_MODEL_BLOB_URL;
 });
 
+/* ── OpenAPI tak boleh tertinggal dari rute yang ada ───────────────── */
+test('setiap rute API terdaftar di OpenAPI', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const { join, sep } = await import('node:path');
+  const { openApiSpec } = await import('../src/modules/core/openapi');
+
+  // Telusuri src/app/api → ubah folder jadi path OpenAPI ([id] → {id}).
+  const root = join(process.cwd(), 'src', 'app', 'api');
+  const routes: string[] = [];
+  (function walk(dir: string) {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) { walk(p); continue; }
+      if (name !== 'route.ts') continue;
+      const rel = dir.slice(root.length).split(sep).filter(Boolean)
+        .map((seg) => seg.replace(/^\[\.\.\.(.+)\]$/, '{$1}').replace(/^\[(.+)\]$/, '{$1}'))
+        .join('/');
+      routes.push(`/api${rel ? `/${rel}` : ''}`);
+    }
+  })(root);
+
+  // Nama parameter boleh berbeda dari nama folder — `[chatbotId]` di kode
+  // didokumentasikan sebagai `{publicKey}` karena itu yang lebih jujur bagi
+  // pembaca API. Yang diuji adalah BENTUK rutenya, bukan nama parameternya.
+  const bentuk = (p: string) => p.replace(/\{[^}]+\}/g, '{}');
+
+  // NextAuth mengelola sub-rutenya sendiri (signin/callback/csrf/…), jadi tak
+  // ada satu path yang bisa didokumentasikan secara bermakna.
+  const dikecualikan = new Set(['/api/auth/{}']);
+  const spec = openApiSpec as unknown as { paths: Record<string, unknown> };
+  const terdokumentasi = new Set(Object.keys(spec.paths).map(bentuk));
+  const belum = routes.map(bentuk)
+    .filter((r) => !dikecualikan.has(r) && !terdokumentasi.has(r));
+
+  assert.deepEqual(belum, [],
+    `Rute ini ada tapi belum didokumentasikan di core/openapi.ts:\n  ${belum.join('\n  ')}`);
+});
+
 /* ── observability: log tak boleh membocorkan rahasia ──────────────── */
 test('log terstruktur meredaksi rahasia & memotong teks panjang', async () => {
   const { log } = await import('../src/modules/core/observability');
