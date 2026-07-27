@@ -28,10 +28,64 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Data terstruktur — nama & tujuan aplikasi dalam bentuk yang dibaca MESIN.
+ *
+ * Sampai sini nama "Nalar" hanya ada di <title> dan teks biasa, sehingga
+ * pemeriksa otomatis harus menebaknya dari heuristik (h1? logo? judul?).
+ * JSON-LD menyatakannya eksplisit: `name` persis sama dengan App name di OAuth
+ * consent screen, `description` menjelaskan fungsinya dalam bahasa Inggris,
+ * dan kebijakan privasi ditautkan sebagai properti, bukan sekadar <a>.
+ */
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://rag.sainskerta.net/#organization',
+      name: 'Nalar',
+      url: 'https://rag.sainskerta.net',
+      logo: 'https://rag.sainskerta.net/brand/nalar-logo-400.png',
+      email: 'pendtiumpraz@gmail.com',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://rag.sainskerta.net/#website',
+      name: 'Nalar',
+      url: 'https://rag.sainskerta.net',
+      inLanguage: 'id-ID',
+      publisher: { '@id': 'https://rag.sainskerta.net/#organization' },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Nalar',
+      alternateName: 'Nalar',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      url: 'https://rag.sainskerta.net',
+      description:
+        'Nalar is a question-answering application for an organisation’s own documents. '
+        + 'It connects to a document source you choose — Google Drive, OneDrive, SharePoint, '
+        + 'or a direct upload — extracts the text, and answers questions based on that text, '
+        + 'citing the source file for every answer. The result can be embedded as a chatbot on '
+        + 'your own website.',
+      privacyPolicy: 'https://rag.sainskerta.net/privacy',
+      termsOfService: 'https://rag.sainskerta.net/terms',
+      publisher: { '@id': 'https://rag.sainskerta.net/#organization' },
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'IDR' },
+    },
+  ],
+};
+
 /** Landing publik (bukan redirect ke login). Brand resmi Nalar. */
 export default function Landing() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // JSON.stringify di sini aman: isinya konstanta, bukan input pengguna.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       {/* NAV */}
       <header className="lp-nav">
         <div className="lp-nav-in">
@@ -61,7 +115,13 @@ export default function Landing() {
         <div className="lp-hero">
           <div>
             <span className="lp-badge"><span className="led" /> Platform RAG multi-tenant · SaaS &amp; on-prem</span>
-            <h1>Nalar — tanya dokumen<br /><span className="blue">perusahaanmu sendiri.</span></h1>
+            {/* <h1> sengaja HANYA berisi nama aplikasi. Sebelumnya "Nalar — tanya
+                dokumen perusahaanmu sendiri.", dan pemeriksa yang mengambil nama
+                dari h1 (bukan <title>) membaca seluruh kalimat itu lalu menyebutnya
+                tak cocok dengan App name "Nalar". Slogannya turun jadi elemen
+                terpisah — tampilannya sama, tapi namanya kini tak bercampur. */}
+            <h1>Nalar</h1>
+            <p className="lp-tagline">Tanya dokumen <span className="blue">perusahaanmu sendiri.</span></p>
             {/* Penjelasan tujuan ditaruh DI ATAS, dalam bahasa lugas: peninjau
                 OAuth Google membaca bagian teratas beranda lebih dulu, dan
                 slogan pemasaran saja dinilai tidak menjelaskan apa pun. */}
