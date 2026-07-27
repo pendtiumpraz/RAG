@@ -83,7 +83,8 @@
 - [x] Shell `(app)/` — sidebar terang (sesuai product UI resmi) + topbar + tema toggle + logout
 - [x] **8 halaman wired ke API NYATA (Rule #7 no dummy)**: Dashboard (usage), Chatbots (CRUD penuh + drawer + Sampah/restore), Knowledge (sumber+koneksi+connect drawer), Memory (run+graph SVG+vault sync), Models&Keys (settings), Conversations/Team/Settings (state jujur + branding save)
 - [x] **embed.js produksi**: GET themeConfig → white-label scoped + SSE streaming + sitasi + rate-limit aware
-- [ ] Verifikasi end-to-end (npm install + DB) → Fase 05 Audit
+- [x] Verifikasi end-to-end (npm install + DB) — `npm run smoke` terhadap Neon, dan
+      sejak 2026-07-27 otomatis di CI terhadap Postgres+pgvector sungguhan
 - [x] Landing page publik React · **halaman Branding lengkap** (2026-07-26): `/branding`
       per-chatbot (nama merek, inisial logo, warna utama & sitasi, radius, tema, posisi,
       sapaan, jejak retrieval) + **pratinjau langsung** yang meniru embed.js, plus snippet
@@ -94,7 +95,8 @@
 - [x] **Smoke test runtime** (no-DB): /api/openapi, /embed.js, /auth → 200
 - [x] **2 bug pgvector ditemukan & fixed**: dimensi vektor (kolom→vector(1536)+zero-pad), HNSW ≤2000 (registry di-cap, Qwen-8B dihapus, OpenAI-large@1536)
 - [x] Laporan audit → `audit-report.md`
-- [ ] Verifikasi runtime DB (Postgres+pgvector) — **butuh user (Docker/cloud)**
+- [x] Verifikasi runtime DB (Postgres+pgvector) — Neon PG17/pgvector 0.8 sejak
+      2026-07-24; kini juga otomatis tiap push lewat job `integration` di CI
 - [x] **Unit test 8/8 LULUS** (`npm test`, Node test runner): password, crypto AES-GCM, rate-limit, guardrails L1/L2/L4, wikilink parser, padVector
 - [x] **Verifikasi runtime DB di Neon nyata (PG 17.10 + pgvector 0.8.0)** — db:push+db:migrate+smoke LULUS: signup→tenant, login, **isolasi RLS terbukti**, ingest→embed→pgvector→retrieve (skor 0.752)
 - [x] **2 bug runtime fixed**: (D) RLS bocor krn owner BYPASSRLS → role `nalar_app` NOBYPASSRLS; (E) model-host caching http/local
