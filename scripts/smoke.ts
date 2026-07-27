@@ -131,8 +131,8 @@ async function main() {
     const why = await authService.credentialOutcome(gateEmail, 'password123');
     const wrongPw = await authService.credentialOutcome(gateEmail, 'salah');
 
-    const queue = await userApprovalService.listPending();
-    const inQueue = queue.some((p) => p.email === gateEmail);
+    const queue = await userApprovalService.listPending({ limit: 100, offset: 0, page: 1, pageSize: 100 });
+    const inQueue = queue.rows.some((p) => p.email === gateEmail);
 
     await userApprovalService.setStatus({ id: g.id, tenantId: g.tenantId }, g.id, 'active');
     const allowed = await authService.verifyCredentials(gateEmail, 'password123');

@@ -16,6 +16,7 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
     { href: '/chatbots', label: 'Chatbots', icon: 'bot' },
     { href: '/knowledge', label: 'Knowledge Base', icon: 'book' },
     { href: '/conversations', label: 'Conversations', icon: 'chat' },
+    { href: '/analytics', label: 'Analitik', icon: 'pulse' },
     { href: '/memory', label: 'Memory', icon: 'graph' },
     { href: '/models', label: 'Models & Keys', icon: 'cpu' },
     { href: '/branding', label: 'Branding', icon: 'edit' },

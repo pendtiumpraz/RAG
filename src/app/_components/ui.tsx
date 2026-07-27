@@ -39,6 +39,39 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 /* ── Skeleton / states ─────────────────────────────────────────────── */
+export interface PageMeta { total: number; page: number; pageSize: number; pages: number }
+
+/**
+ * Pager daftar. Menyebut TOTAL, bukan sekadar tombol maju-mundur — tanpa itu
+ * orang tak tahu ada berapa banyak data dan berhenti menggali terlalu cepat.
+ * Menghilang sendiri kalau hanya ada satu halaman.
+ */
+export function Pager({ meta, onPage }: { meta: PageMeta; onPage: (p: number) => void }) {
+  if (!meta || meta.total === 0) return null;
+  const from = (meta.page - 1) * meta.pageSize + 1;
+  const to = Math.min(meta.page * meta.pageSize, meta.total);
+  return (
+    <div className="cluster" style={{
+      justifyContent: 'space-between', padding: 'var(--sp-3) var(--sp-5)',
+      borderTop: '1px solid var(--line)', fontSize: 13,
+    }}>
+      <span style={{ color: 'var(--muted)' }}>
+        {from.toLocaleString('id-ID')}–{to.toLocaleString('id-ID')} dari{' '}
+        <b>{meta.total.toLocaleString('id-ID')}</b>
+      </span>
+      {meta.pages > 1 && (
+        <div className="cluster gap-2">
+          <button className="btn btn-sm" disabled={meta.page <= 1}
+            onClick={() => onPage(meta.page - 1)}>Sebelumnya</button>
+          <span className="mono" style={{ color: 'var(--muted)' }}>{meta.page}/{meta.pages}</span>
+          <button className="btn btn-sm" disabled={meta.page >= meta.pages}
+            onClick={() => onPage(meta.page + 1)}>Berikutnya</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Skeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className="stack gap-3 card-pad" aria-busy="true">

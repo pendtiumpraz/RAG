@@ -2,22 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useApi, api } from '../../_lib/api';
-import { Skeleton, EmptyState, ErrorState } from '../../_components/ui';
+import { Skeleton, EmptyState, ErrorState, Pager, type PageMeta } from '../../_components/ui';
 
 interface Chatbot { id: string; name: string }
 interface Convo { id: string; visitorId: string | null; startedAt: string; preview: string | null; count: number }
+interface ConvoPage extends PageMeta { rows: Convo[] }
 interface Message { id: string; role: string; content: string; citations: Array<{ documentId: string; score: number }> | null; createdAt: string }
 
 export default function ConversationsPage() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const [chatbotId, setChatbotId] = useState('');
-  const list = useApi<Convo[]>(`/api/conversations${chatbotId ? `?chatbotId=${chatbotId}` : ''}`);
+  const [page, setPage] = useState(1);
+  const list = useApi<ConvoPage>(`/api/conversations?page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}`);
   const [active, setActive] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Message[] | null>(null);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
 
   useEffect(() => {
-    if (list.data && list.data.length && !active) setActive(list.data[0].id);
+    if (list.data?.rows.length && !active) setActive(list.data.rows[0].id);
   }, [list.data, active]);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function ConversationsPage() {
     <>
       <div className="page-head">
         <div><h1>Conversations</h1><p className="sub">Riwayat percakapan lengkap dengan sitasi sumber di tiap jawaban.</p></div>
-        <select className="select" style={{ width: 200, minHeight: 40 }} value={chatbotId} onChange={(e) => { setChatbotId(e.target.value); setActive(null); }}>
+        <select className="select" style={{ width: 200, minHeight: 40 }} value={chatbotId} onChange={(e) => { setChatbotId(e.target.value); setActive(null); setPage(1); }}>
           <option value="">Semua chatbot</option>
           {bots.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
@@ -41,8 +43,8 @@ export default function ConversationsPage() {
         <div style={{ borderRight: '1px solid var(--line)', maxHeight: 600, overflowY: 'auto' }}>
           {list.error ? <ErrorState message={list.error} onRetry={list.refetch} />
             : list.loading || !list.data ? <Skeleton rows={4} />
-            : list.data.length === 0 ? <EmptyState title="Belum ada percakapan" hint="Percakapan terekam saat pengunjung memakai widget embed." />
-            : list.data.map((c) => (
+            : list.data.rows.length === 0 ? <EmptyState title="Belum ada percakapan" hint="Percakapan terekam saat pengunjung memakai widget embed." />
+            : list.data.rows.map((c) => (
               <button key={c.id} onClick={() => setActive(c.id)}
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '13px 16px', border: 'none',
                   borderBottom: '1px solid var(--line)', cursor: 'pointer', borderLeft: `2px solid ${active === c.id ? 'var(--signal)' : 'transparent'}`,
@@ -52,6 +54,7 @@ export default function ConversationsPage() {
                 <div className="microlabel" style={{ marginTop: 4 }}>{new Date(c.startedAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })} · {c.count} pesan</div>
               </button>
             ))}
+          {list.data && <Pager meta={list.data} onPage={(p) => { setPage(p); setActive(null); }} />}
         </div>
 
         {/* transcript */}

@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
-import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Pager, type PageMeta } from '../../_components/ui';
 
 interface PendingUser {
   id: string; email: string; name: string | null; role: string; status: string;
   tenantId: string; tenantName: string | null; createdAt: string; approvedAt: string | null;
 }
+interface ApprovalPage extends PageMeta { rows: PendingUser[] }
 interface Member { id: string; email: string; name: string | null; role: string; status: string; createdAt: string }
 interface Invitation { id: string; email: string; role: string; expiresAt: string; acceptedAt: string | null; createdAt: string; expired: boolean }
 
@@ -195,7 +196,8 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
 
 function SignupApprovals() {
   const [scope, setScope] = useState<'pending' | 'all'>('pending');
-  const { data, loading, error, refetch } = useApi<PendingUser[]>(`/api/admin/users?status=${scope}`);
+  const [page, setPage] = useState(1);
+  const { data, loading, error, refetch } = useApi<ApprovalPage>(`/api/admin/users?status=${scope}&page=${page}`);
   const [busyId, setBusyId] = useState<string | null>(null);
   const toast = useToast();
 
@@ -220,7 +222,7 @@ function SignupApprovals() {
         <div className="cluster gap-2">
           <span className="microlabel">SUPERADMIN · LINTAS TENANT</span>
           <select className="select" style={{ width: 150, minHeight: 34 }}
-            value={scope} onChange={(e) => setScope(e.target.value as 'pending' | 'all')}>
+            value={scope} onChange={(e) => { setScope(e.target.value as 'pending' | 'all'); setPage(1); }}>
             <option value="pending">Menunggu</option>
             <option value="all">Semua akun</option>
           </select>
@@ -229,7 +231,7 @@ function SignupApprovals() {
 
       {error ? <ErrorState message={error} onRetry={refetch} />
         : loading || !data ? <Skeleton rows={3} />
-        : data.length === 0 ? <EmptyState
+        : data.rows.length === 0 ? <EmptyState
             title={scope === 'pending' ? 'Tak ada yang menunggu' : 'Belum ada akun'}
             hint={scope === 'pending'
               ? 'Pendaftar baru muncul di sini sebelum bisa masuk.'
@@ -238,7 +240,7 @@ function SignupApprovals() {
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Nama</th><th>Email</th><th>Organisasi</th><th>Daftar</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {data.map((p) => (
+              {data.rows.map((p) => (
                 <tr key={p.id}>
                   <td><b>{p.name ?? '—'}</b></td>
                   <td style={{ color: 'var(--muted)' }}>{p.email}</td>
@@ -266,6 +268,7 @@ function SignupApprovals() {
             </tbody>
           </table></div>
         )}
+      {data && <Pager meta={data} onPage={setPage} />}
     </div>
   );
 }

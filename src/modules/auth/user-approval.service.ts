@@ -1,5 +1,6 @@
-import { sql, eq, and, isNull, desc, ne } from 'drizzle-orm';
+import { sql, eq, and, isNull, desc, ne, count } from 'drizzle-orm';
 import { db, users, tenants } from '@/modules/core/db';
+import { toPage, type Paging, type Page } from '@/modules/core/pagination';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { audit } from '@/modules/core/guardrails';
 
@@ -38,28 +39,34 @@ function withPlatformAdmin<T>(fn: (tx: typeof db) => Promise<T>): Promise<T> {
   });
 }
 
-async function listByStatus(status: string | null): Promise<PendingUser[]> {
+async function listByStatus(status: string | null, p: Paging): Promise<Page<PendingUser>> {
   return withPlatformAdmin(async (tx) => {
-    const rows = await tx.select({
-      id: users.id, email: users.email, name: users.name, role: users.role,
-      status: users.status, tenantId: users.tenantId, createdAt: users.createdAt,
-      approvedAt: users.approvedAt, tenantName: tenants.name,
-    })
-      .from(users)
-      .leftJoin(tenants, eq(tenants.id, users.tenantId))
-      .where(status
-        ? and(eq(users.status, status), isNull(users.deletedAt))
-        : isNull(users.deletedAt))
-      .orderBy(desc(users.createdAt));
-    return rows as PendingUser[];
+    const where = status
+      ? and(eq(users.status, status), isNull(users.deletedAt))
+      : isNull(users.deletedAt);
+
+    const [rows, totalRows] = await Promise.all([
+      tx.select({
+        id: users.id, email: users.email, name: users.name, role: users.role,
+        status: users.status, tenantId: users.tenantId, createdAt: users.createdAt,
+        approvedAt: users.approvedAt, tenantName: tenants.name,
+      })
+        .from(users)
+        .leftJoin(tenants, eq(tenants.id, users.tenantId))
+        .where(where)
+        .orderBy(desc(users.createdAt))
+        .limit(p.limit).offset(p.offset),
+      tx.select({ n: count() }).from(users).where(where),
+    ]);
+    return toPage(rows as PendingUser[], Number(totalRows[0]?.n ?? 0), p);
   });
 }
 
 export const userApprovalService = {
   /** Antrean verifikasi — yang paling sering dilihat superadmin. */
-  listPending: () => listByStatus('pending'),
+  listPending: (p: Paging) => listByStatus('pending', p),
   /** Semua akun, untuk meninjau/mencabut keputusan. */
-  listAll: () => listByStatus(null),
+  listAll: (p: Paging) => listByStatus(null, p),
 
   async setStatus(
     actor: { id: string; tenantId: string },

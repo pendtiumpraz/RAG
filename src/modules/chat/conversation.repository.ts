@@ -1,9 +1,9 @@
-import { and, eq, asc, desc, isNull, sql } from 'drizzle-orm';
+import { and, eq, asc, desc, isNull, sql, count } from 'drizzle-orm';
 import { conversations, messages, type Db } from '@/modules/core/db';
 
 export const conversationRepository = {
   /** Daftar percakapan (opsional filter chatbot) + preview pesan pertama. */
-  list(tx: Db, tenantId: string, chatbotId: string | null, limit = 50) {
+  list(tx: Db, tenantId: string, chatbotId: string | null, limit = 25, offset = 0) {
     const conds = [eq(conversations.tenantId, tenantId), isNull(conversations.deletedAt)];
     if (chatbotId) conds.push(eq(conversations.chatbotId, chatbotId));
     return tx.select({
@@ -11,7 +11,16 @@ export const conversationRepository = {
       startedAt: conversations.startedAt,
       preview: sql<string>`(select content from messages m where m.conversation_id = ${conversations.id} and m.role = 'user' and m.deleted_at is null order by m.created_at asc limit 1)`,
       count: sql<number>`(select count(*)::int from messages m where m.conversation_id = ${conversations.id} and m.deleted_at is null)`,
-    }).from(conversations).where(and(...conds)).orderBy(desc(conversations.startedAt)).limit(limit);
+    }).from(conversations).where(and(...conds))
+      .orderBy(desc(conversations.startedAt)).limit(limit).offset(offset);
+  },
+
+  /** Total untuk pager — filter HARUS sama dengan list(). */
+  async countAll(tx: Db, tenantId: string, chatbotId: string | null): Promise<number> {
+    const conds = [eq(conversations.tenantId, tenantId), isNull(conversations.deletedAt)];
+    if (chatbotId) conds.push(eq(conversations.chatbotId, chatbotId));
+    const rows = await tx.select({ n: count() }).from(conversations).where(and(...conds));
+    return Number(rows[0]?.n ?? 0);
   },
 
   async findOrCreate(tx: Db, tenantId: string, chatbotId: string, conversationId?: string, visitorId?: string) {
