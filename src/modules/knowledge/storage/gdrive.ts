@@ -123,6 +123,35 @@ export async function crawlUserDrive(
   return out.slice(0, max);
 }
 
+/**
+ * Metadata per-ID — jalur listing utk mode 'picker' (D10): source menyimpan
+ * daftar id berkas yang dipilih user di Google Picker, dan dgn scope
+ * drive.file kita memang tak bisa list apa pun — hanya get per id.
+ *
+ * Berkas yang 404 (dihapus user / grant dicabut) TIDAK melempar: ia sekadar
+ * hilang dari hasil, sehingga planDelta menaruhnya di `remove` — sama seperti
+ * berkas lenyap pada listing folder biasa.
+ */
+export async function getUserDriveFilesMeta(
+  accessToken: string, fileIds: string[],
+): Promise<DriveFile[]> {
+  const drive = userDrive(accessToken);
+  const out: DriveFile[] = [];
+  for (const fileId of fileIds) {
+    try {
+      const res = await drive.files.get({ fileId, fields: 'id,name,mimeType,modifiedTime' });
+      const f = res.data;
+      if (f.id && f.name) out.push(f as DriveFile);
+    } catch (err: unknown) {
+      const code = (err as { code?: number; response?: { status?: number } });
+      const status = code.code ?? code.response?.status;
+      if (status === 404 || status === 403) continue; // hilang/grant dicabut → dianggap terhapus
+      throw err; // error lain (token, jaringan) tetap menghentikan sync — jangan salah hapus
+    }
+  }
+  return out;
+}
+
 export async function downloadUserDriveFile(accessToken: string, fileId: string): Promise<Buffer> {
   const drive = userDrive(accessToken);
   const res = await drive.files.get(

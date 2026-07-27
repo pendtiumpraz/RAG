@@ -22,6 +22,10 @@ const Body = z.object({
   clientSecret: z.string().optional(),
   msTenantId: z.string().optional(),
   enabled: z.boolean().optional(),
+  /** D10 — Google saja: 'full' (drive.readonly, restricted) | 'picker' (drive.file). */
+  driveAccessMode: z.enum(['full', 'picker']).optional(),
+  /** API key browser Google Picker (opsional; bukan rahasia). */
+  pickerApiKey: z.string().nullable().optional(),
 });
 
 export const PUT = superadminRoute(async (req, _ctx, actor) => {

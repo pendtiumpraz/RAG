@@ -319,6 +319,9 @@ function LlmServerDrawer({ onClose, onSaved }: { onClose: () => void; onSaved: (
 interface OAuthApp {
   provider: 'google' | 'microsoft';
   clientId: string; msTenantId: string | null;
+  /** D10 — Google: 'full' (drive.readonly) | 'picker' (drive.file + Google Picker). */
+  driveAccessMode: 'full' | 'picker';
+  hasPickerApiKey: boolean;
   enabled: boolean; hasSecret: boolean;
   source: 'database' | 'env' | 'none';
   updatedAt: string | null;
@@ -354,7 +357,11 @@ function OAuthApps() {
                 <tr key={a.provider}>
                   <td><b>{a.provider === 'google' ? 'Google' : 'Microsoft'}</b>
                     {a.provider === 'microsoft' && a.msTenantId &&
-                      <span className="microlabel" style={{ marginLeft: 8 }}>{a.msTenantId}</span>}</td>
+                      <span className="microlabel" style={{ marginLeft: 8 }}>{a.msTenantId}</span>}
+                    {a.provider === 'google' &&
+                      <span className="microlabel" style={{ marginLeft: 8 }}>
+                        {a.driveAccessMode === 'picker' ? 'MODE PICKER' : 'MODE FULL'}
+                      </span>}</td>
                   <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
                     {a.clientId ? `${a.clientId.slice(0, 24)}…` : '—'}</td>
                   <td>
@@ -404,6 +411,8 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
   const [clientId, setClientId] = useState(app.clientId);
   const [clientSecret, setClientSecret] = useState('');
   const [msTenantId, setMsTenantId] = useState(app.msTenantId ?? 'common');
+  const [driveMode, setDriveMode] = useState<'full' | 'picker'>(app.driveAccessMode ?? 'full');
+  const [pickerApiKey, setPickerApiKey] = useState('');
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const label = app.provider === 'google' ? 'Google' : 'Microsoft';
@@ -417,6 +426,12 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
           provider: app.provider, clientId,
           ...(clientSecret ? { clientSecret } : {}),
           ...(app.provider === 'microsoft' ? { msTenantId } : {}),
+          ...(app.provider === 'google' ? {
+            driveAccessMode: driveMode,
+            // kosong = pertahankan yang tersimpan; strip '-' utk menghapus
+            ...(pickerApiKey === '-' ? { pickerApiKey: null }
+              : pickerApiKey ? { pickerApiKey } : {}),
+          } : {}),
         }),
       });
       toast(`Kredensial ${label} tersimpan — berlaku dalam ±30 detik`);
@@ -452,6 +467,29 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
                 COMMON = AKUN KERJA &amp; PRIBADI · ATAU GUID DIREKTORI
               </p></div>
           )}
+
+          {app.provider === 'google' && (<>
+            <div className="field"><label>Mode akses Drive</label>
+              <select className="select" value={driveMode}
+                onChange={(e) => setDriveMode(e.target.value as 'full' | 'picker')}>
+                <option value="full">Full — scan folder rekursif (drive.readonly, scope RESTRICTED)</option>
+                <option value="picker">Picker — user pilih berkas (drive.file, verifikasi ringan)</option>
+              </select>
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                PICKER = BEBAS VERIFIKASI BERAT GOOGLE (VIDEO DEMO + CASA) ·
+                HAPUS JUGA drive.readonly DARI CONSENT SCREEN
+              </p></div>
+
+            {driveMode === 'picker' && (
+              <div className="field"><label>Google Picker API key (opsional)</label>
+                <input className="input mono" value={pickerApiKey}
+                  onChange={(e) => setPickerApiKey(e.target.value)}
+                  placeholder={app.hasPickerApiKey ? 'kosongkan = tak diubah · "-" = hapus' : 'AIza… (Credentials → API key)'} />
+                <p className="microlabel" style={{ marginTop: 6 }}>
+                  KEY BROWSER (BUKAN RAHASIA) — BATASI PER-REFERRER DI CONSOLE
+                </p></div>
+            )}
+          </>)}
 
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
             Jangan lupa mendaftarkan <b>dua</b> redirect URI di konsol penyedia —

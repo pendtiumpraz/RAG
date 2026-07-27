@@ -253,6 +253,28 @@ yang paling sering, beserta cara menutupnya:</p>
   </tr>
 </table>
 
+<div class="note">
+  <b>Jalan pintas melewati verifikasi berat: Mode akses Drive (keputusan D10)</b>
+  <p>Superadmin bisa memilih mode di <b>Models → kredensial OAuth → Google</b>:</p>
+  <ul style="margin:6px 0 0 18px;padding:0">
+    <li><b>Full</b> (default) — scan folder/Drive rekursif. Butuh scope
+      <code>drive.readonly</code> yang berkelas <b>restricted</b>: verifikasi
+      berat (video demo + asesmen CASA tahunan berbayar). Cocok untuk
+      <b>on-prem / Google Workspace internal</b> — app internal tidak butuh
+      verifikasi sama sekali.</li>
+    <li><b>Picker</b> — pengguna memilih berkas lewat dialog resmi Google
+      (Google Picker); cukup scope <code>drive.file</code> yang <b>bukan</b>
+      restricted → verifikasi ringan, tanpa video demo, tanpa CASA. Pilihan
+      yang tepat untuk SaaS. Konsekuensi: tidak ada scan folder otomatis —
+      berkas baru harus dipilih lagi lewat Picker.</li>
+  </ul>
+  <p><b>Penting:</b> setelah beralih ke Picker, <b>hapus juga
+  <code>drive.readonly</code> dari daftar scope di consent screen</b> — mode
+  hanya mengubah scope yang diminta aplikasi; kewajiban verifikasi mengikuti
+  scope yang terdaftar di Console. Opsional: isi <i>Google Picker API key</i>
+  (Credentials → API key, dibatasi per-referrer) di form yang sama.</p>
+</div>
+
 <div class="note warn">
   <b>Nama aplikasi ≠ nama domain</b>
   <p>Mengisi App name dengan alamat domain hampir selalu ditolak. Pakai nama

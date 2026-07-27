@@ -7,7 +7,7 @@ import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService } from './knowledge.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
-import { crawlUserDrive, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
+import { crawlUserDrive, getUserDriveFilesMeta, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
 import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/sharepoint';
 
 /**
@@ -229,17 +229,31 @@ async function connect(
   if (kind === 'gdrive') {
     const token = await connectionService.getAccessToken(tenantId, userId, 'google', accountEmail);
     if (!token) throw new Error('Akun Google belum terhubung (hubungkan di Knowledge → Connect Google)');
-    const raw = await crawlUserDrive(token, {
-      scope,
-      folderId: config.folderId ? String(config.folderId) : undefined,
-      maxFiles: MAX_LIST_FILES,
-    });
+
+    // Mode 'picker' (D10): config membawa daftar id berkas yang dipilih user
+    // di Google Picker. Dengan drive.file listing folder mustahil — metadata
+    // diambil per id. Berkas yang 404 hilang dari listing → planDelta remove.
+    const pickedIds = Array.isArray(config.fileIds)
+      ? (config.fileIds as unknown[]).map(String).filter(Boolean)
+      : null;
+
+    const raw = pickedIds
+      ? await getUserDriveFilesMeta(token, pickedIds.slice(0, MAX_LIST_FILES))
+      : await crawlUserDrive(token, {
+          scope,
+          folderId: config.folderId ? String(config.folderId) : undefined,
+          maxFiles: MAX_LIST_FILES,
+        });
     return {
       files: raw.map((f) => ({
         externalId: f.id, name: f.name, mimeType: f.mimeType,
         version: f.modifiedTime ?? '',
       })),
-      truncated: raw.length >= MAX_LIST_FILES,
+      // Picker: daftar id-nya eksplisit & lengkap (kecuali dipangkas), jadi
+      // berkas yang tak muncul memang boleh dihapus dari KB.
+      truncated: pickedIds
+        ? pickedIds.length > MAX_LIST_FILES
+        : raw.length >= MAX_LIST_FILES,
       async fetch(f) {
         if (isGoogleNative(f.mimeType)) {
           // Docs Editors tak bisa alt=media; harus di-export.

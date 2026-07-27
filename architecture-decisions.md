@@ -164,9 +164,49 @@ menunggu approval user (ditandai 👀).
   kalau tidak, tak ada lagi yang bisa memverifikasi siapa pun dan platform hanya
   bisa dipulihkan lewat akses database langsung.
 
+## ✅ D10 — Mode akses Google Drive dipilih superadmin: `full` | `picker` (2026-07-27)
+
+**Decision.** Cara Nalar mengakses Google Drive menjadi MODE yang dipilih
+superadmin (disimpan di `oauth_apps`, kolom `drive_access_mode`), bukan
+tertanam di kode:
+
+- **`full`** (default, perilaku lama): scan folder/drive rekursif — butuh scope
+  `drive.readonly` (kelas **restricted** di Google).
+- **`picker`**: pengguna memilih berkas lewat **Google Picker** (dialog resmi
+  Google). Berkas yang dipilih otomatis ter-grant ke aplikasi lewat scope
+  `drive.file` saja — **bukan** restricted, sehingga bebas dari verifikasi
+  berat (video demo + asesmen CASA tahunan berbayar).
+
+**Konteks.** Verifikasi OAuth Google berulang kali menolak dengan temuan
+beranda, dan akar beratnya adalah `drive.readonly` (restricted). Menghapus
+scope itu sepenuhnya menghilangkan fitur scan rekursif yang berharga untuk
+on-prem/Workspace internal (internal app TIDAK butuh verifikasi sama sekali).
+Karena kredensial OAuth sudah per-deployment di database (D-migrasi 0014),
+mode per-deployment adalah jalan tengah yang tepat: SaaS = `picker`,
+on-prem/internal = `full`.
+
+**Yang harus dipahami (dicatat supaya tidak tertipu):**
+- Toggle ini mengubah scope yang DIMINTA aplikasi, **bukan** kewajiban
+  verifikasi project Google. SaaS baru bebas verifikasi berat setelah
+  `drive.readonly` juga DIHAPUS dari consent screen project-nya.
+- Dengan `drive.file`, memilih FOLDER di Picker tidak memberi akses isinya —
+  pengguna memilih berkas (multi-select didukung). Berkas baru di folder tidak
+  ikut otomatis; harus buka Picker lagi.
+- Delta sync (`planDelta`) tetap bekerja pada berkas terpilih (cek
+  `modifiedTime`); write-back `_nalar-memory/` tidak berubah (memang sudah
+  `drive.file`); OneDrive/SharePoint tak tersentuh.
+- Token akses Google user DIKIRIM ke browser saat membuka Picker — memang
+  disyaratkan Picker API, token milik user sendiri untuk Drive-nya sendiri.
+  Ini pengecualian sadar atas aturan "keys never reach the browser" (aturan
+  itu untuk API key provider LLM, bukan token OAuth milik user).
+
+**Status:** APPROVED user 2026-07-27 ("biar bisa pilih mode aja dari
+superadmin"). Implementasi menyusul di commit yang sama.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-27 | D10 = mode akses Drive (`full`/`picker`) dipilih superadmin; SaaS→picker utk lepas dari scope restricted | User |
 | 2026-07-26 | D9 = pendaftaran terbuka + verifikasi superadmin (berlaku juga di jalur OAuth) | User |
 | 2026-07-26 | D8 = server embedding VPS dikelola superadmin & global (per-tenant ditolak krn SSRF) | User |
 | 2026-07-26 | D7 = embedder `selfhosted` + service VPS (transformers v3) — membuka varian 2 GB | User+AI |

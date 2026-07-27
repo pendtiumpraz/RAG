@@ -387,3 +387,20 @@ test('padVector zero-pads & preserves cosine', async () => {
   const dot = p.reduce((s, x, i) => s + x * padVector(v)[i], 0);
   assert.ok(Math.abs(dot - 1) < 1e-9);
 });
+
+/* ── mode akses Drive (D10) — scope per mode ───────────────────────── */
+test('googleScopes: mode picker TIDAK pernah membawa drive.readonly', async () => {
+  const { googleConnectScope, googleLoginScope } = await import('../src/modules/auth/oauth-app.service');
+
+  // 'full' = perilaku lama, scan rekursif butuh readonly
+  assert.ok(googleConnectScope('full').includes('drive.readonly'));
+  assert.ok(googleConnectScope('full').includes('drive.file'));
+  assert.ok(googleLoginScope('full').includes('drive.readonly'));
+
+  // 'picker' = drive.file saja; login malah bersih tanpa scope Drive apa pun.
+  // drive.readonly adalah scope RESTRICTED Google — kalau sampai bocor ke mode
+  // picker, seluruh alasan mode ini ada (lolos verifikasi ringan) runtuh.
+  assert.ok(!googleConnectScope('picker').includes('drive.readonly'));
+  assert.ok(googleConnectScope('picker').includes('drive.file'));
+  assert.equal(googleLoginScope('picker'), 'openid email profile');
+});

@@ -12,6 +12,12 @@ interface LastSync { ingested?: number; updated?: number; removed?: number; unch
 interface Source { id: string; kind: string; status: string; config: Record<string, unknown>;
   lastSyncedAt: string | null; jobStatus: { state: string } | null }
 interface Conn { id: string; provider: string; accountEmail: string; accountLabel: string | null }
+/** Jawaban /api/connections/providers — driveMode & picker mengikuti D10. */
+interface Providers {
+  google: boolean; microsoft: boolean;
+  driveMode?: 'full' | 'picker';
+  picker?: { appId: string; apiKey: string | null } | null;
+}
 
 export default function KnowledgePage() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
@@ -20,7 +26,7 @@ export default function KnowledgePage() {
 
   const sources = useApi<Source[]>(chatbotId ? `/api/sources?chatbotId=${chatbotId}` : null);
   const conns = useApi<Conn[]>('/api/connections');
-  const oauthReady = useApi<{ google: boolean; microsoft: boolean }>('/api/connections/providers');
+  const oauthReady = useApi<Providers>('/api/connections/providers');
   const [adding, setAdding] = useState(false);
   const toast = useToast();
 
@@ -116,7 +122,12 @@ export default function KnowledgePage() {
                   <tr key={s.id}>
                     <td><span className="badge">{s.kind}</span></td>
                     <td style={{ color: 'var(--muted)' }}>{String(s.config.accountEmail ?? '—')}</td>
-                    <td className="mono" style={{ color: 'var(--muted)' }}>{s.config.scope === 'all' ? 'seluruh drive' : String(s.config.folderId ?? s.config.folderPath ?? 'folder')}</td>
+                    <td className="mono" style={{ color: 'var(--muted)' }}>{
+                      Array.isArray(s.config.fileIds)
+                        ? `${(s.config.fileIds as unknown[]).length} berkas terpilih`
+                        : s.config.scope === 'all' ? 'seluruh drive'
+                        : String(s.config.folderId ?? s.config.folderPath ?? 'folder')
+                    }</td>
                     <td><StatusBadge s={s} /></td>
                     <td><DeltaSummary last={s.config.lastSync as LastSync | undefined} /></td>
                     <td className="mono" style={{ color: 'var(--muted)' }}>{s.lastSyncedAt?.slice(0, 16).replace('T', ' ') ?? '—'}</td>
@@ -134,7 +145,8 @@ export default function KnowledgePage() {
           )}
       </div>
 
-      {adding && <SourceDrawer chatbotId={chatbotId} accounts={conns.data ?? []} onClose={() => setAdding(false)}
+      {adding && <SourceDrawer chatbotId={chatbotId} accounts={conns.data ?? []}
+        providers={oauthReady.data ?? null} onClose={() => setAdding(false)}
         onSaved={() => { setAdding(false); sources.refetch(); }} />}
     </>
   );
@@ -175,25 +187,86 @@ function StatusBadge({ s }: { s: Source }) {
   return <span className={`badge ${cls}`}><span className={`led ${live ? 'led-live' : st === 'error' ? 'led-err' : 'led-off'}`} />{st}</span>;
 }
 
-function SourceDrawer({ chatbotId, accounts, onClose, onSaved }:
-  { chatbotId: string; accounts: Conn[]; onClose: () => void; onSaved: () => void }) {
+/* ── Google Picker (mode 'picker', D10) ─────────────────────────────
+   Dimuat malas dari apis.google.com hanya saat tombolnya ditekan — jangan
+   membebani halaman untuk deployment yang memakai mode 'full'. */
+let pickerScriptPromise: Promise<void> | null = null;
+function loadPickerScript(): Promise<void> {
+  if (pickerScriptPromise) return pickerScriptPromise;
+  pickerScriptPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://apis.google.com/js/api.js';
+    s.onload = () => (window as unknown as { gapi: { load: (n: string, cb: () => void) => void } })
+      .gapi.load('picker', () => resolve());
+    s.onerror = () => { pickerScriptPromise = null; reject(new Error('Gagal memuat Google Picker')); };
+    document.head.appendChild(s);
+  });
+  return pickerScriptPromise;
+}
+
+interface PickedFile { id: string; name: string }
+
+function SourceDrawer({ chatbotId, accounts, providers, onClose, onSaved }:
+  { chatbotId: string; accounts: Conn[]; providers: Providers | null; onClose: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState('gdrive');
   const [scope, setScope] = useState<'all' | 'folder'>('all');
   const [loc, setLoc] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
+  const [picked, setPicked] = useState<PickedFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const toast = useToast();
 
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
   const providerAccounts = accounts.filter((a) => a.provider === provider);
-  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); }, [kind]); // eslint-disable-line
+  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); }, [kind]); // eslint-disable-line
+
+  // Mode picker hanya berlaku utk gdrive; OneDrive/SharePoint tetap folder.
+  const pickerMode = kind === 'gdrive' && providers?.driveMode === 'picker';
+
+  async function openPicker() {
+    if (!accountEmail) { setErr('Hubungkan akun google dulu (tombol Connect di atas).'); return; }
+    setErr(null);
+    try {
+      const { accessToken } = await api<{ accessToken: string }>(
+        `/api/connections/google/picker-token?accountEmail=${encodeURIComponent(accountEmail)}`);
+      await loadPickerScript();
+      // Picker tak punya typing resmi — pakai bentuk longgar seperlunya.
+      const g = (window as unknown as { google: any }).google; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const view = new g.picker.DocsView(g.picker.ViewId.DOCS)
+        .setIncludeFolders(true)      // folder tampil utk navigasi …
+        .setSelectFolderEnabled(false); // … tapi tak bisa DIPILIH — drive.file tak menjangkau isinya
+      let builder = new g.picker.PickerBuilder()
+        .addView(view)
+        .setOAuthToken(accessToken)
+        .enableFeature(g.picker.Feature.MULTISELECT_ENABLED)
+        .setCallback((data: { action: string; docs?: { id: string; name: string }[] }) => {
+          if (data.action === g.picker.Action.PICKED && data.docs?.length) {
+            // Gabungkan dgn pilihan sebelumnya — user boleh membuka Picker
+            // beberapa kali (mis. beda folder) sebelum menyimpan.
+            setPicked((prev) => {
+              const seen = new Set(prev.map((p) => p.id));
+              return [...prev, ...data.docs!.filter((d) => !seen.has(d.id))
+                .map((d) => ({ id: d.id, name: d.name }))];
+            });
+          }
+        });
+      // appId (nomor project) WAJIB agar berkas terpilih ter-grant ke app —
+      // aturan drive.file. apiKey opsional (bisa diisi superadmin di Models).
+      if (providers?.picker?.appId) builder = builder.setAppId(providers.picker.appId);
+      if (providers?.picker?.apiKey) builder = builder.setDeveloperKey(providers.picker.apiKey);
+      builder.build().setVisible(true);
+    } catch (e) { setErr((e as Error).message); }
+  }
 
   async function save() {
     if (!accountEmail) { setErr(`Hubungkan akun ${provider} dulu (tombol Connect di atas).`); return; }
+    if (pickerMode && !picked.length) { setErr('Pilih dulu berkas dari Drive.'); return; }
     setBusy(true); setErr(null);
-    const config: Record<string, unknown> = { scope, accountEmail };
-    if (scope === 'folder') { if (kind === 'gdrive') config.folderId = loc || 'root'; else config.folderPath = loc; }
+    const config: Record<string, unknown> = pickerMode
+      ? { accountEmail, mode: 'picker', fileIds: picked.map((p) => p.id), fileNames: picked.map((p) => p.name) }
+      : { scope, accountEmail };
+    if (!pickerMode && scope === 'folder') { if (kind === 'gdrive') config.folderId = loc || 'root'; else config.folderPath = loc; }
     try {
       await api('/api/sources', { method: 'POST', body: JSON.stringify({ chatbotId, kind, config }) });
       toast('Sumber ditambah — sync berjalan'); onSaved();
@@ -223,6 +296,30 @@ function SourceDrawer({ chatbotId, accounts, onClose, onSaved }:
             )}
           </div>
 
+          {pickerMode ? (
+            <div className="field"><label>Berkas Drive</label>
+              <button type="button" className="btn" onClick={openPicker}>
+                <Icon name="plus" size={14} /> Pilih berkas dari Google Drive
+              </button>
+              {picked.length > 0 && (
+                <div style={{ marginTop: 8, maxHeight: 160, overflowY: 'auto' }} className="stack gap-1">
+                  {picked.map((p) => (
+                    <div key={p.id} className="cluster gap-2" style={{ fontSize: 13 }}>
+                      <span className="mono" style={{ color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                      <button className="icon-btn" aria-label={`Hapus ${p.name}`}
+                        onClick={() => setPicked((prev) => prev.filter((x) => x.id !== p.id))}>
+                        <Icon name="close" size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="microlabel" style={{ marginTop: 8 }}>
+                MODE PICKER: HANYA BERKAS YANG DIPILIH YANG BISA DIBACA (SCOPE drive.file).
+                BERKAS BARU DI FOLDER TIDAK IKUT OTOMATIS — BUKA PICKER LAGI UNTUK MENAMBAH.
+              </p>
+            </div>
+          ) : (<>
           <div className="field"><label>Cakupan</label>
             <select className="select" value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'folder')}>
               <option value="all">Seluruh Drive (rekursif)</option>
@@ -234,6 +331,7 @@ function SourceDrawer({ chatbotId, accounts, onClose, onSaved }:
               <input className="input" value={loc} onChange={(e) => setLoc(e.target.value)}
                 placeholder={kind === 'gdrive' ? '1A2b3C… (kosong = root)' : '/Knowledge/support'} /></div>
           )}
+          </>)}
 
           <p className="microlabel">SYNC MENSCAN STORAGE (PDF/DOCX/TXT/…) → INGEST → MEMORY AGENT OTOMATIS. MAKS 300 FILE/RUN.</p>
           {err && <span className="error">{err}</span>}

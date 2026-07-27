@@ -4,7 +4,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import { authService } from './auth.service';
 import { connectionService } from '@/modules/connections/connection.service';
-import { oauthAppService } from './oauth-app.service';
+import { oauthAppService, googleLoginScope } from './oauth-app.service';
 
 /**
  * NextAuth (Auth.js v4) — JWT session membawa { userId, tenantId, role }
@@ -126,9 +126,12 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
       clientSecret: google.clientSecret,
       authorization: {
         params: {
-          // drive.readonly ⇒ baca Drive user; drive.file ⇒ tulis vault
-          // `_nalar-memory/` (hanya file buatan app ini — bukan seluruh Drive)
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
+          // Scope tergantung mode Drive (D10):
+          //  'full'   → login sekaligus membawa drive.readonly + drive.file
+          //             (perilaku lama, scan rekursif jalan dari token login)
+          //  'picker' → login BERSIH (openid email profile saja); Drive
+          //             diminta belakangan lewat alur connect + Google Picker
+          scope: googleLoginScope(google.driveAccessMode),
           access_type: 'offline',   // refresh_token
           prompt: 'consent',
         },

@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { OAuthProvider } from './connection.service';
-import { oauthAppService } from '@/modules/auth/oauth-app.service';
+import { oauthAppService, googleConnectScope } from '@/modules/auth/oauth-app.service';
 
 /**
  * OAuth "connect account" flow — TERPISAH dari login NextAuth. Dipakai utk
@@ -26,7 +26,9 @@ export async function providerConfig(provider: OAuthProvider): Promise<ProviderC
     return {
       authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
-      scope: 'openid email https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
+      // D10: mode 'picker' hanya minta drive.file (bukan restricted);
+      // mode 'full' tetap drive.readonly utk scan folder rekursif.
+      scope: googleConnectScope(app?.driveAccessMode ?? 'full'),
       clientId: app?.clientId, clientSecret: app?.clientSecret,
       extraAuth: { access_type: 'offline', prompt: 'select_account consent' }, // select_account → bisa pilih akun beda
       fetchEmail: async (t) => {

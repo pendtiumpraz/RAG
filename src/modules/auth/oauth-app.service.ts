@@ -18,10 +18,16 @@ import { audit } from '@/modules/core/guardrails';
 
 export type OAuthProviderId = 'google' | 'microsoft';
 
+/** Mode akses Drive — keputusan D10 (architecture-decisions.md). */
+export type DriveAccessMode = 'full' | 'picker';
+
 export interface OAuthAppConfig {
   clientId: string;
   clientSecret: string;
   msTenantId?: string | null;
+  /** Google saja; Microsoft selalu 'full'. */
+  driveAccessMode: DriveAccessMode;
+  pickerApiKey?: string | null;
   source: 'database' | 'env';
 }
 
@@ -30,10 +36,39 @@ export interface PublicOAuthApp {
   provider: OAuthProviderId;
   clientId: string;
   msTenantId: string | null;
+  driveAccessMode: DriveAccessMode;
+  hasPickerApiKey: boolean;
   enabled: boolean;
   hasSecret: boolean;
   source: 'database' | 'env' | 'none';
   updatedAt: Date | null;
+}
+
+/* ── scope per mode (murni — diuji tanpa DB) ─────────────────────────
+   'full'   : drive.readonly (RESTRICTED) + drive.file → scan rekursif jalan.
+   'picker' : drive.file saja → akses hanya ke berkas yang dipilih user di
+              Google Picker; login juga tak lagi menyeret scope Drive.       */
+
+const DRIVE_READONLY = 'https://www.googleapis.com/auth/drive.readonly';
+const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
+
+/** Scope untuk alur CONNECT storage (`/api/connections/google/start`). */
+export function googleConnectScope(mode: DriveAccessMode): string {
+  return mode === 'picker'
+    ? `openid email ${DRIVE_FILE}`
+    : `openid email ${DRIVE_READONLY} ${DRIVE_FILE}`;
+}
+
+/** Scope untuk LOGIN NextAuth. Mode picker = login bersih tanpa scope Drive
+ *  sama sekali (incremental auth); Drive diminta saat connect. */
+export function googleLoginScope(mode: DriveAccessMode): string {
+  return mode === 'picker'
+    ? 'openid email profile'
+    : `openid email profile ${DRIVE_READONLY} ${DRIVE_FILE}`;
+}
+
+function normalizeMode(v: unknown): DriveAccessMode {
+  return v === 'picker' ? 'picker' : 'full';
 }
 
 /**
@@ -54,6 +89,9 @@ function envConfig(provider: OAuthProviderId): OAuthAppConfig | null {
   return {
     clientId, clientSecret,
     msTenantId: provider === 'microsoft' ? (process.env.MS_TENANT_ID || 'common') : null,
+    // fallback env (on-prem/dev tanpa baris DB) — default 'full', perilaku lama
+    driveAccessMode: normalizeMode(process.env.GOOGLE_DRIVE_ACCESS_MODE),
+    pickerApiKey: process.env.GOOGLE_PICKER_API_KEY || null,
     source: 'env',
   };
 }
@@ -77,6 +115,8 @@ export const oauthAppService = {
           clientId: r.clientId,
           clientSecret: decryptSecret(r.encryptedSecret),
           msTenantId: r.msTenantId ?? 'common',
+          driveAccessMode: normalizeMode(r.driveAccessMode),
+          pickerApiKey: r.pickerApiKey ?? null,
           source: 'database',
         };
       }
@@ -106,6 +146,8 @@ export const oauthAppService = {
       if (r) {
         return {
           provider, clientId: r.clientId, msTenantId: r.msTenantId,
+          driveAccessMode: normalizeMode(r.driveAccessMode),
+          hasPickerApiKey: !!r.pickerApiKey,
           enabled: r.enabled, hasSecret: !!r.encryptedSecret,
           source: 'database' as const, updatedAt: r.updatedAt,
         };
@@ -115,6 +157,8 @@ export const oauthAppService = {
         provider,
         clientId: env?.clientId ?? '',
         msTenantId: env?.msTenantId ?? null,
+        driveAccessMode: env?.driveAccessMode ?? 'full',
+        hasPickerApiKey: !!env?.pickerApiKey,
         enabled: !!env,
         hasSecret: !!env,
         source: env ? ('env' as const) : ('none' as const),
@@ -127,7 +171,10 @@ export const oauthAppService = {
   async upsert(
     actor: { id: string; tenantId: string },
     provider: OAuthProviderId,
-    input: { clientId: string; clientSecret?: string; msTenantId?: string | null; enabled?: boolean },
+    input: {
+      clientId: string; clientSecret?: string; msTenantId?: string | null; enabled?: boolean;
+      driveAccessMode?: DriveAccessMode; pickerApiKey?: string | null;
+    },
   ): Promise<PublicOAuthApp> {
     const clientId = input.clientId?.trim();
     if (!clientId) throw new ValidationError('Client ID wajib diisi');
@@ -139,12 +186,19 @@ export const oauthAppService = {
     const secret = input.clientSecret?.trim();
     if (!existing && !secret) throw new ValidationError('Client secret wajib diisi saat pertama kali menyimpan');
 
+    // Kolom mode & Picker key hanya bermakna untuk Google.
+    const driveCols = provider === 'google' ? {
+      ...(input.driveAccessMode ? { driveAccessMode: normalizeMode(input.driveAccessMode) } : {}),
+      ...(input.pickerApiKey !== undefined ? { pickerApiKey: input.pickerApiKey?.trim() || null } : {}),
+    } : {};
+
     if (existing) {
       await db.update(oauthApps).set({
         clientId,
         ...(secret ? { encryptedSecret: encryptSecret(secret) } : {}),
         msTenantId: provider === 'microsoft' ? (input.msTenantId?.trim() || 'common') : null,
         ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        ...driveCols,
         updatedAt: new Date(),
       }).where(eq(oauthApps.id, existing.id));
     } else {
@@ -152,6 +206,7 @@ export const oauthAppService = {
         provider, clientId, encryptedSecret: encryptSecret(secret!),
         msTenantId: provider === 'microsoft' ? (input.msTenantId?.trim() || 'common') : null,
         enabled: input.enabled ?? true,
+        ...driveCols,
       });
     }
 

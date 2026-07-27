@@ -281,6 +281,19 @@ export const oauthApps = pgTable('oauth_apps', {
   encryptedSecret: text('encrypted_secret').notNull(),
   /** Microsoft saja: 'common' | 'organizations' | GUID direktori. */
   msTenantId: text('ms_tenant_id'),
+  /**
+   * Google saja — keputusan D10. Cara aplikasi mengakses Drive:
+   *  'full'   = scan folder rekursif (scope drive.readonly — RESTRICTED di
+   *             Google, memicu verifikasi berat: video demo + CASA tahunan)
+   *  'picker' = pengguna memilih berkas via Google Picker (drive.file saja —
+   *             bukan restricted, verifikasi ringan). Pilihan SaaS.
+   */
+  driveAccessMode: text('drive_access_mode').default('full').notNull(),
+  /**
+   * API key browser untuk Google Picker (opsional; BUKAN rahasia — key jenis
+   * ini memang dipakai client-side dan dibatasi per-referrer di Console).
+   */
+  pickerApiKey: text('picker_api_key'),
   enabled: boolean('enabled').default(true).notNull(),
   ...stamps,
 }, (t) => ({

@@ -194,7 +194,13 @@ export const openApiSpec = {
     '/api/connections/providers': {
       get: { summary: 'Provider storage mana yang siap dipakai (tanpa menyebut kredensial)',
         security: [sessionAuth],
-        responses: { 200: err('{ google: bool, microsoft: bool }') } },
+        responses: { 200: err('{ google: bool, microsoft: bool, driveMode, picker }') } },
+    },
+    '/api/connections/google/picker-token': {
+      get: { summary: 'Access token Google user sendiri utk Google Picker (mode picker saja; tanpa refresh token)',
+        security: [sessionAuth],
+        parameters: [{ name: 'accountEmail', in: 'query', required: false, schema: { type: 'string' } }],
+        responses: { 200: err('{ accessToken }') } },
     },
     '/api/admin/oauth-apps': {
       get: { summary: 'Kredensial OAuth app (tanpa secret)', security: [sessionAuth],

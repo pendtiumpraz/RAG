@@ -250,6 +250,26 @@
       Kepemilikan domain **sudah diverifikasi lewat record TXT DNS** (2026-07-27),
       bukan meta tag; env `GOOGLE_SITE_VERIFICATION` karena itu boleh tetap kosong
       — wiring-nya di `layout.tsx` tidak memasang apa pun bila env tak diisi.
+- [x] **Mode akses Drive `full`/`picker` — keputusan D10** (2026-07-27): dipilih
+      superadmin di Models → kredensial OAuth Google (kolom
+      `oauth_apps.drive_access_mode`, default `full`; sudah di-push ke Neon via
+      role admin — `nalar_app` memang tak boleh ALTER).
+      · `picker` = Google Picker + scope `drive.file` saja (BUKAN restricted →
+        bebas video demo + CASA); login NextAuth ikut bersih (`openid email
+        profile`). `full` = perilaku lama (`drive.readonly`, scan rekursif) —
+        untuk on-prem/Workspace internal yang tak butuh verifikasi.
+      · Alur: UI Knowledge memuat Picker malas → user multi-select berkas →
+        source `config.fileIds`; sync membaca metadata per-id
+        (`getUserDriveFilesMeta`, 404/403 = berkas dianggap terhapus →
+        planDelta remove; error lain tetap menghentikan sync). Delta sync &
+        write-back `_nalar-memory/` tak berubah.
+      · Endpoint baru `GET /api/connections/google/picker-token` (token user
+        sendiri, tanpa refresh token, tertutup 409 di mode full);
+        `/api/connections/providers` kini membawa `driveMode` + bekal picker
+        (`appId` = prefiks numerik client_id — nomor project Cloud).
+      · Tes: `googleScopes` menjamin mode picker TAK pernah membawa
+        `drive.readonly`. ⚠️ Ingat: setelah SaaS pindah ke picker, scope
+        `drive.readonly` juga harus DIHAPUS dari consent screen Console.
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
