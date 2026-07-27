@@ -58,6 +58,12 @@ export const LLM_MODELS: LlmModel[] = [
 
   // Other popular OpenAI-compatible providers (optional keys)
   { id: 'mistral-large-2-latest', provider: 'mistral',  label: 'Mistral Large 2',        contextWindow: 128_000 },
+  // DeepSeek V4 (ditambahkan 2026-07-27 atas informasi operator).
+  // contextWindow di bawah BELUM diverifikasi ke dokumentasi DeepSeek —
+  // nilainya murni informasional (tak dipakai logika mana pun), jadi salahnya
+  // tidak mempengaruhi pemanggilan API. Perbaiki bila angka pastinya diketahui.
+  { id: 'deepseek-v4-pro',        provider: 'deepseek', label: 'DeepSeek V4 Pro',          contextWindow: 128_000 },
+  { id: 'deepseek-v4-flash',      provider: 'deepseek', label: 'DeepSeek V4 Flash (cepat)', contextWindow: 128_000 },
   { id: 'deepseek-chat',          provider: 'deepseek', label: 'DeepSeek V3.x Chat',      contextWindow: 128_000 },
   { id: 'grok-4',                 provider: 'xai',      label: 'xAI Grok 4',             contextWindow: 256_000 },
   { id: 'llama-3.3-70b-versatile',provider: 'groq',     label: 'Llama 3.3 70B (Groq)',   contextWindow: 128_000 },
