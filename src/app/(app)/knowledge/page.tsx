@@ -20,6 +20,7 @@ export default function KnowledgePage() {
 
   const sources = useApi<Source[]>(chatbotId ? `/api/sources?chatbotId=${chatbotId}` : null);
   const conns = useApi<Conn[]>('/api/connections');
+  const oauthReady = useApi<{ google: boolean; microsoft: boolean }>('/api/connections/providers');
   const [adding, setAdding] = useState(false);
   const toast = useToast();
 
@@ -61,10 +62,27 @@ export default function KnowledgePage() {
       <div className="card" style={{ marginBottom: 'var(--sp-4)' }}>
         <div className="panel-head"><span className="t">akun storage terhubung</span>
           <div className="cluster gap-2">
-            <a className="btn btn-sm" href="/api/connections/google/start"><Icon name="plug" size={14} /> Connect Google</a>
-            <a className="btn btn-sm" href="/api/connections/microsoft/start"><Icon name="plug" size={14} /> Connect Microsoft</a>
+            {/* Tombol hanya muncul bila env OAuth-nya memang terpasang —
+                kalau tidak, tautannya mendarat di JSON galat mentah. */}
+            {oauthReady.data?.google && <a className="btn btn-sm" href="/api/connections/google/start"><Icon name="plug" size={14} /> Connect Google</a>}
+            {oauthReady.data?.microsoft && <a className="btn btn-sm" href="/api/connections/microsoft/start"><Icon name="plug" size={14} /> Connect Microsoft</a>}
           </div>
         </div>
+
+        {oauthReady.data && !oauthReady.data.google && !oauthReady.data.microsoft && (
+          <div className="card-pad" style={{ borderLeft: '3px solid var(--source)' }}>
+            <b>OAuth Google/Microsoft belum dikonfigurasi</b>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>
+              Sinkronisasi Drive/OneDrive/SharePoint butuh OAuth client yang
+              didaftarkan lebih dulu, lalu <code>GOOGLE_CLIENT_ID</code>/
+              <code>MS_CLIENT_ID</code> (beserta secret-nya) dipasang di environment.
+              Selama belum ada, dokumen tetap bisa dimasukkan lewat{' '}
+              <code>POST /api/ingest</code>.
+            </p>
+            <a className="btn btn-sm" href="/docs/oauth-setup.html" target="_blank" rel="noreferrer"
+              style={{ marginTop: 10 }}>Buka panduan lengkap</a>
+          </div>
+        )}
         <div className="card-pad">
           {conns.loading ? <span className="microlabel">memuat…</span>
             : !conns.data?.length ? <p className="microlabel">BELUM ADA AKUN. HUBUNGKAN GOOGLE / MICROSOFT UNTUK MENSCAN DRIVE-MU.</p>

@@ -17,6 +17,17 @@ export default function AuthPage() {
   const [form, setForm] = useState({ orgName: '', name: '', email: '', password: '' });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  // Provider OAuth hanya terdaftar di NextAuth bila env-nya terisi. Tanpa
+  // pengecekan ini tombolnya tetap tampil dan kliknya pasti gagal — menyuruh
+  // orang mencoba sesuatu yang belum ada.
+  const [oauth, setOauth] = useState<{ google: boolean; azure: boolean }>({ google: false, azure: false });
+  useEffect(() => {
+    fetch('/api/auth/providers')
+      .then((r) => r.json())
+      .then((p) => setOauth({ google: !!p?.google, azure: !!p?.['azure-ad'] }))
+      .catch(() => { /* biarkan tersembunyi — email tetap bisa dipakai */ });
+  }, []);
+
   // Jalur OAuth ditolak di callback signIn dan dikembalikan ke sini dgn alasan.
   useEffect(() => {
     const err = new URLSearchParams(window.location.search).get('error');
@@ -74,11 +85,15 @@ export default function AuthPage() {
             onClick={() => setTab('register')}>Daftar</button>
         </div>
 
-        <div className="stack gap-2" style={{ marginBottom: 18 }}>
-          <button className="btn" style={{ width: '100%' }} onClick={() => signIn('google', { callbackUrl: '/chat' })} disabled={busy}>Lanjut dengan Google</button>
-          <button className="btn" style={{ width: '100%' }} onClick={() => signIn('azure-ad', { callbackUrl: '/chat' })} disabled={busy}>Lanjut dengan Microsoft</button>
-        </div>
-        <div className="auth-div">ATAU EMAIL</div>
+        {(oauth.google || oauth.azure) && (
+          <>
+            <div className="stack gap-2" style={{ marginBottom: 18 }}>
+              {oauth.google && <button className="btn" style={{ width: '100%' }} onClick={() => signIn('google', { callbackUrl: '/chat' })} disabled={busy}>Lanjut dengan Google</button>}
+              {oauth.azure && <button className="btn" style={{ width: '100%' }} onClick={() => signIn('azure-ad', { callbackUrl: '/chat' })} disabled={busy}>Lanjut dengan Microsoft</button>}
+            </div>
+            <div className="auth-div">ATAU EMAIL</div>
+          </>
+        )}
 
         {tab === 'login' ? (
           <form onSubmit={doLogin} className="stack gap-4">

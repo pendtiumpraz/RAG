@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panduan OAuth — Google Drive &amp; Microsoft SharePoint · Nalar</title>
+<style>
+  :root{
+    --ink:#0F172A; --muted:#64748B; --faint:#94A3B8; --line:#E2E8F0;
+    --bg:#F8FAFC; --card:#FFFFFF; --signal:#2563EB; --source:#F59E0B;
+    --good:#10B981; --danger:#DC2626;
+    --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#F1F5F9; --muted:#94A3B8; --faint:#64748B; --line:#334155;
+           --bg:#0F172A; --card:#1E293B; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.65 ui-sans-serif,system-ui,"Inter",sans-serif;}
+  .wrap{max-width:900px;margin:0 auto;padding:40px 22px 80px}
+  h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:44px 0 12px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:16px;margin:26px 0 8px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:.87em;background:var(--card);
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  pre{background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:13px 15px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6}
+  pre code{background:none;border:none;padding:0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td code{font-size:12px}
+  .lead{color:var(--muted);font-size:16px;margin-bottom:8px}
+  .note{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--signal);
+    border-radius:8px;padding:13px 16px;margin:16px 0}
+  .warn{border-left-color:var(--source)}
+  .danger{border-left-color:var(--danger)}
+  .ok{border-left-color:var(--good)}
+  .note b{display:block;margin-bottom:4px}
+  .note p{margin:6px 0 0;font-size:14px;color:var(--muted)}
+  .note p:first-of-type{margin-top:0}
+  ol{padding-left:22px} ol li{margin:9px 0}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid var(--line);
+    color:var(--muted);vertical-align:middle;margin-left:6px}
+  .tag.no{color:var(--danger);border-color:var(--danger)}
+  .tag.yes{color:var(--good);border-color:var(--good)}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:24px 0}
+  .toc a{color:var(--signal);text-decoration:none} .toc a:hover{text-decoration:underline}
+  .toc ol{margin:6px 0 0}
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--faint);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Panduan OAuth</h1>
+<p class="lead">Menghubungkan <b>Google Drive</b> dan <b>Microsoft OneDrive / SharePoint</b>
+ke Nalar — untuk login sosial sekaligus sinkronisasi dokumen.</p>
+
+<div class="note danger">
+  <b>Status saat ini di produksi: BELUM AKTIF <span class="tag no">belum</span></b>
+  <p>Diperiksa pada <code>rag.sainskerta.net</code>: hanya provider
+  <code>credentials</code> (email + password) yang terdaftar. <code>GOOGLE_CLIENT_ID</code>
+  dan <code>MS_CLIENT_ID</code> belum ada di environment Vercel, sehingga NextAuth
+  melewatkan kedua provider itu sepenuhnya — 0 akun terhubung, 0 sumber data.</p>
+  <p>Selama belum dipasang, dokumen tetap bisa dimasukkan lewat <code>POST /api/ingest</code>.</p>
+</div>
+
+<div class="toc">
+  <b>Isi</b>
+  <ol>
+    <li><a href="#kenapa-dua">Kenapa ada DUA redirect URI per provider</a></li>
+    <li><a href="#google">Google — Drive</a></li>
+    <li><a href="#microsoft">Microsoft — OneDrive / SharePoint</a></li>
+    <li><a href="#env">Memasang environment variable</a></li>
+    <li><a href="#verifikasi">Verifikasi</a></li>
+    <li><a href="#fallback">Perilaku saat env belum ada</a></li>
+    <li><a href="#masalah">Kalau gagal</a></li>
+  </ol>
+</div>
+
+<h2 id="kenapa-dua">1. Kenapa ada DUA redirect URI per provider</h2>
+<p>Ini bagian yang paling sering terlewat dan menyebabkan galat
+<code>redirect_uri_mismatch</code>. Nalar memakai OAuth untuk <b>dua keperluan
+berbeda</b>, dan masing-masing punya alamat callback sendiri:</p>
+
+<table>
+  <tr><th>Keperluan</th><th>Ditangani</th><th>Redirect URI</th></tr>
+  <tr>
+    <td><b>Login</b> ke dashboard</td>
+    <td>NextAuth</td>
+    <td><code>{NEXTAUTH_URL}/api/auth/callback/google</code><br>
+        <code>{NEXTAUTH_URL}/api/auth/callback/azure-ad</code></td>
+  </tr>
+  <tr>
+    <td><b>Menghubungkan akun storage</b> (bisa banyak akun, tanpa mengubah sesi)</td>
+    <td><code>modules/connections</code></td>
+    <td><code>{NEXTAUTH_URL}/api/connections/google/callback</code><br>
+        <code>{NEXTAUTH_URL}/api/connections/microsoft/callback</code></td>
+  </tr>
+</table>
+
+<div class="note warn">
+  <b>Daftarkan KEDUANYA</b>
+  <p>Kalau hanya yang pertama, login jalan tapi tombol “Connect Google” di halaman
+  Knowledge akan gagal — dan sebaliknya. Perhatikan juga bahwa jalur kedua memakai
+  <code>microsoft</code>, bukan <code>azure-ad</code>.</p>
+</div>
+
+<div class="note">
+  <b><code>NEXTAUTH_URL</code> menentukan redirect URI</b>
+  <p>Alamat callback dibentuk dari variabel itu (lihat <code>oauth-flow.ts</code>).
+  Kalau isinya tidak persis sama dengan yang didaftarkan — beda <code>http/https</code>,
+  ada garis miring di ujung, atau masih <code>localhost</code> — OAuth akan ditolak.</p>
+  <p>Produksi: <code>https://rag.sainskerta.net</code></p>
+</div>
+
+<h2 id="google">2. Google — Drive</h2>
+
+<h3>2.1 Buat project &amp; aktifkan API</h3>
+<ol>
+  <li>Buka <a href="https://console.cloud.google.com/">Google Cloud Console</a>, buat
+      project baru (mis. <i>Nalar RAG</i>).</li>
+  <li><b>APIs &amp; Services → Library</b> → aktifkan <b>Google Drive API</b>.
+      Tanpa ini, token terbit tapi setiap panggilan Drive dibalas 403.</li>
+</ol>
+
+<h3>2.2 OAuth consent screen</h3>
+<ol>
+  <li><b>APIs &amp; Services → OAuth consent screen</b>.</li>
+  <li>User type: <b>External</b> (kecuali seluruh pengguna berada di satu Google Workspace).</li>
+  <li>Isi nama aplikasi, email dukungan, dan domain <code>sainskerta.net</code>.</li>
+  <li>Pada <b>Scopes</b>, tambahkan tepat tiga ini:
+    <pre><code>openid
+email
+https://www.googleapis.com/auth/drive.readonly
+https://www.googleapis.com/auth/drive.file</code></pre>
+  </li>
+</ol>
+
+<div class="note">
+  <b>Kenapa dua scope Drive</b>
+  <p><code>drive.readonly</code> untuk MEMBACA dokumen pengguna jadi bahan knowledge
+  base. <code>drive.file</code> untuk MENULIS balik vault memory ke folder
+  <code>_nalar-memory/</code> — scope ini hanya memberi akses pada berkas yang dibuat
+  aplikasi ini sendiri, bukan seluruh Drive.</p>
+</div>
+
+<div class="note warn">
+  <b>Scope Drive itu “sensitive” — verifikasi Google</b>
+  <p>Selama aplikasi berstatus <b>Testing</b>, hanya akun yang kamu daftarkan di
+  <b>Test users</b> yang bisa memakainya (maks. 100). Untuk membukanya ke publik,
+  Google mewajibkan proses verifikasi yang bisa memakan waktu berminggu-minggu.
+  Untuk pemakaian internal, cukup tetap di Testing dan daftarkan akunmu.</p>
+</div>
+
+<h3>2.3 Buat OAuth client</h3>
+<ol>
+  <li><b>Credentials → Create Credentials → OAuth client ID</b>.</li>
+  <li>Application type: <b>Web application</b>.</li>
+  <li><b>Authorized redirect URIs</b> — masukkan KEDUANYA:
+    <pre><code>https://rag.sainskerta.net/api/auth/callback/google
+https://rag.sainskerta.net/api/connections/google/callback</code></pre>
+    Untuk pengembangan lokal, tambahkan juga:
+    <pre><code>http://localhost:3000/api/auth/callback/google
+http://localhost:3000/api/connections/google/callback</code></pre>
+  </li>
+  <li>Simpan <b>Client ID</b> dan <b>Client secret</b>.</li>
+</ol>
+
+<h3>2.4 Yang diminta aplikasi saat login</h3>
+<table>
+  <tr><th>Parameter</th><th>Nilai</th><th>Alasan</th></tr>
+  <tr><td><code>access_type</code></td><td><code>offline</code></td>
+      <td>agar terbit <i>refresh token</i> — tanpa ini sinkronisasi mati begitu access token kedaluwarsa (±1 jam)</td></tr>
+  <tr><td><code>prompt</code></td><td><code>consent</code> (login)<br><code>select_account consent</code> (connect)</td>
+      <td>memaksa refresh token terbit ulang, dan pada jalur connect membuat pengguna bisa memilih akun berbeda sehingga bisa menghubungkan banyak akun</td></tr>
+</table>
+
+<h2 id="microsoft">3. Microsoft — OneDrive / SharePoint</h2>
+
+<h3>3.1 Daftarkan aplikasi</h3>
+<ol>
+  <li>Buka <a href="https://entra.microsoft.com/">Microsoft Entra admin center</a> →
+      <b>App registrations → New registration</b>.</li>
+  <li>Nama: <i>Nalar RAG</i>.</li>
+  <li><b>Supported account types</b>: pilih
+      <i>Accounts in any organizational directory and personal Microsoft accounts</i>
+      bila penggunanya lintas organisasi. Pilihan ini menentukan nilai
+      <code>MS_TENANT_ID</code> di langkah berikutnya.</li>
+  <li><b>Redirect URI</b> → platform <b>Web</b>, masukkan KEDUANYA:
+    <pre><code>https://rag.sainskerta.net/api/auth/callback/azure-ad
+https://rag.sainskerta.net/api/connections/microsoft/callback</code></pre>
+  </li>
+</ol>
+
+<h3>3.2 Client secret</h3>
+<ol>
+  <li><b>Certificates &amp; secrets → New client secret</b>.</li>
+  <li>Salin kolom <b>Value</b> (bukan <i>Secret ID</i>) — nilainya hanya muncul sekali.</li>
+</ol>
+
+<div class="note warn">
+  <b>Secret Microsoft punya masa berlaku</b>
+  <p>Maksimal 24 bulan. Saat kedaluwarsa, login dan sinkronisasi berhenti tanpa
+  perubahan kode apa pun. Catat tanggalnya sekarang.</p>
+</div>
+
+<h3>3.3 API permissions</h3>
+<ol>
+  <li><b>API permissions → Add a permission → Microsoft Graph → Delegated permissions</b>.</li>
+  <li>Tambahkan:
+    <pre><code>openid
+email
+offline_access
+Files.Read</code></pre>
+  </li>
+  <li>Klik <b>Grant admin consent</b> bila akunmu admin direktori.</li>
+</ol>
+
+<div class="note">
+  <b><code>Files.Read</code> mencakup SharePoint</b>
+  <p>Nalar mengakses OneDrive maupun SharePoint lewat endpoint Microsoft Graph yang
+  sama (<code>/me/drive</code>), jadi tak ada izin terpisah untuk SharePoint. Untuk
+  menunjuk pustaka dokumen tertentu, isi <code>folderPath</code> saat menambahkan
+  sumber data di halaman Knowledge.</p>
+</div>
+
+<h3>3.4 Menentukan <code>MS_TENANT_ID</code></h3>
+<table>
+  <tr><th>Nilai</th><th>Kapan dipakai</th></tr>
+  <tr><td><code>common</code></td><td>akun kerja maupun pribadi (default bila tak diisi)</td></tr>
+  <tr><td><code>organizations</code></td><td>hanya akun kerja/sekolah</td></tr>
+  <tr><td>GUID direktori</td><td>dikunci ke satu organisasi saja</td></tr>
+</table>
+
+<h2 id="env">4. Memasang environment variable</h2>
+
+<table>
+  <tr><th>Variabel</th><th>Wajib</th><th>Keterangan</th></tr>
+  <tr><td><code>GOOGLE_CLIENT_ID</code></td><td>untuk Google</td><td>diakhiri <code>.apps.googleusercontent.com</code></td></tr>
+  <tr><td><code>GOOGLE_CLIENT_SECRET</code></td><td>untuk Google</td><td>diawali <code>GOCSPX-</code></td></tr>
+  <tr><td><code>MS_CLIENT_ID</code></td><td>untuk Microsoft</td><td>Application (client) ID</td></tr>
+  <tr><td><code>MS_CLIENT_SECRET</code></td><td>untuk Microsoft</td><td>kolom <b>Value</b>, bukan Secret ID</td></tr>
+  <tr><td><code>MS_TENANT_ID</code></td><td>opsional</td><td>default <code>common</code></td></tr>
+  <tr><td><code>NEXTAUTH_URL</code></td><td><b>ya</b></td><td>dasar pembentuk redirect URI — harus persis</td></tr>
+</table>
+
+<h3>Di Vercel (produksi)</h3>
+<pre><code>Project → Settings → Environment Variables → Production
+  GOOGLE_CLIENT_ID      = ...apps.googleusercontent.com
+  GOOGLE_CLIENT_SECRET  = GOCSPX-...
+  MS_CLIENT_ID          = ...
+  MS_CLIENT_SECRET      = ...
+  MS_TENANT_ID          = common</code></pre>
+
+<div class="note danger">
+  <b>Wajib redeploy</b>
+  <p>Environment variable hanya terbaca saat build/boot. Setelah menyimpannya,
+  jalankan <b>Redeploy</b> — tanpa itu provider tetap tidak muncul dan kamu akan
+  mengira konfigurasinya gagal.</p>
+</div>
+
+<h3>Lokal</h3>
+<pre><code># .env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+MS_CLIENT_ID=
+MS_CLIENT_SECRET=
+MS_TENANT_ID=common
+NEXTAUTH_URL=http://localhost:3000</code></pre>
+
+<h2 id="verifikasi">5. Verifikasi</h2>
+
+<p>Cara tercepat memastikan provider benar-benar terdaftar — endpoint ini publik
+dan tidak membocorkan apa pun:</p>
+<pre><code>curl -s https://rag.sainskerta.net/api/auth/providers</code></pre>
+
+<p>Sebelum dikonfigurasi, balasannya hanya berisi <code>credentials</code>.
+Setelah berhasil, <code>google</code> dan/atau <code>azure-ad</code> ikut muncul.</p>
+
+<div class="note ok">
+  <b>Urutan pengecekan yang disarankan</b>
+  <p>1. <code>/api/auth/providers</code> memuat provider baru →
+     2. tombol “Lanjut dengan Google” muncul sendiri di <code>/auth</code> →
+     3. login berhasil →
+     4. di <b>Knowledge</b>, tombol “Connect Google” muncul →
+     5. akun tampil di daftar, lalu tambahkan sumber data dan jalankan Sync.</p>
+</div>
+
+<h2 id="fallback">6. Perilaku saat env belum ada</h2>
+
+<p>Aplikasi sengaja <b>tidak</b> menawarkan sesuatu yang pasti gagal. Tanpa env
+OAuth:</p>
+
+<table>
+  <tr><th>Bagian</th><th>Perilaku</th></tr>
+  <tr><td>Halaman <code>/auth</code></td>
+      <td>tombol Google/Microsoft <b>tidak ditampilkan</b> (dicek lewat
+      <code>/api/auth/providers</code>); pemisah “ATAU EMAIL” ikut disembunyikan sehingga
+      formulir email tampil bersih</td></tr>
+  <tr><td>Halaman <b>Knowledge</b></td>
+      <td>tombol “Connect …” disembunyikan, diganti keterangan beserta tautan ke
+      panduan ini (<code>/api/connections/providers</code>)</td></tr>
+  <tr><td><code>/api/connections/{provider}/start</code></td>
+      <td>balas <b>400</b> dengan pesan <i>“… OAuth belum dikonfigurasi (env)”</i></td></tr>
+  <tr><td>Login email + password</td>
+      <td><b>tetap berjalan penuh</b> — OAuth sepenuhnya opsional</td></tr>
+  <tr><td>Memasukkan dokumen</td>
+      <td>lewat <code>POST /api/ingest</code>; hanya sinkronisasi Drive/SharePoint yang belum tersedia</td></tr>
+</table>
+
+<div class="note">
+  <b>Satu provider saja boleh</b>
+  <p>Google dan Microsoft berdiri sendiri. Memasang Google saja sudah membuat
+  login Google dan sinkronisasi Drive berfungsi, tanpa menyentuh Microsoft.</p>
+</div>
+
+<h2 id="masalah">7. Kalau gagal</h2>
+
+<table>
+  <tr><th>Gejala</th><th>Sebab yang paling sering</th></tr>
+  <tr><td><code>redirect_uri_mismatch</code></td>
+      <td>redirect URI belum didaftarkan, atau <code>NEXTAUTH_URL</code> tidak persis sama
+      (beda skema/garis miring). Ingat: <b>dua</b> URI per provider.</td></tr>
+  <tr><td>Tombol tetap tak muncul setelah env diisi</td>
+      <td>belum redeploy — env hanya terbaca saat boot</td></tr>
+  <tr><td>Login jalan, tapi “Connect Google” gagal</td>
+      <td>URI <code>/api/connections/google/callback</code> belum didaftarkan</td></tr>
+  <tr><td><code>access_denied</code> di Google</td>
+      <td>aplikasi masih Testing dan akun itu belum masuk <b>Test users</b></td></tr>
+  <tr><td>Sinkronisasi jalan sekali lalu berhenti</td>
+      <td>tak ada refresh token — pastikan <code>access_type=offline</code> dan hapus
+      izin lama di akun Google agar consent terbit ulang</td></tr>
+  <tr><td>Drive 403 padahal login sukses</td>
+      <td><b>Google Drive API</b> belum diaktifkan di project</td></tr>
+  <tr><td>Microsoft tiba-tiba berhenti setelah berbulan-bulan</td>
+      <td>client secret kedaluwarsa (maks. 24 bulan)</td></tr>
+</table>
+
+<div class="note warn">
+  <b>Jangan pernah menaruh client secret di kode atau repo</b>
+  <p>Keduanya hanya boleh ada di environment. Token OAuth pengguna yang tersimpan
+  di database sudah dienkripsi AES-256-GCM dengan
+  <code>CREDENTIALS_ENCRYPTION_KEY</code> dan tak pernah dikirim ke browser.</p>
+</div>
+
+<footer>
+  Nalar — Enterprise Knowledge. Instant Intelligence.<br>
+  Nilai scope dan redirect URI di halaman ini diambil langsung dari
+  <code>src/modules/auth/auth.options.ts</code> dan
+  <code>src/modules/connections/oauth-flow.ts</code>.
+</footer>
+
+</div>
+</body>
+</html>
