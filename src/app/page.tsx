@@ -1,10 +1,31 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import './landing.css';
 
-export const metadata = {
-  title: 'Nalar — Enterprise Knowledge Intelligence',
-  description: 'Platform RAG untuk menghubungkan seluruh pengetahuan perusahaan menjadi jawaban yang akurat, aman, dan dapat dipertanggungjawabkan.',
+export const metadata: Metadata = {
+  /**
+   * Judul beranda sengaja PERSIS "Nalar" — sama dengan App name di OAuth
+   * consent screen. Sebelumnya "Nalar — Enterprise Knowledge Intelligence",
+   * dan pemeriksa Google membandingkannya dengan "Nalar" lalu melaporkan nama
+   * aplikasi tidak cocok. Penjelasan produknya pindah ke description & h1.
+   */
+  // `absolute` melewati template '%s · Nalar' di layout — tanpa ini judulnya
+  // jadi "Nalar · Nalar" dan tetap dianggap tidak cocok.
+  title: { absolute: 'Nalar' },
+  description:
+    'Nalar adalah aplikasi tanya-jawab atas dokumen perusahaan: menghubungkan Google Drive, '
+    + 'OneDrive, SharePoint, atau unggahan langsung, lalu menjawab pertanyaan berdasarkan isinya '
+    + 'lengkap dengan sitasi ke dokumen sumbernya.',
+  applicationName: 'Nalar',
+  openGraph: {
+    title: 'Nalar',
+    siteName: 'Nalar',
+    description:
+      'Aplikasi tanya-jawab atas dokumen perusahaan, dengan sitasi ke dokumen sumbernya.',
+    url: 'https://rag.sainskerta.net',
+    type: 'website',
+  },
 };
 
 /** Landing publik (bukan redirect ke login). Brand resmi Nalar. */
@@ -75,57 +96,107 @@ export default function Landing() {
           Peninjau OAuth Google menolak beranda yang tak menjelaskan untuk apa
           aplikasinya ada; bagian ini menjawab itu tanpa jargon pemasaran. */}
       <section className="lp-wrap" id="tentang">
-        <div className="lp-about">
-          <h2>Tentang Nalar</h2>
-          <p>
+        <div className="lp-sec">
+          <span className="lp-eyebrow">TENTANG APLIKASI INI</span>
+          <h2 className="lp-h2">Dokumen perusahaanmu, jadi bisa ditanya</h2>
+          <p className="lp-sub">
             <b>Nalar</b> adalah aplikasi tanya-jawab atas dokumen milik organisasimu
-            sendiri. Kamu menghubungkan sumber dokumen — Google Drive, OneDrive,
-            SharePoint, atau unggahan langsung — lalu Nalar membaca isinya dan
-            membangun basis pengetahuan yang bisa ditanyai dengan bahasa sehari-hari.
+            sendiri — untuk tim dan perusahaan, bukan pemakaian pribadi.
           </p>
-          <p>
-            Setiap jawaban <b>disertai sitasi</b> ke dokumen sumbernya, sehingga bisa
-            diperiksa dan tidak perlu dipercaya begitu saja. Chatbot yang dihasilkan
-            dapat dipasang di situs mana pun lewat satu baris skrip, misalnya untuk
-            layanan pelanggan atau helpdesk internal.
-          </p>
-          <p>
-            Ditujukan untuk <b>organisasi dan tim</b>. Setiap organisasi memiliki ruang
-            datanya sendiri yang terpisah di tingkat basis data, dan dokumen satu
-            organisasi tidak pernah dapat diakses organisasi lain.
-          </p>
+
+          <ol className="lp-steps">
+            <li className="lp-stepc">
+              <span className="n">1</span>
+              <h3>Hubungkan sumber dokumen</h3>
+              <p>Google Drive, OneDrive, SharePoint, atau unggah langsung. Kamu yang
+                memilih folder mana yang dibaca — tak ada yang diambil diam-diam.</p>
+            </li>
+            <li className="lp-stepc">
+              <span className="n">2</span>
+              <h3>Nalar membaca &amp; menyusunnya</h3>
+              <p>Teksnya diekstrak dan disusun jadi basis pengetahuan yang bisa dicari
+                berdasarkan makna, bukan sekadar kecocokan kata.</p>
+            </li>
+            <li className="lp-stepc">
+              <span className="n">3</span>
+              <h3>Tanya, dapat jawaban bersitasi</h3>
+              <p>Setiap jawaban menunjuk dokumen sumbernya, jadi bisa diperiksa — tak
+                perlu dipercaya begitu saja.</p>
+            </li>
+          </ol>
+
+          <div className="lp-note">
+            <b>Chatbot siap pasang.</b> Hasilnya dapat ditempelkan di situs mana pun
+            lewat satu baris skrip — misalnya untuk layanan pelanggan atau helpdesk
+            internal. Setiap organisasi punya ruang datanya sendiri yang terpisah di
+            tingkat basis data; dokumen satu organisasi tidak pernah dapat diakses
+            organisasi lain.
+          </div>
         </div>
       </section>
 
       {/* DATA GOOGLE — disyaratkan untuk scope sensitif (Drive). */}
       <section className="lp-wrap" id="data-google">
-        <div className="lp-about">
-          <h2>Bagaimana Nalar memakai data Google kamu</h2>
-          <p>
+        <div className="lp-sec">
+          <span className="lp-eyebrow">PENGGUNAAN DATA GOOGLE</span>
+          <h2 className="lp-h2">Bagaimana Nalar memakai data Google kamu</h2>
+          <p className="lp-sub">
             Menghubungkan Google Drive bersifat <b>opsional</b> — Nalar tetap bisa
-            dipakai dengan mengunggah dokumen secara langsung.
+            dipakai penuh dengan mengunggah dokumen secara langsung. Bila kamu memang
+            menghubungkannya, ini persis yang diminta dan yang tidak.
           </p>
-          <ul className="lp-list">
-            <li>
-              <b>Melihat berkas Drive (baca saja).</b> Dipakai untuk membaca dokumen
-              yang <i>kamu pilih</i> agar menjadi basis pengetahuan chatbotmu. Nalar
-              tidak dapat mengubah atau menghapus berkas di Drive-mu.
-            </li>
-            <li>
-              <b>Menulis di folder buatan Nalar.</b> Izin ini terbatas pada berkas yang
-              dibuat aplikasi ini sendiri, dipakai untuk menyimpan ringkasan pengetahuan
-              ke folder <code>_nalar-memory/</code>. Berkas lain di Drive-mu tidak
-              terjangkau oleh izin ini.
-            </li>
-          </ul>
-          <p>
-            Yang kami simpan hanyalah <b>teks hasil ekstraksi</b> beserta representasi
-            numeriknya untuk pencarian — bukan salinan berkas aslinya. Data Google kamu
-            <b> tidak dijual, tidak dipakai untuk iklan, dan tidak dipakai melatih model
-            AI</b>. Kamu bisa memutus koneksi kapan saja dari halaman Knowledge, atau
-            mencabut izinnya langsung dari setelan akun Google.
-          </p>
-          <p>
+
+          <div className="lp-scopes">
+            <div className="lp-scope">
+              <div className="lp-scope-h">
+                <span className="badge badge-source">baca saja</span>
+                <code>drive.readonly</code>
+              </div>
+              <h3>Melihat berkas Drive</h3>
+              <p>Membaca dokumen yang <b>kamu pilih sendiri</b>, untuk dijadikan basis
+                pengetahuan chatbotmu.</p>
+              <ul className="lp-can">
+                <li className="no">Tidak bisa mengubah berkasmu</li>
+                <li className="no">Tidak bisa menghapus berkasmu</li>
+                <li className="no">Tidak menyalin berkas aslinya</li>
+              </ul>
+            </div>
+
+            <div className="lp-scope">
+              <div className="lp-scope-h">
+                <span className="badge badge-source">terbatas</span>
+                <code>drive.file</code>
+              </div>
+              <h3>Menulis di folder buatan Nalar</h3>
+              <p>Menyimpan ringkasan pengetahuan ke folder <code>_nalar-memory/</code>
+                milikmu, agar bisa kamu baca sendiri.</p>
+              <ul className="lp-can">
+                <li className="no">Hanya berkas buatan aplikasi ini</li>
+                <li className="no">Tak menjangkau berkas Drive lainnya</li>
+                <li className="ok">Bisa kamu hapus kapan saja</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="lp-guarantee">
+            <div className="g">
+              <span className="microlabel">YANG DISIMPAN</span>
+              <p>Hanya <b>teks hasil ekstraksi</b> dan representasi numeriknya untuk
+                pencarian — bukan salinan berkas aslinya.</p>
+            </div>
+            <div className="g">
+              <span className="microlabel">YANG TIDAK KAMI LAKUKAN</span>
+              <p>Data Google kamu <b>tidak dijual</b>, <b>tidak dipakai untuk iklan</b>,
+                dan <b>tidak dipakai melatih model AI</b> mana pun.</p>
+            </div>
+            <div className="g">
+              <span className="microlabel">KENDALI DI TANGANMU</span>
+              <p>Putus koneksi kapan saja dari halaman Knowledge, atau cabut izinnya
+                langsung dari setelan akun Google.</p>
+            </div>
+          </div>
+
+          <p className="lp-sub" style={{ marginTop: 20 }}>
             Rincian lengkap ada di <a href="/privacy">Kebijakan Privasi</a> dan{' '}
             <a href="/terms">Ketentuan Layanan</a>.
           </p>
