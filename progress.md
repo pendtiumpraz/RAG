@@ -232,6 +232,19 @@
         mesin sendiri (cache lokal menipu). Sudah pulih; `/`, `/privacy`,
         `/terms`, `/robots.txt` semua 200.
       Ketiganya dicatat di tabel penolakan→tindakan `public/docs/oauth-setup.html`.
+- [x] **Ringkasan Inggris + kanal kontak** (2026-07-27): sebab keempat yang belum
+      tersentuh perbaikan judul — peninjau Google membaca dalam bahasa Inggris,
+      sedangkan beranda/privasi/ketentuan seluruhnya berbahasa Indonesia
+      (`<html lang="id">`); halaman yang tak terbaca peninjau dinilai sama dengan
+      halaman yang tak menjelaskan apa pun. Ditambah bagian `#english` statis di
+      beranda (bukan di balik tombol — peninjau tak berinteraksi) dan prop
+      `english` pada `LegalPage` untuk `/privacy` + `/terms`.
+      Sekaligus menutup celah nyata: kedua dokumen legal menyuruh "hubungi
+      pengelola" untuk penghapusan permanen tapi **tak pernah menyebut caranya** —
+      tidak ada alamat kontak di mana pun dalam proyek. Kini ada bagian Kontak di
+      keduanya lewat konstanta `CONTACT_EMAIL` (`_components/legal.tsx`).
+      ⚠️ Kotak surat `privacy@sainskerta.net` **harus benar-benar dibuat** —
+      kanal penghapusan data yang memantul akan gagal saat ditinjau.
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
