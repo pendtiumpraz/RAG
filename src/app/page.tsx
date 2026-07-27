@@ -22,7 +22,10 @@ export default function Landing() {
             <span className="lp-appname">Nalar</span>
           </div>
           <nav className="lp-nav-links">
-            <a href="#tentang">Tentang</a><a href="#fitur">Fitur</a><a href="#data-google">Data Google</a><a href="/api/openapi">API</a>
+            {/* Kebijakan Privasi ditautkan dari NAVIGASI ATAS, bukan hanya
+                footer — peninjau Google memeriksa keterjangkauannya. */}
+            <a href="#tentang">Tentang</a><a href="#data-google">Data Google</a>
+            <a href="/privacy">Privasi</a><a href="/terms">Ketentuan</a>
           </nav>
           <div className="cluster gap-2">
             <Link className="btn btn-sm" href="/auth">Masuk</Link>
@@ -36,8 +39,16 @@ export default function Landing() {
         <div className="lp-hero">
           <div>
             <span className="lp-badge"><span className="led" /> Platform RAG multi-tenant · SaaS &amp; on-prem</span>
-            <h1>Enterprise Knowledge.<br /><span className="blue">Instant Intelligence.</span></h1>
-            <p className="lede">Menghubungkan seluruh pengetahuan perusahaan menjadi jawaban yang akurat, aman, dan dapat dipertanggungjawabkan — lengkap dengan sitasi ke sumbernya.</p>
+            <h1>Nalar — tanya dokumen<br /><span className="blue">perusahaanmu sendiri.</span></h1>
+            {/* Penjelasan tujuan ditaruh DI ATAS, dalam bahasa lugas: peninjau
+                OAuth Google membaca bagian teratas beranda lebih dulu, dan
+                slogan pemasaran saja dinilai tidak menjelaskan apa pun. */}
+            <p className="lede">
+              <b>Nalar</b> membaca dokumen yang kamu hubungkan — dari Google Drive,
+              OneDrive, SharePoint, atau unggahan langsung — lalu menjawab pertanyaan
+              berdasarkan isinya, <b>lengkap dengan sitasi ke dokumen sumbernya</b>.
+              Chatbot yang dihasilkan bisa dipasang di situs mana pun.
+            </p>
             <div className="lp-cta">
               <Link className="btn btn-primary btn-lg" href="/auth">Mulai gratis →</Link>
               <Link className="btn btn-lg" href="/chat">Coba Chat</Link>
