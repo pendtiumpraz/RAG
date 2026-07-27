@@ -5,20 +5,26 @@ import { settingsService } from '@/modules/settings/settings.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { LLM_MODELS, ALL_PROVIDERS } from '@/modules/core/registry';
 import { listEmbeddingModels } from '@/modules/knowledge/embeddings/catalog';
+import { listSavedProviders } from '@/modules/settings/credentials.repository';
 
 export const runtime = 'nodejs';
 
 /** GET /api/settings — katalog model + setelan aktif tenant. */
 export async function GET() {
   const user = await getCurrentUser();
-  const [active, embeddingModels] = await Promise.all([
+  const [active, embeddingModels, savedKeys] = await Promise.all([
     settingsService.get(user.tenantId),
     listEmbeddingModels(), // registry statis + model dari server VPS terdaftar
+    listSavedProviders(user.tenantId),
   ]);
   return NextResponse.json({
     llmModels: LLM_MODELS,
     embeddingModels,
     providers: ALL_PROVIDERS,
+    // hanya NAMA provider yang punya kunci — nilainya tak pernah keluar.
+    // Tanpa ini UI tak bisa memberi tahu bahwa penyimpanan berhasil, karena
+    // input sengaja dikosongkan setelah simpan.
+    savedKeys,
     active,
     // dipakai UI untuk memutuskan menampilkan panel kelola server VPS
     role: user.role,

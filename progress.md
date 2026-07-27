@@ -141,6 +141,17 @@
       Neon (ekstensi sudah lama ada); yang kena adalah CI dan pemasangan on-prem baru —
       persis alur yang ditulis README. Fix: `scripts/ensure-extensions.mjs`, dipasang di
       depan `db:push`.
+- [x] 🔴 **BUG KRITIS: API key provider tak pernah terbaca** (2026-07-27) — kelas yang
+      SAMA dengan bug widget embed 404.  memakai  tanpa konteks
+      tenant padahal  FORCE RLS ⇒ nol baris TANPA galat, jatuh ke
+      env, lalu chat melaporkan "No API key configured" APA PUN yang sudah disimpan
+      pengguna. Jadi fitur simpan API key rusak total sejak awal. Fix: .
+      Ditambah yang membuat bug ini tak terlihat: UI tak punya penanda apakah key
+      tersimpan (input sengaja dikosongkan setelah simpan) →  kini
+      membalas  (nama provider saja) + badge "tersimpan", dan tombol **Test**
+      () yang menembak endpoint daftar-model tiap penyedia
+      (gratis, tak memakan kuota token) memakai kunci TERSIMPAN. Terverifikasi: key palsu
+      ditolak 401 oleh Anthropic sungguhan. Tes regresi ditambahkan ke smoke.
 - [x] **Kredensial OAuth pindah dari ENV ke DATABASE** (2026-07-27, migrasi 0014):
       tabel PLATFORM `oauth_apps` (tanpa tenant_id/RLS — ini kredensial APLIKASI),
       client_secret terenkripsi AES-256-GCM, hanya superadmin, TAK PERNAH ke browser.

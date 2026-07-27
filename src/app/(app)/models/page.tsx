@@ -10,6 +10,7 @@ interface EmbModel { id: string; label: string; bucket: string; kind: string }
 interface Catalog {
   llmModels: LlmModel[]; embeddingModels: EmbModel[]; providers: string[];
   active: { activeLlmModel: string; activeEmbeddingModel: string; systemPrompt: string | null } | null;
+  savedKeys: string[];
   role: string;
 }
 /** Server embedding VPS — bentuk publik: token TAK PERNAH dikirim ke browser. */
@@ -24,7 +25,22 @@ export default function ModelsPage() {
   const [llm, setLlm] = useState(''); const [emb, setEmb] = useState('');
   const [prompt, setPrompt] = useState(''); const [keys, setKeys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [tested, setTested] = useState<Record<string, { ok: boolean; message: string }>>({});
   const toast = useToast();
+
+  /** Menguji kunci yang TERSIMPAN, bukan yang sedang diketik — itu yang dipakai menjawab. */
+  async function testKey(provider: string) {
+    setTesting(provider);
+    try {
+      const r = await api<{ ok: boolean; message: string }>('/api/settings/test-key', {
+        method: 'POST', body: JSON.stringify({ provider }),
+      });
+      setTested((t) => ({ ...t, [provider]: r }));
+    } catch (e) {
+      setTested((t) => ({ ...t, [provider]: { ok: false, message: (e as Error).message } }));
+    } finally { setTesting(null); }
+  }
 
   useEffect(() => {
     if (!data) return;
@@ -40,7 +56,7 @@ export default function ModelsPage() {
         activeLlmModel: llm, activeEmbeddingModel: emb, systemPrompt: prompt,
         apiKeys: Object.fromEntries(Object.entries(keys).filter(([, v]) => v)),
       }) });
-      toast('Pengaturan tersimpan'); setKeys({}); refetch();
+      toast('Pengaturan tersimpan'); setKeys({}); setTested({}); refetch();
     } catch (e) { toast((e as Error).message, 'error'); }
     finally { setBusy(false); }
   }
@@ -94,12 +110,40 @@ export default function ModelsPage() {
         <div className="card" style={{ alignSelf: 'start' }}>
           <div className="panel-head"><span className="t">provider api keys</span><span className="microlabel">AES-256 · SERVER-ONLY</span></div>
           <div className="card-pad stack gap-4">
-            {data.providers.map((p) => (
-              <div className="field" key={p}><label>{p}</label>
-                <input className="input mono" type="password" placeholder="tambah / ganti key…"
-                  value={keys[p] ?? ''} onChange={(e) => setKeys({ ...keys, [p]: e.target.value })} /></div>
-            ))}
-            <p className="microlabel">KOSONGKAN UNTUK TIDAK MENGUBAH KEY YANG ADA.</p>
+            {data.providers.map((p) => {
+              const saved = data.savedKeys?.includes(p);
+              return (
+                <div className="field" key={p}>
+                  <label className="cluster" style={{ justifyContent: 'space-between' }}>
+                    <span>{p}</span>
+                    {/* Penanda ini yang selama ini hilang: input dikosongkan
+                        setelah simpan, jadi tanpa ini orang wajar mengira
+                        simpanannya gagal. */}
+                    {saved
+                      ? <span className="badge badge-ok"><span className="led led-live" />tersimpan</span>
+                      : <span className="badge"><span className="led led-off" />belum ada</span>}
+                  </label>
+                  <div className="cluster gap-2">
+                    <input className="input mono" type="password" style={{ flex: 1 }}
+                      placeholder={saved ? 'kosongkan = tidak diubah' : 'tempel API key…'}
+                      value={keys[p] ?? ''} onChange={(e) => setKeys({ ...keys, [p]: e.target.value })} />
+                    {saved && (
+                      <button className={`btn btn-sm${testing === p ? ' is-loading' : ''}`}
+                        disabled={testing === p} onClick={() => testKey(p)}>Test</button>
+                    )}
+                  </div>
+                  {tested[p] && (
+                    <p style={{ marginTop: 6, fontSize: 12.5, color: tested[p].ok ? 'var(--good)' : 'var(--danger)' }}>
+                      {tested[p].ok ? '✓ ' : '✗ '}{tested[p].message}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            <p className="microlabel">
+              KEY DISIMPAN TERENKRIPSI &amp; TAK PERNAH DIKIRIM BALIK KE BROWSER —
+              KARENA ITU KOLOMNYA SELALU KOSONG SETELAH DISIMPAN.
+            </p>
           </div>
         </div>
       </div>

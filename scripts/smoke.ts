@@ -172,6 +172,25 @@ async function main() {
     skipped('embed publik', e);
   }
 
+  // 10) API KEY PROVIDER — pernah rusak TOTAL dengan cara yang sama seperti bug
+  //     widget embed: `provider_credentials` FORCE RLS, dan pembacanya memakai
+  //     `db` tanpa konteks tenant ⇒ nol baris, tanpa galat. Setiap kunci yang
+  //     disimpan lewat dashboard tak pernah terbaca, dan chat selalu melaporkan
+  //     "No API key configured" apa pun yang sudah diisi pengguna.
+  try {
+    const { settingsService } = await import('../src/modules/settings/settings.service');
+    const { apiKeyResolver, listSavedProviders } = await import('../src/modules/settings/credentials.repository');
+    const secret = `sk-ant-smoke-${rnd()}`;
+    await settingsService.update(a.tenantId, { apiKeys: { anthropic: secret } });
+    const readBack = await apiKeyResolver(a.tenantId)('anthropic');
+    const saved = await listSavedProviders(a.tenantId);
+    const pass = readBack === secret && saved.includes('anthropic');
+    console.log(`${pass ? '✓' : '✗'} api key provider: tersimpan=${saved.includes('anthropic')} · terbaca balik utuh=${readBack === secret}`);
+    if (!pass) process.exitCode = 1;
+  } catch (e) {
+    skipped('api key provider', e);
+  }
+
   if (skippedCount > 0 && !STRICT) {
     console.log(`\n⚠ ${skippedCount} bagian dilewati — jalankan dengan SMOKE_STRICT=1 agar itu dihitung gagal.`);
   }
