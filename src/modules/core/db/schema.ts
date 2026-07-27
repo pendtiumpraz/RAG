@@ -288,6 +288,36 @@ export const oauthApps = pgTable('oauth_apps', {
   delIdx: index('idx_oauth_apps_deleted_at').on(t.deletedAt),
 }));
 
+/* ── server LLM sendiri (on-prem/VPS) — PLATFORM, bukan per-tenant ─── */
+/**
+ * Server LLM yang dijalankan sendiri: Ollama, vLLM, LM Studio, LocalAI,
+ * llama.cpp — semuanya berbicara protokol OpenAI (`/v1/chat/completions`).
+ *
+ * Kenapa ada: tanpa ini, `DEPLOYMENT_MODE=onprem` sebenarnya menyesatkan.
+ * Embedding sudah bisa berjalan sepenuhnya lokal, tapi jawabannya tetap harus
+ * menempuh API cloud — jadi pemasangan yang benar-benar tertutup mustahil.
+ *
+ * Bentuknya sengaja MENIRU `embedding_servers`: tabel PLATFORM tanpa
+ * `tenant_id`/RLS, token terenkripsi AES-256-GCM, hanya superadmin.
+ */
+export const llmServers = pgTable('llm_servers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  /** Base URL sampai `/v1`, mis. http://10.0.0.5:11434/v1 */
+  baseUrl: text('base_url').notNull(),
+  /** Boleh kosong: Ollama/LM Studio di jaringan tertutup lazim tanpa auth. */
+  encryptedToken: text('encrypted_token'),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** Model yang dilaporkan server saat "Test koneksi". */
+  models: jsonb('models').$type<Array<{ id: string }>>().default([]).notNull(),
+  lastCheckedAt: timestamp('last_checked_at'),
+  lastError: text('last_error'),
+  ...stamps,
+}, (t) => ({
+  enabledIdx: index('idx_llm_servers_enabled').on(t.enabled),
+  delIdx: index('idx_llm_servers_deleted_at').on(t.deletedAt),
+}));
+
 /* ── server embedding sendiri (VPS) — PLATFORM, bukan per-tenant ───── */
 /**
  * PERKECUALIAN yang disengaja: tabel ini **tidak punya `tenant_id`** dan

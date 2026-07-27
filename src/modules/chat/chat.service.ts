@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { tenantSettings } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
-import { getLlmModel } from '@/modules/core/registry';
+import { resolveLlmModel } from './llm-catalog';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { conversationRepository as convo } from './conversation.repository';
 import { retrievalService, type RetrievedChunk } from './retrieval.service';
@@ -86,9 +86,11 @@ export async function* chatTurn(
   // Guardrail L2: konteks dikeraskan (dokumen = data, injeksi disaring).
   const { messages: prompt, injectionFlagged } = buildPrompt(settings?.systemPrompt ?? null, context, history, input.question);
 
-  const provider = getLlmModel(llmModel)?.provider;
-  const apiKey = provider ? await getApiKey(provider) : null;
-  if (!apiKey) throw new Error(`No API key configured for provider: ${provider}`);
+  const provider = (await resolveLlmModel(llmModel))?.provider;
+  // Server LLM sendiri memakai kredensial dari pendaftaran servernya, bukan
+  // kunci provider per-tenant — jadi jangan menuntut apiKey di sini.
+  const apiKey = provider && provider !== 'selfhosted' ? await getApiKey(provider) : null;
+  if (!apiKey && provider !== 'selfhosted') throw new Error(`No API key configured for provider: ${provider}`);
 
   await withTenant(input.tenantId, (tx) =>
     convo.appendMessage(tx, {
@@ -102,7 +104,9 @@ export async function* chatTurn(
   let full = '';
   let truncated = false;
   let redactedAny = false;
-  for await (const delta of streamChat(llmModel, prompt, apiKey)) {
+  // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
+  // kredensialnya dari pendaftaran server — bukan dari argumen ini.
+  for await (const delta of streamChat(llmModel, prompt, apiKey ?? '')) {
     const { text: safeDelta, redacted } = redactSecrets(delta);
     if (redacted) redactedAny = true;
     full += safeDelta;

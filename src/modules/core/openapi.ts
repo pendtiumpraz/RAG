@@ -287,6 +287,29 @@ export const openApiSpec = {
         responses: { 200: err('status diperbarui'), 422: err('superadmin aktif terakhir') } },
     },
 
+    /* ── server LLM sendiri / on-premise — SUPERADMIN ── */
+    '/api/admin/llm-servers': {
+      get: { summary: 'Daftar server LLM sendiri (Ollama/vLLM/LM Studio)', security: [sessionAuth],
+        responses: { 200: err('daftar server + model terdeteksi') } },
+      post: { summary: 'Daftarkan server LLM (token opsional)', security: [sessionAuth],
+        requestBody: json(obj({ name: str, baseUrl: str, token: str }, ['name', 'baseUrl'])),
+        responses: { 201: err('server dibuat'), 422: err('alamat non-https / duplikat') } },
+    },
+    '/api/admin/llm-servers/{id}': {
+      patch: { summary: 'Ubah server LLM', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ name: str, baseUrl: str, token: str, enabled: { type: 'boolean' } }, [])),
+        responses: { 200: err('server diperbarui') } },
+      delete: { summary: 'Soft delete server LLM', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('dipindah ke Sampah') } },
+    },
+    '/api/admin/llm-servers/{id}/test': {
+      post: { summary: 'Uji koneksi + baca /v1/models dari server LLM', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('model terdeteksi & tersimpan'), 422: err('koneksi/token gagal') } },
+    },
+
     /* ── server embedding sendiri (VPS) — SUPERADMIN ── */
     '/api/admin/embedding-servers': {
       get: { summary: 'Daftar server embedding VPS (tanpa token)', security: [sessionAuth],

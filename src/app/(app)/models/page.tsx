@@ -151,8 +151,165 @@ export default function ModelsPage() {
       {/* Infrastruktur platform — hanya superadmin. Server ini dipakai BERSAMA
           semua tenant, dan menerima alamat dari pihak tak tepercaya akan
           membuka SSRF; karena itu panel & API-nya dikunci peran. */}
+      {data.role === 'superadmin' && <LlmServers onChanged={refetch} />}
       {data.role === 'superadmin' && <EmbeddingServers onChanged={refetch} />}
       {data.role === 'superadmin' && <OAuthApps />}
+    </>
+  );
+}
+
+/* ── server LLM sendiri / on-premise (superadmin) ───────────────────── */
+
+interface LlmServer {
+  id: string; name: string; baseUrl: string; enabled: boolean; hasToken: boolean;
+  models: Array<{ id: string }>; lastCheckedAt: string | null; lastError: string | null;
+}
+
+function LlmServers({ onChanged }: { onChanged: () => void }) {
+  const { data, loading, error, refetch } = useApi<LlmServer[]>('/api/admin/llm-servers');
+  const [adding, setAdding] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function test(s: LlmServer) {
+    setTesting(s.id);
+    try {
+      const r = await api<LlmServer>(`/api/admin/llm-servers/${s.id}/test`, { method: 'POST' });
+      toast(`${r.models.length} model terdeteksi: ${r.models.map((m) => m.id).slice(0, 3).join(', ')}${r.models.length > 3 ? '…' : ''}`);
+      refetch(); onChanged();          // model baru harus muncul di dropdown chat
+    } catch (e) { toast((e as Error).message, 'error'); refetch(); }
+    finally { setTesting(null); }
+  }
+
+  async function remove(s: LlmServer) {
+    try {
+      await api(`/api/admin/llm-servers/${s.id}`, { method: 'DELETE' });
+      toast('Server dipindah ke Sampah'); refetch(); onChanged();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head">
+        <span className="t">server LLM sendiri (on-premise)</span>
+        <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={14} /> Tambah server
+        </button>
+      </div>
+
+      {error ? <ErrorState message={error} onRetry={refetch} />
+        : loading || !data ? <Skeleton rows={2} />
+        : data.length === 0 ? <EmptyState title="Belum ada server LLM sendiri"
+            hint="Daftarkan Ollama, vLLM, LM Studio, atau LocalAI agar jawaban tak perlu menempuh API cloud sama sekali." />
+        : (
+          <div className="table-wrap"><table className="table">
+            <thead><tr><th>Nama</th><th>Alamat</th><th>Model terdeteksi</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {data.map((s) => (
+                <tr key={s.id}>
+                  <td><b>{s.name}</b></td>
+                  <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{s.baseUrl}</td>
+                  <td className="mono" style={{ fontSize: 12 }}>
+                    {s.models.length
+                      ? s.models.map((m) => m.id).slice(0, 3).join(', ') + (s.models.length > 3 ? ` +${s.models.length - 3}` : '')
+                      : <span style={{ color: 'var(--muted)' }}>belum dideteksi</span>}
+                  </td>
+                  <td>
+                    {s.lastError
+                      ? <span className="badge badge-danger" title={s.lastError}><span className="led led-err" />gagal</span>
+                      : s.models.length
+                        ? <span className={`badge ${s.enabled ? 'badge-ok' : ''}`}><span className={`led ${s.enabled ? '' : 'led-off'}`} />{s.enabled ? 'aktif' : 'nonaktif'}</span>
+                        : <span className="badge badge-signal"><span className="led led-off" />belum diuji</span>}
+                  </td>
+                  <td>
+                    <div className="cluster gap-2">
+                      <button className={`btn btn-sm${testing === s.id ? ' is-loading' : ''}`}
+                        disabled={testing === s.id} onClick={() => test(s)}>Test koneksi</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => remove(s)}>Hapus</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+
+      {data?.some((s) => s.lastError) && (
+        <div className="card-pad">
+          {data.filter((s) => s.lastError).map((s) => (
+            <p key={s.id} style={{ color: 'var(--danger)', fontSize: 13 }}><strong>{s.name}</strong>: {s.lastError}</p>
+          ))}
+        </div>
+      )}
+
+      <div className="card-pad">
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Ollama, vLLM, LM Studio, LocalAI, dan llama.cpp semuanya berbicara protokol
+          OpenAI, jadi satu alamat <code>…/v1</code> cukup untuk semuanya. Dengan ini
+          jawaban tak perlu menempuh API cloud sama sekali — syarat pemasangan yang
+          benar-benar tertutup.
+        </p>
+      </div>
+
+      {adding && <LlmServerDrawer onClose={() => setAdding(false)}
+        onSaved={() => { setAdding(false); refetch(); onChanged(); }} />}
+    </div>
+  );
+}
+
+function LlmServerDrawer({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  async function save() {
+    setBusy(true);
+    try {
+      await api('/api/admin/llm-servers', {
+        method: 'POST', body: JSON.stringify({ name, baseUrl, ...(token ? { token } : {}) }),
+      });
+      toast('Server ditambahkan — jalankan Test koneksi');
+      onSaved();
+    } catch (e) { toast((e as Error).message, 'error'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Tambah server LLM">
+        <div className="dh"><h3>Tambah server LLM</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
+        <div className="db stack gap-4">
+          <div className="field"><label>Nama</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="mis. Ollama kantor" /></div>
+
+          <div className="field"><label>Alamat (sampai /v1)</label>
+            <input className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://llm.kantormu.com/v1" />
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              OLLAMA :11434/v1 · VLLM :8000/v1 · LM STUDIO :1234/v1
+            </p></div>
+
+          <div className="field"><label>Token (opsional)</label>
+            <input className="input mono" type="password" value={token}
+              onChange={(e) => setToken(e.target.value)} placeholder="kosongkan bila server tanpa auth" />
+            <p className="microlabel" style={{ marginTop: 6 }}>DISIMPAN TERENKRIPSI · TAK PERNAH KE BROWSER</p></div>
+
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Alamat non-<code>https</code> hanya diizinkan ke loopback. Untuk server di
+            jaringan lain, pasang TLS di depannya — yang melintas adalah pertanyaan
+            pengguna beserta potongan dokumen.
+          </p>
+        </div>
+        <div className="df">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy || !name || !baseUrl} onClick={save}>Simpan</button>
+          <button className="btn btn-ghost" onClick={onClose}>Batal</button>
+        </div>
+      </aside>
     </>
   );
 }

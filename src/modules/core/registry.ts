@@ -21,13 +21,17 @@ export type Provider =
   | 'deepseek'
   | 'xai'
   | 'groq'
-  | 'cohere';
+  | 'cohere'
+  /** Server LLM sendiri (Ollama/vLLM/LM Studio) — protokol OpenAI. */
+  | 'selfhosted';
 
 export interface LlmModel {
   id: string;            // exact API model id
   provider: Provider;
   label: string;         // human-friendly name shown in the UI
   contextWindow: number; // tokens
+  /** Nama model yang dikirim ke server sendiri, bila berbeda dari id. */
+  servedModel?: string;
   /** relative $ / 1M tokens {input, output} — informational for the UI */
   price?: { in: number; out: number };
   notes?: string;

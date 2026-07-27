@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { tenantSettings, type ThemeConfig } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { getLlmModel } from '@/modules/core/registry';
+import { resolveLlmModel } from '@/modules/chat/llm-catalog';
 import { resolveEmbeddingModel } from '@/modules/knowledge/embeddings/catalog';
 import { saveApiKey } from './credentials.repository';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
@@ -20,7 +20,8 @@ export const settingsService = {
     systemPrompt: string; themeConfig: ThemeConfig;
     apiKeys: Record<string, string>;
   }>) {
-    if (input.activeLlmModel && !getLlmModel(input.activeLlmModel))
+    // Divalidasi terhadap KATALOG (cloud + model server sendiri).
+    if (input.activeLlmModel && !(await resolveLlmModel(input.activeLlmModel)))
       throw new ValidationError(`Model LLM tidak dikenal: ${input.activeLlmModel}`);
     // Divalidasi terhadap KATALOG (registry + model VPS terdeteksi), bukan
     // registry statis saja — kalau tidak, model dari VPS akan selalu ditolak.

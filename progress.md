@@ -152,6 +152,17 @@
       () yang menembak endpoint daftar-model tiap penyedia
       (gratis, tak memakan kuota token) memakai kunci TERSIMPAN. Terverifikasi: key palsu
       ditolak 401 oleh Anthropic sungguhan. Tes regresi ditambahkan ke smoke.
+- [x] **LLM on-premise** (2026-07-27, migrasi 0015): celah nyata — embedding sudah punya
+      jalur lokal/VPS penuh, tapi LLM hanya 8 provider cloud, sehingga
+      DEPLOYMENT_MODE=onprem sebenarnya menyesatkan (jawaban tetap harus menempuh API
+      cloud). Tabel PLATFORM  +  + katalog LLM dinamis
+      (, model berawalan ). Satu jalur 
+      melayani Ollama/vLLM/LM Studio/LocalAI/llama.cpp sekaligus karena semuanya
+      berbicara protokol OpenAI. Token OPSIONAL (jaringan tertutup lazim tanpa auth),
+      tapi https tetap diwajibkan kecuali loopback.  tak lagi menuntut
+      API key untuk provider selfhosted.
+      E2E dgn Ollama tiruan: daftar → deteksi 2 model → muncul di katalog → **streamChat
+      menjawab TANPA API key cloud** → hapus → model hilang dari katalog.
 - [x] **Kredensial OAuth pindah dari ENV ke DATABASE** (2026-07-27, migrasi 0014):
       tabel PLATFORM `oauth_apps` (tanpa tenant_id/RLS — ini kredensial APLIKASI),
       client_secret terenkripsi AES-256-GCM, hanya superadmin, TAK PERNAH ke browser.

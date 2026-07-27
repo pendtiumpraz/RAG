@@ -1,7 +1,8 @@
 ﻿import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
-import { getLlmModel, type Provider } from '@/modules/core/registry';
+import { type Provider } from '@/modules/core/registry';
+import { resolveLlmModel } from '../llm-catalog';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -42,8 +43,29 @@ export async function* streamChat(
   messages: ChatMessage[],
   apiKey: string,
 ): AsyncGenerator<string> {
-  const model = getLlmModel(modelId);
+  // Katalog = registry cloud + model dari server LLM sendiri, jadi async.
+  const model = await resolveLlmModel(modelId);
   if (!model) throw new Error(`Unknown LLM model: ${modelId}`);
+
+  // Server sendiri (Ollama/vLLM/LM Studio): protokol OpenAI, alamat & token
+  // datang dari pendaftaran server — bukan dari kunci provider per-tenant.
+  if (model.provider === 'selfhosted') {
+    const served = model.servedModel ?? model.id;
+    const { llmServerService } = await import('../llm-server.service');
+    const srv = await llmServerService.resolveForModel(served);
+    if (!srv) throw new Error(`Tak ada server LLM aktif yang melayani model "${served}"`);
+    const client = new OpenAI({ apiKey: srv.token ?? 'not-needed', baseURL: srv.baseUrl });
+    const stream = await client.chat.completions.create({
+      model: served,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      stream: true,
+    });
+    for await (const chunk of stream) {
+      const d = chunk.choices[0]?.delta?.content;
+      if (d) yield d;
+    }
+    return;
+  }
 
   switch (model.provider) {
     case 'anthropic': {

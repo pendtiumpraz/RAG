@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { getCurrentUser } from '@/modules/core/auth';
 import { settingsService } from '@/modules/settings/settings.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
-import { LLM_MODELS, ALL_PROVIDERS } from '@/modules/core/registry';
+import { ALL_PROVIDERS } from '@/modules/core/registry';
+import { listLlmModels } from '@/modules/chat/llm-catalog';
 import { listEmbeddingModels } from '@/modules/knowledge/embeddings/catalog';
 import { listSavedProviders } from '@/modules/settings/credentials.repository';
 
@@ -12,13 +13,14 @@ export const runtime = 'nodejs';
 /** GET /api/settings — katalog model + setelan aktif tenant. */
 export async function GET() {
   const user = await getCurrentUser();
-  const [active, embeddingModels, savedKeys] = await Promise.all([
+  const [active, embeddingModels, savedKeys, llmModels] = await Promise.all([
     settingsService.get(user.tenantId),
     listEmbeddingModels(), // registry statis + model dari server VPS terdaftar
     listSavedProviders(user.tenantId),
+    listLlmModels(), // registry cloud + model dari server LLM sendiri
   ]);
   return NextResponse.json({
-    llmModels: LLM_MODELS,
+    llmModels,
     embeddingModels,
     providers: ALL_PROVIDERS,
     // hanya NAMA provider yang punya kunci — nilainya tak pernah keluar.
