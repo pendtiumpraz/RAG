@@ -216,6 +216,22 @@
       Wall-clock ±1.700 ms/query murni jarak Indonesia→us-east-1 (4 round-trip karena
       withTenant membuka transaksi) — tak berlaku di produksi (Vercel & Neon se-region).
       Skrip membersihkan datanya sendiri + VACUUM FULL (diverifikasi 25 MB → 576 kB).
+- [x] **Beranda lolos syarat verifikasi OAuth Google** (2026-07-27, `src/app/page.tsx`,
+      `landing.css`): tiga penolakan beruntun, tiga sebab berbeda —
+      · *“app name does not match”* — App name di Console sudah `Nalar`, tapi
+        `<title>` beranda berbunyi `Nalar — Enterprise Knowledge Intelligence`.
+        Judul dipaksa persis `Nalar` via **`title.absolute`**; tanpa `absolute`,
+        template `'%s · Nalar'` di `layout.tsx` menjadikannya `Nalar · Nalar` dan
+        tetap ditolak. Diperkuat `og:title`/`og:site_name`/`applicationName`.
+      · *“homepage does not explain the purpose”* — bagian **Tentang** & **Data
+        Google** didesain ulang dari blok teks polos jadi tiga langkah bernomor +
+        kartu per scope Drive yang menyebut eksplisit apa yang **tidak** bisa
+        dilakukannya, plus strip jaminan penanganan data.
+      · *“homepage/privacy unresponsive”* — **bukan** soal halaman: record DNS
+        `rag.sainskerta.net` hilang sama sekali. Cek dari resolver publik, bukan
+        mesin sendiri (cache lokal menipu). Sudah pulih; `/`, `/privacy`,
+        `/terms`, `/robots.txt` semua 200.
+      Ketiganya dicatat di tabel penolakan→tindakan `public/docs/oauth-setup.html`.
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker

@@ -206,11 +206,33 @@ yang paling sering, beserta cara menutupnya:</p>
   </tr>
   <tr>
     <td><i>“The app name … does not match the app name on your homepage.”</i></td>
-    <td><b>Perlu kamu ubah di Google Console</b>: setel <b>App name</b> pada OAuth
-      consent screen menjadi persis <b>Nalar</b> — bukan
-      <code>rag.sainskerta.net</code>. Beranda kini menuliskan “Nalar” sebagai
-      TEKS di kepala halaman (sebelumnya hanya ada di dalam gambar logo, dan
-      peninjau tidak membaca alt-text).</td>
+    <td><b>Sudah ditangani.</b> Dua hal berbeda yang sering tertukar:
+      <ol style="margin:6px 0 0 18px;padding:0">
+        <li><b>App name di Console</b> harus nama produk, bukan alamat domain —
+          isi persis <b>Nalar</b>, bukan <code>rag.sainskerta.net</code>.</li>
+        <li><b>Judul beranda</b> harus sama persis dengan App name itu. Ini yang
+          sempat terlewat: Console sudah “Nalar”, tapi
+          <code>&lt;title&gt;</code> beranda berbunyi
+          <i>“Nalar — Enterprise Knowledge Intelligence”</i>, dan penolakannya
+          tetap datang. Judul beranda kini dipaksa persis <code>Nalar</code>
+          lewat <code>title.absolute</code> di <code>src/app/page.tsx</code>,
+          diperkuat <code>og:title</code>, <code>og:site_name</code>, dan
+          <code>applicationName</code>. Nama itu juga tampil sebagai TEKS di
+          kepala halaman — peninjau tidak membaca alt-text logo.</li>
+      </ol>
+      <b>Kalau judul beranda diubah lagi</b>, pakai <code>title.absolute</code>;
+      tanpa itu template <code>'%s · Nalar'</code> di <code>layout.tsx</code>
+      menjadikannya <i>“Nalar · Nalar”</i> dan ditolak lagi.</td>
+  </tr>
+  <tr>
+    <td><i>“Your homepage / privacy policy URL is unresponsive.”</i></td>
+    <td><b>Periksa DNS lebih dulu, jangan halamannya.</b> Penolakan ini pernah
+      muncul bukan karena halamannya rusak, melainkan karena data DNS
+      <code>rag.sainskerta.net</code> hilang sama sekali sehingga domainnya tak
+      teresolusi. Uji dari luar mesinmu — cache resolver lokal bisa menipu:
+      <code>https://dns.google/resolve?name=rag.sainskerta.net&amp;type=A</code>.
+      Kalau kosong, pasang lagi record dari dasbor domain sesuai instruksi
+      Vercel, tunggu propagasi, baru ajukan verifikasi ulang.</td>
   </tr>
 </table>
 
