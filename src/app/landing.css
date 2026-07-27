@@ -49,3 +49,20 @@
 .lp-foot{ border-top:1px solid var(--line); padding:32px 0; }
 .lp-foot-in{ max-width:1120px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; color:var(--muted); }
 .lp-foot-in .mono{ font-family:var(--font-mono); font-size:12px; }
+
+/* Nama aplikasi sebagai teks (bukan hanya di dalam logo) — dicocokkan
+   peninjau OAuth Google dengan nama di consent screen. */
+.lp-appname{ font-family:var(--font-display); font-weight:800; font-size:19px;
+  letter-spacing:-.02em; color:var(--ink); }
+
+/* Bagian penjelasan: tujuan aplikasi & pemakaian data Google. */
+.lp-about{ max-width:760px; margin:0 auto; padding:8px 0 4px; }
+.lp-about h2{ font-family:var(--font-display); font-size:26px; letter-spacing:-.02em;
+  margin:0 0 12px; }
+.lp-about p{ font-size:16px; line-height:1.75; color:var(--muted); margin:12px 0; }
+.lp-about b{ color:var(--ink); }
+.lp-about a{ color:var(--signal); }
+.lp-about code{ font-family:var(--font-mono); font-size:.88em; background:var(--card-2);
+  border:1px solid var(--line); border-radius:4px; padding:1px 5px; }
+.lp-list{ padding-left:20px; margin:14px 0; }
+.lp-list li{ font-size:16px; line-height:1.7; color:var(--muted); margin:10px 0; }

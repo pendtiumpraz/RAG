@@ -181,6 +181,54 @@ http://localhost:3000/api/connections/google/callback</code></pre>
       <td>memaksa refresh token terbit ulang, dan pada jalur connect membuat pengguna bisa memilih akun berbeda sehingga bisa menghubungkan banyak akun</td></tr>
 </table>
 
+<h3 id="verifikasi-google">2.5 Lolos verifikasi Google (scope Drive = sensitive)</h3>
+
+<p>Google menolak pengajuan yang berandanya tak memenuhi syarat. Tiga penolakan
+yang paling sering, beserta cara menutupnya:</p>
+
+<table>
+  <tr><th>Pesan penolakan</th><th>Yang harus dilakukan</th></tr>
+  <tr>
+    <td><i>“The website of your homepage URL is not registered to you.”</i></td>
+    <td><b>Hanya kamu yang bisa</b>: verifikasi domain di
+      <a href="https://search.google.com/search-console">Google Search Console</a>
+      memakai <b>akun Google yang sama</b> dengan pemilik project Cloud.
+      Setelah dapat token, isi env <code>GOOGLE_SITE_VERIFICATION</code> di Vercel
+      lalu redeploy — meta tag-nya otomatis terpasang di semua halaman.
+      Alternatifnya, taruh berkas <code>google….html</code> dari Google ke folder
+      <code>public/</code>; berkas di sana dilayani apa adanya di root domain.</td>
+  </tr>
+  <tr>
+    <td><i>“Your homepage does not explain the purpose of your app.”</i></td>
+    <td><b>Sudah ditangani</b>: beranda kini punya bagian <b>Tentang Nalar</b> dan
+      <b>Bagaimana Nalar memakai data Google kamu</b> — menjelaskan tujuan aplikasi
+      dan tiap scope Drive dalam bahasa lugas, plus tautan ke Kebijakan Privasi.</td>
+  </tr>
+  <tr>
+    <td><i>“The app name … does not match the app name on your homepage.”</i></td>
+    <td><b>Perlu kamu ubah di Google Console</b>: setel <b>App name</b> pada OAuth
+      consent screen menjadi persis <b>Nalar</b> — bukan
+      <code>rag.sainskerta.net</code>. Beranda kini menuliskan “Nalar” sebagai
+      TEKS di kepala halaman (sebelumnya hanya ada di dalam gambar logo, dan
+      peninjau tidak membaca alt-text).</td>
+  </tr>
+</table>
+
+<div class="note warn">
+  <b>Nama aplikasi ≠ nama domain</b>
+  <p>Mengisi App name dengan alamat domain hampir selalu ditolak. Pakai nama
+  produk yang sama dengan yang terbaca orang di beranda.</p>
+</div>
+
+<div class="note">
+  <b>Yang juga diminta Google untuk scope Drive</b>
+  <p>Selain ketiga hal di atas, biasanya diminta: tautan Kebijakan Privasi yang
+  dapat diakses publik (ada di <code>/privacy</code>), penjelasan mengapa tiap
+  scope dibutuhkan, dan video demo singkat yang menunjukkan alur OAuth serta
+  pemakaian datanya. Selama masih berstatus <i>Testing</i>, aplikasi tetap bisa
+  dipakai oleh akun yang terdaftar di <b>Test users</b> tanpa verifikasi.</p>
+</div>
+
 <h2 id="microsoft">3. Microsoft — OneDrive / SharePoint</h2>
 
 <div class="note danger">

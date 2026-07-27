@@ -14,9 +14,15 @@ export default function Landing() {
       {/* NAV */}
       <header className="lp-nav">
         <div className="lp-nav-in">
-          <Image src="/brand/nalar-logo-400.png" alt="Nalar" width={130} height={52} priority style={{ height: 34, width: 'auto' }} />
+          {/* Nama aplikasi ditulis sebagai TEKS, bukan hanya di dalam gambar —
+              peninjau OAuth Google mencocokkan nama di consent screen dengan
+              yang terbaca di beranda, dan alt-text gambar tidak cukup. */}
+          <div className="cluster gap-2">
+            <Image src="/brand/nalar-logo-400.png" alt="Nalar" width={130} height={52} priority style={{ height: 34, width: 'auto' }} />
+            <span className="lp-appname">Nalar</span>
+          </div>
           <nav className="lp-nav-links">
-            <a href="#fitur">Fitur</a><a href="#cara">Cara kerja</a><a href="/api/openapi">API</a>
+            <a href="#tentang">Tentang</a><a href="#fitur">Fitur</a><a href="#data-google">Data Google</a><a href="/api/openapi">API</a>
           </nav>
           <div className="cluster gap-2">
             <Link className="btn btn-sm" href="/auth">Masuk</Link>
@@ -51,6 +57,67 @@ export default function Landing() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* TENTANG — penjelasan tujuan aplikasi dalam bahasa lugas.
+          Peninjau OAuth Google menolak beranda yang tak menjelaskan untuk apa
+          aplikasinya ada; bagian ini menjawab itu tanpa jargon pemasaran. */}
+      <section className="lp-wrap" id="tentang">
+        <div className="lp-about">
+          <h2>Tentang Nalar</h2>
+          <p>
+            <b>Nalar</b> adalah aplikasi tanya-jawab atas dokumen milik organisasimu
+            sendiri. Kamu menghubungkan sumber dokumen — Google Drive, OneDrive,
+            SharePoint, atau unggahan langsung — lalu Nalar membaca isinya dan
+            membangun basis pengetahuan yang bisa ditanyai dengan bahasa sehari-hari.
+          </p>
+          <p>
+            Setiap jawaban <b>disertai sitasi</b> ke dokumen sumbernya, sehingga bisa
+            diperiksa dan tidak perlu dipercaya begitu saja. Chatbot yang dihasilkan
+            dapat dipasang di situs mana pun lewat satu baris skrip, misalnya untuk
+            layanan pelanggan atau helpdesk internal.
+          </p>
+          <p>
+            Ditujukan untuk <b>organisasi dan tim</b>. Setiap organisasi memiliki ruang
+            datanya sendiri yang terpisah di tingkat basis data, dan dokumen satu
+            organisasi tidak pernah dapat diakses organisasi lain.
+          </p>
+        </div>
+      </section>
+
+      {/* DATA GOOGLE — disyaratkan untuk scope sensitif (Drive). */}
+      <section className="lp-wrap" id="data-google">
+        <div className="lp-about">
+          <h2>Bagaimana Nalar memakai data Google kamu</h2>
+          <p>
+            Menghubungkan Google Drive bersifat <b>opsional</b> — Nalar tetap bisa
+            dipakai dengan mengunggah dokumen secara langsung.
+          </p>
+          <ul className="lp-list">
+            <li>
+              <b>Melihat berkas Drive (baca saja).</b> Dipakai untuk membaca dokumen
+              yang <i>kamu pilih</i> agar menjadi basis pengetahuan chatbotmu. Nalar
+              tidak dapat mengubah atau menghapus berkas di Drive-mu.
+            </li>
+            <li>
+              <b>Menulis di folder buatan Nalar.</b> Izin ini terbatas pada berkas yang
+              dibuat aplikasi ini sendiri, dipakai untuk menyimpan ringkasan pengetahuan
+              ke folder <code>_nalar-memory/</code>. Berkas lain di Drive-mu tidak
+              terjangkau oleh izin ini.
+            </li>
+          </ul>
+          <p>
+            Yang kami simpan hanyalah <b>teks hasil ekstraksi</b> beserta representasi
+            numeriknya untuk pencarian — bukan salinan berkas aslinya. Data Google kamu
+            <b> tidak dijual, tidak dipakai untuk iklan, dan tidak dipakai melatih model
+            AI</b>. Kamu bisa memutus koneksi kapan saja dari halaman Knowledge, atau
+            mencabut izinnya langsung dari setelan akun Google.
+          </p>
+          <p>
+            Rincian lengkap ada di <a href="/privacy">Kebijakan Privasi</a> dan{' '}
+            <a href="/terms">Ketentuan Layanan</a>.
+          </p>
         </div>
       </section>
 

@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: { default: 'Nalar — Enterprise Knowledge Intelligence', template: '%s · Nalar' },
   description: 'Platform RAG multi-tenant: menghubungkan seluruh pengetahuan perusahaan menjadi jawaban yang akurat, aman, dan dapat dipertanggungjawabkan.',
   applicationName: 'Nalar',
+  // Verifikasi kepemilikan domain untuk Google Search Console — disyaratkan
+  // sebelum Google menyetujui OAuth consent screen dengan scope Drive.
+  // Diisi lewat env supaya tak perlu meng-commit token verifikasi.
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
