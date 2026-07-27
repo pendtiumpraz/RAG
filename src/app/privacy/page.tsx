@@ -21,7 +21,10 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      title="Kebijakan Privasi"
+      /* Nama aplikasi sengaja ikut di <h1>, bukan hanya di <title> — peninjau
+         Google memeriksa nama di dokumen legal juga, dan dokumen yang cuma
+         menyebut nama perusahaan tanpa nama aplikasi kerap ditolak. */
+      title="Kebijakan Privasi Nalar"
       updated="27 Juli 2026"
       intro="Nalar adalah platform Retrieval-Augmented Generation: ia membaca dokumen milikmu, mengubahnya jadi basis pengetahuan, lalu menjawab pertanyaan berdasarkan isinya. Halaman ini menjelaskan data apa yang benar-benar kami simpan, ke mana ia mengalir, dan apa yang bisa kamu kendalikan."
       english={(

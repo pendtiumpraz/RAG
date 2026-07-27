@@ -19,6 +19,13 @@
   letter-spacing:-0.028em; margin:10px 0 0; font-weight:700; color:var(--ink); max-width:16ch; }
 .lp-tagline .blue{ color:var(--signal); }
 .lp-hero p.lede{ color:var(--muted); font-size:18px; line-height:1.65; margin:20px 0 0; max-width:46ch; }
+/* penyambung tujuan aplikasi ↔ data Google, di hero (lihat page.tsx) */
+.lp-oauth-line{ margin:16px 0 0; max-width:52ch; padding:13px 15px; font-size:14px;
+  line-height:1.65; color:var(--muted); background:var(--card-2);
+  border:1px solid var(--line); border-left:3px solid var(--signal); border-radius:var(--rad-md); }
+.lp-oauth-line b{ color:var(--ink); font-weight:600; }
+.lp-oauth-line code{ font-family:var(--font-mono); font-size:.88em; background:var(--card);
+  border:1px solid var(--line); border-radius:var(--rad-xs); padding:1px 5px; }
 .lp-cta{ display:flex; gap:12px; margin-top:30px; flex-wrap:wrap; }
 
 /* hero product card */

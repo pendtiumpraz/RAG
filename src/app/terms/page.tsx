@@ -18,7 +18,8 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <LegalPage
-      title="Ketentuan Layanan"
+      /* Nama aplikasi ikut di <h1> — alasan sama dengan halaman privasi. */
+      title="Ketentuan Layanan Nalar"
       updated="27 Juli 2026"
       intro="Dengan membuat akun atau memakai Nalar, kamu menyetujui ketentuan di bawah ini. Kami menulisnya sependek mungkin dan menyebut apa adanya hal-hal yang belum tersedia."
       english={(

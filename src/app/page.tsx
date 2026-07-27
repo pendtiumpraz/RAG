@@ -131,6 +131,17 @@ export default function Landing() {
               berdasarkan isinya, <b>lengkap dengan sitasi ke dokumen sumbernya</b>.
               Chatbot yang dihasilkan bisa dipasang di situs mana pun.
             </p>
+            {/* Menyambungkan TUJUAN aplikasi dengan DATA GOOGLE yang diminta, di
+                bagian teratas beranda. Menjelaskan "Nalar itu apa" saja tidak
+                cukup bagi peninjau — mereka mencari relevansi antara fungsi
+                aplikasi dan scope yang dimintanya, dan mencarinya di hero. */}
+            <p className="lp-oauth-line">
+              <b>Nalar terhubung dengan akun Google-mu</b> untuk membaca berkas Drive
+              yang kamu pilih sendiri — supaya isinya bisa diindeks dan dikutip saat
+              menjawab — dan untuk menyimpan catatan ringkasannya kembali ke folder{' '}
+              <code>_nalar-memory/</code> yang dibuat aplikasi ini di Drive-mu.
+              Menghubungkan Google bersifat opsional.
+            </p>
             <div className="lp-cta">
               <Link className="btn btn-primary btn-lg" href="/auth">Mulai gratis →</Link>
               <Link className="btn btn-lg" href="/chat">Coba Chat</Link>
@@ -275,12 +286,17 @@ export default function Landing() {
         <div className="lp-sec lp-en" lang="en">
           <span className="lp-eyebrow">ENGLISH SUMMARY</span>
           <h2 className="lp-h2">What Nalar is, and why it asks for Google data</h2>
+          {/* Kalimat pembuka mengikuti pola yang dicari peninjau Google:
+              apa aplikasinya → apa fungsinya → KENAPA butuh data Google. */}
           <p className="lp-sub">
-            <b>Nalar</b> is a question-answering application for an organisation&apos;s own
-            documents. You connect a document source, Nalar reads and indexes it, and your
-            team can then ask questions in plain language and get answers grounded in those
-            documents — every answer citing the file it came from. It is built for teams and
-            companies rather than personal use.
+            <b>Nalar</b> is a question-answering application for company documents that helps
+            teams find answers inside their own files, with a citation to the source document
+            for every answer. <b>Nalar integrates with your Google account to read the Google
+            Drive files you explicitly select</b>, so their text can be indexed and cited when
+            answering your questions, <b>and to save summary notes back into a{' '}
+            <code>_nalar-memory/</code> folder this app creates in your Drive</b>. Connecting
+            Google is optional — Nalar works fully with direct uploads — and it is built for
+            teams and companies rather than personal use.
           </p>
 
           <div className="lp-en-grid">
