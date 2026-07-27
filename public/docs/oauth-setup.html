@@ -183,6 +183,36 @@ http://localhost:3000/api/connections/google/callback</code></pre>
 
 <h2 id="microsoft">3. Microsoft — OneDrive / SharePoint</h2>
 
+<div class="note danger">
+  <b>Microsoft itu OPSIONAL — jangan terjebak di sini</b>
+  <p>Google dan Microsoft berdiri sendiri. Kalau pendaftaran Entra terhambat,
+  <b>lewati saja</b>: dengan Google saja, login Google dan sinkronisasi Drive
+  sudah berfungsi penuh. Yang tidak tersedia hanya sinkronisasi OneDrive /
+  SharePoint. Aplikasi menanganinya dengan benar — tombol Microsoft otomatis
+  tidak ditampilkan, dan tak ada bagian lain yang rusak.</p>
+</div>
+
+<div class="note warn">
+  <b>Kalau tidak bisa mendaftar sama sekali</b>
+  <p>Ini hambatan di pihak Microsoft, bukan di aplikasi ini. Penyebab yang
+  paling sering:</p>
+  <p><b>1. Akun Microsoft pribadi tanpa direktori.</b> Pendaftaran aplikasi
+  butuh direktori Entra (tenant). Akun pribadi biasa sering belum punya, dan
+  membuatnya bisa menuntut verifikasi tambahan.</p>
+  <p><b>2. Portalnya berpindah.</b> Portal lama <code>apps.dev.microsoft.com</code>
+  sudah lama dipensiunkan. Kalau <code>entra.microsoft.com</code> menolak,
+  coba lewat <b>portal.azure.com → Microsoft Entra ID → App registrations</b> —
+  keduanya menuju tempat yang sama lewat jalan berbeda.</p>
+  <p><b>3. Organisasi memblokirnya.</b> Bila akunmu bagian dari Microsoft 365
+  perusahaan, admin bisa menyetel <i>“Users can register applications = No”</i>.
+  Kalau begitu, hanya admin direktori yang bisa membuatkannya.</p>
+  <p><b>Catatan jujur:</b> Microsoft cukup sering mengubah alur pendaftaran dan
+  persyaratannya, dan langkah di bawah tak bisa diverifikasi dari sisi kami.
+  Kalau yang kamu lihat di layar berbeda dari tulisan ini, percayai layarmu —
+  yang tetap berlaku hanyalah <b>nilai apa</b> yang dibutuhkan aplikasi:
+  client ID, client secret, dan dua redirect URI di bawah.</p>
+</div>
+
 <h3>3.1 Daftarkan aplikasi</h3>
 <ol>
   <li>Buka <a href="https://entra.microsoft.com/">Microsoft Entra admin center</a> →
