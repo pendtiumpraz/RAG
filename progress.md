@@ -245,6 +245,9 @@
       keduanya lewat konstanta `CONTACT_EMAIL` (`_components/legal.tsx`).
       ⚠️ Kotak surat `privacy@sainskerta.net` **harus benar-benar dibuat** —
       kanal penghapusan data yang memantul akan gagal saat ditinjau.
+      Kepemilikan domain **sudah diverifikasi lewat record TXT DNS** (2026-07-27),
+      bukan meta tag; env `GOOGLE_SITE_VERIFICATION` karena itu boleh tetap kosong
+      — wiring-nya di `layout.tsx` tidak memasang apa pun bila env tak diisi.
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker

@@ -21,6 +21,34 @@ export default function TermsPage() {
       title="Ketentuan Layanan"
       updated="27 Juli 2026"
       intro="Dengan membuat akun atau memakai Nalar, kamu menyetujui ketentuan di bawah ini. Kami menulisnya sependek mungkin dan menyebut apa adanya hal-hal yang belum tersedia."
+      english={(
+        <>
+          <p>
+            <b>Nalar</b> is a question-answering application for an organisation&apos;s own
+            documents. The full terms below are in Indonesian; this summary states the same
+            terms in English.
+          </p>
+          <ul>
+            <li><b>Your content stays yours.</b> We claim no ownership of the documents or
+              conversations you put in. You grant us a limited permission to process them
+              solely to run the service — extract text, build vectors, store them, and send
+              the relevant excerpts to the AI model provider you choose. That permission ends
+              when you delete the content.</li>
+            <li><b>We do not use your content to train any AI model.</b></li>
+            <li><b>Accounts are approved manually.</b> A new sign-up stays pending until an
+              administrator approves it, so registering does not by itself grant access.</li>
+            <li><b>Provided as is, with no SLA at this stage.</b> Outages, maintenance, and
+              feature changes can happen without prior notice, and we depend on third parties
+              (hosting, database, model providers) whose failures are outside our control.</li>
+            <li><b>AI answers can be wrong.</b> They are generated from your documents and
+              must not be treated as legal, medical, or financial advice.</li>
+          </ul>
+          <p>
+            Questions about these terms: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            See also the <a href="/privacy">Privacy Policy</a>.
+          </p>
+        </>
+      )}
     >
       <h2>1. Layanan</h2>
       <p>

@@ -192,11 +192,20 @@ yang paling sering, beserta cara menutupnya:</p>
     <td><i>“The website of your homepage URL is not registered to you.”</i></td>
     <td><b>Hanya kamu yang bisa</b>: verifikasi domain di
       <a href="https://search.google.com/search-console">Google Search Console</a>
-      memakai <b>akun Google yang sama</b> dengan pemilik project Cloud.
-      Setelah dapat token, isi env <code>GOOGLE_SITE_VERIFICATION</code> di Vercel
-      lalu redeploy — meta tag-nya otomatis terpasang di semua halaman.
-      Alternatifnya, taruh berkas <code>google….html</code> dari Google ke folder
-      <code>public/</code>; berkas di sana dilayani apa adanya di root domain.</td>
+      memakai <b>akun Google yang sama</b> dengan pemilik project Cloud — atau
+      tambahkan akun itu sebagai owner di Search Console. Verifikasi di akun yang
+      berbeda tetap dilaporkan “not registered to you”.
+      <p style="margin:8px 0 0">Tiga metode, pilih salah satu:</p>
+      <ul style="margin:4px 0 0 18px;padding:0">
+        <li><b>Record TXT di DNS</b> — <i>dipakai di proyek ini</i>. Paling kuat:
+          satu kali verifikasi mencakup <b>seluruh subdomain</b>, dan tak
+          bergantung pada deployment. Tak perlu menyentuh kode.</li>
+        <li>Env <code>GOOGLE_SITE_VERIFICATION</code> di Vercel lalu redeploy —
+          meta tag-nya otomatis terpasang (<code>layout.tsx</code>). Kosong =
+          tidak dipasang, jadi aman dibiarkan bila sudah verifikasi lewat DNS.</li>
+        <li>Berkas <code>google….html</code> dari Google ditaruh di folder
+          <code>public/</code>; berkas di sana dilayani apa adanya di root domain.</li>
+      </ul></td>
   </tr>
   <tr>
     <td><i>“Your homepage does not explain the purpose of your app.”</i></td>
