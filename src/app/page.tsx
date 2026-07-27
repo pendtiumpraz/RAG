@@ -88,9 +88,20 @@ export default function Landing() {
       <footer className="lp-foot">
         <div className="lp-foot-in">
           <Image src="/brand/nalar-logo-400.png" alt="Nalar" width={110} height={44} style={{ height: 28, width: 'auto' }} />
+          {/* Wajib bisa ditemukan: verifikasi OAuth Google memeriksa keberadaan
+              tautan kebijakan privasi yang dapat diakses publik. */}
+          <nav className="lp-legal">
+            <a href="/privacy">Kebijakan Privasi</a>
+            <a href="/terms">Ketentuan Layanan</a>
+          </nav>
           <span className="mono">© 2026 Nalar · Enterprise Knowledge Intelligence</span>
         </div>
       </footer>
+      <style>{`
+        .lp-legal{ display:flex; gap:18px; }
+        .lp-legal a{ color:var(--muted); text-decoration:none; font-size:13px; }
+        .lp-legal a:hover{ color:var(--signal); text-decoration:underline; }
+      `}</style>
     </>
   );
 }

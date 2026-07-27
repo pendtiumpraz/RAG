@@ -141,6 +141,14 @@
       Neon (ekstensi sudah lama ada); yang kena adalah CI dan pemasangan on-prem baru —
       persis alur yang ditulis README. Fix: `scripts/ensure-extensions.mjs`, dipasang di
       depan `db:push`.
+- [x] **Halaman legal publik** (2026-07-27): /privacy + /terms — sebelumnya TIDAK ADA
+      sama sekali (dicek: 404 di produksi, nol rujukan di kode), padahal pendaftaran
+      sudah terbuka untuk umum DAN verifikasi OAuth Google mensyaratkan URL kebijakan
+      privasi publik. Ditulis dari apa yang sistem BENAR-BENAR lakukan (RLS per tenant,
+      scrypt, AES-256-GCM, aliran ke penyedia model, soft delete) — dan menyebut apa
+      adanya yang BELUM ada: tak ada purge otomatis, tak ada tombol hapus akun mandiri,
+      tak ada SLA, pembayaran masih manual. Tertaut di footer landing dan di halaman
+      daftar (sebelum orang membuat akun, bukan disembunyikan).
 - [x] **Panduan OAuth + fallback** (2026-07-27, `public/docs/oauth-setup.html`): panduan
       Google Drive & Microsoft SharePoint, scope/redirect URI diambil LANGSUNG dari kode.
       Menekankan hal yang paling sering terlewat: **dua** redirect URI per provider

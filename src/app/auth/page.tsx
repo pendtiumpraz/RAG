@@ -119,6 +119,12 @@ export default function AuthPage() {
         <p className="microlabel" style={{ textAlign: 'center', marginTop: 26 }}>
           PENDAFTARAN TERBUKA · AKUN AKTIF SETELAH DIVERIFIKASI ADMIN
         </p>
+        {/* Ditampilkan sebelum orang membuat akun, bukan disembunyikan di footer. */}
+        <p style={{ textAlign: 'center', marginTop: 10, fontSize: 12.5, color: 'var(--muted)' }}>
+          Dengan mendaftar kamu menyetujui{' '}
+          <a href="/terms" style={{ color: 'var(--signal)' }}>Ketentuan Layanan</a> dan{' '}
+          <a href="/privacy" style={{ color: 'var(--signal)' }}>Kebijakan Privasi</a>.
+        </p>
       </div>
 
       <style>{`
