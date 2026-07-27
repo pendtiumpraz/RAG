@@ -141,6 +141,26 @@
       Neon (ekstensi sudah lama ada); yang kena adalah CI dan pemasangan on-prem baru —
       persis alur yang ditulis README. Fix: `scripts/ensure-extensions.mjs`, dipasang di
       depan `db:push`.
+- [x] **Panduan OAuth + fallback** (2026-07-27, `public/docs/oauth-setup.html`): panduan
+      Google Drive & Microsoft SharePoint, scope/redirect URI diambil LANGSUNG dari kode.
+      Menekankan hal yang paling sering terlewat: **dua** redirect URI per provider
+      (login NextAuth vs connect storage). Fallback saat env kosong: `/auth` tak lagi
+      menampilkan tombol OAuth yang pasti gagal (dicek via `/api/auth/providers`),
+      halaman Knowledge mengganti tautan buntu dengan keterangan + tautan panduan
+      (endpoint baru `/api/connections/providers`).
+- [x] **Pagination + Analitik per chatbot** (2026-07-27):
+      · `core/pagination.ts` — `{rows,total,page,pageSize,pages}`; `pageSize` dibatasi
+        DI SERVER (kalau hanya di UI, `?pageSize=100000` bisa menjatuhkan DB). Dipasang
+        di `/api/conversations` (sebelumnya dipatok `limit 50` diam-diam sehingga
+        percakapan lama tak pernah bisa dilihat) dan `/api/admin/users`. `<Pager>`
+        menyebut TOTAL, bukan sekadar maju-mundur.
+      · `/analytics` PER CHATBOT: pertanyaan terbanyak, topik/kata kunci (stopword
+        ID+EN disaring), **dokumen paling sering jadi sumber jawaban**, pertanyaan per
+        hari, dan **jawaban tanpa sitasi** sebagai penunjuk celah KB. Semua dari data
+        yang sudah ditulis pipeline (`messages.citations`) — tanpa pelacakan baru.
+        Dinyatakan jujur di UI: sistem tak melacak "berkas dibuka".
+      Terverifikasi dgn data nyata: pertanyaan berulang terdeteksi, kata kunci bersih
+      dari stopword, garansi.pdf ×3 skor 0.87, pagination 2 halaman.
 - [x] **Uji beban retrieval** (2026-07-27, `docs/PERFORMANCE.md`, `npm run bench`):
       query IDENTIK dengan `retrieval.service` di bawah RLS, terhadap Neon produksi.
       Terukur: 750→1,2 ms · 1.500→2,2 ms · 3.000→4,5 ms (DB p50; `Index Scan` HNSW
