@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { LegalPage } from '../_components/legal';
 
 export const metadata: Metadata = {
-  title: 'Ketentuan Layanan · Nalar',
+  // Layout sudah memakai template '%s · Nalar' — jangan diulang di sini.
+  title: 'Ketentuan Layanan',
   description: 'Ketentuan pemakaian Nalar — akun, kuota per paket, kepemilikan konten, batasan jawaban AI, dan penghentian layanan.',
 };
 
