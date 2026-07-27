@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test": "node --import tsx --test tests/*.test.ts",
     "smoke": "node --env-file=.env --import tsx scripts/smoke.ts",
+    "bench": "node --env-file=.env --import tsx scripts/bench-retrieval.ts",
     "models:push": "node --env-file=.env --import tsx scripts/push-model.ts",
     "models:verify": "node --env-file=.env --import tsx scripts/verify-model-host.ts",
     "demo:account": "node --env-file=.env --import tsx scripts/create-demo-account.ts",

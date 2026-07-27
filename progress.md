@@ -139,7 +139,20 @@
       Neon (ekstensi sudah lama ada); yang kena adalah CI dan pemasangan on-prem baru —
       persis alur yang ditulis README. Fix: `scripts/ensure-extensions.mjs`, dipasang di
       depan `db:push`.
-- [ ] Performance/load test
+- [x] **Uji beban retrieval** (2026-07-27, `docs/PERFORMANCE.md`, `npm run bench`):
+      query IDENTIK dengan `retrieval.service` di bawah RLS, terhadap Neon produksi.
+      Terukur: 750→1,2 ms · 1.500→2,2 ms · 3.000→4,5 ms (DB p50; `Index Scan` HNSW
+      terkonfirmasi). **Temuan: latensi tumbuh LINEAR, bukan logaritmik** — index HNSW
+      hanya pada `embedding` sedangkan query memfilter `chatbot_id`, jadi Postgres
+      post-filter. Yang menentukan bukan jumlah vektor, melainkan seberapa kecil porsi
+      satu chatbot di tabel. Ekstrapolasi: ±45 ms @30rb chunk (batas plan 512 MB),
+      ±750 ms @500rb — perlu partisi per chatbot bila mendekati 100rb.
+      **Ukuran nyata 16,6 KB/chunk**; ¾ ruang vektor adalah NOL karena MiniLM 384 dim
+      di-pad ke 1536 → kolom 384-dim akan menaikkan kapasitas ±3,6× (30rb → 110rb chunk)
+      tanpa ganti paket. Kapasitas efektif sekarang: ±20 MB teks bersih SELURUH tenant.
+      Wall-clock ±1.700 ms/query murni jarak Indonesia→us-east-1 (4 round-trip karena
+      withTenant membuka transaksi) — tak berlaku di produksi (Vercel & Neon se-region).
+      Skrip membersihkan datanya sendiri + VACUUM FULL (diverifikasi 25 MB → 576 kB).
 
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
