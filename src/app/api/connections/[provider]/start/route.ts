@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ provider: 
   if (provider !== 'google' && provider !== 'microsoft')
     return NextResponse.json({ error: 'provider tidak dikenal' }, { status: 400 });
 
-  const cfg = providerConfig(provider as OAuthProvider);
+  const cfg = await providerConfig(provider as OAuthProvider);
   if (!cfg.clientId) return NextResponse.json({ error: `${provider} OAuth belum dikonfigurasi (env)` }, { status: 400 });
 
   const url = new URL(cfg.authUrl);

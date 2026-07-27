@@ -4,6 +4,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import { authService } from './auth.service';
 import { connectionService } from '@/modules/connections/connection.service';
+import { oauthAppService } from './oauth-app.service';
 
 /**
  * NextAuth (Auth.js v4) — JWT session membawa { userId, tenantId, role }
@@ -13,6 +14,14 @@ import { connectionService } from '@/modules/connections/connection.service';
  *  • Credentials — email+password (scrypt, cek via authService).
  *  • Google & Microsoft — OAuth; email baru = provisioning tenant baru
  *    otomatis (signup implisit) di callback jwt.
+ */
+/**
+ * Opsi DASAR — dipakai `getServerSession()` untuk membaca sesi.
+ *
+ * Providernya sengaja hanya `credentials`: pembacaan sesi JWT cuma butuh
+ * `secret` dan callbacks, tak peduli daftar provider OAuth. Daftar lengkapnya
+ * dibangun per-request oleh `buildAuthOptions()`, karena kredensial Google/
+ * Microsoft kini datang dari DATABASE dan tak bisa dibaca saat modul dimuat.
  */
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
@@ -34,30 +43,6 @@ export const authOptions: NextAuthOptions = {
         return { id: user.id, email: user.email, name: user.name, tenantId: user.tenantId, role: user.role } as never;
       },
     }),
-    ...(process.env.GOOGLE_CLIENT_ID ? [GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          // drive.readonly ⇒ baca Drive user; drive.file ⇒ tulis vault
-          // `_nalar-memory/` (hanya file buatan app ini — bukan seluruh Drive)
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
-          access_type: 'offline',   // refresh_token
-          prompt: 'consent',
-        },
-      },
-    })] : []),
-    ...(process.env.MS_CLIENT_ID ? [AzureADProvider({
-      clientId: process.env.MS_CLIENT_ID,
-      clientSecret: process.env.MS_CLIENT_SECRET!,
-      tenantId: process.env.MS_TENANT_ID || 'common',
-      authorization: {
-        params: {
-          // Files.Read ⇒ OneDrive/SharePoint user; offline_access ⇒ refresh
-          scope: 'openid email profile offline_access https://graph.microsoft.com/Files.Read',
-        },
-      },
-    })] : []),
   ],
 
   callbacks: {
@@ -120,3 +105,51 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+/**
+ * Opsi LENGKAP — dibangun per-request, dipakai handler NextAuth.
+ *
+ * Kredensial Google/Microsoft datang dari database (dengan env sebagai
+ * cadangan), dan itu pembacaan async — mustahil dilakukan saat modul dimuat.
+ * Karena itu daftar provider disusun di sini, tiap permintaan auth.
+ *
+ * Biayanya kecil: oauthAppService men-cache hasilnya ±30 detik, jadi
+ * permintaan berturut-turut tidak memukul database.
+ */
+export async function buildAuthOptions(): Promise<NextAuthOptions> {
+  const providers = [...authOptions.providers];
+
+  const google = await oauthAppService.get('google');
+  if (google) {
+    providers.push(GoogleProvider({
+      clientId: google.clientId,
+      clientSecret: google.clientSecret,
+      authorization: {
+        params: {
+          // drive.readonly ⇒ baca Drive user; drive.file ⇒ tulis vault
+          // `_nalar-memory/` (hanya file buatan app ini — bukan seluruh Drive)
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
+          access_type: 'offline',   // refresh_token
+          prompt: 'consent',
+        },
+      },
+    }));
+  }
+
+  const ms = await oauthAppService.get('microsoft');
+  if (ms) {
+    providers.push(AzureADProvider({
+      clientId: ms.clientId,
+      clientSecret: ms.clientSecret,
+      tenantId: ms.msTenantId || 'common',
+      authorization: {
+        params: {
+          // Files.Read ⇒ OneDrive/SharePoint user; offline_access ⇒ refresh
+          scope: 'openid email profile offline_access https://graph.microsoft.com/Files.Read',
+        },
+      },
+    }));
+  }
+
+  return { ...authOptions, providers };
+}

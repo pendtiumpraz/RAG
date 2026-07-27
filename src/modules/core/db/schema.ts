@@ -257,6 +257,37 @@ export const usageCounters = pgTable('usage_counters', {
   delIdx: index('idx_usage_counters_deleted_at').on(t.deletedAt),
 }));
 
+/* ── kredensial OAuth app — PLATFORM, bukan per-tenant ─────────────── */
+/**
+ * Client ID & secret aplikasi OAuth (Google / Microsoft).
+ *
+ * PERKECUALIAN yang sama seperti `embedding_servers`: tanpa `tenant_id`, tanpa
+ * RLS. Ini kredensial APLIKASI, bukan data tenant — satu pasang dipakai semua
+ * tenant untuk login dan menghubungkan penyimpanan.
+ *
+ * Kendali aksesnya di layer aplikasi: hanya `requireRole('superadmin')`.
+ * `client_secret` dienkripsi AES-256-GCM dan TAK PERNAH dikirim ke browser —
+ * API hanya melaporkan ada/tidaknya.
+ *
+ * Kenapa di database, bukan env: mengganti kredensial lewat env menuntut
+ * redeploy, dan itu membuat pemulihan saat secret Microsoft kedaluwarsa
+ * (maks. 24 bulan) jadi lambat. Env tetap didukung sebagai cadangan untuk
+ * on-prem/dev — lihat oauth-app.service.
+ */
+export const oauthApps = pgTable('oauth_apps', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: text('provider').notNull(),          // 'google' | 'microsoft'
+  clientId: text('client_id').notNull(),
+  encryptedSecret: text('encrypted_secret').notNull(),
+  /** Microsoft saja: 'common' | 'organizations' | GUID direktori. */
+  msTenantId: text('ms_tenant_id'),
+  enabled: boolean('enabled').default(true).notNull(),
+  ...stamps,
+}, (t) => ({
+  providerIdx: index('idx_oauth_apps_provider').on(t.provider),
+  delIdx: index('idx_oauth_apps_deleted_at').on(t.deletedAt),
+}));
+
 /* ── server embedding sendiri (VPS) — PLATFORM, bukan per-tenant ───── */
 /**
  * PERKECUALIAN yang disengaja: tabel ini **tidak punya `tenant_id`** dan

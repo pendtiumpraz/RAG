@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { OAuthProvider } from './connection.service';
+import { oauthAppService } from '@/modules/auth/oauth-app.service';
 
 /**
  * OAuth "connect account" flow — TERPISAH dari login NextAuth. Dipakai utk
@@ -13,13 +14,20 @@ export interface ProviderConfig {
   fetchEmail: (accessToken: string) => Promise<string>;
 }
 
-export function providerConfig(provider: OAuthProvider): ProviderConfig {
+/**
+ * Kredensial dibaca dari DATABASE (env sebagai cadangan) lewat
+ * oauthAppService, jadi fungsi ini async. Sebelumnya ia membaca
+ * `process.env` langsung, sehingga mengganti client secret menuntut redeploy.
+ */
+export async function providerConfig(provider: OAuthProvider): Promise<ProviderConfig> {
+  const app = await oauthAppService.get(provider);
+
   if (provider === 'google') {
     return {
       authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       scope: 'openid email https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
-      clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: app?.clientId, clientSecret: app?.clientSecret,
       extraAuth: { access_type: 'offline', prompt: 'select_account consent' }, // select_account → bisa pilih akun beda
       fetchEmail: async (t) => {
         const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${t}` } });
@@ -27,12 +35,12 @@ export function providerConfig(provider: OAuthProvider): ProviderConfig {
       },
     };
   }
-  const tenant = process.env.MS_TENANT_ID || 'common';
+  const tenant = app?.msTenantId || 'common';
   return {
     authUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
     tokenUrl: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
     scope: 'openid email offline_access https://graph.microsoft.com/Files.Read',
-    clientId: process.env.MS_CLIENT_ID, clientSecret: process.env.MS_CLIENT_SECRET,
+    clientId: app?.clientId, clientSecret: app?.clientSecret,
     extraAuth: { prompt: 'select_account' },
     fetchEmail: async (t) => {
       const r = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${t}` } });
@@ -71,7 +79,7 @@ export function verifyState(state: string): string | null {
 
 /** Tukar authorization code → tokens. */
 export async function exchangeCode(provider: OAuthProvider, code: string) {
-  const cfg = providerConfig(provider);
+  const cfg = await providerConfig(provider);
   const res = await fetch(cfg.tokenUrl, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({

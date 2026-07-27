@@ -141,6 +141,17 @@
       Neon (ekstensi sudah lama ada); yang kena adalah CI dan pemasangan on-prem baru —
       persis alur yang ditulis README. Fix: `scripts/ensure-extensions.mjs`, dipasang di
       depan `db:push`.
+- [x] **Kredensial OAuth pindah dari ENV ke DATABASE** (2026-07-27, migrasi 0014):
+      tabel PLATFORM `oauth_apps` (tanpa tenant_id/RLS — ini kredensial APLIKASI),
+      client_secret terenkripsi AES-256-GCM, hanya superadmin, TAK PERNAH ke browser.
+      Bagian tersulit: `authOptions` NextAuth dievaluasi sekali saat modul dimuat,
+      jadi daftar provider tak bisa dibaca dari DB begitu saja → dipecah jadi
+      `authOptions` (dasar, untuk getServerSession) + `buildAuthOptions()` async yang
+      dibangun PER-REQUEST di route handler. Cache 30 dtk agar tak memukul DB tiap
+      pengecekan sesi. ENV tetap jadi cadangan (on-prem/dev/pemulihan saat DB bermasalah).
+      DIVERIFIKASI lewat server produksi lokal: login kredensial nyata BERHASIL
+      (sesi membawa role superadmin), /api/auth/csrf & /session 200, dan provider Google
+      MUNCUL tanpa restart setelah kredensial disimpan dari proses lain (±10 dtk).
 - [x] **Halaman legal publik** (2026-07-27): /privacy + /terms — sebelumnya TIDAK ADA
       sama sekali (dicek: 404 di produksi, nol rujukan di kode), padahal pendaftaran
       sudah terbuka untuk umum DAN verifikasi OAuth Google mensyaratkan URL kebijakan

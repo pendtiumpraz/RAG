@@ -21,7 +21,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: s
 
   try {
     const tokens = await exchangeCode(provider as OAuthProvider, code);
-    const email = await providerConfig(provider as OAuthProvider).fetchEmail(tokens.accessToken);
+    const cfg = await providerConfig(provider as OAuthProvider);
+    const email = await cfg.fetchEmail(tokens.accessToken);
     await connectionService.save({
       tenantId: user.tenantId, userId: user.id, provider: provider as OAuthProvider,
       accountEmail: email, accountLabel: email,

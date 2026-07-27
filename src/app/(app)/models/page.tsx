@@ -108,6 +108,161 @@ export default function ModelsPage() {
           semua tenant, dan menerima alamat dari pihak tak tepercaya akan
           membuka SSRF; karena itu panel & API-nya dikunci peran. */}
       {data.role === 'superadmin' && <EmbeddingServers onChanged={refetch} />}
+      {data.role === 'superadmin' && <OAuthApps />}
+    </>
+  );
+}
+
+/* ── kredensial aplikasi OAuth (superadmin) ─────────────────────────── */
+
+interface OAuthApp {
+  provider: 'google' | 'microsoft';
+  clientId: string; msTenantId: string | null;
+  enabled: boolean; hasSecret: boolean;
+  source: 'database' | 'env' | 'none';
+  updatedAt: string | null;
+}
+
+function OAuthApps() {
+  const { data, loading, error, refetch } = useApi<OAuthApp[]>('/api/admin/oauth-apps');
+  const [editing, setEditing] = useState<OAuthApp | null>(null);
+  const toast = useToast();
+
+  async function remove(app: OAuthApp) {
+    try {
+      await api(`/api/admin/oauth-apps?provider=${app.provider}`, { method: 'DELETE' });
+      toast(`Kredensial ${app.provider} dihapus dari database`);
+      refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head">
+        <span className="t">kredensial OAuth (Google / Microsoft)</span>
+        <span className="microlabel">SECRET AES-256 · SERVER-ONLY</span>
+      </div>
+
+      {error ? <ErrorState message={error} onRetry={refetch} />
+        : loading || !data ? <Skeleton rows={2} />
+        : (
+          <div className="table-wrap"><table className="table">
+            <thead><tr><th>Provider</th><th>Client ID</th><th>Sumber</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {data.map((a) => (
+                <tr key={a.provider}>
+                  <td><b>{a.provider === 'google' ? 'Google' : 'Microsoft'}</b>
+                    {a.provider === 'microsoft' && a.msTenantId &&
+                      <span className="microlabel" style={{ marginLeft: 8 }}>{a.msTenantId}</span>}</td>
+                  <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {a.clientId ? `${a.clientId.slice(0, 24)}…` : '—'}</td>
+                  <td>
+                    {a.source === 'database' ? <span className="badge badge-ok">database</span>
+                      : a.source === 'env' ? <span className="badge badge-signal">env</span>
+                      : <span className="badge">belum ada</span>}
+                  </td>
+                  <td>
+                    {a.hasSecret && a.enabled
+                      ? <span className="badge badge-ok"><span className="led led-live" />aktif</span>
+                      : a.hasSecret ? <span className="badge"><span className="led led-off" />nonaktif</span>
+                      : <span className="badge"><span className="led led-off" />kosong</span>}
+                  </td>
+                  <td>
+                    <div className="cluster gap-2">
+                      <button className="btn btn-sm" onClick={() => setEditing(a)}>
+                        {a.source === 'database' ? 'Ubah' : 'Isi'}
+                      </button>
+                      {a.source === 'database' && (
+                        <button className="btn btn-sm btn-ghost" onClick={() => remove(a)}>Hapus</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+
+      <div className="card-pad">
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Disimpan di database agar bisa diubah tanpa <b>redeploy</b> — penting saat
+          client secret Microsoft kedaluwarsa (maks. 24 bulan). Nilai dari environment
+          tetap dipakai sebagai cadangan bila belum ada di sini. Perubahan berlaku
+          dalam ±30 detik.{' '}
+          <a href="/docs/oauth-setup.html" target="_blank" rel="noreferrer">Panduan pendaftaran OAuth</a>
+        </p>
+      </div>
+
+      {editing && <OAuthDrawer app={editing} onClose={() => setEditing(null)}
+        onSaved={() => { setEditing(null); refetch(); }} />}
+    </div>
+  );
+}
+
+function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => void; onSaved: () => void }) {
+  const [clientId, setClientId] = useState(app.clientId);
+  const [clientSecret, setClientSecret] = useState('');
+  const [msTenantId, setMsTenantId] = useState(app.msTenantId ?? 'common');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const label = app.provider === 'google' ? 'Google' : 'Microsoft';
+
+  async function save() {
+    setBusy(true);
+    try {
+      await api('/api/admin/oauth-apps', {
+        method: 'PUT',
+        body: JSON.stringify({
+          provider: app.provider, clientId,
+          ...(clientSecret ? { clientSecret } : {}),
+          ...(app.provider === 'microsoft' ? { msTenantId } : {}),
+        }),
+      });
+      toast(`Kredensial ${label} tersimpan — berlaku dalam ±30 detik`);
+      onSaved();
+    } catch (e) { toast((e as Error).message, 'error'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <aside className="drawer open" role="dialog" aria-modal="true" aria-label={`Kredensial ${label}`}>
+        <div className="dh"><h3>Kredensial {label}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
+        <div className="db stack gap-4">
+          <div className="field"><label>Client ID</label>
+            <input className="input mono" value={clientId} onChange={(e) => setClientId(e.target.value)}
+              placeholder={app.provider === 'google' ? '….apps.googleusercontent.com' : 'Application (client) ID'} /></div>
+
+          <div className="field"><label>Client secret</label>
+            <input className="input mono" type="password" value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+              placeholder={app.hasSecret ? 'kosongkan untuk tidak mengubah' : 'wajib diisi'} />
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              DISIMPAN TERENKRIPSI · TAK PERNAH DIKIRIM KE BROWSER
+            </p></div>
+
+          {app.provider === 'microsoft' && (
+            <div className="field"><label>Directory (tenant) ID</label>
+              <input className="input mono" value={msTenantId} onChange={(e) => setMsTenantId(e.target.value)}
+                placeholder="common" />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                COMMON = AKUN KERJA &amp; PRIBADI · ATAU GUID DIREKTORI
+              </p></div>
+          )}
+
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Jangan lupa mendaftarkan <b>dua</b> redirect URI di konsol penyedia —
+            satu untuk login, satu untuk menghubungkan penyimpanan. Rinciannya ada di{' '}
+            <a href="/docs/oauth-setup.html" target="_blank" rel="noreferrer">panduan</a>.
+          </p>
+        </div>
+        <div className="df">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy || !clientId} onClick={save}>Simpan</button>
+          <button className="btn btn-ghost" onClick={onClose}>Batal</button>
+        </div>
+      </aside>
     </>
   );
 }
