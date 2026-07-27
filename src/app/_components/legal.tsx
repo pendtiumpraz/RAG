@@ -8,10 +8,15 @@ import Image from 'next/image';
  * penghapusan permanen, tapi sebelumnya tak pernah menyebut caranya — dan
  * verifikasi OAuth Google mensyaratkan kanal kontak yang bisa dipakai.
  *
- * PENTING: kotak surat ini harus benar-benar ada dan dibaca. Diletakkan di
- * satu tempat agar bisa diganti sekali untuk kedua halaman.
+ * Sengaja SAMA dengan "User support email" di OAuth consent screen: peninjau
+ * Google menguji kanal ini, dan alamat yang memantul jadi temuan baru. Alamat
+ * di domain sendiri (privacy@sainskerta.net) terlihat lebih rapi tapi kotak
+ * suratnya belum ada — konsistensi dengan yang sudah didaftarkan ke Google
+ * lebih penting daripada kerapian.
+ *
+ * Diletakkan di satu tempat agar sekali ganti untuk kedua halaman.
  */
-export const CONTACT_EMAIL = 'privacy@sainskerta.net';
+export const CONTACT_EMAIL = 'pendtiumpraz@gmail.com';
 
 /**
  * Kerangka halaman legal (Privasi & Ketentuan) — PUBLIK, tanpa sesi.

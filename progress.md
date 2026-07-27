@@ -243,8 +243,10 @@
       pengelola" untuk penghapusan permanen tapi **tak pernah menyebut caranya** —
       tidak ada alamat kontak di mana pun dalam proyek. Kini ada bagian Kontak di
       keduanya lewat konstanta `CONTACT_EMAIL` (`_components/legal.tsx`).
-      ⚠️ Kotak surat `privacy@sainskerta.net` **harus benar-benar dibuat** —
-      kanal penghapusan data yang memantul akan gagal saat ditinjau.
+      `CONTACT_EMAIL` disetel ke `pendtiumpraz@gmail.com`, **sama persis dengan
+      "User support email" di OAuth consent screen** — peninjau Google menguji
+      kanal ini dan alamat yang memantul jadi temuan baru; `privacy@sainskerta.net`
+      lebih rapi tapi kotak suratnya belum ada.
       Kepemilikan domain **sudah diverifikasi lewat record TXT DNS** (2026-07-27),
       bukan meta tag; env `GOOGLE_SITE_VERIFICATION` karena itu boleh tetap kosong
       — wiring-nya di `layout.tsx` tidak memasang apa pun bila env tak diisi.
