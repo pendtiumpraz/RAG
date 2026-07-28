@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer,
+  pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer, smallint,
 } from 'drizzle-orm/pg-core';
 
 /*
@@ -337,6 +337,57 @@ export const usageCounters = pgTable('usage_counters', {
   /** Kunci upsert recordTurn — `on conflict (tenant_id, period) where …`. */
   uqScope: uniqueIndex('uq_usage_counters_tenant_period')
     .on(t.tenantId, t.period).where(sql`deleted_at IS NULL`),
+})).enableRLS();
+
+/* ── pembayaran (D12) ──────────────────────────────────────────────── */
+/** SATU baris (id=1): mode deploy & harga plan — di DB, bukan env. */
+export const platformSettings = pgTable('platform_settings', {
+  id: smallint('id').primaryKey().default(1),
+  /** 'saas' = pembayaran & kuota aktif · 'onprem' = bayar mati, SEMUA unlimited. */
+  deploymentMode: text('deployment_mode').default('saas').notNull(),
+  /** Harga plan IDR/bulan, diedit superadmin: { pro: 299000, enterprise: … } */
+  planPrices: jsonb('plan_prices').$type<Record<string, number>>()
+    .default({ pro: 299000, enterprise: 1499000 }).notNull(),
+  ...stamps,
+});
+
+/** Kredensial gateway (platform, tanpa RLS — pola oauth_apps): secret AES,
+ *  hanya SATU provider `active` pada satu waktu (ditegakkan service). */
+export const paymentGateways = pgTable('payment_gateways', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: text('provider').notNull(),          // 'midtrans' | 'tripay' | 'xendit'
+  encryptedSecret: text('encrypted_secret').notNull(),
+  publicConfig: jsonb('public_config').$type<Record<string, string | boolean>>().default({}).notNull(),
+  active: boolean('active').default(false).notNull(),
+  ...stamps,
+}, (t) => ({
+  delIdx: index('idx_payment_gateways_deleted_at').on(t.deletedAt),
+  uqProvider: uniqueIndex('uq_payment_gateways_provider')
+    .on(t.provider).where(sql`deleted_at IS NULL`),
+}));
+
+/** Transaksi QRIS per tenant. pending → paid via webhook signature-verified. */
+export const payments = pgTable('payments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  plan: text('plan').notNull(),
+  months: integer('months').default(1).notNull(),
+  amount: integer('amount').notNull(),           // IDR utuh
+  provider: text('provider').notNull(),
+  providerRef: text('provider_ref').notNull(),
+  qrString: text('qr_string'),
+  qrImageUrl: text('qr_image_url'),
+  status: text('status').default('pending').notNull(), // pending|paid|expired|failed
+  paidAt: timestamp('paid_at'),
+  expiresAt: timestamp('expires_at'),
+  rawCallback: jsonb('raw_callback'),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_payments_tenant_id').on(t.tenantId),
+  delIdx: index('idx_payments_deleted_at').on(t.deletedAt),
+  uqRef: uniqueIndex('uq_payments_provider_ref')
+    .on(t.provider, t.providerRef).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 /* ── kredensial OAuth app — PLATFORM, bukan per-tenant ─────────────── */

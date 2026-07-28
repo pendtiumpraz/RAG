@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, useToast } from '../../_components/ui';
@@ -11,6 +12,7 @@ interface Billing {
   usage: { messages: number; tokensIn: number; tokensOut: number; members: number; chatbots: number };
   limits: { messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null };
   plans: PlanSpec[];
+  payment: { enabled: boolean; mode: 'saas' | 'onprem'; planPrices: Record<string, number> };
 }
 interface TenantRow {
   tenantId: string; tenantName: string; planOnPaper: string; plan: string;
@@ -81,14 +83,24 @@ export default function BillingPage() {
             </tbody>
           </table></div>
           <div className="card-pad">
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-              Pembayaran belum otomatis. Untuk naik paket, hubungi admin —
-              plan diaktifkan manual sampai tanggal yang disepakati.
-            </p>
+            {data.payment.mode === 'onprem' ? (
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                Mode <b>on-premise</b>: pembayaran nonaktif dan semua kuota
+                tanpa batas — tabel di atas tidak berlaku.
+              </p>
+            ) : data.payment.enabled ? (
+              <UpgradeQris prices={data.payment.planPrices} currentPlan={data.plan} />
+            ) : (
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                Pembayaran otomatis belum dikonfigurasi. Untuk naik paket,
+                hubungi admin — plan diaktifkan manual.
+              </p>
+            )}
           </div>
         </div>
       </div>
 
+      {session?.user?.role === 'superadmin' && <PaymentSettings />}
       {session?.user?.role === 'superadmin' && <AllTenants />}
     </>
   );
@@ -111,6 +123,183 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
           <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width .3s' }} />
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── upgrade via QRIS (tenant, mode saas + gateway aktif) ───────────── */
+
+function UpgradeQris({ prices, currentPlan }: { prices: Record<string, number>; currentPlan: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const buyable = ['pro', 'enterprise'].filter((p) => prices[p]);
+  const [plan, setPlan] = useState(buyable.find((p) => p !== currentPlan) ?? buyable[0] ?? 'pro');
+  const [months, setMonths] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const total = (prices[plan] ?? 0) * months;
+
+  async function pay() {
+    setBusy(true);
+    try {
+      const r = await api<{ id: string }>('/api/payments', {
+        method: 'POST', body: JSON.stringify({ plan, months }),
+      });
+      router.push(`/billing/pay/${r.id}`); // halaman QRIS milik sendiri
+    } catch (e) { toast((e as Error).message, 'error'); setBusy(false); }
+  }
+
+  return (
+    <div className="stack gap-3">
+      <span className="microlabel">UPGRADE VIA QRIS — BAYAR DI HALAMAN INI JUGA, TANPA PINDAH SITUS</span>
+      <div className="cluster gap-2">
+        <select className="select" style={{ width: 150 }} value={plan} onChange={(e) => setPlan(e.target.value)}>
+          {buyable.map((p) => <option key={p} value={p}>{p} — Rp {fmt(prices[p])}/bln</option>)}
+        </select>
+        <select className="select" style={{ width: 130 }} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+          {[1, 3, 6, 12].map((m) => <option key={m} value={m}>{m} bulan</option>)}
+        </select>
+        <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={pay}>
+          Bayar Rp {fmt(total)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── pengaturan pembayaran & mode deploy (superadmin, D12) ──────────── */
+
+interface PaySettings {
+  deploymentMode: 'saas' | 'onprem';
+  planPrices: Record<string, number>;
+  gateways: Array<{ provider: string; active: boolean; configured: boolean; publicConfig: Record<string, string | boolean> }>;
+  callbackUrls: Record<string, string>;
+}
+
+/** Field kredensial per provider — nilainya TIDAK pernah dibaca balik. */
+const GATEWAY_FIELDS: Record<string, Array<{ key: string; label: string; secret: boolean }>> = {
+  midtrans: [{ key: 'serverKey', label: 'Server Key', secret: true }],
+  tripay: [
+    { key: 'apiKey', label: 'API Key', secret: true },
+    { key: 'privateKey', label: 'Private Key', secret: true },
+    { key: 'merchantCode', label: 'Kode Merchant', secret: false },
+  ],
+  xendit: [
+    { key: 'secretKey', label: 'Secret Key', secret: true },
+    { key: 'callbackToken', label: 'Callback Verification Token', secret: true },
+  ],
+};
+
+function PaymentSettings() {
+  const { data, error, refetch } = useApi<PaySettings>('/api/admin/payment-settings');
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [fields, setFields] = useState<Record<string, Record<string, string>>>({});
+  const [sandbox, setSandbox] = useState<Record<string, boolean>>({});
+  const [prices, setPrices] = useState<Record<string, string>>({});
+
+  async function put(body: Record<string, unknown>, okMsg: string) {
+    setBusy(true);
+    try {
+      await api('/api/admin/payment-settings', { method: 'PUT', body: JSON.stringify(body) });
+      toast(okMsg); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
+    finally { setBusy(false); }
+  }
+
+  if (error) return <div className="card" style={{ marginTop: 'var(--sp-4)' }}><ErrorState message={error} onRetry={refetch} /></div>;
+  if (!data) return <div className="card" style={{ marginTop: 'var(--sp-4)' }}><Skeleton rows={3} /></div>;
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">pengaturan pembayaran &amp; mode deploy (superadmin)</span>
+        <span className="microlabel">SEMUA DI DATABASE · TANPA ENV</span></div>
+      <div className="card-pad stack gap-5">
+
+        {/* mode deploy */}
+        <div className="cluster gap-4" style={{ alignItems: 'flex-end' }}>
+          <div className="field" style={{ width: 260 }}>
+            <label>Mode deploy</label>
+            <select className="select" value={data.deploymentMode} disabled={busy}
+              onChange={(e) => void put({ deploymentMode: e.target.value }, 'Mode deploy tersimpan')}>
+              <option value="saas">SaaS — pembayaran & kuota aktif</option>
+              <option value="onprem">On-premise — bayar mati, semua unlimited</option>
+            </select>
+          </div>
+          {/* harga plan */}
+          {(['pro', 'enterprise'] as const).map((p) => (
+            <div key={p} className="field" style={{ width: 180 }}>
+              <label>Harga {p} (IDR/bln)</label>
+              <input className="input" inputMode="numeric"
+                value={prices[p] ?? String(data.planPrices[p] ?? '')}
+                onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value.replace(/\D/g, '') }))}
+                onBlur={() => {
+                  const v = Number(prices[p]);
+                  if (v && v !== data.planPrices[p]) {
+                    void put({ planPrices: { ...data.planPrices, [p]: v } }, `Harga ${p} tersimpan`);
+                  }
+                }} />
+            </div>
+          ))}
+        </div>
+
+        {/* gateway: pilih SATU aktif + kredensial per provider */}
+        <div className="grid g3">
+          {data.gateways.map((g) => (
+            <div key={g.provider} className="card" style={{ boxShadow: 'none' }}>
+              <div className="panel-head">
+                <span className="t">{g.provider}</span>
+                {g.active
+                  ? <span className="badge badge-ok"><span className="led led-live" />aktif</span>
+                  : g.configured
+                    ? <button className="btn btn-sm" disabled={busy}
+                        onClick={() => void put({ activate: g.provider }, `${g.provider} diaktifkan`)}>Aktifkan</button>
+                    : <span className="badge"><span className="led led-off" />kosong</span>}
+              </div>
+              <div className="card-pad stack gap-3">
+                {GATEWAY_FIELDS[g.provider].map((f) => (
+                  <div key={f.key} className="field">
+                    <label>{f.label}</label>
+                    <input className="input mono" type={f.secret ? 'password' : 'text'}
+                      placeholder={f.secret && g.configured ? 'kosongkan = tak diubah'
+                        : !f.secret ? String(g.publicConfig[f.key] ?? '') || f.label : f.label}
+                      value={fields[g.provider]?.[f.key] ?? ''}
+                      onChange={(e) => setFields((s) => ({
+                        ...s, [g.provider]: { ...s[g.provider], [f.key]: e.target.value },
+                      }))} />
+                  </div>
+                ))}
+                <label className="cluster gap-2" style={{ cursor: 'pointer', fontSize: 13 }}>
+                  <input type="checkbox"
+                    checked={sandbox[g.provider] ?? g.publicConfig.sandbox === true}
+                    onChange={(e) => setSandbox((s) => ({ ...s, [g.provider]: e.target.checked }))} />
+                  Mode sandbox
+                </label>
+                <button className="btn btn-sm" disabled={busy} onClick={() => {
+                  const f = fields[g.provider] ?? {};
+                  const secretKeys = GATEWAY_FIELDS[g.provider].filter((x) => x.secret).map((x) => x.key);
+                  const secrets = Object.fromEntries(secretKeys.map((k) => [k, f[k] ?? '']).filter(([, v]) => v));
+                  const publicKeys = GATEWAY_FIELDS[g.provider].filter((x) => !x.secret).map((x) => x.key);
+                  const publicConfig: Record<string, string | boolean> = {
+                    ...Object.fromEntries(publicKeys.map((k) => [k, f[k] || String(g.publicConfig[k] ?? '')])),
+                    sandbox: sandbox[g.provider] ?? g.publicConfig.sandbox === true,
+                  };
+                  void put({ gateway: { provider: g.provider, ...(Object.keys(secrets).length ? { secrets } : {}), publicConfig } },
+                    `Kredensial ${g.provider} tersimpan`);
+                }}>Simpan kredensial</button>
+                <p className="microlabel" style={{ wordBreak: 'break-all' }}>
+                  CALLBACK URL (daftarkan di dashboard {g.provider}):<br />{data.callbackUrls[g.provider]}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+          Metode pembayaran: <b>QRIS saja</b>. QR digambar di halaman situs ini
+          sendiri (<code>/billing/pay/…</code>) — pelanggan tidak pernah
+          dialihkan ke halaman gateway. Hanya satu gateway aktif pada satu waktu.
+        </p>
+      </div>
     </div>
   );
 }

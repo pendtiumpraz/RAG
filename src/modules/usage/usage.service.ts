@@ -51,10 +51,15 @@ export const usageService = {
       )).limit(1))[0] ?? null,
     );
 
+    // D12: mode on-premise = SEMUA kuota unlimited, plan apa pun. Ini gerbang
+    // kuota utama (assertQuota, batas chatbot & anggota membaca snapshot ini).
+    const { platformSettingsService } = await import('@/modules/payments/platform-settings.service');
+    const onprem = (await platformSettingsService.mode()) === 'onprem';
+
     return {
       plan, planOnPaper, planExpiresAt,
       expired: plan !== planOnPaper,
-      limits: limitsForPlan(plan), period,
+      limits: limitsForPlan(onprem ? 'onprem' : plan), period,
       messages: row?.messages ?? 0,
       tokensIn: row?.tokensIn ?? 0,
       tokensOut: row?.tokensOut ?? 0,

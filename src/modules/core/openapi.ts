@@ -183,6 +183,31 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('daftar pesan') } },
     },
+    /* ── pembayaran (D12: QRIS, config di DB, halaman bayar sendiri) ── */
+    '/api/payments': {
+      get: { summary: 'Riwayat transaksi tenant', security: [sessionAuth],
+        responses: { 200: err('daftar transaksi') } },
+      post: { summary: 'Buat tagihan QRIS (admin tenant) — 409 saat mode on-premise', security: [sessionAuth],
+        requestBody: json(obj({ plan: str, months: num }, ['plan'])),
+        responses: { 201: err('{ id } → buka /billing/pay/{id}'), 409: err('pembayaran nonaktif (on-prem)'), 422: err('gateway/plan tidak valid') } },
+    },
+    '/api/payments/{id}': {
+      get: { summary: 'Status transaksi utk halaman bayar (poll; menarik status provider saat pending)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ status, qrString, qrImageUrl, amount, expiresAt }') } },
+    },
+    '/api/payments/callback/{provider}': {
+      post: { summary: 'Webhook gateway (publik; otentikasi = verifikasi signature per provider)',
+        parameters: [{ name: 'provider', in: 'path', required: true, schema: str }],
+        responses: { 200: err('{ ok }'), 403: err('signature tidak valid') } },
+    },
+    '/api/admin/payment-settings': {
+      get: { summary: 'SUPERADMIN: mode deploy, harga plan, status 3 gateway + URL callback tiap provider', security: [sessionAuth],
+        responses: { 200: err('{ deploymentMode, planPrices, gateways[], callbackUrls }') } },
+      put: { summary: 'SUPERADMIN: ubah mode/harga, simpan kredensial gateway (di DB), aktifkan SATU provider', security: [sessionAuth],
+        requestBody: json(obj({ deploymentMode: str, planPrices: { type: 'object' }, gateway: { type: 'object' }, activate: str })),
+        responses: { 200: err('{ ok }') } },
+    },
     '/api/admin/conversations': {
       get: { summary: 'SUPERADMIN: sesi percakapan tenant mana pun (lintas-tenant, GUC 0017); chatbots=1 = daftar chatbot tenant',
         security: [sessionAuth],

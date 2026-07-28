@@ -157,8 +157,10 @@ export const invitationService = {
 
     // Kursi terpakai = anggota + undangan yang masih berlaku. Menghitung
     // undangan juga mencegah mengundang 100 orang di plan free lalu semuanya
-    // masuk sekaligus.
-    const limits = limitsForPlan(plan);
+    // masuk sekaligus. D12: mode on-premise = kursi tanpa batas.
+    const { platformSettingsService } = await import('@/modules/payments/platform-settings.service');
+    const onprem = (await platformSettingsService.mode()) === 'onprem';
+    const limits = limitsForPlan(onprem ? 'onprem' : plan);
     if (memberCount + pendingCount >= limits.maxMembers) {
       throw new ValidationError(
         `Kuota anggota plan "${plan}" penuh (${limits.maxMembers} kursi, terpakai `

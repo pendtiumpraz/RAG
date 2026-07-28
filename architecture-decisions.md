@@ -237,9 +237,37 @@ Sync selesai → Memory Agent dijalankan utk SETIAP chatbot ter-assign.
 
 **Status:** APPROVED user 2026-07-28 (rangkaian pesan eksplisit di atas).
 
+## ✅ D12 — Pembayaran QRIS multi-gateway + mode deploy dari database (2026-07-28)
+
+**Decision.**
+1. **Gateway pembayaran**: Midtrans, Tripay, Xendit — dikonfigurasi superadmin,
+   SEMUA kredensial di database (AES-256-GCM, pola `oauth_apps`), TANPA env.
+   Hanya SATU gateway aktif pada satu waktu. Metode: **QRIS saja** dulu.
+2. **Mode deploy dipilih dari database** (`platform_settings.deployment_mode`,
+   bukan env): `saas` = pembayaran & kuota aktif; `onprem` = pembayaran mati
+   dan SEMUA kuota unlimited (pesan, chatbot, anggota).
+3. **Halaman bayar milik sendiri**: QR dirender di halaman kita
+   (`/billing/pay/[id]`) memakai design system — TIDAK redirect ke halaman
+   gateway. Aktivasi plan via webhook callback ter-verifikasi signature
+   (fallback poll status).
+4. Harga plan (IDR/bulan) juga di `platform_settings`, diedit superadmin.
+
+**Konteks.** Assessment 2026-07-28 menandai Monetisasi 5,5 (aktivasi plan
+manual) sebagai penahan peluncuran. Kutipan user: "semua konfigurasi tidak
+lewat ENV, semua di database", "halaman pembayaran QRIS itu juga pake
+halaman website kita sendiri", "kalau on prem ... semua unlimited".
+
+**Keamanan.** Webhook = endpoint publik; otentikasinya adalah verifikasi
+signature per provider (Midtrans sha512(order+status+amount+serverKey),
+Tripay HMAC body dgn private key, Xendit callback token). Baris `payments`
+ber-RLS; webhook menulis lewat GUC platform_admin SETELAH signature lolos.
+
+**Status:** APPROVED user 2026-07-28.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-28 | D12 = pembayaran QRIS (Midtrans/Tripay/Xendit, satu aktif, config di DB) + mode deploy di DB (onprem=unlimited) + halaman bayar sendiri | User |
 | 2026-07-28 | D11 = KB mandiri + assignment N:M ke chatbot + konteks divisi per chatbot | User |
 | 2026-07-27 | D10 = mode akses Drive (`full`/`picker`) dipilih superadmin; SaaS→picker utk lepas dari scope restricted | User |
 | 2026-07-26 | D9 = pendaftaran terbuka + verifikasi superadmin (berlaku juga di jalur OAuth) | User |
