@@ -404,3 +404,23 @@ test('googleScopes: mode picker TIDAK pernah membawa drive.readonly', async () =
   assert.ok(googleConnectScope('picker').includes('drive.file'));
   assert.equal(googleLoginScope('picker'), 'openid email profile');
 });
+
+/* ── chunker: terminasi & overlap (regresi infinite loop) ──────────── */
+test('chunkText SELESAI utk teks panjang dan tak kehilangan isi', async () => {
+  const { chunkText } = await import('../src/modules/knowledge/knowledge.service');
+
+  // Regresi: dulu SEMUA teks > size membuat loop tak berujung — iterasi
+  // terakhir end mentok di len, start mundur ke len-overlap, dan berputar
+  // selamanya (OOM 4GB; di lambda mati sunyi & sumber macet 'syncing').
+  const long = ('Kalimat uji nomor sekian. '.repeat(400)); // ~10.4k char
+  const chunks = chunkText(long);
+  assert.ok(chunks.length > 1 && chunks.length < 50, `jumlah chunk wajar, dapat ${chunks.length}`);
+  // ujung teks harus terbawa (tanpa break, chunk terakhir berulang tak selesai)
+  assert.ok(chunks[chunks.length - 1].endsWith('sekian.'));
+  // teks pendek: satu chunk utuh; kosong: tanpa chunk
+  assert.deepEqual(chunkText('pendek saja'), ['pendek saja']);
+  assert.deepEqual(chunkText('   '), []);
+  // tepat di batas & sedikit di atasnya juga harus selesai
+  assert.ok(chunkText('x'.repeat(800)).length === 1);
+  assert.ok(chunkText('x'.repeat(801)).length >= 1);
+});
