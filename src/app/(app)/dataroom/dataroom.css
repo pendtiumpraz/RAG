@@ -171,3 +171,30 @@
   .dr-assess{ display:flex; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .as-sec{ break-inside:avoid; }
 }
+
+/* ── tab Update & Backlog ───────────────────────────────────────────── */
+.up-ship{ display:flex; flex-direction:column; }
+.up-ship .row{ display:grid; grid-template-columns:22px 1fr; gap:12px; align-items:start;
+  padding:11px 0; border-top:1px solid var(--line); }
+.up-ship .row:first-child{ border-top:0; }
+.up-ship .tick{ color:var(--good); font-weight:800; font-size:14px; line-height:1.5; }
+.up-ship b{ font-size:14px; display:block; }
+.up-ship .dec{ font-family:var(--font-mono); font-size:10px; letter-spacing:.08em;
+  color:var(--signal); background:var(--tint-signal); border-radius:4px;
+  padding:2px 6px; margin-right:8px; vertical-align:1px; }
+.up-ship p{ margin:4px 0 0; font-size:12.5px; line-height:1.6; color:var(--muted); }
+
+.up-todo{ list-style:none; padding:0; margin:14px 0 0; display:flex; flex-direction:column; gap:10px; }
+.up-todo li{ display:grid; grid-template-columns:26px 1fr; gap:12px; align-items:start;
+  background:var(--card-2); border:1px solid var(--line); border-radius:var(--rad-md); padding:12px 14px; }
+.up-todo.human li{ border-left:3px solid var(--source); }
+.up-todo.agent li{ border-left:3px solid var(--signal); }
+.up-todo .rk{ font-family:var(--font-mono); font-weight:700; font-size:13px; color:var(--faint); }
+.up-todo.human .rk{ color:var(--source); } .up-todo.agent .rk{ color:var(--signal); }
+.up-todo b{ font-size:13.5px; display:block; }
+.up-todo p{ margin:4px 0 0; font-size:12.5px; line-height:1.6; color:var(--muted); }
+.up-todo .sz{ font-family:var(--font-mono); font-size:9.5px; font-weight:700; margin-left:8px;
+  padding:2px 6px; border-radius:4px; background:var(--card-3); color:var(--muted); vertical-align:1px; }
+.up-todo .sz.s-L{ color:var(--danger); } .up-todo .sz.s-M{ color:var(--source); }
+.up-todo .bl{ display:inline-block; margin-top:7px; font-family:var(--font-mono); font-size:10px;
+  letter-spacing:.06em; color:var(--source); }
