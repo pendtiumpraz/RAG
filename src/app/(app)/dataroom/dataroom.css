@@ -1,0 +1,122 @@
+/* DATAROOM — slide deck. Brand resmi: Editorial Ledger, light-first,
+   Deep Navy / Royal Blue / Amber. Tanpa gradien, tanpa glow.
+
+   Semua ukuran di dalam slide memakai unit cqw (container query width):
+   slide 16:9 tampil proporsional dari kartu dashboard sampai fullscreen
+   tanpa satu media query pun. */
+
+.dr-tabs{ display:flex; gap:6px; margin-bottom:var(--sp-4); border-bottom:1px solid var(--line); }
+.dr-tab{ appearance:none; background:none; border:none; cursor:pointer; padding:10px 16px;
+  font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--muted);
+  border-bottom:2px solid transparent; margin-bottom:-1px; }
+.dr-tab.on{ color:var(--signal); border-bottom-color:var(--signal); }
+.dr-tab:hover{ color:var(--ink); }
+
+.dr-stage{ background:var(--bg-2); border:1px solid var(--line); border-radius:var(--rad-lg);
+  padding:clamp(12px,2vw,28px); }
+.dr-stage:fullscreen{ display:flex; flex-direction:column; justify-content:center;
+  background:#0B1220; border:none; border-radius:0; padding:3vh 4vw; }
+.dr-stage:fullscreen .dr-slidebox{ box-shadow:0 30px 90px rgba(0,0,0,.5); }
+.dr-stage:fullscreen .dr-ctl{ color:#94A3B8; }
+.dr-stage:fullscreen .dr-ctl .icon-btn{ border-color:#334155; color:#CBD5E1; background:transparent; }
+
+.dr-slidebox{ container-type:inline-size; aspect-ratio:16/9; width:100%; max-width:1280px;
+  margin:0 auto; background:#fff; border:1px solid var(--line); border-radius:10px;
+  overflow:hidden; box-shadow:0 14px 40px rgba(15,23,42,.10); }
+
+.dr-ctl{ display:flex; align-items:center; justify-content:center; gap:14px;
+  margin-top:14px; max-width:1280px; margin-inline:auto; }
+.dr-count{ font-size:12px; color:var(--muted); min-width:52px; text-align:center; }
+.dr-dots{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; }
+.dr-dots .d{ appearance:none; border:none; cursor:pointer; width:7px; height:7px;
+  border-radius:50%; background:var(--line-strong); padding:0; transition:all var(--dur-fast); }
+.dr-dots .d.on{ background:var(--signal); width:20px; border-radius:4px; }
+
+/* ── anatomi slide (semua ukuran cqw — 1cqw = 1% lebar slide) ───────── */
+.sl{ width:100%; height:100%; padding:4.5cqw 5cqw; display:flex; flex-direction:column;
+  background:#fff; color:#0F172A; font-family:var(--font-ui); position:relative; }
+
+.sl-kicker{ font-family:var(--font-mono); font-size:1.15cqw; letter-spacing:.3em;
+  color:#2563EB; }
+.sl-kicker.light{ color:#93C5FD; }
+.sl-head h2{ font-family:var(--font-display); font-size:2.9cqw; letter-spacing:-.02em;
+  margin:.6cqw 0 0; line-height:1.12; color:#0F172A; }
+.sl-head{ padding-bottom:1.6cqw; border-bottom:1px solid #D8E0EA; margin-bottom:2.4cqw; }
+
+/* cover & closing — panel navy */
+.sl-dark{ background:#0F172A; color:#F1F5F9; justify-content:center; }
+.sl-mega{ font-family:var(--font-display); font-size:9cqw; font-weight:800;
+  letter-spacing:-.04em; margin:1.2cqw 0 0; color:#fff; line-height:1; }
+.sl-big{ font-family:var(--font-display); font-size:5cqw; font-weight:800;
+  letter-spacing:-.03em; margin:0; color:#fff; line-height:1.15; max-width:80%; }
+.sl-rule{ width:9cqw; height:.35cqw; background:#2563EB; margin:2.2cqw 0; }
+.sl-lede{ font-size:1.9cqw; line-height:1.55; color:#CBD5E1; max-width:62%; margin:0; }
+.sl-foot{ position:absolute; bottom:3.6cqw; left:5cqw; font-family:var(--font-mono);
+  font-size:1.05cqw; letter-spacing:.08em; color:#64748B; }
+.sl-mark{ position:absolute; right:4cqw; bottom:3cqw; width:6cqw; height:6cqw; opacity:.9; }
+
+/* bullets */
+.sl-bullets{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column;
+  gap:1.7cqw; font-size:1.85cqw; line-height:1.5; max-width:88%; }
+.sl-bullets li{ position:relative; padding-left:3cqw; }
+.sl-bullets li::before{ content:''; position:absolute; left:0; top:.55em; width:1.4cqw;
+  height:.35cqw; border-radius:.2cqw; background:#2563EB; }
+
+/* two columns */
+.sl-cols{ display:grid; grid-template-columns:1fr 1fr; gap:2.4cqw; flex:1; align-content:start; }
+.sl-cols .col{ background:#F8FAFC; border:1px solid #D8E0EA; border-radius:1cqw; padding:2.2cqw; }
+.sl-cols h3{ font-family:var(--font-display); font-size:1.7cqw; color:#2563EB; margin:0 0 1.4cqw; }
+.sl-cols ul{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:1.1cqw;
+  font-size:1.45cqw; line-height:1.5; }
+.sl-cols li{ position:relative; padding-left:2.2cqw; }
+.sl-cols li::before{ content:''; position:absolute; left:0; top:.5em; width:1cqw; height:.3cqw;
+  border-radius:.15cqw; background:#B45309; }
+
+/* stat cards */
+.sl-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(18cqw,1fr));
+  gap:2cqw; align-content:center; flex:1; }
+.sl-stats .stat{ background:#F8FAFC; border:1px solid #D8E0EA; border-radius:1cqw;
+  padding:2.6cqw 1.8cqw; display:flex; flex-direction:column; align-items:center;
+  text-align:center; gap:.9cqw; }
+.sl-stats b{ font-family:var(--font-display); font-size:3.6cqw; letter-spacing:-.02em; color:#2563EB; }
+.sl-stats .l{ font-family:var(--font-mono); font-size:1.1cqw; letter-spacing:.12em;
+  text-transform:uppercase; color:#475569; }
+.sl-stats .n{ font-size:1.15cqw; line-height:1.45; color:#475569; }
+
+/* flow steps */
+.sl-flow{ display:flex; align-items:stretch; gap:0; flex:1; align-items:center; }
+.sl-flow .stepwrap{ display:flex; align-items:center; flex:1; }
+.sl-flow .step{ background:#F8FAFC; border:1px solid #D8E0EA; border-radius:1cqw;
+  padding:2cqw 1.6cqw; flex:1; display:flex; flex-direction:column; gap:.8cqw; min-height:14cqw; }
+.sl-flow .num{ font-family:var(--font-mono); font-size:1.4cqw; font-weight:700; color:#2563EB; }
+.sl-flow b{ font-family:var(--font-display); font-size:1.55cqw; line-height:1.25; color:#0F172A; }
+.sl-flow .step > span:not(.num){ font-size:1.15cqw; line-height:1.45; color:#475569; }
+.sl-flow .arrow{ font-size:2cqw; color:#B45309; padding:0 .9cqw; flex:0 0 auto; }
+
+/* table */
+.sl-table{ width:100%; border-collapse:collapse; font-size:1.5cqw; }
+.sl-table.small{ font-size:1.22cqw; }
+.sl-table th{ font-family:var(--font-mono); font-size:.85em; letter-spacing:.08em;
+  text-transform:uppercase; color:#475569; text-align:left; background:#F8FAFC;
+  padding:.9cqw 1.2cqw; border-bottom:1px solid #B6C2D2; }
+.sl-table td{ padding:.85cqw 1.2cqw; border-bottom:1px solid #D8E0EA; line-height:1.4;
+  vertical-align:top; color:#0F172A; }
+.sl-table tr td:first-child{ font-weight:600; }
+
+.sl-note{ margin:auto 0 0; padding-top:1.4cqw; font-size:1.2cqw; line-height:1.5;
+  color:#475569; font-style:italic; border-top:1px dashed #B6C2D2; }
+
+/* ── cetak: SEMUA slide, 1 slide = 1 halaman 16:9 ───────────────────── */
+.dr-print-all{ display:none; }
+@media print {
+  /* sembunyikan seluruh chrome app — hanya slide yang tercetak */
+  .sidebar, .topbar, .page-head, .dr-tabs, .dr-stage, .dr-noprint{ display:none !important; }
+  .content{ padding:0 !important; }
+  .dr-print-all{ display:block; }
+  .dr-slidebox.print{ border:none; border-radius:0; box-shadow:none; max-width:none;
+    width:100%; page-break-after:always; break-after:page; }
+  .dr-slidebox.print:last-child{ page-break-after:auto; }
+  @page{ size:297mm 167mm; margin:0; }
+  .sl-dark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .sl{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}

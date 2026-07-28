@@ -29,19 +29,27 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
   ] },
 ];
 
+/** Hanya tampil utk superadmin (halaman-nya sendiri juga menggate role). */
+const SUPERADMIN_NAV: (typeof NAV)[number] = {
+  group: 'Internal', items: [
+    { href: '/dataroom', label: 'Dataroom', icon: 'book' },
+  ],
+};
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? 'N').charAt(0).toUpperCase();
+  const nav = user?.role === 'superadmin' ? [...NAV, SUPERADMIN_NAV] : NAV;
 
   return (
     <ToastProvider>
       <div className="shell">
         <aside className={`sidebar${open ? ' open' : ''}`}>
           <div className="side-brand"><Logo height={26} /></div>
-          {NAV.map((g) => (
+          {nav.map((g) => (
             <nav key={g.group}>
               <div className="nav-label">{g.group}</div>
               {g.items.map((it) => (
