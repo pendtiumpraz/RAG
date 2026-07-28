@@ -53,7 +53,9 @@
 .sl-lede{ font-size:1.9cqw; line-height:1.55; color:#CBD5E1; max-width:62%; margin:0; }
 .sl-foot{ position:absolute; bottom:3.6cqw; left:5cqw; font-family:var(--font-mono);
   font-size:1.05cqw; letter-spacing:.08em; color:#64748B; }
-.sl-mark{ position:absolute; right:4cqw; bottom:3cqw; width:6cqw; height:6cqw; opacity:.9; }
+.sl-logochip{ position:absolute; right:4cqw; bottom:3cqw; background:#fff;
+  border-radius:.8cqw; padding:.9cqw 1.3cqw; display:flex; align-items:center; }
+.sl-logochip img{ height:2.6cqw; width:auto; display:block; }
 
 /* bullets */
 .sl-bullets{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column;

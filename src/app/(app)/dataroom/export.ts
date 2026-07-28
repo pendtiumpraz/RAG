@@ -41,6 +41,10 @@ function addSlide(pptx: Pptx, s: Slide): void {
     sl.addText(s.subtitle, { x: 0.9, y: s.kind === 'cover' ? 3.9 : 4.1, w: 9.5, h: 1.2, fontSize: 18, color: 'CBD5E1' });
     sl.addText(s.foot, { x: 0.9, y: 6.7, w: 11.5, h: 0.4, fontSize: 11, color: '64748B', fontFace: 'Consolas' });
     sl.addShape('rect', { x: 0.9, y: 3.75, w: 1.4, h: 0.035, fill: { color: BLUE } });
+    // wordmark resmi (aset landing) di chip putih — wordmark navy tak terbaca
+    // di latar navy tanpa chip. Rasio asli 400×160 (2.5:1).
+    sl.addShape('roundRect', { x: 10.85, y: 6.35, w: 1.85, h: 0.85, rectRadius: 0.08, fill: { color: 'FFFFFF' } });
+    sl.addImage({ path: `${window.location.origin}/brand/nalar-logo-400.png`, x: 11.02, y: 6.5, w: 1.5, h: 0.6 });
     return;
   }
 

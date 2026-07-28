@@ -125,7 +125,11 @@ function SlideView({ s }: { s: Slide }) {
         <div className="sl-rule" />
         <p className="sl-lede">{s.subtitle}</p>
         <span className="sl-foot">{s.foot}</span>
-        <Nmark />
+        {/* wordmark resmi (aset landing page) — chip putih krn wordmark-nya navy */}
+        <span className="sl-logochip">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/nalar-logo-400.png" alt="Nalar" />
+        </span>
       </section>
     );
   }
@@ -208,12 +212,3 @@ function Fs() {
   );
 }
 
-/** Mark N konstelasi — motif brand di pojok slide gelap. */
-function Nmark() {
-  return (
-    <svg className="sl-mark" viewBox="0 0 48 48" fill="none" aria-hidden>
-      <path d="M15 16 L33 24 M15 24 L33 24 M15 32 L33 24" stroke="#60A5FA" strokeWidth="2.6" strokeLinecap="round" />
-      <circle cx="15" cy="16" r="3" fill="#fff" /><circle cx="33" cy="24" r="4" fill="#F59E0B" />
-    </svg>
-  );
-}
