@@ -24,10 +24,13 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       try {
         const onSources = (s: ChatSource[]) => send('sources', s);
+        // `meta` membawa conversationId — client menyimpannya dan mengirim
+        // balik agar seluruh sesi jadi SATU riwayat, bukan 1 baris per pesan.
+        const onConversation = (id: string) => send('meta', { conversationId: id });
         for await (const delta of chatTurn({
           tenantId: user.tenantId, chatbotId, conversationId: body.conversationId,
           visitorId: `user:${user.id}`, question: message,
-        }, onSources)) {
+        }, onSources, onConversation)) {
           send('delta', { text: delta });
         }
         send('done', {});

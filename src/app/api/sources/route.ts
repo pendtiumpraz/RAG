@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { and, eq, isNull } from 'drizzle-orm';
 import { dataSources } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { getCurrentUser } from '@/modules/core/auth';
 import { syncService } from '@/modules/knowledge/sync.service';
+import { jobsSettled } from '@/modules/core/jobs';
 
 export const runtime = 'nodejs';
+/** Sync bisa mengunduh + embed banyak file — beri waktu setelah respons. */
+export const maxDuration = 60;
 
 /** GET /api/sources?chatbotId=… — daftar sumber data + status sync. */
 export async function GET(req: NextRequest) {
@@ -46,6 +49,9 @@ export async function POST(req: NextRequest) {
   let jobStatus = null;
   if (['gdrive', 'onedrive', 'sharepoint'].includes(parsed.data.kind)) {
     jobStatus = syncService.enqueue(user.tenantId, user.id, created.id);
+    // Tanpa ini, Vercel membekukan lambda begitu respons terkirim dan job
+    // sync mati di tengah — status macet 'syncing', KB tak pernah terisi.
+    after(jobsSettled);
   }
   return NextResponse.json({ source: created, jobStatus }, { status: 201 });
 }

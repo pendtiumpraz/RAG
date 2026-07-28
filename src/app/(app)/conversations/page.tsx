@@ -62,21 +62,36 @@ export default function ConversationsPage() {
           {!active ? <EmptyState title="Pilih percakapan" />
             : loadingMsgs || !msgs ? <Skeleton rows={4} />
             : msgs.length === 0 ? <EmptyState title="Tidak ada pesan" />
-            : msgs.map((m) => (
-              <div key={m.id} style={{ marginBottom: 'var(--sp-5)' }}>
-                <div className="microlabel" style={{ marginBottom: 6 }}>{m.role === 'user' ? 'Pengunjung' : 'Nalar'} · {new Date(m.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
-                <div style={{ fontSize: m.role === 'user' ? 15 : 15, fontWeight: m.role === 'user' ? 600 : 400, lineHeight: 1.6 }}
-                  dangerouslySetInnerHTML={{ __html: fmt(m.content) }} />
-                {m.role === 'assistant' && m.citations && m.citations.length > 0 && (
-                  <div className="source-block">
-                    {m.citations.map((c, i) => (
-                      <div key={i} className="source-line"><span className="n">[{i + 1}]</span> <span className="mono">{c.documentId.slice(0, 8)}…</span>
-                        <span style={{ marginLeft: 'auto', color: 'var(--source)' }}>{c.score.toFixed(2)}</span></div>
-                    ))}
+            : msgs.map((m) => {
+              const isUser = m.role === 'user';
+              const time = new Date(m.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+              return (
+                /* transkrip berbentuk bubble chat: pengunjung KANAN, Nalar KIRI —
+                   sesuai arah baca percakapan, bukan daftar log rata kiri */
+                <div key={m.id} style={{ display: 'flex', flexDirection: 'column',
+                  alignItems: isUser ? 'flex-end' : 'flex-start', marginBottom: 'var(--sp-4)' }}>
+                  <div className="microlabel" style={{ marginBottom: 5 }}>
+                    {isUser ? `Pengunjung · ${time}` : `Nalar · ${time}`}
                   </div>
-                )}
-              </div>
-            ))}
+                  <div style={{
+                    maxWidth: '76%', padding: '10px 14px', fontSize: 14.5, lineHeight: 1.6,
+                    background: isUser ? 'var(--tint-signal)' : 'var(--card-2)',
+                    border: `1px solid ${isUser ? 'color-mix(in srgb, var(--signal) 35%, transparent)' : 'var(--line)'}`,
+                    borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                  }}>
+                    <div dangerouslySetInnerHTML={{ __html: fmt(m.content) }} />
+                    {!isUser && m.citations && m.citations.length > 0 && (
+                      <div className="source-block" style={{ marginTop: 10 }}>
+                        {m.citations.map((c, i) => (
+                          <div key={i} className="source-line"><span className="n">[{i + 1}]</span> <span className="mono">{c.documentId.slice(0, 8)}…</span>
+                            <span style={{ marginLeft: 'auto', color: 'var(--source)' }}>{c.score.toFixed(2)}</span></div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </div>
     </>

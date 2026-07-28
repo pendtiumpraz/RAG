@@ -19,7 +19,14 @@ export default function ChatPage() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  /** Sesi berjalan — dikirim balik tiap giliran supaya riwayat menyambung
+   *  jadi SATU conversation; null = giliran berikutnya membuka sesi baru. */
+  const [convId, setConvId] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+
+  function newSession() {
+    setConvId(null); setMsgs([]);
+  }
   const lastSources = [...msgs].reverse().find((m) => m.role === 'assistant' && m.sources)?.sources ?? [];
 
   useEffect(() => { threadRef.current?.scrollTo(0, threadRef.current.scrollHeight); }, [msgs]);
@@ -33,7 +40,7 @@ export default function ChatPage() {
     try {
       const res = await fetch('/api/chat/internal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatbotId, message: q }),
+        body: JSON.stringify({ chatbotId, message: q, ...(convId ? { conversationId: convId } : {}) }),
       });
       if (!res.ok || !res.body) throw new Error('Gagal memulai chat');
       const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
@@ -44,6 +51,7 @@ export default function ChatPage() {
         for (const p of parts) {
           const ev = p.match(/event: (.*)/)?.[1];
           let data: unknown = {}; try { data = JSON.parse(p.match(/data: (.*)/)?.[1] ?? '{}'); } catch {}
+          if (ev === 'meta') { setConvId((data as { conversationId: string }).conversationId); continue; }
           setMsgs((m) => {
             const copy = [...m]; const last = copy[copy.length - 1];
             if (ev === 'sources') last.sources = data as Source[];
@@ -64,9 +72,17 @@ export default function ChatPage() {
       <div className="chat-main">
         <div className="chat-bar">
           <h1>Chat</h1>
-          <select className="select" style={{ width: 200, minHeight: 38 }} value={chatbotId} onChange={(e) => setChatbotId(e.target.value)}>
-            {bots.data?.length ? bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>) : <option>Belum ada chatbot</option>}
-          </select>
+          <div className="cluster gap-2">
+            {convId && <span className="badge badge-signal" title={convId}><span className="led led-live" />sesi aktif</span>}
+            <button className="btn btn-sm" onClick={newSession} disabled={busy || msgs.length === 0}
+              title="Mulai percakapan baru — sesi berjalan tersimpan di Conversations">
+              <Icon name="plus" size={14} /> Sesi baru
+            </button>
+            <select className="select" style={{ width: 200, minHeight: 38 }} value={chatbotId}
+              onChange={(e) => { setChatbotId(e.target.value); newSession(); /* beda bot = beda riwayat */ }}>
+              {bots.data?.length ? bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>) : <option>Belum ada chatbot</option>}
+            </select>
+          </div>
         </div>
 
         <div className="thread" ref={threadRef}>

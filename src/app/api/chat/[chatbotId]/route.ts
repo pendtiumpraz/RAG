@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
           conversationId: body.conversationId,
           visitorId: body.visitorId,
           question,
-        })) {
+        }, undefined, (id) => send('meta', { conversationId: id }))) {
           send('delta', { text: delta });
         }
         send('done', {});

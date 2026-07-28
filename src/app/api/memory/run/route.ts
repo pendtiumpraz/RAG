@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/modules/core/auth';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
+import { jobsSettled } from '@/modules/core/jobs';
 
 export const runtime = 'nodejs';
+/** Memory agent (distill/link/graph) butuh waktu setelah respons 202. */
+export const maxDuration = 60;
 
 const Body = z.object({ chatbotId: z.string().uuid() });
 
@@ -14,6 +17,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'chatbotId wajib (uuid)' }, { status: 400 });
 
   const status = memoryAgent.enqueueRun(user.tenantId, parsed.data.chatbotId);
+  // Jaga lambda tetap hidup sampai job selesai (lihat jobsSettled di core/jobs).
+  after(jobsSettled);
   return NextResponse.json({ ok: true, status }, { status: 202 });
 }
 

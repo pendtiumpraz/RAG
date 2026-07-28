@@ -119,7 +119,11 @@
             parts.forEach(function (p) {
               var ev = (p.match(/event: (.*)/) || [])[1];
               var data = {}; try { data = JSON.parse((p.match(/data: (.*)/) || [])[1]); } catch (e) {}
-              if (ev === 'delta') { full += data.text; el.innerHTML = fmt(full); msgs.scrollTop = msgs.scrollHeight; }
+              /* `meta` datang lebih dulu: simpan conversationId supaya seluruh
+                 sesi widget jadi SATU riwayat percakapan (sebelumnya variabel
+                 ini null selamanya dan tiap pesan jadi conversation baru). */
+              if (ev === 'meta' && data.conversationId) { conversationId = data.conversationId; }
+              else if (ev === 'delta') { full += data.text; el.innerHTML = fmt(full); msgs.scrollTop = msgs.scrollHeight; }
               else if (ev === 'error') { el.textContent = '⚠ ' + data.message; }
             });
             pump();

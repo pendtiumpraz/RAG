@@ -59,6 +59,14 @@ export interface ChatSource { documentId: string; title: string | null; score: n
 export async function* chatTurn(
   input: ChatTurnInput,
   onSources?: (sources: ChatSource[]) => void,
+  /**
+   * Dipanggil begitu percakapan resolved (dibuat baru ATAU dilanjutkan).
+   * Client WAJIB menerima id ini dan mengirimkannya balik di giliran
+   * berikutnya — tanpa itu tiap pesan jadi 1 conversation baru dan riwayat
+   * di halaman Conversations terpecah per-pesan (bug nyata di embed.js:
+   * variabel conversationId-nya null selamanya karena tak pernah dikirimi).
+   */
+  onConversation?: (conversationId: string) => void,
 ): AsyncGenerator<string, void> {
   // Guardrail L1: sanitasi input (rate/kuota sudah di route).
   input.question = guardInput(input.question);
@@ -76,6 +84,8 @@ export async function* chatTurn(
       history: prior.map((m) => ({ role: m.role as ChatMessage['role'], content: m.content })),
     };
   });
+
+  onConversation?.(conversationId);
 
   const embeddingModel = settings?.activeEmbeddingModel ?? 'all-MiniLM-L6-v2';
   const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';

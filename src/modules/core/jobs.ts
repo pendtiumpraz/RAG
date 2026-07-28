@@ -18,6 +18,7 @@ const handlers = new Map<string, Handler>();
 const queue: Job[] = [];
 const statuses = new Map<string, JobStatus>();
 let running = false;
+let pumpPromise: Promise<void> = Promise.resolve();
 
 const MAX_ATTEMPTS = 3;
 
@@ -34,8 +35,25 @@ export function enqueueJob(name: string, key: string, payload: unknown): JobStat
   const status: JobStatus = { state: 'queued', attempts: 0, updatedAt: Date.now() };
   statuses.set(id, status);
   queue.push({ name, key, payload, attempts: 0 });
-  void pump();
+  // pump() no-op bila loop sudah jalan — jangan menimpa promise loop asli
+  // dengan promise yang selesai seketika, nanti jobsSettled() bohong.
+  const wasIdle = !running;
+  const p = pump();
+  if (wasIdle) pumpPromise = p;
   return status;
+}
+
+/**
+ * Selesainya SELURUH antrean saat ini — untuk serverless.
+ *
+ * Di Vercel, lambda DIBEKUKAN begitu respons terkirim; job yang masih jalan
+ * mati diam-diam di tengah (kejadian nyata: sumber gdrive macet di status
+ * 'syncing' selamanya, KB kosong, chatbot menjawab "I don't know"). Route
+ * yang meng-enqueue wajib memanggil `after(jobsSettled)` (next/server) agar
+ * lambda dijaga hidup sampai antrean kosong — respons tetap terkirim cepat.
+ */
+export function jobsSettled(): Promise<void> {
+  return pumpPromise;
 }
 
 export function getJobStatus(name: string, key: string): JobStatus | null {
