@@ -87,15 +87,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
       const send = (event: string, data: unknown) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       try {
-        for await (const delta of chatTurn({
+        // Kontrak SSE: meta {conversationId} → block* → done (lihat blocks.ts).
+        await chatTurn({
           tenantId: bot.tenant_id,
           chatbotId: bot.id,
           conversationId: body.conversationId,
           visitorId: body.visitorId,
           question,
-        }, undefined, (id) => send('meta', { conversationId: id }))) {
-          send('delta', { text: delta });
-        }
+        }, {
+          onConversation: (id) => send('meta', { conversationId: id }),
+          onBlock: (b) => send('block', b),
+        });
         send('done', {});
       } catch (err) {
         send('error', { message: (err as Error).message });

@@ -23,16 +23,17 @@ export async function POST(req: NextRequest) {
       const send = (event: string, data: unknown) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       try {
-        const onSources = (s: ChatSource[]) => send('sources', s);
-        // `meta` membawa conversationId — client menyimpannya dan mengirim
-        // balik agar seluruh sesi jadi SATU riwayat, bukan 1 baris per pesan.
-        const onConversation = (id: string) => send('meta', { conversationId: id });
-        for await (const delta of chatTurn({
+        // Kontrak SSE: meta {conversationId} → sources [...] → block* → done.
+        // Jawaban dikirim BLOK demi BLOK (text/list/cards/chart) yang sudah
+        // tervalidasi server — frontend murni merender, tanpa parsing teks.
+        await chatTurn({
           tenantId: user.tenantId, chatbotId, conversationId: body.conversationId,
           visitorId: `user:${user.id}`, question: message,
-        }, onSources, onConversation)) {
-          send('delta', { text: delta });
-        }
+        }, {
+          onConversation: (id) => send('meta', { conversationId: id }),
+          onSources: (s: ChatSource[]) => send('sources', s),
+          onBlock: (b) => send('block', b),
+        });
         send('done', {});
       } catch (err) {
         send('error', { message: (err as Error).message });

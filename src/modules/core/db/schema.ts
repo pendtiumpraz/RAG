@@ -251,8 +251,15 @@ export const messages = pgTable('messages', {
   tenantId: uuid('tenant_id').notNull(),
   conversationId: uuid('conversation_id').notNull(),
   role: text('role').notNull(),           // 'user' | 'assistant' | 'system'
+  /** Teks polos — dipakai analytics, estimasi token, dan riwayat prompt LLM. */
   content: text('content').notNull(),
   citations: jsonb('citations').$type<Array<{ documentId: string; score: number }>>(),
+  /**
+   * Jawaban TERSTRUKTUR (chat/blocks.ts): [{type:'text'|'list'|'cards'|'chart',…}].
+   * Frontend merender ini jadi bubble/daftar/kartu/chart; `content` tetap
+   * padanan teks polosnya. NULL utk pesan user & pesan lama pra-fitur.
+   */
+  blocks: jsonb('blocks').$type<unknown[]>(),
   ...stamps,
 }, (t) => ({
   convIdx: index('idx_messages_conversation').on(t.conversationId, t.createdAt),

@@ -467,3 +467,46 @@ test('createStreamStripper: token terbelah antar delta tetap bersih', async () =
   // teks polos + sitasi lolos utuh
   assert.equal(run(['NIB 912020', '6721876 [2] jalan.']), 'NIB 9120206721876 [2] jalan.');
 });
+
+/* ── jawaban terstruktur: parser blok streaming + fallback ─────────── */
+test('blocks: parser inkremental memancarkan blok utuh, sadar-string', async () => {
+  const { createBlockStreamParser } = await import('../src/modules/chat/blocks');
+  const got: unknown[] = [];
+  const p = createBlockStreamParser((b) => got.push(b));
+  // JSON dipotong sembarang antar delta, ada kurung kurawal DI DALAM string
+  const payload = '```json\n{"blocks":[{"type":"text","text":"NIB {resmi} 912 [1]"},'
+    + '{"type":"list","ordered":true,"items":["a [2]","b"]},'
+    + '{"type":"chart","kind":"bar","title":"KBLI","labels":["A","B","C"],"values":[3,5,2]}]}\n```';
+  for (let i = 0; i < payload.length; i += 7) p.push(payload.slice(i, i + 7));
+  const fin = p.finalize();
+  assert.equal(fin.fallback, false);
+  assert.equal(got.length, 3);
+  assert.deepEqual(got[0], { type: 'text', text: 'NIB {resmi} 912 [1]' });
+  assert.deepEqual((got[1] as { items: string[] }).items, ['a [2]', 'b']);
+  assert.equal((got[2] as { values: number[] }).values.length, 3);
+});
+
+test('blocks: model balas prosa → fallback text/list, bukan gagal', async () => {
+  const { createBlockStreamParser } = await import('../src/modules/chat/blocks');
+  const got: Array<{ type: string }> = [];
+  const p = createBlockStreamParser((b) => got.push(b));
+  p.push('NIB adalah identitas [1].\n\n1. satu\n2. dua\n\nSelesai **tebal**.');
+  const fin = p.finalize();
+  assert.equal(fin.fallback, true);
+  assert.deepEqual(got.map((b) => b.type), ['text', 'list', 'text']);
+  // fallback juga bebas markdown
+  assert.ok(!JSON.stringify(got).includes('**'));
+});
+
+test('blocks: sanitizeBlock menolak sampah & membersihkan markdown di string', async () => {
+  const { sanitizeBlock, blocksToPlainText } = await import('../src/modules/chat/blocks');
+  assert.equal(sanitizeBlock({ type: 'chart', kind: 'bar', labels: ['x'], values: [1] }), null); // 1 titik = bukan chart
+  assert.equal(sanitizeBlock({ type: 'text', text: '' }), null);
+  const b = sanitizeBlock({ type: 'cards', items: [{ title: '**NIB**', value: '`912`' }] });
+  assert.deepEqual(b, { type: 'cards', items: [{ title: 'NIB', value: '912' }] });
+  const plain = blocksToPlainText([
+    { type: 'text', text: 'Halo [1]' },
+    { type: 'list', ordered: true, items: ['a'] },
+  ]);
+  assert.equal(plain, 'Halo [1]\n\n1. a');
+});

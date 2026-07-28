@@ -5,10 +5,12 @@ import './chat.css';
 import { useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { EmptyState } from '../../_components/ui';
+import { AnswerBlocks } from '../../_components/answer-blocks';
+import type { AnswerBlock } from '@/modules/chat/blocks';
 
 interface Chatbot { id: string; name: string }
 interface Source { documentId: string; title: string | null; score: number; content: string }
-interface Msg { role: 'user' | 'assistant'; text: string; sources?: Source[]; streaming?: boolean }
+interface Msg { role: 'user' | 'assistant'; text?: string; blocks?: AnswerBlock[]; sources?: Source[]; streaming?: boolean }
 
 /** Konsol Chat internal + panel Citations — replika PRODUCT UI resmi, data nyata. */
 export default function ChatPage() {
@@ -35,7 +37,7 @@ export default function ChatPage() {
     const q = input.trim();
     if (!q || !chatbotId || busy) return;
     setInput(''); setBusy(true);
-    setMsgs((m) => [...m, { role: 'user', text: q }, { role: 'assistant', text: '', streaming: true }]);
+    setMsgs((m) => [...m, { role: 'user', text: q }, { role: 'assistant', blocks: [], streaming: true }]);
 
     try {
       const res = await fetch('/api/chat/internal', {
@@ -53,11 +55,17 @@ export default function ChatPage() {
           let data: unknown = {}; try { data = JSON.parse(p.match(/data: (.*)/)?.[1] ?? '{}'); } catch {}
           if (ev === 'meta') { setConvId((data as { conversationId: string }).conversationId); continue; }
           setMsgs((m) => {
-            const copy = [...m]; const last = copy[copy.length - 1];
+            const copy = [...m]; const last = { ...copy[copy.length - 1] };
             if (ev === 'sources') last.sources = data as Source[];
-            else if (ev === 'delta') last.text += (data as { text: string }).text;
+            // jawaban tiba BLOK demi BLOK (text/list/cards/chart) — sudah
+            // tervalidasi server; di sini murni render
+            else if (ev === 'block') last.blocks = [...(last.blocks ?? []), data as AnswerBlock];
             else if (ev === 'done') last.streaming = false;
-            else if (ev === 'error') { last.text = '⚠ ' + (data as { message: string }).message; last.streaming = false; }
+            else if (ev === 'error') {
+              last.blocks = [...(last.blocks ?? []), { type: 'text', text: '⚠ ' + (data as { message: string }).message }];
+              last.streaming = false;
+            }
+            copy[copy.length - 1] = last;
             return copy;
           });
         }
@@ -96,7 +104,13 @@ export default function ChatPage() {
               <div key={i} className="answer">
                 <div className="ans-head"><span className="mk"><Nmark /></span><b>Nalar</b></div>
                 <div className="card card-pad">
-                  <div className="ans-body" dangerouslySetInnerHTML={{ __html: fmt(m.text) || (m.streaming ? '<span class="typing"><i></i><i></i><i></i></span>' : '') }} />
+                  {m.blocks && m.blocks.length > 0
+                    ? <AnswerBlocks blocks={m.blocks} />
+                    : m.streaming
+                      ? <span className="typing"><i></i><i></i><i></i></span>
+                      : null}
+                  {m.streaming && m.blocks && m.blocks.length > 0 &&
+                    <span className="typing" style={{ marginTop: 10 }}><i></i><i></i><i></i></span>}
                   {m.sources && m.sources.length > 0 && (
                     <div style={{ marginTop: 14 }}>
                       <div className="microlabel" style={{ marginBottom: 8 }}>Sumber ({m.sources.length})</div>
@@ -141,10 +155,6 @@ export default function ChatPage() {
   );
 }
 
-function fmt(t: string): string {
-  const esc = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return esc.replace(/\[(\d+)\]/g, '<span class="cite">$1</span>');
-}
 function Nmark() {
   return (
     <svg width="15" height="15" viewBox="0 0 48 48" fill="none">

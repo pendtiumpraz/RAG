@@ -13,7 +13,10 @@ import {
   guardInput, sanitizeChunk, CONTEXT_HARDENING, EXEC_LIMITS,
   newBudget, budgetAllows, redactSecrets, checkCitations, audit,
 } from '@/modules/core/guardrails';
-import { stripMarkdown, createStreamStripper } from './plaintext';
+import {
+  BLOCK_FORMAT_INSTRUCTIONS, createBlockStreamParser, blocksToPlainText,
+  type AnswerBlock,
+} from './blocks';
 
 function buildPrompt(
   system: string | null,
@@ -36,13 +39,10 @@ function buildPrompt(
     CONTEXT_HARDENING,
     'Answer strictly from the CONTEXT below. If the answer is not in the context, say you don\'t know.',
     'Cite sources inline as [1], [2] matching the <doc id> numbers.',
-    // Keputusan produk: frontend memegang penuh styling — teks jawaban tidak
-    // boleh membawa sintaks format. Server tetap menyaring sisanya
-    // (plaintext.ts), tapi menghentikannya di sumber jauh lebih murah.
-    'OUTPUT FORMAT: plain text ONLY — never use Markdown. No **bold**, no _italics_, '
-    + 'no # headings, no backticks or code fences, no bullet markers (-, *), no [text](url) links. '
-    + 'Write plain sentences; for lists use lines starting with "1.", "2." or "• ". '
-    + 'Keep inline citations exactly as [1], [2].',
+    // Keputusan produk: jawaban TERSTRUKTUR (JSON blok — lihat chat/blocks.ts);
+    // frontend merendernya jadi bubble/daftar/kartu/chart dan memegang penuh
+    // styling. Model yang mengabaikan format tetap tertangani fallback parser.
+    BLOCK_FORMAT_INSTRUCTIONS,
     '\n=== CONTEXT ===\n' + contextBlock,
   ].join('\n');
 
@@ -64,18 +64,41 @@ export interface ChatTurnInput {
  */
 export interface ChatSource { documentId: string; title: string | null; score: number; content: string }
 
-export async function* chatTurn(
-  input: ChatTurnInput,
-  onSources?: (sources: ChatSource[]) => void,
+/** Guardrail L4 utk blok: redaksi secret pada SEMUA string di dalam blok
+ *  sebelum blok meninggalkan server. */
+function redactBlockStrings(b: AnswerBlock, onRedacted: () => void): AnswerBlock {
+  const r = (s: string): string => {
+    const { text, redacted } = redactSecrets(s);
+    if (redacted) onRedacted();
+    return text;
+  };
+  if (b.type === 'text') return { ...b, text: r(b.text) };
+  if (b.type === 'list') return { ...b, items: b.items.map(r) };
+  if (b.type === 'cards') {
+    return { ...b, items: b.items.map((c) => ({ ...c, title: r(c.title), value: r(c.value), ...(c.desc ? { desc: r(c.desc) } : {}) })) };
+  }
+  return { ...b, labels: b.labels.map(r), ...(b.title ? { title: r(b.title) } : {}) };
+}
+
+export interface ChatTurnCallbacks {
+  onSources?: (sources: ChatSource[]) => void;
   /**
    * Dipanggil begitu percakapan resolved (dibuat baru ATAU dilanjutkan).
    * Client WAJIB menerima id ini dan mengirimkannya balik di giliran
    * berikutnya — tanpa itu tiap pesan jadi 1 conversation baru dan riwayat
-   * di halaman Conversations terpecah per-pesan (bug nyata di embed.js:
-   * variabel conversationId-nya null selamanya karena tak pernah dikirimi).
+   * di halaman Conversations terpecah per-pesan.
    */
-  onConversation?: (conversationId: string) => void,
-): AsyncGenerator<string, void> {
+  onConversation?: (conversationId: string) => void;
+  /** Satu blok jawaban UTUH & sudah tervalidasi — dikirim client sebagai
+   *  SSE `event: block` begitu tiba (jawaban muncul komponen demi komponen). */
+  onBlock?: (block: AnswerBlock) => void;
+}
+
+export async function chatTurn(
+  input: ChatTurnInput,
+  cb: ChatTurnCallbacks = {},
+): Promise<void> {
+  const { onSources, onConversation, onBlock } = cb;
   // Guardrail L1: sanitasi input (rate/kuota sudah di route).
   input.question = guardInput(input.question);
 
@@ -119,39 +142,36 @@ export async function* chatTurn(
   // Guardrail L4: redaksi secret per-delta (pola lintas-delta ditangkap ulang
   // pada teks penuh sebelum disimpan).
   const budget = newBudget();
-  // Teks polos dijaga DI SERVER (bukan per-frontend) supaya halaman Chat,
-  // widget embed, dan pemanggil API sama-sama menerima teks bersih.
-  const stripper = createStreamStripper();
-  let full = '';
   let truncated = false;
   let redactedAny = false;
+
+  // Model diminta membalas JSON blok; parser memancarkan tiap blok yang sudah
+  // UTUH. Guardrail L4 (redaksi secret) diterapkan per-STRING di dalam blok
+  // sebelum blok keluar dari server.
+  const blocks: AnswerBlock[] = [];
+  const emit = (raw: AnswerBlock) => {
+    const block = redactBlockStrings(raw, () => { redactedAny = true; });
+    blocks.push(block);
+    onBlock?.(block);
+  };
+  const parser = createBlockStreamParser(emit);
+
   // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
   // kredensialnya dari pendaftaran server — bukan dari argumen ini.
   for await (const delta of streamChat(llmModel, prompt, apiKey ?? '')) {
-    const plain = stripper.push(delta);
-    if (plain) {
-      const { text: safeDelta, redacted } = redactSecrets(plain);
-      if (redacted) redactedAny = true;
-      full += safeDelta;
-      yield safeDelta;
-    }
-    // Budget dihitung dari delta MENTAH — penyaring boleh menahan sebagian,
-    // tapi model tetap menghasilkan token dan itulah yang dibatasi.
+    parser.push(delta);
+    // Budget dihitung dari delta MENTAH — model tetap menghasilkan token
+    // walau parser masih menahan blok yang belum lengkap.
     if (!budgetAllows(budget, delta.length)) { truncated = true; break; }
   }
-  const tail = stripper.flush();
-  if (tail) {
-    const { text: safeTail, redacted } = redactSecrets(tail);
-    if (redacted) redactedAny = true;
-    full += safeTail;
-    yield safeTail;
-  }
+  // Model yang mengabaikan format JSON jatuh ke fallback: prosa dipecah jadi
+  // blok text/list — pengguna tetap menerima jawaban terstruktur.
+  const { fallback } = parser.finalize();
 
-  // Guardrail L4 (teks penuh): redaksi ulang + enforcement sitasi; sekaligus
-  // full-pass Markdown (menangkap pola yang terbelah antar delta, mis.
-  // *miring* satu bintang) — yang tersimpan di DB dijamin polos.
+  // Guardrail L4 (teks penuh) + enforcement sitasi pada padanan teks polos.
+  let full = blocksToPlainText(blocks);
   const finalPass = redactSecrets(full);
-  full = stripMarkdown(finalPass.text);
+  full = finalPass.text;
   redactedAny = redactedAny || finalPass.redacted;
   const cite = checkCitations(full, context.length > 0);
 
@@ -160,7 +180,8 @@ export async function* chatTurn(
       tenantId: input.tenantId,
       conversationId,
       role: 'assistant',
-      content: full,
+      content: full,                      // teks polos — analytics, riwayat prompt
+      blocks: blocks as unknown[],        // struktur — dirender frontend
       citations: context.map((c) => ({ documentId: c.documentId, score: c.score })),
     }));
 
@@ -180,6 +201,10 @@ export async function* chatTurn(
         l4SecretRedacted: redactedAny,
         l4CitationsOk: cite.ok,
       },
+      // model mengabaikan format JSON → jawaban lewat fallback prosa→blok;
+      // kalau sering terjadi utk satu model, pertimbangkan matikan blok baginya
+      blockFallback: fallback,
+      blocks: blocks.length,
     });
 
   await dispatch('conversation.turn', {

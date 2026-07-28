@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useApi, api } from '../../_lib/api';
 import { Skeleton, EmptyState, ErrorState, Pager, type PageMeta } from '../../_components/ui';
+import { AnswerBlocks, renderCited } from '../../_components/answer-blocks';
+import { plainTextToBlocks, type AnswerBlock } from '@/modules/chat/blocks';
 
 interface Chatbot { id: string; name: string }
 interface Convo { id: string; visitorId: string | null; startedAt: string; preview: string | null; count: number }
+interface Message { id: string; role: string; content: string; blocks: AnswerBlock[] | null; citations: Array<{ documentId: string; score: number }> | null; createdAt: string }
 interface ConvoPage extends PageMeta { rows: Convo[] }
-interface Message { id: string; role: string; content: string; citations: Array<{ documentId: string; score: number }> | null; createdAt: string }
 
 export default function ConversationsPage() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
@@ -79,7 +81,10 @@ export default function ConversationsPage() {
                     border: `1px solid ${isUser ? 'color-mix(in srgb, var(--signal) 35%, transparent)' : 'var(--line)'}`,
                     borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
                   }}>
-                    <div dangerouslySetInnerHTML={{ __html: fmt(m.content) }} />
+                    {isUser
+                      ? <div>{renderCited(m.content)}</div>
+                      /* pesan lama pra-fitur tak punya blocks → derive dari teks polosnya */
+                      : <AnswerBlocks blocks={m.blocks?.length ? m.blocks : plainTextToBlocks(m.content)} />}
                     {!isUser && m.citations && m.citations.length > 0 && (
                       <div className="source-block" style={{ marginTop: 10 }}>
                         {m.citations.map((c, i) => (
@@ -98,7 +103,3 @@ export default function ConversationsPage() {
   );
 }
 
-function fmt(t: string): string {
-  const esc = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return esc.replace(/\[(\d+)\]/g, '<span class="cite">$1</span>');
-}

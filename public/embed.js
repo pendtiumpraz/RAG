@@ -67,6 +67,22 @@
       '.nl-u{align-self:flex-end;max-width:85%;background:' + T.signal + ';color:' + onSignal + ';padding:9px 12px;border-radius:' + rs + ';border-bottom-right-radius:3px}' +
       '.nl-a{align-self:stretch;background:' + card + ';border:1px solid ' + line + ';padding:11px 13px;border-radius:' + rs + '}' +
       '.nl-cite{font-family:ui-monospace,monospace;font-size:.7em;font-weight:700;color:' + T.source + ';border:1px solid ' + T.source + '55;border-radius:3px;padding:0 4px;margin:0 2px}' +
+      /* blok jawaban terstruktur (renderBlock) */
+      '.nl-blk{margin:0 0 9px}.nl-blk:last-child{margin-bottom:0}' +
+      '.nl-bt{margin:0}' +
+      '.nl-bl{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px}' +
+      '.nl-bc{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}' +
+      '.nl-bcard{background:' + panel + ';border:1px solid ' + line + ';border-radius:' + rs + ';padding:9px 11px;display:flex;flex-direction:column;gap:3px}' +
+      '.nl-bcard small{font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:' + mut + '}' +
+      '.nl-bcard b{font-size:14.5px;overflow-wrap:anywhere}' +
+      '.nl-bcard p{margin:0;font-size:11.5px;color:' + mut + ';line-height:1.45}' +
+      '.nl-bch{display:flex;flex-direction:column;gap:6px;background:' + panel + ';border:1px solid ' + line + ';border-radius:' + rs + ';padding:10px 12px}' +
+      '.nl-bch .t{font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:' + mut + '}' +
+      '.nl-bch .r{display:grid;grid-template-columns:minmax(56px,32%) 1fr auto;align-items:center;gap:8px}' +
+      '.nl-bch .l{font-size:10.5px;color:' + mut + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '.nl-bch .tr{position:relative;height:10px;border-left:2px solid ' + line + '}' +
+      '.nl-bch .b{display:block;height:100%;min-width:2px;background:' + T.signal + ';border-radius:0 3px 3px 0}' +
+      '.nl-bch .v{font-family:ui-monospace,monospace;font-size:10px;color:' + ink + '}' +
       '.nl-inp{display:flex;gap:8px;padding:11px;border-top:1px solid ' + line + ';background:' + panel + '}' +
       '.nl-inp input{flex:1;background:' + bg + ';border:1px solid ' + line + ';color:' + ink + ';font-size:13.5px;padding:10px 12px;border-radius:' + rs + ';outline:none}' +
       '.nl-send{width:42px;border:none;border-radius:' + rs + ';background:' + T.signal + ';color:' + onSignal + ';cursor:pointer}' +
@@ -104,7 +120,7 @@
     function send() {
       var v = input.value.trim(); if (!v) return; input.value = '';
       bubble('u', v);
-      var el = bubble('a', ''); var full = '';
+      var el = bubble('a', '');
       fetch(host + '/api/chat/' + encodeURIComponent(key), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: v, conversationId: conversationId, visitorId: visitorId })
@@ -123,7 +139,9 @@
                  sesi widget jadi SATU riwayat percakapan (sebelumnya variabel
                  ini null selamanya dan tiap pesan jadi conversation baru). */
               if (ev === 'meta' && data.conversationId) { conversationId = data.conversationId; }
-              else if (ev === 'delta') { full += data.text; el.innerHTML = fmt(full); msgs.scrollTop = msgs.scrollHeight; }
+              /* jawaban tiba BLOK demi BLOK (text/list/cards/chart) — sudah
+                 tervalidasi & bebas Markdown dari server; di sini murni render */
+              else if (ev === 'block') { el.appendChild(renderBlock(data)); msgs.scrollTop = msgs.scrollHeight; }
               else if (ev === 'error') { el.textContent = '⚠ ' + data.message; }
             });
             pump();
@@ -132,6 +150,43 @@
       }).catch(function () { el.textContent = '⚠ Gagal terhubung.'; });
     }
     function fmt(t) { return esc(t).replace(/\[(\d+)\]/g, '<span class="nl-cite">$1</span>'); }
+
+    /* ── renderer blok (padanan vanilla dari answer-blocks.tsx) ──────
+       text → paragraf · list → ol/ul · cards → kartu fakta ·
+       chart → bar horizontal (satu seri, satu warna) / garis mini SVG. */
+    function renderBlock(b) {
+      var d = document.createElement('div'); d.className = 'nl-blk';
+      if (b.type === 'text') {
+        d.innerHTML = '<p class="nl-bt">' + fmt(b.text) + '</p>';
+      } else if (b.type === 'list' && b.items) {
+        var tag = b.ordered ? 'ol' : 'ul';
+        d.innerHTML = '<' + tag + ' class="nl-bl">' + b.items.map(function (it) {
+          return '<li>' + fmt(it) + '</li>';
+        }).join('') + '</' + tag + '>';
+      } else if (b.type === 'cards' && b.items) {
+        d.innerHTML = '<div class="nl-bc">' + b.items.map(function (c) {
+          return '<div class="nl-bcard">' +
+            (c.title ? '<small>' + esc(c.title) + '</small>' : '') +
+            '<b>' + fmt(c.value) + '</b>' +
+            (c.desc ? '<p>' + fmt(c.desc) + '</p>' : '') + '</div>';
+        }).join('') + '</div>';
+      } else if (b.type === 'chart' && b.labels && b.values) {
+        var max = 0; b.values.forEach(function (v) { max = Math.max(max, Math.abs(v)); }); max = max || 1;
+        var unit = b.unit ? ' ' + esc(b.unit) : '';
+        d.innerHTML = '<div class="nl-bch">' +
+          (b.title ? '<small class="t">' + esc(b.title) + '</small>' : '') +
+          b.labels.map(function (l, i) {
+            var v = b.values[i];
+            return '<div class="r" title="' + esc(l) + ': ' + v + unit + '">' +
+              '<span class="l">' + esc(l) + '</span>' +
+              '<span class="tr"><span class="b" style="width:' + (Math.abs(v) / max * 100) + '%"></span></span>' +
+              '<span class="v">' + v + unit + '</span></div>';
+          }).join('') + '</div>';
+      } else {
+        d.textContent = '';
+      }
+      return d;
+    }
   }
 
   function esc(s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }

@@ -191,6 +191,10 @@ export const openApiSpec = {
         ],
         responses: { 200: err('totals, topQuestions, topKeywords, topDocuments, daily') } },
     },
+    /* Kontrak SSE kedua endpoint chat (internal & publik):
+       event meta {conversationId} → sources [] (internal saja) →
+       block {type:'text'|'list'|'cards'|'chart', …}* → done {}.
+       Jawaban dikirim BLOK terstruktur (chat/blocks.ts), bukan delta teks. */
     '/api/connections/providers': {
       get: { summary: 'Provider storage mana yang siap dipakai (tanpa menyebut kredensial)',
         security: [sessionAuth],
