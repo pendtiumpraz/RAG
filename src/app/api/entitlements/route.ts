@@ -27,9 +27,13 @@ export async function GET() {
     usageService.snapshot(user.tenantId),
     platformSettingsService.get(),
   ]);
-  const onprem = cfg.deploymentMode === 'onprem';
+  // Superadmin = pengelola PLATFORM, bukan pelanggan: ia harus bisa membuka
+  // setiap fitur untuk memeriksa, mendemokan, dan menyelidiki keluhan tenant.
+  // Mengunci operator dari produknya sendiri jelas keliru.
+  const platformOperator = user.role === 'superadmin';
+  const onprem = cfg.deploymentMode === 'onprem' || platformOperator;
   const plan = onprem ? 'onprem' : snap.plan;
-  const gw = onprem ? null : await paymentGatewayService.getActive();
+  const gw = cfg.deploymentMode === 'onprem' ? null : await paymentGatewayService.getActive();
 
   // Layar pilih-paket hanya untuk yang BENAR-BENAR baru: masih Free dan
   // belum punya satu chatbot pun. Orang yang sudah mulai bekerja tak
@@ -38,7 +42,7 @@ export async function GET() {
     tx.select({ n: count() }).from(chatbots).where(isNull(chatbots.deletedAt))))[0]?.n ?? 0);
 
   return NextResponse.json({
-    shouldOnboard: !onprem && plan === 'free' && botCount === 0,
+    shouldOnboard: cfg.deploymentMode === 'saas' && !platformOperator && plan === 'free' && botCount === 0,
     plan,
     planOnPaper: snap.planOnPaper,
     expired: snap.expired,
@@ -46,8 +50,9 @@ export async function GET() {
     features: PLAN_FEATURES[plan] ?? [],
     featureMinPlan: FEATURE_MIN_PLAN,
     /** true = ada yang bisa dibeli (SaaS + gateway aktif) */
-    canUpgrade: !onprem && !!gw,
+    canUpgrade: cfg.deploymentMode === 'saas' && !!gw,
     mode: cfg.deploymentMode,
+    platformOperator,
     planPrices: cfg.planPrices,
     usage: {
       messages: snap.messages,

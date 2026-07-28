@@ -21,6 +21,8 @@ export interface Entitlements {
   featureMinPlan: Record<Feature, string>;
   canUpgrade: boolean;
   mode: 'saas' | 'onprem';
+  /** superadmin platform — semua fitur terbuka utk pemeriksaan & demo */
+  platformOperator: boolean;
   planPrices: Record<string, number>;
   usage: { messages: number; messagesLimit: number | null };
 }
