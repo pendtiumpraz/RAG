@@ -13,6 +13,7 @@ import {
   guardInput, sanitizeChunk, CONTEXT_HARDENING, EXEC_LIMITS,
   newBudget, budgetAllows, redactSecrets, checkCitations, audit,
 } from '@/modules/core/guardrails';
+import { stripMarkdown, createStreamStripper } from './plaintext';
 
 function buildPrompt(
   system: string | null,
@@ -35,6 +36,13 @@ function buildPrompt(
     CONTEXT_HARDENING,
     'Answer strictly from the CONTEXT below. If the answer is not in the context, say you don\'t know.',
     'Cite sources inline as [1], [2] matching the <doc id> numbers.',
+    // Keputusan produk: frontend memegang penuh styling — teks jawaban tidak
+    // boleh membawa sintaks format. Server tetap menyaring sisanya
+    // (plaintext.ts), tapi menghentikannya di sumber jauh lebih murah.
+    'OUTPUT FORMAT: plain text ONLY — never use Markdown. No **bold**, no _italics_, '
+    + 'no # headings, no backticks or code fences, no bullet markers (-, *), no [text](url) links. '
+    + 'Write plain sentences; for lists use lines starting with "1.", "2." or "• ". '
+    + 'Keep inline citations exactly as [1], [2].',
     '\n=== CONTEXT ===\n' + contextBlock,
   ].join('\n');
 
@@ -111,22 +119,39 @@ export async function* chatTurn(
   // Guardrail L4: redaksi secret per-delta (pola lintas-delta ditangkap ulang
   // pada teks penuh sebelum disimpan).
   const budget = newBudget();
+  // Teks polos dijaga DI SERVER (bukan per-frontend) supaya halaman Chat,
+  // widget embed, dan pemanggil API sama-sama menerima teks bersih.
+  const stripper = createStreamStripper();
   let full = '';
   let truncated = false;
   let redactedAny = false;
   // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
   // kredensialnya dari pendaftaran server — bukan dari argumen ini.
   for await (const delta of streamChat(llmModel, prompt, apiKey ?? '')) {
-    const { text: safeDelta, redacted } = redactSecrets(delta);
+    const plain = stripper.push(delta);
+    if (plain) {
+      const { text: safeDelta, redacted } = redactSecrets(plain);
+      if (redacted) redactedAny = true;
+      full += safeDelta;
+      yield safeDelta;
+    }
+    // Budget dihitung dari delta MENTAH — penyaring boleh menahan sebagian,
+    // tapi model tetap menghasilkan token dan itulah yang dibatasi.
+    if (!budgetAllows(budget, delta.length)) { truncated = true; break; }
+  }
+  const tail = stripper.flush();
+  if (tail) {
+    const { text: safeTail, redacted } = redactSecrets(tail);
     if (redacted) redactedAny = true;
-    full += safeDelta;
-    yield safeDelta;
-    if (!budgetAllows(budget, safeDelta.length)) { truncated = true; break; }
+    full += safeTail;
+    yield safeTail;
   }
 
-  // Guardrail L4 (teks penuh): redaksi ulang + enforcement sitasi.
+  // Guardrail L4 (teks penuh): redaksi ulang + enforcement sitasi; sekaligus
+  // full-pass Markdown (menangkap pola yang terbelah antar delta, mis.
+  // *miring* satu bintang) — yang tersimpan di DB dijamin polos.
   const finalPass = redactSecrets(full);
-  full = finalPass.text;
+  full = stripMarkdown(finalPass.text);
   redactedAny = redactedAny || finalPass.redacted;
   const cite = checkCitations(full, context.length > 0);
 

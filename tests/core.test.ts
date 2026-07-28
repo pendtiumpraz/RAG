@@ -424,3 +424,46 @@ test('chunkText SELESAI utk teks panjang dan tak kehilangan isi', async () => {
   assert.ok(chunkText('x'.repeat(800)).length === 1);
   assert.ok(chunkText('x'.repeat(801)).length >= 1);
 });
+
+/* ── plain text enforcement — jawaban chatbot bebas Markdown ───────── */
+test('stripMarkdown: buang semua sintaks, pertahankan sitasi [1]', async () => {
+  const { stripMarkdown } = await import('../src/modules/chat/plaintext');
+  const md = [
+    '## Ringkasan',
+    '**NIB** adalah *identitas* pelaku usaha [1].',
+    '- poin `satu`',
+    '- poin __dua__ [2]',
+    '> kutipan',
+    '```json',
+    '{"a":1}',
+    '```',
+    'Lihat [situs OSS](https://oss.go.id) untuk 2*3 dan snake_case.',
+  ].join('\n');
+  const t = stripMarkdown(md);
+  assert.ok(!/[#`]|\*\*|__|^>/m.test(t), `masih ada sintaks: ${t}`);
+  assert.ok(t.includes('NIB adalah identitas pelaku usaha [1].'));
+  assert.ok(t.includes('• poin satu'));
+  assert.ok(t.includes('• poin dua [2]'));
+  assert.ok(t.includes('{"a":1}'), 'isi fence dipertahankan');
+  assert.ok(t.includes('situs OSS') && !t.includes('https://oss.go.id'));
+  assert.ok(t.includes('2*3'), 'perkalian bukan emphasis');
+  assert.ok(t.includes('snake_case'), 'underscore dalam kata aman');
+});
+
+test('createStreamStripper: token terbelah antar delta tetap bersih', async () => {
+  const { createStreamStripper } = await import('../src/modules/chat/plaintext');
+  const run = (deltas: string[]) => {
+    const s = createStreamStripper();
+    return deltas.map((d) => s.push(d)).join('') + s.flush();
+  };
+  // ** terbelah: '*' di ujung delta + '*' di awal delta berikutnya
+  assert.equal(run(['Ha', 'sil *', '*penting*', '* [1]']), 'Hasil penting [1]');
+  // heading terbelah di awal baris
+  assert.equal(run(['##', '# Judul\nisi teks']), 'Judul\nisi teks');
+  // bullet per baris → •
+  assert.equal(run(['- satu\n', '- dua\n']), '• satu\n• dua\n');
+  // pagar kode dibuang, isinya tetap
+  assert.equal(run(['```json\n{"a":1}\n', '```\nselesai']), '{"a":1}\nselesai');
+  // teks polos + sitasi lolos utuh
+  assert.equal(run(['NIB 912020', '6721876 [2] jalan.']), 'NIB 9120206721876 [2] jalan.');
+});
