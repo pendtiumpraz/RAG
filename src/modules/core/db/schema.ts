@@ -193,6 +193,12 @@ export const chatbots = pgTable('chatbots', {
    * chatbot dengan watak dan lingkupnya sendiri.
    */
   context: text('context'),
+  /**
+   * Logo unggahan (data URL base64, cap ±300KB di service). Di DB — bukan
+   * blob storage — agar identik di SaaS & on-prem dan ikut RLS/backup.
+   * Dilayani via /api/chat/{publicKey}/logo; theme JSON tetap ringan.
+   */
+  logo: text('logo'),
   /** Per-chatbot white-label theme served to embed.js. */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   enabled: boolean('enabled').default(true).notNull(),

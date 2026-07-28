@@ -23,6 +23,7 @@ export async function withTenant<T>(
 export interface EmbedChatbot {
   id: string; tenant_id: string; enabled: boolean;
   allowed_origins: string[]; theme_config: unknown; greeting: string | null;
+  has_logo: boolean;
 }
 
 /**
@@ -42,11 +43,28 @@ export async function resolveChatbotByPublicKey(publicKey: string): Promise<Embe
   const rows = await client.begin(async (sql) => {
     await sql`select set_config('app.embed_context', 'public_key', true)`;
     return sql`
-      select id, tenant_id, enabled, allowed_origins, theme_config, greeting
+      select id, tenant_id, enabled, allowed_origins, theme_config, greeting,
+             (logo is not null) as has_logo
       from chatbots
       where public_key = ${publicKey} and deleted_at is null
       limit 1
     `;
   });
   return (rows as unknown as EmbedChatbot[])[0] ?? null;
+}
+
+/**
+ * Byte logo unggahan utk widget (data URL) — query TERPISAH dari resolve:
+ * logo bisa ratusan KB dan tak boleh menumpang di setiap resolve config/chat.
+ */
+export async function resolveChatbotLogoByPublicKey(publicKey: string): Promise<string | null> {
+  const rows = await client.begin(async (sql) => {
+    await sql`select set_config('app.embed_context', 'public_key', true)`;
+    return sql`
+      select logo from chatbots
+      where public_key = ${publicKey} and deleted_at is null and logo is not null
+      limit 1
+    `;
+  });
+  return (rows as unknown as Array<{ logo: string }>)[0]?.logo ?? null;
 }

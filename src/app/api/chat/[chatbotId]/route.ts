@@ -36,11 +36,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chatbotId: 
   const cors = corsFor(origin, allowed);
   if (!cors) return new Response('Origin not allowed', { status: 403 });
 
+  // Logo unggahan (branding per chatbot): bila ada dan tenant tak menyetel
+  // logoUrl kustom sendiri, suntikkan URL absolut route logo — byte-nya
+  // TIDAK menumpang di JSON ini (bisa ratusan KB; cache-nya pun beda umur).
+  const theme = (bot.theme_config ?? {}) as { brand?: Record<string, unknown> };
+  if (bot.has_logo && !theme.brand?.logoUrl) {
+    const base = process.env.NEXTAUTH_URL ?? new URL(req.url).origin;
+    theme.brand = { ...theme.brand, logoUrl: `${base}/api/chat/${publicKey}/logo` };
+  }
+
   return Response.json(
     // `greeting` ikut dikirim: widget menampilkan bubble sapaan dari nilai ini,
     // tapi sebelumnya tak pernah dilayani sehingga sapaan yang diatur per
     // chatbot tidak pernah muncul.
-    { themeConfig: bot.theme_config ?? null, greeting: bot.greeting ?? null },
+    { themeConfig: Object.keys(theme).length ? theme : null, greeting: bot.greeting ?? null },
     { headers: { 'Access-Control-Allow-Origin': cors, 'Cache-Control': 'public, max-age=300' } },
   );
 }

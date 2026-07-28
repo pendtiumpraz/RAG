@@ -81,6 +81,29 @@ export default function BrandingPage() {
   const set = <K extends keyof BrandForm>(k: K) => (v: BrandForm[K]) =>
     setCfg((c) => ({ ...c, [k]: v }));
 
+  /* logo unggahan per chatbot — bust cache pratinjau tiap perubahan */
+  const [logoVersion, setLogoVersion] = useState(0);
+  async function uploadLogo(file: File) {
+    if (file.size > 300 * 1024) { toast('Logo terlalu besar — maksimal 300KB', 'error'); return; }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result)); r.onerror = () => reject(new Error('Gagal membaca berkas'));
+      r.readAsDataURL(file);
+    });
+    try {
+      await api(`/api/chatbots/${id}/logo`, { method: 'POST', body: JSON.stringify({ dataUrl }) });
+      setLogoVersion((v) => v + 1);
+      toast('Logo terpasang — widget memuat ulang dalam ≤1 jam (cache)');
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+  async function removeLogo() {
+    try {
+      await api(`/api/chatbots/${id}/logo`, { method: 'DELETE' });
+      setLogoVersion((v) => v + 1);
+      toast('Logo dihapus — widget kembali ke inisial');
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
   if (bots.error) return <div className="card"><ErrorState message={bots.error} onRetry={bots.refetch} /></div>;
   if (bots.loading || !bots.data) return <div className="card"><Skeleton rows={4} /></div>;
   if (bots.data.length === 0) {
@@ -107,10 +130,28 @@ export default function BrandingPage() {
             <div className="field"><label>Nama merek</label>
               <input className="input" value={cfg.name} onChange={(e) => set('name')(e.target.value)} /></div>
 
-            <div className="field"><label>Inisial logo</label>
+            <div className="field"><label>Logo</label>
+              <div className="cluster gap-3" style={{ alignItems: 'center' }}>
+                {/* pratinjau logo terunggah; onError = belum ada logo */}
+                {active && logoVersion >= 0 && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img key={logoVersion} src={`/api/chat/${active.publicKey}/logo?v=${logoVersion}`}
+                    alt="" style={{ height: 34, width: 'auto', borderRadius: 6, border: '1px solid var(--line)', background: '#fff', padding: 3 }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+                <label className="btn btn-sm" style={{ cursor: 'pointer' }}>
+                  Unggah logo…
+                  <input type="file" accept="image/png,image/jpeg,image/webp" hidden
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadLogo(f); e.target.value = ''; }} />
+                </label>
+                <button className="btn btn-sm btn-ghost" onClick={() => void removeLogo()}>Hapus</button>
+              </div>
+              <p className="microlabel" style={{ marginTop: 6 }}>PNG/JPEG/WEBP ≤300KB — TAMPIL DI KEPALA WIDGET</p></div>
+
+            <div className="field"><label>Inisial logo (cadangan)</label>
               <input className="input" maxLength={2} style={{ width: 90 }} value={cfg.logo}
                 onChange={(e) => set('logo')(e.target.value)} />
-              <p className="microlabel" style={{ marginTop: 6 }}>1–2 HURUF, TAMPIL DI KOTAK LOGO</p></div>
+              <p className="microlabel" style={{ marginTop: 6 }}>DIPAKAI BILA TAK ADA LOGO UNGGAHAN</p></div>
 
             <div className="cluster gap-4">
               <ColorField label="Warna utama" value={cfg.signal} onChange={set('signal')} />

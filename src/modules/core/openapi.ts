@@ -89,6 +89,20 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('softDeleted'), 404: err('tidak ditemukan') } },
     },
+    '/api/chatbots/{id}/logo': {
+      post: { summary: 'Unggah logo branding chatbot (PNG/JPEG/WebP ≤300KB, data URL; disimpan di DB — identik SaaS & on-prem)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ dataUrl: str }, ['dataUrl'])),
+        responses: { 200: err('{ ok, logoUrl }'), 400: err('format/ukuran ditolak'), 404: err('tidak ditemukan') } },
+      delete: { summary: 'Hapus logo (widget kembali ke inisial/default)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }') } },
+    },
+    '/api/chat/{publicKey}/logo': {
+      get: { summary: 'Byte logo chatbot utk widget (publik, cache 1 jam)',
+        parameters: [{ name: 'publicKey', in: 'path', required: true, schema: str }],
+        responses: { 200: err('image/png|jpeg|webp'), 404: err('tanpa logo') } },
+    },
     '/api/chatbots/{id}/restore': {
       patch: { summary: 'Pulihkan dari Sampah + kaskade', security: [sessionAuth],
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
