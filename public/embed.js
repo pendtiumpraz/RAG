@@ -67,6 +67,12 @@
       '.nl-u{align-self:flex-end;max-width:85%;background:' + T.signal + ';color:' + onSignal + ';padding:9px 12px;border-radius:' + rs + ';border-bottom-right-radius:3px}' +
       '.nl-a{align-self:stretch;background:' + card + ';border:1px solid ' + line + ';padding:11px 13px;border-radius:' + rs + '}' +
       '.nl-cite{font-family:ui-monospace,monospace;font-size:.7em;font-weight:700;color:' + T.source + ';border:1px solid ' + T.source + '55;border-radius:3px;padding:0 4px;margin:0 2px}' +
+      /* indikator mengetik (titik tiga berdenyut) */
+      '.nl-typing{display:inline-flex;gap:4px;padding:3px 0}' +
+      '.nl-typing i{width:6px;height:6px;border-radius:50%;background:' + mut + ';animation:nlPulse 1.2s infinite}' +
+      '.nl-typing i:nth-child(2){animation-delay:.2s}.nl-typing i:nth-child(3){animation-delay:.4s}' +
+      '@keyframes nlPulse{0%,100%{opacity:1}50%{opacity:.3}}' +
+      '@media (prefers-reduced-motion: reduce){.nl-typing i{animation:none;opacity:.6}}' +
       /* blok jawaban terstruktur (renderBlock) */
       '.nl-blk{margin:0 0 9px}.nl-blk:last-child{margin-bottom:0}' +
       '.nl-bt{margin:0}' +
@@ -121,15 +127,23 @@
       var v = input.value.trim(); if (!v) return; input.value = '';
       bubble('u', v);
       var el = bubble('a', '');
+      /* Indikator mengetik: hidup sejak kirim, MENETAP di bawah blok yang
+         sudah tampil (jawaban antar-blok bisa berjeda beberapa detik), dan
+         baru lenyap saat `done`/error. Tanpanya bubble kosong terasa mati. */
+      var typing = document.createElement('span');
+      typing.className = 'nl-typing';
+      typing.innerHTML = '<i></i><i></i><i></i>';
+      el.appendChild(typing);
+      function stopTyping() { if (typing.parentNode) typing.parentNode.removeChild(typing); }
       fetch(host + '/api/chat/' + encodeURIComponent(key), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: v, conversationId: conversationId, visitorId: visitorId })
       }).then(function (res) {
-        if (res.status === 429) { el.textContent = 'Batas permintaan tercapai. Coba lagi sebentar.'; return; }
+        if (res.status === 429) { stopTyping(); el.textContent = 'Batas permintaan tercapai. Coba lagi sebentar.'; return; }
         var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
         (function pump() {
           reader.read().then(function (r) {
-            if (r.done) return;
+            if (r.done) { stopTyping(); return; }
             buf += dec.decode(r.value, { stream: true });
             var parts = buf.split('\n\n'); buf = parts.pop();
             parts.forEach(function (p) {
@@ -140,14 +154,16 @@
                  ini null selamanya dan tiap pesan jadi conversation baru). */
               if (ev === 'meta' && data.conversationId) { conversationId = data.conversationId; }
               /* jawaban tiba BLOK demi BLOK (text/list/cards/chart) — sudah
-                 tervalidasi & bebas Markdown dari server; di sini murni render */
-              else if (ev === 'block') { el.appendChild(renderBlock(data)); msgs.scrollTop = msgs.scrollHeight; }
-              else if (ev === 'error') { el.textContent = '⚠ ' + data.message; }
+                 tervalidasi & bebas Markdown dari server; di sini murni render.
+                 Blok masuk SEBELUM indikator agar titik-tiga tetap paling bawah. */
+              else if (ev === 'block') { el.insertBefore(renderBlock(data), typing); msgs.scrollTop = msgs.scrollHeight; }
+              else if (ev === 'done') { stopTyping(); }
+              else if (ev === 'error') { stopTyping(); el.textContent = '⚠ ' + data.message; }
             });
             pump();
           });
         })();
-      }).catch(function () { el.textContent = '⚠ Gagal terhubung.'; });
+      }).catch(function () { stopTyping(); el.textContent = '⚠ Gagal terhubung.'; });
     }
     function fmt(t) { return esc(t).replace(/\[(\d+)\]/g, '<span class="nl-cite">$1</span>'); }
 
