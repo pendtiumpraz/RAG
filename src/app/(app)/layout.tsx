@@ -9,7 +9,9 @@ import { Icon, type IconName } from '../_components/icons';
 import { Logo, ToastProvider } from '../_components/ui';
 import { toggleTheme } from '../providers';
 
-const NAV: Array<{ group: string; items: Array<{ href: string; label: string; icon: IconName }> }> = [
+interface NavItem { href: string; label: string; icon: IconName; superadmin?: boolean }
+
+const NAV: Array<{ group: string; items: NavItem[] }> = [
   { group: 'Workspace', items: [
     { href: '/chat', label: 'Chat', icon: 'chat' },
     { href: '/dashboard', label: 'Dashboard', icon: 'dash' },
@@ -25,16 +27,12 @@ const NAV: Array<{ group: string; items: Array<{ href: string; label: string; ic
     { href: '/team', label: 'Team', icon: 'users' },
     { href: '/billing', label: 'Billing', icon: 'card' },
     { href: '/observability', label: 'Observability', icon: 'pulse' },
+    // superadmin: item difilter per-role, bukan grup terpisah — grup sendiri
+    // membuatnya duduk paling bawah dan terpotong di jendela pendek
+    { href: '/dataroom', label: 'Dataroom', icon: 'book', superadmin: true },
     { href: '/settings', label: 'Settings', icon: 'gear' },
   ] },
 ];
-
-/** Hanya tampil utk superadmin (halaman-nya sendiri juga menggate role). */
-const SUPERADMIN_NAV: (typeof NAV)[number] = {
-  group: 'Internal', items: [
-    { href: '/dataroom', label: 'Dataroom', icon: 'book' },
-  ],
-};
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -42,24 +40,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? 'N').charAt(0).toUpperCase();
-  const nav = user?.role === 'superadmin' ? [...NAV, SUPERADMIN_NAV] : NAV;
+  const nav = NAV.map((g) => ({
+    ...g,
+    items: g.items.filter((it) => !it.superadmin || user?.role === 'superadmin'),
+  }));
 
   return (
     <ToastProvider>
       <div className="shell">
         <aside className={`sidebar${open ? ' open' : ''}`}>
           <div className="side-brand"><Logo height={26} /></div>
-          {nav.map((g) => (
-            <nav key={g.group}>
-              <div className="nav-label">{g.group}</div>
-              {g.items.map((it) => (
-                <Link key={it.href} href={it.href} className="nav-item"
-                  data-active={pathname === it.href || undefined} onClick={() => setOpen(false)}>
-                  <Icon name={it.icon} size={18} className="ico" /> {it.label}
-                </Link>
-              ))}
-            </nav>
-          ))}
+          {/* area nav bisa di-scroll — tanpa ini item bawah TERPOTONG di
+              jendela pendek (sidebar height:100vh, footer akun menempel) */}
+          <div className="side-scroll">
+            {nav.map((g) => (
+              <nav key={g.group}>
+                <div className="nav-label">{g.group}</div>
+                {g.items.map((it) => (
+                  <Link key={it.href} href={it.href} className="nav-item"
+                    data-active={pathname === it.href || undefined} onClick={() => setOpen(false)}>
+                    <Icon name={it.icon} size={18} className="ico" /> {it.label}
+                  </Link>
+                ))}
+              </nav>
+            ))}
+          </div>
           <div className="side-foot">
             <span className="avatar">{initial}</span>
             <div className="who">
