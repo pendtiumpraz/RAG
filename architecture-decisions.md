@@ -203,6 +203,14 @@ on-prem/internal = `full`.
 **Status:** APPROVED user 2026-07-27 ("biar bisa pilih mode aja dari
 superadmin"). Implementasi menyusul di commit yang sama.
 
+**Update (hari yang sama):** setelah menimbang scan penuh vs verifikasi berat,
+user memutuskan **SaaS jalan dengan mode `picker` dulu** ("picker dulu deh") —
+`drive.readonly` sudah dihapus user dari consent screen Console, jadi scope
+yang terdaftar tinggal non-sensitive dan **tidak ada verifikasi yang perlu
+dilalui sama sekali**. Jalur `full` + verifikasi restricted disimpan sebagai
+opsi nanti bila pelanggan menuntut scan folder otomatis di SaaS (on-prem /
+Workspace internal sudah bisa memakainya sekarang tanpa verifikasi).
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
