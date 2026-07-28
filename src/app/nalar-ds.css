@@ -169,8 +169,14 @@ a:hover{ text-decoration:underline; text-underline-offset:2px; }
   border:1px solid var(--line-strong); border-radius:var(--rad-sm); padding:11px var(--sp-3);
   font:inherit; font-size:var(--fs-sm); outline:none; transition:border-color var(--dur-fast), box-shadow var(--dur-fast); }
 .input::placeholder,.textarea::placeholder{ color:var(--faint); }
-/* Dropdown: buang tampilan bawaan OS (panahnya beda-beda tiap platform dan
-   terlihat murahan) — chevron sendiri, hover jelas, cursor pointer. */
+/* ── Dropdown ────────────────────────────────────────────────────────
+   Dua lapis perbaikan:
+   1) Kotak tertutup: buang tampilan bawaan OS — chevron sendiri, hover
+      jelas, cursor pointer (berlaku di semua browser).
+   2) POPUP daftar opsi: di Chrome/Edge modern, `appearance:base-select` +
+      ::picker(select) membuat popup-nya ikut design system (kartu
+      membulat, bayangan, opsi ber-hover, centang biru) — bukan lagi kotak
+      kaku bawaan Windows. Browser lama mengabaikannya dgn aman. */
 .select{ appearance:none; -webkit-appearance:none; cursor:pointer; padding-right:38px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238494A8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 12px center; background-size:16px;
@@ -179,6 +185,27 @@ a:hover{ text-decoration:underline; text-underline-offset:2px; }
 .select[multiple]{ background-image:none; padding-right:var(--sp-3); }
 /* opsi mengikuti tema (color-scheme sudah diset di :root) */
 .select option{ background:var(--card); color:var(--ink); }
+
+/* popup terdesain — hanya browser yang mendukung customizable select */
+@supports (appearance: base-select) {
+  .select:not([multiple]), .select:not([multiple])::picker(select){ appearance:base-select; }
+  .select::picker-icon{ display:none; } /* chevron tetap punya kita */
+  .select:not([multiple])::picker(select){
+    background:var(--card); color:var(--ink); border:1px solid var(--line);
+    border-radius:var(--rad-md); box-shadow:var(--pop); padding:5px;
+    margin-top:5px; min-width:anchor-size(width);
+  }
+  .select:not([multiple]) option{
+    padding:8px 12px; border-radius:var(--rad-xs); font-size:var(--fs-sm);
+    cursor:pointer; display:flex; align-items:center; gap:8px;
+  }
+  .select:not([multiple]) option:hover,
+  .select:not([multiple]) option:focus-visible{ background:var(--card-2); outline:none; }
+  .select:not([multiple]) option:checked{
+    background:var(--tint-signal); color:var(--signal); font-weight:600; }
+  .select:not([multiple]) option:disabled{ color:var(--faint); cursor:not-allowed; }
+  .select:not([multiple]) option::checkmark{ color:var(--signal); }
+}
 .input:focus,.select:focus,.textarea:focus{ border-color:var(--signal); box-shadow:0 0 0 3px var(--tint-signal); }
 .input:disabled,.select:disabled{ opacity:.55; cursor:not-allowed; background:var(--card-2); }
 .input[aria-invalid="true"]{ border-color:var(--danger); box-shadow:0 0 0 3px var(--tint-danger); }
