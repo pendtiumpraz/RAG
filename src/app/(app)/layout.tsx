@@ -8,8 +8,10 @@ import './shell.css';
 import { Icon, type IconName } from '../_components/icons';
 import { Logo, ToastProvider } from '../_components/ui';
 import { toggleTheme } from '../providers';
+import { useEntitlements, hasFeature, LockIcon } from '../_components/entitlements';
+import type { Feature } from '@/modules/core/limits';
 
-interface NavItem { href: string; label: string; icon: IconName; superadmin?: boolean }
+interface NavItem { href: string; label: string; icon: IconName; superadmin?: boolean; feature?: Feature }
 
 const NAV: Array<{ group: string; items: NavItem[] }> = [
   { group: 'Workspace', items: [
@@ -18,14 +20,14 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/chatbots', label: 'Chatbots', icon: 'bot' },
     { href: '/knowledge', label: 'Knowledge Base', icon: 'book' },
     { href: '/conversations', label: 'Conversations', icon: 'chat' },
-    { href: '/analytics', label: 'Analitik', icon: 'pulse' },
-    { href: '/memory', label: 'Memory', icon: 'graph' },
+    { href: '/analytics', label: 'Analitik', icon: 'pulse', feature: 'analytics' },
+    { href: '/memory', label: 'Memory', icon: 'graph', feature: 'memory' },
     { href: '/models', label: 'Models & Keys', icon: 'cpu' },
-    { href: '/branding', label: 'Branding', icon: 'edit' },
+    { href: '/branding', label: 'Branding', icon: 'edit', feature: 'branding' },
   ] },
   { group: 'Organisasi', items: [
-    { href: '/team', label: 'Team', icon: 'users' },
-    { href: '/usage', label: 'Usage', icon: 'pulse' },
+    { href: '/team', label: 'Team', icon: 'users', feature: 'team' },
+    { href: '/usage', label: 'Usage', icon: 'pulse', feature: 'usage' },
     { href: '/billing', label: 'Billing', icon: 'card' },
     { href: '/observability', label: 'Observability', icon: 'pulse' },
     // superadmin: item difilter per-role, bukan grup terpisah — grup sendiri
@@ -41,6 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? 'N').charAt(0).toUpperCase();
+  const { data: ent } = useEntitlements();
   const nav = NAV.map((g) => ({
     ...g,
     items: g.items.filter((it) => !it.superadmin || user?.role === 'superadmin'),
@@ -57,12 +60,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {nav.map((g) => (
               <nav key={g.group}>
                 <div className="nav-label">{g.group}</div>
-                {g.items.map((it) => (
-                  <Link key={it.href} href={it.href} className="nav-item"
-                    data-active={pathname === it.href || undefined} onClick={() => setOpen(false)}>
-                    <Icon name={it.icon} size={18} className="ico" /> {it.label}
-                  </Link>
-                ))}
+                {g.items.map((it) => {
+                  // Item terkunci sengaja TETAP TAMPIL (dgn gembok): menyembunyikan
+                  // fitur berbayar membuat pengguna tak tahu ada nilai lebih.
+                  // Kliknya tetap membuka halaman — halamannya yang menjelaskan.
+                  const locked = !!it.feature && !!ent && !hasFeature(ent, it.feature);
+                  return (
+                    <Link key={it.href} href={it.href} className="nav-item"
+                      data-active={pathname === it.href || undefined}
+                      data-locked={locked || undefined} onClick={() => setOpen(false)}>
+                      <Icon name={it.icon} size={18} className="ico" /> {it.label}
+                      {locked && <span className="nav-lock" title="Perlu upgrade plan"><LockIcon /></span>}
+                    </Link>
+                  );
+                })}
               </nav>
             ))}
           </div>

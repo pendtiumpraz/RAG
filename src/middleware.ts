@@ -33,6 +33,9 @@ export const config = {
     '/billing/:path*',
     '/observability/:path*',
     '/settings/:path*',
+    '/usage/:path*',
+    '/dataroom/:path*',
+    '/welcome',
     // API ber-sesi
     '/api/chatbots/:path*',
     '/api/documents/:path*',
@@ -51,6 +54,7 @@ export const config = {
     // D12: buat/lihat tagihan butuh sesi. Webhook gateway
     // (/api/payments/callback/*) TIDAK didaftarkan — publik, otentikasinya
     // verifikasi signature. Halaman bayar ikut '/billing/:path*' di atas.
+    '/api/entitlements',
     '/api/payments',
     '/api/payments/:id',
   ],

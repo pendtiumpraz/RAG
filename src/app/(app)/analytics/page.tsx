@@ -1,5 +1,6 @@
 'use client';
 
+import { FeatureGate } from '../../_components/entitlements';
 import { useEffect, useState } from 'react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
@@ -17,7 +18,7 @@ interface Analytics {
 
 const fmt = (n: number) => n.toLocaleString('id-ID');
 
-export default function AnalyticsPage() {
+function AnalyticsPageInner() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const [id, setId] = useState('');
   const [days, setDays] = useState(30);
@@ -175,5 +176,16 @@ function Spark({ data }: { data: Array<{ day: string; questions: number }> }) {
         <span className="microlabel">{data[data.length - 1]?.day}</span>
       </div>
     </div>
+  );
+}
+
+/** Gate plan (D14): halaman ini fitur berbayar — Free melihat ajakan upgrade
+ *  yang menjelaskan apa yang dibuka, bukan sekadar penolakan. */
+export default function AnalyticsPage() {
+  return (
+    <FeatureGate feature="analytics" title="Analitik per chatbot"
+      benefit="Lihat pertanyaan yang paling sering diajukan, kata kunci yang muncul, dokumen mana yang paling sering jadi sumber jawaban, dan jawaban yang belum bersitasi — penunjuk langsung celah knowledge base-mu.">
+      <AnalyticsPageInner />
+    </FeatureGate>
   );
 }

@@ -1,7 +1,7 @@
 import { sql, eq, and, isNull, desc, count } from 'drizzle-orm';
 import { db, tenants, users, chatbots, usageCounters } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { limitsForPlan, PLAN_LIMITS } from '@/modules/core/limits';
+import { limitsForPlan, PLAN_LIMITS, PLAN_FEATURES } from '@/modules/core/limits';
 import { effectivePlan } from './usage.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { audit } from '@/modules/core/guardrails';
@@ -156,6 +156,7 @@ export function planCatalog() {
       messagesPerMonth: num(l.messagesPerMonth),
       maxChatbots: num(l.maxChatbots),
       maxMembers: num(l.maxMembers),
+      features: PLAN_FEATURES[id] ?? [],
     };
   });
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { FeatureGate } from '../../_components/entitlements';
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
@@ -28,7 +29,7 @@ const D: BrandForm = {
   radius: '12px', mode: 'light', position: 'right', showTrace: true, greeting: '',
 };
 
-export default function BrandingPage() {
+function BrandingPageInner() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const [id, setId] = useState('');
   const [cfg, setCfg] = useState<BrandForm>({ ...D });
@@ -307,5 +308,16 @@ function Snippet({ publicKey }: { publicKey: string }) {
         <p className="microlabel">TEMA DI-CACHE 5 MENIT DI SISI PENGUNJUNG</p>
       </div>
     </div>
+  );
+}
+
+/** Gate plan (D14): halaman ini fitur berbayar — Free melihat ajakan upgrade
+ *  yang menjelaskan apa yang dibuka, bukan sekadar penolakan. */
+export default function BrandingPage() {
+  return (
+    <FeatureGate feature="branding" title="Branding & white-label widget"
+      benefit="Pasang logo, warna, sapaan, dan gaya widget chat sesuai identitas tiap divisi — tampil di situs pelangganmu tanpa jejak merek kami.">
+      <BrandingPageInner />
+    </FeatureGate>
   );
 }

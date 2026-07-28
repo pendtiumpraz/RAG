@@ -1,5 +1,6 @@
 'use client';
 
+import { FeatureGate } from '../../_components/entitlements';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
@@ -16,7 +17,7 @@ interface Invitation { id: string; email: string; role: string; expiresAt: strin
 
 /** Anggota tenant. Saat ini menampilkan user aktif (nyata dari sesi);
  *  undang anggota + daftar penuh menyusul (endpoint team belum dibuat). */
-export default function TeamPage() {
+function TeamPageInner() {
   const { data: session } = useSession();
   const u = session?.user;
   const canInvite = u?.role === 'superadmin' || u?.role === 'admin';
@@ -312,4 +313,15 @@ function StatusBadge({ status }: { status: string }) {
   const led = status === 'active' ? 'led-live' : status === 'rejected' ? 'led-err' : 'led-off';
   const label = status === 'active' ? 'aktif' : status === 'rejected' ? 'ditolak' : 'menunggu';
   return <span className={`badge ${cls}`}><span className={`led ${led}`} />{label}</span>;
+}
+
+/** Gate plan (D14): halaman ini fitur berbayar — Free melihat ajakan upgrade
+ *  yang menjelaskan apa yang dibuka, bukan sekadar penolakan. */
+export default function TeamPage() {
+  return (
+    <FeatureGate feature="team" title="Anggota tim & RBAC"
+      benefit="Undang rekan lewat email, atur peran admin/member, dan kelola siapa yang boleh mengubah chatbot serta knowledge base.">
+      <TeamPageInner />
+    </FeatureGate>
+  );
 }

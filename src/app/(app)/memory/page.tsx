@@ -1,5 +1,6 @@
 'use client';
 
+import { FeatureGate } from '../../_components/entitlements';
 import { useEffect, useRef, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
@@ -10,7 +11,7 @@ interface Node { id: string; slug: string; title: string; linksTo: string[] }
 interface Edge { from: string; to: string; kind: string; weight: number }
 interface Graph { nodes: Node[]; edges: Edge[] }
 
-export default function MemoryPage() {
+function MemoryPageInner() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const [chatbotId, setChatbotId] = useState('');
   useEffect(() => { if (bots.data?.[0] && !chatbotId) setChatbotId(bots.data[0].id); }, [bots.data, chatbotId]);
@@ -298,5 +299,16 @@ function GraphView({ graph }: { graph: Graph }) {
         SCROLL = ZOOM · SERET = GESER · SERET NODE = ATUR
       </span>
     </div>
+  );
+}
+
+/** Gate plan (D14): halaman ini fitur berbayar — Free melihat ajakan upgrade
+ *  yang menjelaskan apa yang dibuka, bukan sekadar penolakan. */
+export default function MemoryPage() {
+  return (
+    <FeatureGate feature="memory" title="Memory agent & knowledge graph"
+      benefit="Agen memory menyaring dokumenmu jadi catatan ber-[[wikilink]] dan memetakannya sebagai graph pengetahuan yang bisa dijelajahi — plus diekspor balik ke Google Drive-mu.">
+      <MemoryPageInner />
+    </FeatureGate>
   );
 }

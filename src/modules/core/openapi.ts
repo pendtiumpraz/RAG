@@ -183,6 +183,12 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('daftar pesan') } },
     },
+    '/api/entitlements': {
+      get: { summary: 'Boleh apa: plan aktif, daftar fitur terbuka, bisa upgrade? (D14 — sumber gembok menu & gate halaman)',
+        security: [sessionAuth],
+        responses: { 200: err('{ plan, features[], featureMinPlan, canUpgrade, mode, planPrices, usage }') } },
+    },
+
     /* ── email & pemulihan akun (D13: SMTP dari DB) ── */
     '/api/auth/verify-email': {
       post: { summary: 'Verifikasi email pendaftar dari tautan (publik; token sekali pakai, 24 jam)',

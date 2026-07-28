@@ -1,5 +1,6 @@
 'use client';
 
+import { FeatureGate } from '../../_components/entitlements';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useApi } from '../../_lib/api';
@@ -33,7 +34,7 @@ const n = (v: number) => v.toLocaleString('id-ID');
 const cost = (tin: number, tout: number, p: { in: number; out: number } | null) =>
   p ? `$${((tin * p.in + tout * p.out) / 1_000_000).toFixed(2)}` : '—';
 
-export default function UsagePage() {
+function UsagePageInner() {
   const { data: session } = useSession();
   const isSuper = session?.user?.role === 'superadmin';
   const [days, setDays] = useState(30);
@@ -168,5 +169,16 @@ export default function UsagePage() {
         .us-trend .col:hover .bar{ opacity:1; background:var(--signal-strong); }
       `}</style>
     </>
+  );
+}
+
+/** Gate plan (D14): halaman ini fitur berbayar — Free melihat ajakan upgrade
+ *  yang menjelaskan apa yang dibuka, bukan sekadar penolakan. */
+export default function UsagePage() {
+  return (
+    <FeatureGate feature="usage" title="Monitoring pemakaian rinci"
+      benefit="Rincian pemakaian per chatbot, tren harian, dan estimasi biaya LLM — untuk mengendalikan belanja AI lintas divisi.">
+      <UsagePageInner />
+    </FeatureGate>
   );
 }

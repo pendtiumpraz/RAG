@@ -55,3 +55,9 @@
 .drawer .dh{ display:flex; align-items:center; justify-content:space-between; padding:var(--sp-5); border-bottom:1px solid var(--line); }
 .drawer .db{ padding:var(--sp-5); overflow-y:auto; flex:1; }
 .drawer .df{ padding:var(--sp-4) var(--sp-5); border-top:1px solid var(--line); display:flex; gap:var(--sp-3); }
+
+/* Menu terkunci (D14): tetap terbaca, jelas berbayar — bukan disembunyikan. */
+.nav-item[data-locked]{ color:var(--faint); }
+.nav-item[data-locked] .ico{ opacity:.55; }
+.nav-item[data-locked]:hover{ color:var(--muted); }
+.nav-lock{ margin-left:auto; display:inline-flex; color:var(--source); opacity:.85; }

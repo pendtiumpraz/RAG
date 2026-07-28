@@ -30,6 +30,34 @@ export function limitsForPlan(plan: string | null | undefined): PlanLimits {
   return PLAN_LIMITS[plan ?? 'free'] ?? PLAN_LIMITS.free;
 }
 
+/* ── Fitur per plan (D14) ─────────────────────────────────────────────
+ * Kuota membatasi BERAPA BANYAK; daftar ini membatasi FITUR MANA.
+ *
+ * Free sengaja tetap FUNGSIONAL (chat + KB + 1 chatbot + riwayat) —
+ * mengunci semuanya di depan membunuh konversi: orang tak membayar produk
+ * yang belum pernah dilihatnya bekerja. Yang dikunci adalah kemampuan yang
+ * baru terasa perlu setelah produknya dipakai serius.
+ */
+export type Feature =
+  | 'analytics' | 'memory' | 'branding' | 'team' | 'usage' | 'onprem';
+
+export const PLAN_FEATURES: Record<string, Feature[]> = {
+  free: [],
+  pro: ['analytics', 'memory', 'branding', 'team'],
+  enterprise: ['analytics', 'memory', 'branding', 'team', 'usage'],
+  onprem: ['analytics', 'memory', 'branding', 'team', 'usage', 'onprem'],
+};
+
+/** Plan minimum yang membuka fitur — dipakai UI utk mengarahkan upgrade. */
+export const FEATURE_MIN_PLAN: Record<Feature, string> = {
+  analytics: 'pro', memory: 'pro', branding: 'pro', team: 'pro',
+  usage: 'enterprise', onprem: 'onprem',
+};
+
+export function planHasFeature(plan: string | null | undefined, feature: Feature): boolean {
+  return (PLAN_FEATURES[plan ?? 'free'] ?? []).includes(feature);
+}
+
 /* ── Token bucket ─────────────────────────────────────────────────── */
 
 interface Bucket { tokens: number; last: number; }
