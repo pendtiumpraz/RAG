@@ -192,6 +192,14 @@ export const invitationService = {
     });
 
     await audit(tenantId, invitedBy, 'team.invite', row.id, { email, role: input.role });
+    // D13: kirim undangan via email — best-effort; tautan tetap tampil di UI
+    // sebagai cadangan (SMTP kosong = alur lama, bagikan link manual).
+    {
+      const { mailerService } = await import('@/modules/mail/mailer.service');
+      const orgName = (await db.select({ name: tenants.name }).from(tenants)
+        .where(eq(tenants.id, tenantId)).limit(1))[0]?.name ?? 'workspace Nalar';
+      void mailerService.sendInvitation(email, orgName, token);
+    }
     return { invitation: toView(row), token };
   },
 

@@ -183,6 +183,30 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('daftar pesan') } },
     },
+    /* ── email & pemulihan akun (D13: SMTP dari DB) ── */
+    '/api/auth/verify-email': {
+      post: { summary: 'Verifikasi email pendaftar dari tautan (publik; token sekali pakai, 24 jam)',
+        requestBody: json(obj({ token: str }, ['token'])),
+        responses: { 200: err('{ ok }'), 400: err('tautan tidak valid/kedaluwarsa'), 429: err('rate limit') } },
+    },
+    '/api/auth/forgot': {
+      post: { summary: 'Minta tautan reset password (publik; balasan SELALU sama — anti enumerasi email)',
+        requestBody: json(obj({ email: str }, ['email'])),
+        responses: { 200: err('{ ok, message }'), 429: err('rate limit') } },
+    },
+    '/api/auth/reset': {
+      post: { summary: 'Setel password baru dari tautan reset (publik; token sekali pakai, 1 jam)',
+        requestBody: json(obj({ token: str, password: str }, ['token', 'password'])),
+        responses: { 200: err('{ ok }'), 400: err('token/password tidak valid') } },
+    },
+    '/api/admin/mail-settings': {
+      get: { summary: 'SUPERADMIN: konfigurasi SMTP platform (tanpa password)', security: [sessionAuth],
+        responses: { 200: err('{ config, hasPassword, configured }') } },
+      put: { summary: 'SUPERADMIN: simpan SMTP (app password terenkripsi di DB) + kirim email uji opsional', security: [sessionAuth],
+        requestBody: json(obj({ config: { type: 'object' }, password: str, testTo: str }, ['config'])),
+        responses: { 200: err('{ ok, testSent }') } },
+    },
+
     /* ── pembayaran (D12: QRIS, config di DB, halaman bayar sendiri) ── */
     '/api/payments': {
       get: { summary: 'Riwayat transaksi tenant', security: [sessionAuth],

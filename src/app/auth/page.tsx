@@ -7,6 +7,8 @@ import { signIn } from 'next-auth/react';
 const PENDING_MSG = 'Akunmu sudah terdaftar dan sedang menunggu verifikasi admin. '
   + 'Kamu akan bisa masuk setelah disetujui.';
 const REJECTED_MSG = 'Pendaftaran akun ini ditolak. Hubungi admin bila menurutmu ini keliru.';
+const UNVERIFIED_MSG = 'Email ini belum diverifikasi. Cek kotak masuk (dan folder spam) '
+  + 'untuk tautan verifikasi yang kami kirim saat kamu mendaftar.';
 
 /** Halaman auth (brand resmi, LIGHT) — wired ke NextAuth. */
 export default function AuthPage() {
@@ -51,9 +53,25 @@ export default function AuthPage() {
     }).then((r) => r.json()).catch(() => ({ outcome: 'invalid' }));
     setBusy(false);
 
-    if (why.outcome === 'pending') setNotice(PENDING_MSG);
+    if (why.outcome === 'unverified') setNotice(UNVERIFIED_MSG);
+    else if (why.outcome === 'pending') setNotice(PENDING_MSG);
     else if (why.outcome === 'rejected') setError(REJECTED_MSG);
     else setError('Email atau password salah.');
+  }
+
+  /** Lupa password: server SELALU membalas sama (anti enumerasi email). */
+  async function forgot() {
+    const email = form.email.trim();
+    if (!email.includes('@')) { setError('Isi alamat email dulu, lalu klik "Lupa password?".'); return; }
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      await fetch('/api/auth/forgot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setNotice('Bila email itu terdaftar, tautan atur ulang password sudah dikirim. Cek kotak masuk dan folder spam.');
+    } catch { setError('Gagal mengirim permintaan.'); }
+    finally { setBusy(false); }
   }
 
   async function doRegister(e: React.FormEvent) {
@@ -103,6 +121,8 @@ export default function AuthPage() {
             {notice && <span className="notice">{notice}</span>}
             <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>Masuk</button>
             <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Belum punya akun? <a onClick={() => setTab('register')} style={{ cursor: 'pointer' }}>Daftar gratis</a></p>
+            <p style={{ textAlign: 'center', fontSize: 13, marginTop: -6 }}>
+              <a onClick={forgot} style={{ cursor: 'pointer', color: 'var(--muted)' }}>Lupa password?</a></p>
           </form>
         ) : (
           <form onSubmit={doRegister} className="stack gap-4">

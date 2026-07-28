@@ -21,7 +21,7 @@ export interface AuthUser {
  *  rejected — ditolak superadmin
  *  active   — boleh masuk
  */
-export type CredentialOutcome = 'invalid' | 'pending' | 'rejected' | 'active';
+export type CredentialOutcome = 'invalid' | 'unverified' | 'pending' | 'rejected' | 'active';
 
 /**
  * AUTH SERVICE — signup → tenant, verifikasi kredensial, provisioning OAuth.
@@ -63,6 +63,14 @@ export const authService = {
       };
     }).then(async (u) => {
       await audit(u.tenantId, u.id, 'auth.signup', undefined, { email: u.email, status: u.status });
+      // D13: kirim tautan verifikasi bila SMTP dikonfigurasi — best-effort,
+      // pendaftaran tak boleh mati karena mail server rewel.
+      const { mailerService } = await import('@/modules/mail/mailer.service');
+      if (await mailerService.isConfigured()) {
+        const { authTokenService } = await import('./auth-token.service');
+        const token = await authTokenService.issue(u.id, 'verify');
+        void mailerService.sendVerification(u.email, token);
+      }
       return u;
     });
   },
@@ -82,6 +90,12 @@ export const authService = {
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) return null;
     if (user.status !== 'active') return null;
+    // D13: gerbang verifikasi email — hanya bila SMTP aktif (tanpa SMTP,
+    // perilaku lama utuh); user lama sudah di-backfill terverifikasi (0020).
+    if (!user.emailVerifiedAt) {
+      const { mailerService } = await import('@/modules/mail/mailer.service');
+      if (await mailerService.isConfigured()) return null;
+    }
     return {
       id: user.id, tenantId: user.tenantId, email: user.email,
       name: user.name, role: user.role, status: user.status,
@@ -96,6 +110,10 @@ export const authService = {
     const user = await findByEmailForAuth(email.trim().toLowerCase());
     if (!user?.passwordHash) return 'invalid';
     if (!(await verifyPassword(password, user.passwordHash))) return 'invalid';
+    if (!user.emailVerifiedAt) {
+      const { mailerService } = await import('@/modules/mail/mailer.service');
+      if (await mailerService.isConfigured()) return 'unverified';
+    }
     if (user.status === 'pending') return 'pending';
     if (user.status === 'rejected') return 'rejected';
     return 'active';
@@ -124,6 +142,8 @@ export const authService = {
       // jalur OAuth, kalau tidak orang tinggal lewat Google dan gerbangnya bocor.
       const [user] = await tx.insert(users).values({
         tenantId: tenant.id, email, name: display, role: 'admin', passwordHash: null,
+        // OAuth = email sudah terbukti milik pendaftar oleh Google/Microsoft
+        emailVerifiedAt: new Date(),
       }).returning();
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
       return {

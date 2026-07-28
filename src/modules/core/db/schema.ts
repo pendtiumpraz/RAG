@@ -86,6 +86,12 @@ export const users = pgTable('users', {
   status: text('status').default('pending').notNull(),
   approvedAt: timestamp('approved_at'),
   approvedBy: uuid('approved_by'),                // tanpa FK (Rule #2)
+  /**
+   * D13 — verifikasi kepemilikan email. NULL = belum klik tautan verifikasi.
+   * Hanya ditegakkan bila SMTP dikonfigurasi; user OAuth & user lama
+   * (backfill 0020) otomatis terverifikasi.
+   */
+  emailVerifiedAt: timestamp('email_verified_at'),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_users_tenant_id').on(t.tenantId),
@@ -348,8 +354,28 @@ export const platformSettings = pgTable('platform_settings', {
   /** Harga plan IDR/bulan, diedit superadmin: { pro: 299000, enterprise: … } */
   planPrices: jsonb('plan_prices').$type<Record<string, number>>()
     .default({ pro: 299000, enterprise: 1499000 }).notNull(),
+  /** D13 — SMTP: { host, port, secure, user, fromName, fromEmail }. */
+  smtpConfig: jsonb('smtp_config').$type<Record<string, string | number | boolean>>(),
+  /** App password SMTP (AES-256-GCM) — tak pernah dibaca balik ke browser. */
+  encryptedSmtpPassword: text('encrypted_smtp_password'),
   ...stamps,
 });
+
+/** D13 — token verifikasi email & reset password (disimpan HASH-nya).
+ *  Tanpa RLS: dipakai dari tautan email publik tanpa sesi. */
+export const authTokens = pgTable('auth_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(),
+  kind: text('kind').notNull(),            // 'verify' | 'reset'
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  ...stamps,
+}, (t) => ({
+  userIdx: index('idx_auth_tokens_user').on(t.userId),
+  delIdx: index('idx_auth_tokens_deleted_at').on(t.deletedAt),
+  uqHash: uniqueIndex('uq_auth_tokens_hash').on(t.tokenHash).where(sql`deleted_at IS NULL`),
+}));
 
 /** Kredensial gateway (platform, tanpa RLS — pola oauth_apps): secret AES,
  *  hanya SATU provider `active` pada satu waktu (ditegakkan service). */

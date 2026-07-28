@@ -92,6 +92,11 @@ export const userApprovalService = {
     if (!row) throw new ValidationError('User tidak ditemukan');
 
     await audit(actor.tenantId, actor.id, `auth.user.${status}`, userId, { email: row.email });
+    // D13: kabari pendaftar bahwa akunnya disetujui — best-effort.
+    if (status === 'active') {
+      const { mailerService } = await import('@/modules/mail/mailer.service');
+      void mailerService.sendApproved(row.email);
+    }
     return { ...row, tenantName: null } as PendingUser;
   },
 
