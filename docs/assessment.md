@@ -1,217 +1,85 @@
-# Nalar — Full Gap Assessment (target: 10/10 semua dimensi)
+# Assessment Nalar — 2026-07-28
 
-> Dinilai jujur & kritis per 2026-07-23. Skor = kondisi SEKARANG di repo,
-> bukan rencana. "Gap ke 10" = daftar konkret yang harus dikerjakan.
-> Skala: 1–10. Status: 🔴 <5 · 🟡 5–7 · 🟢 8–9 · ⭐ 10.
+Penilaian menyeluruh 4 dimensi, skala 1–10. Digrounding pada **produksi
+sungguhan**: seluruh halaman dijelajahi & di-screenshot via `agent-browser`
+(login superadmin demo di rag.sainskerta.net); chat dan widget diuji dengan
+pertanyaan nyata terhadap KB berisi dokumen NIB. Screenshot: `docs/assessment/`.
 
----
-
-## Ringkasan skor
-
-| # | Dimensi | Skor | Status |
-|---|---------|:----:|:------:|
-| 1 | Engine RAG (pipeline inti) | 6.5 | 🟡 |
-| 2 | Database & isolasi tenant | 7.5 | 🟡 |
-| 3 | Keamanan | 6.5 ⬆ (was 5.0) | 🟡 |
-| 4 | Auth & SaaS multi-tenancy | 6.5 ⬆ (was 3.0) | 🟡 |
-| 5 | Agentic (memory agent, workers, orkestrasi) | 2.5 | 🔴 |
-| 6 | UI/UX — design system | 8.5 | 🟢 |
-| 7 | UI/UX — surfaces (halaman nyata) | 5.5 | 🟡 |
-| 8 | White-label | 6.0 | 🟡 |
-| 9 | Embed & widget | 6.5 | 🟡 |
-| 10 | Data source connectors | 5.5 | 🟡 |
-| 11 | Observability & reliability | 2.0 | 🔴 |
-| 12 | Testing & quality gates | 1.5 | 🔴 |
-| 13 | DevOps & deployment | 6.0 | 🟡 |
-| 14 | Dokumentasi & proses (Loop) | 8.5 | 🟢 |
-
-**Rata-rata tertimbang: ~5.3/10.** Fondasi & desain kuat; eksekusi produksi
-(auth, agentic, testing, observability) adalah gap terbesar.
+> **Ringkasan: UI/UX 8,0 · Agentic 7,7 · Feature 8,0 · Launching 6,9 —
+> keseluruhan ±7,7/10** (assessment 2026-07-23: ±5,3 — naik +2,4 dalam 5
+> hari). Produk & teknologinya layak dipakai pelanggan awal; yang menahan
+> peluncuran skala adalah hal di SEKITAR produk: email, pembayaran, onboarding.
 
 ---
 
-## 1 · Engine RAG — 6.5/10
-**Ada:** chunking + ingest, pgvector retrieval per-chatbot, multi-provider
-streaming (`llm/index.ts`), history + sitasi, registry model 2026-07-23,
-embedding lokal (transformers.js) + API, model host dari Drive/SharePoint.
+## A. UI/UX Readiness — **8,0/10**
 
-**Gap ke 10:**
-- [ ] Belum pernah **dijalankan/diuji end-to-end** (npm install pun belum).
-- [ ] Chunking naif — perlu semantic/structure-aware (heading, tabel) + overlap adaptif.
-- [ ] Tanpa **re-ranking** (mis. Cohere Rerank / cross-encoder) — kualitas retrieval mentok.
-- [ ] Tanpa **hybrid search** (BM25/full-text + vektor) — pgvector saja lemah utk keyword eksak.
-- [ ] Tanpa **graph-RAG** (menunggu Memory Agent §5).
-- [ ] Ekstraksi dokumen (PDF/DOCX/HTML) belum ada — baru terima teks mentah.
-- [ ] Vector kolom fixed 4096d utk semua model → boros; perlu partial index / tabel per dimensi.
-- [ ] Tanpa eval harness (RAGAS-style: faithfulness, answer relevancy) — tak bisa ukur kualitas.
+| Area | Skor | Bukti | Kurangnya |
+|---|:---:|---|---|
+| Landing publik | 8,5 | `01-landing.png` — terdesain, bilingual, lolos syarat OAuth | Belum ada demo interaktif/video produk |
+| Auth | 7,5 | `02-auth.png` — tab masuk/daftar, tombol Google | **Belum ada lupa-password** — akun terkunci = hubungi admin |
+| Chat + jawaban terstruktur | 9,0 | `04-chat-jawaban.png` — kartu fakta, daftar bersitasi, panel Citations, badge sesi | Belum ada stop-generation, tombol copy, daftar riwayat sesi di halaman Chat |
+| Widget embed | 8,5 | `widget-jawaban.png` — logo mark, blok, footnote sumber, typing dots | `conversationId` di memori halaman saja — reload = sesi baru (belum localStorage) |
+| Knowledge (KB N:M) | 8,5 | `knowledge.png` — tabel KB, badge chatbot pemakai, delta "+1", Assign | Progres sync tak realtime (harus refresh); belum ada UI unggah berkas |
+| Conversations | 8,0 | `conversations.png` — bubble kiri-kanan, sitasi berjudul | Belum ada pencarian/filter tanggal & export transkrip |
+| Dashboard | 7,0 | `dashboard.png` — angka pemakaian nyata, quickstart | Setengah bawah kosong; belum ada grafik tren |
+| Dataroom | 8,5 | `dataroom-cover.png` `dataroom-biaya.png` — slide navy + wordmark, tabel biaya | Slide masih tabel-sentris, belum ada diagram/chart |
+| Komponen & konsistensi | 8,0 | design system token, drawer seragam; dropdown baru dibenahi (chevron custom, hover) | — |
+| Responsif mobile | 6,5 | hamburger sidebar ada | Tabel lebar belum diaudit di layar sempit |
+| Aksesibilitas | 7,0 | focus ring, aria-modal, reduced-motion | Belum diaudit menyeluruh; Lighthouse menandai kontras beberapa teks |
 
-## 2 · Database & isolasi — 7.5/10
-**Ada:** Postgres+pgvector, RLS `tenant_id` + `withTenant()`, schema Sainskerta-compliant
-(No-FK, soft-delete, timestamps, snake_case, index), migrasi RLS.
+## B. Agentic Readiness — **7,7/10**
 
-**Gap ke 10:**
-- [ ] Migrasi belum pernah dijalankan ke DB nyata; belum diverifikasi RLS-nya benar.
-- [ ] Endpoint `/trashed` + `/restore` belum dibuat (soft-delete baru di schema).
-- [ ] Integritas referensial di Service layer belum ditulis (konsekuensi No-FK).
-- [ ] `theme_config JSONB` (white-label) belum ada di schema.
-- [ ] Tabel memory/graph (notes, edges) belum ada.
-- [ ] Backup routine + restore test (DATABASE-RULES) belum ada.
-- [ ] Connection pooling utk serverless (pgbouncer) belum dikonfigurasi.
+| Area | Skor | Bukti | Kurangnya |
+|---|:---:|---|---|
+| Pipeline RAG | 8,0 | retrieval union KB ter-assign, delta sync, sitasi dipaksa guardrail | Belum ada reranker & hybrid search (BM25+vector); chunking fixed 800 char, belum semantic |
+| Jawaban terstruktur | 9,0 | blok text/list/cards/chart + fallback prosa + sanitasi per-string | Chart baru bar/line satu seri; blok tabel belum ada |
+| Guardrails | 8,5 | 5 lapis di jalur tiap giliran + penetral blok palsu, semuanya bertes | Belum ada korpus eval injeksi otomatis & lapis moderasi konten |
+| Memory agent | 7,0 | distill/link/graph/self-evolve + write-back `_nalar-memory/` ke Drive | Hanya terpicu sync; belum belajar dari percakapan; kualitas notes tak dievaluasi |
+| Fleksibilitas model | 9,0 | 14 model · 8 provider · LLM & embedding self-hosted (OpenAI-compatible) | — |
+| API utk agen/integrasi | 6,5 | OpenAPI 3.1 lengkap di `/api/openapi`, SSE terdokumentasi | **Belum ada API key server-to-server per tenant** (akses programatik = cookie sesi); belum ada webhook & MCP server |
 
-## 3 · Keamanan — 5.0/10
-**Ada:** AES-256-GCM utk API key, RLS, allowed-origins per chatbot, server-to-server
-key (key tak pernah ke browser), publicKey pattern.
+## C. Feature Readiness — **8,0/10**
 
-**Update 2026-07-23:** ✅ rate limit 2 lapis (per-chatbot plan-based + per-IP) di
-endpoint embed & signup; ✅ kuota bulanan per plan + metering token (`usage_counters`);
-✅ maxChatbots per plan; ✅ batas panjang pesan.
+| Fitur | Skor | Kurangnya |
+|---|:---:|---|
+| Auth + gerbang verifikasi superadmin | 8,5 | Lupa-password; 2FA |
+| Team & undangan | 8,0 | Link undangan dibagikan manual — belum terkirim via email |
+| KB mandiri + assignment N:M | 9,0 | Konektor `upload` & `url` ada di enum tapi belum ada UI/implementasi |
+| Sync Drive (Picker & full) + delta | 8,5 | Full-scan SaaS menunggu verifikasi CASA (Picker sudah bebas verifikasi) |
+| Analitik per chatbot | 8,0 | Export CSV; rentang tanggal kustom |
+| Billing | 6,0 | **Manual sepenuhnya** — tanpa gateway, invoice, kuitansi |
+| Observability | 7,5 | Papan baca saja — alerting/notifikasi belum ada |
+| On-premise (docker + LLM lokal) | 8,0 | Panduan instalasi pelanggan & mekanisme lisensi belum dibakukan |
+| Branding/white-label | 8,0 | Logo hanya via URL — belum bisa unggah dari UI |
+| Dataroom | 8,5 | Harga Enterprise/On-prem belum diisi (keputusan bisnis) |
 
-**Gap ke 10:**
-- [ ] Limiter masih in-memory (single-instance) — tukar ke Redis utk SaaS multi-instance.
-- [ ] Tanpa CSRF protection di API dashboard; tanpa audit log.
-- [ ] Prompt injection: konteks RAG belum di-sandbox (perlu system prompt hardening + output filtering).
-- [ ] Key rotation + secret management (Vault/KMS utk `CREDENTIALS_ENCRYPTION_KEY`).
-- [ ] Security review (Fase 05 Loop) belum dijalankan; tanpa dependency scanning.
-- [ ] Webhook signing utk integrasi keluar.
+## D. Launching Readiness — **6,9/10**
 
-## 4 · Auth & SaaS multi-tenancy — 6.5/10 ⬆ (2026-07-23)
-**Ada:** NextAuth nyata (`src/modules/auth/`) — Credentials scrypt + Google + Microsoft;
-JWT session {userId, tenantId, role}; **signup→tenant** transaksi RLS-aware;
-OAuth email baru = tenant baru otomatis; policy `users_auth_lookup` (0002) utk
-lookup login lintas-tenant yang tetap aman; `requireRole()` guard; middleware
-proteksi route (embed/chat publik); mode on-prem via env.
-
-**Gap ke 10:**
-- [ ] Belum diuji end-to-end (npm install + DB nyata).
-- [ ] Halaman /auth nyata (mockup sudah ada) + wiring signIn() client.
-- [ ] `requireRole` dipasang eksplisit di route admin (baru tersedia).
-- [ ] Email verification + password reset.
-- [ ] Billing (plan, kuota, upgrade); Team invite backend.
-
-## 5 · Agentic — 2.5/10
-**Ada:** konsep + requirement Memory Agent (baru dicatat), konektor storage dasar.
-
-**Gap ke 10:**
-- [ ] **Obsidian Memory Agent** end-to-end: crawl → ekstrak → entity/topic mapping
-      (LLM) → note markdown + [[wikilink]] → graph → sync-back vault ke Drive.
-- [ ] **Sync workers** Drive/SharePoint/OneDrive (scheduled + webhook change detection).
-- [ ] Job queue (BullMQ/pg-boss) — sekarang tak ada infrastruktur background job.
-- [ ] Agentic retrieval: query decomposition, multi-hop, self-check jawaban.
-- [ ] Halaman Memory (graph view) di dashboard.
-- [ ] OneDrive connector (variasi kecil dari Graph API SharePoint).
-- [ ] Agent guardrails: batas biaya per run, retry, dead-letter.
-
-## 6 · UI/UX — design system — 8.5/10
-**Ada:** `nalar-ds.css` v2 Editorial Ledger — token 3-lapis, type/spacing/radius/motion
-scale, kontras AA/AAA tercatat, focus-visible, reduced-motion, semua state
-(loading/empty/error/disabled/skeleton), anti-slop, dua tema; referensi `design-system.html`.
-
-**Gap ke 10:**
-- [ ] File font `InterVariable.woff2` belum di-drop (tipografi belum terkunci lintas OS).
-- [ ] Data-viz spec (axis/tooltip/gridline) belum ada di DS.
-- [ ] Komponen belum lengkap: dropdown-menu, combobox, dialog, tooltip, pagination, breadcrumb.
-- [ ] Kontras diverifikasi manual — perlu dicek otomatis (axe/pa11y) di CI.
-
-## 7 · UI/UX — surfaces — 5.5/10
-**Ada:** 6 mockup (dashboard 7 halaman, landing, embed+customizer, auth, branding, wireframe).
-
-**Gap ke 10:**
-- [ ] **Semua masih gaya lama (dark-indigo-glow)** — wajib re-skin ke Editorial Ledger.
-- [ ] Sitasi-footnote signature belum dipakai di dashboard/conversations.
-- [ ] Halaman Memory (graph) belum ada.
-- [ ] Chart masih dekoratif (tanpa axis/tooltip).
-- [ ] Belum jadi app React nyata — masih HTML mockup (implementasi = Fase 04).
-- [ ] Interaksi keyboard (navigasi tabel, shortcut) belum dirancang.
-
-## 8 · White-label — 6.0/10
-**Ada:** layer token `--wl-*` di DS, demo customizer live (embed-demo, branding-mockup),
-config JSON shape.
-
-**Gap ke 10:**
-- [ ] `theme_config` belum tersimpan di DB / diserve API.
-- [ ] `embed.js` belum membaca theme dari server.
-- [ ] Dashboard & landing belum digerakkan penuh oleh `--wl-*` (baru widget demo).
-- [ ] Upload logo asli (SVG/PNG) belum ada (baru inisial).
-- [ ] Custom domain per tenant (CNAME) belum dirancang.
-- [ ] Font per-tenant belum bisa diganti runtime.
-
-## 9 · Embed & widget — 6.5/10
-**Ada:** `public/embed.js` (SSE streaming, visitor id, origin check), endpoint publik,
-mockup white-label + mobile responsive.
-
-**Gap ke 10:**
-- [ ] `embed.js` produksi belum sinkron dengan sistem white-label & Editorial Ledger.
-- [ ] Shadow-DOM isolation (sekarang CSS bisa bentrok dengan situs host).
-- [ ] Persist conversationId antar reload; riwayat sisi widget.
-- [ ] File upload / suara di widget (roadmap).
-- [ ] Bundle size budget + versioning (embed.js?v=) + CDN cache strategy.
-- [ ] A11y widget: focus trap, ARIA live region utk streaming, keyboard.
-
-## 10 · Data source connectors — 5.5/10
-**Ada:** gdrive.ts (superadmin + per-user), sharepoint.ts (Graph), model-host caching.
-
-**Gap ke 10:**
-- [ ] OneDrive path (`/me/drive`) belum dibungkus sebagai connector resmi.
-- [ ] OAuth flow per-user end-to-end (token simpan-refresh) belum diimplement.
-- [ ] Ekstraksi konten file (PDF/DOCX/PPTX/HTML→teks) belum ada.
-- [ ] Incremental sync (delta API / changes.watch) belum ada — baru full-list.
-- [ ] Upload manual & URL/sitemap crawler belum dibuat.
-- [ ] Error surfacing ke UI (status per file).
-
-## 11 · Observability & reliability — 2.0/10
-**Ada:** hampir tidak ada (console saja).
-
-**Gap ke 10:**
-- [ ] Structured logging (pino) + request id + tenant id di setiap log.
-- [ ] Error tracking (Sentry/self-host GlitchTip utk on-prem).
-- [ ] Metrics: latency retrieval, token usage per tenant, cost meter.
-- [ ] Health checks + readiness probe; graceful shutdown.
-- [ ] Tracing (OTel) utk pipeline RAG.
-- [ ] Alerting kuota/error-rate.
-
-## 12 · Testing & quality gates — 1.5/10
-**Ada:** belum ada test sama sekali.
-
-**Gap ke 10:**
-- [ ] Unit test service layer (chunking, crypto, registry, tenant guard).
-- [ ] Integration test API + RLS (bukti isolasi tenant dengan 2 tenant nyata).
-- [ ] E2E (Playwright): chat flow, embed widget, CRUD + soft-delete/restore.
-- [ ] RAG eval set (golden Q&A per KB) + threshold di CI.
-- [ ] Lint/typecheck/a11y (axe) di CI; pre-commit hooks.
-- [ ] Load test endpoint embed (k6) — proteksi biaya.
-
-## 13 · DevOps & deployment — 6.0/10
-**Ada:** Dockerfile multi-stage, docker-compose (pgvector + app + model cache volume),
-`.env.example` rapi, mode saas/onprem.
-
-**Gap ke 10:**
-- [ ] CI/CD pipeline (GitHub Actions: build, test, scan, release image).
-- [ ] Migrasi otomatis saat deploy (drizzle migrate step teruji).
-- [ ] TLS/ingress guide on-prem (Caddy/Traefik) + Nginx conf.
-- [ ] Seed script development (Rule seeder) belum ada.
-- [ ] Versioning & changelog rilis; image publish (GHCR).
-- [ ] Backup cron container utk on-prem.
-
-## 14 · Dokumentasi & proses (Loop) — 8.5/10
-**Ada:** Loop file-as-interface lengkap & hidup (progress, user_requirement,
-architecture-decisions D1–D4, loop.md), docs/idea.md + idea.html + brand-identity,
-README, assessment ini.
-
-**Gap ke 10:**
-- [ ] Git belum `init` + belum ada commit history (Rule #15 — git sudah terinstal!).
-- [ ] API documentation (OpenAPI) belum dibuat (output wajib Fase 03).
-- [ ] Runbook operasional (incident, restore, rotate key).
-- [ ] `docs/idea.md` perlu terus sinkron dgn requirement baru (memory agent ✅).
+| Area | Skor | Kurangnya |
+|---|:---:|---|
+| Infrastruktur & CI | 8,0 | CI verify+integration+smoke hijau; catatan sadar: rate limit in-memory tak dibagi antar lambda |
+| Keamanan | 8,0 | RLS terverifikasi ulang pasca-insiden `db:push` (sudah dipagari permanen); pen-test eksternal belum |
+| Legal & kepatuhan | 7,5 | Privacy/Terms live + ringkasan Inggris; kontak masih gmail pribadi; template DPA belum |
+| **Sistem email** | **4,0** | **Tidak ada sama sekali** — approval, undangan, reset password, notifikasi semuanya tanpa email. Blocker onboarding paling nyata |
+| Monetisasi | 5,5 | Tanpa payment gateway — aktivasi plan manual |
+| Onboarding pengguna | 6,5 | Approval manual tanpa notifikasi = pendaftar menggantung tanpa kabar |
+| Dokumentasi pengguna | 6,0 | Panduan OAuth ada; help center/user guide belum |
+| Backup & DR | 7,0 | PITR bawaan Neon; runbook pemulihan belum ditulis |
 
 ---
 
-## Urutan serangan yang kusarankan (biar semua naik ke 10)
+## Prioritas yang disarankan (dampak ÷ usaha)
 
-1. **Re-skin semua surface → Editorial Ledger** (dim 7, 8) — desain selesai tuntas.
-2. **Fase 03 Backend compliant**: modul + service/repo + trashed/restore +
-   theme_config + referential integrity (dim 1, 2, 8).
-3. **Auth nyata + signup→tenant + RBAC** (dim 4) — kunci SaaS.
-4. **Rate limit + kuota + audit log** (dim 3) — kunci biaya & keamanan.
-5. **Workers + Memory Agent** (dim 5, 10) — pembeda produk.
-6. **Testing + CI + observability** (dim 11, 12, 13) — kunci "production-grade".
-7. **git init + commit per fase** (dim 14) — mulai SEKARANG.
+1. **Sistem email** (Resend/SES): notifikasi approval, undangan, reset
+   password — membuka simpul onboarding & auth sekaligus (≈ Launching +1,0).
+2. **Payment gateway** (Midtrans/Xendit utk pasar ID): upgrade plan mandiri.
+3. **API key per tenant + webhook**: membuka integrasi programatik/agen.
+4. **UI unggah berkas** ke KB (enum `upload` sudah ada, tinggal jalurnya).
+5. **Persist sesi widget** (localStorage) + riwayat sesi di halaman Chat.
+6. Reranker/hybrid search bila kualitas retrieval mulai jadi keluhan.
+
+*Metodologi: tiap skor dirujuk ke perilaku yang DISAKSIKAN di produksi
+(screenshot) atau kode bertes; tak ada skor untuk fitur yang belum terlihat
+bekerja. Assessment sebelumnya (2026-07-23, rata-rata 5,3) digantikan
+dokumen ini.*
