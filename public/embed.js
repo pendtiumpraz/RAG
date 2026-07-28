@@ -17,9 +17,13 @@
     (function () { var v = 'v_' + Math.random().toString(36).slice(2); localStorage.setItem('nalar_visitor', v); return v; })();
   var conversationId = null;
 
-  // default brand resmi; ditimpa themeConfig dari server
+  // default brand resmi; ditimpa themeConfig dari server.
+  // logoUrl default = favicon N (mark konstelasi) — bukan huruf "N" polos.
+  // Tenant yang menyetel brand.logo (huruf) sendiri kembali ke mode huruf;
+  // brand.logoUrl memakai gambarnya sendiri.
   var T = { signal: '#2563EB', signalStrong: '#1D4EDB', source: '#F59E0B', radius: '12px',
-    mode: 'light', position: 'right', name: 'Nalar', logo: 'N', showTrace: true, greeting: null };
+    mode: 'light', position: 'right', name: 'Nalar', logo: 'N',
+    logoUrl: host + '/brand/favicon-48.png', showTrace: true, greeting: null };
 
   fetch(host + '/api/chat/' + encodeURIComponent(key))
     .then(function (r) { return r.ok ? r.json() : {}; })
@@ -27,7 +31,11 @@
       var t = (cfg && cfg.themeConfig) || {};
       // sapaan datang dari kolom chatbot, di luar themeConfig
       if (cfg && cfg.greeting) T.greeting = cfg.greeting;
-      if (t.brand) { if (t.brand.name) T.name = t.brand.name; if (t.brand.logo) T.logo = t.brand.logo; }
+      if (t.brand) {
+        if (t.brand.name) T.name = t.brand.name;
+        if (t.brand.logo) { T.logo = t.brand.logo; T.logoUrl = null; } // huruf kustom = mode huruf
+        if (t.brand.logoUrl) T.logoUrl = t.brand.logoUrl;              // gambar kustom menang
+      }
       if (t.theme) {
         var th = t.theme;
         if (th.signal) T.signal = th.signal;
@@ -60,6 +68,9 @@
       '#nalar-panel.open{display:flex}' +
       '.nl-head{display:flex;align-items:center;gap:10px;padding:13px 15px;background:' + panel + ';border-bottom:1px solid ' + line + '}' +
       '.nl-logo{width:30px;height:30px;border-radius:' + rs + ';background:' + T.signal + ';color:' + onSignal + ';display:grid;place-items:center;font-weight:800}' +
+      /* mode gambar: mark N biru butuh latar terang, bukan kotak biru */
+      '.nl-logo.im{background:#fff;border:1px solid ' + line + '}' +
+      '.nl-logo img{width:20px;height:20px;display:block}' +
       '.nl-title{font-weight:700;font-size:14px}.nl-title small{display:block;font-size:9.5px;color:' + mut + ';font-family:ui-monospace,monospace;letter-spacing:.1em}' +
       '.nl-x{margin-left:auto;background:none;border:1px solid ' + line + ';color:' + mut + ';width:28px;height:28px;border-radius:6px;cursor:pointer}' +
       '.nl-msgs{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:11px}' +
@@ -106,7 +117,8 @@
     launch.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 012 2v9a2 2 0 01-2 2H9l-4 4v-4H4a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>';
     var panelEl = document.createElement('div'); panelEl.id = 'nalar-panel';
     panelEl.innerHTML =
-      '<div class="nl-head"><div class="nl-logo">' + esc(T.logo) + '</div>' +
+      '<div class="nl-head"><div class="nl-logo' + (T.logoUrl ? ' im' : '') + '">' +
+        (T.logoUrl ? '<img src="' + esc(T.logoUrl) + '" alt=""/>' : esc(T.logo)) + '</div>' +
         '<div class="nl-title">' + esc(T.name) + '<small>REASONING · SOURCED</small></div>' +
         '<button class="nl-x" aria-label="Tutup">&times;</button></div>' +
       '<div class="nl-msgs" id="nl-msgs"></div>' +
@@ -117,6 +129,11 @@
     wrap.appendChild(launch); wrap.appendChild(panelEl); document.body.appendChild(wrap);
     var msgs = panelEl.querySelector('#nl-msgs');
     var input = panelEl.querySelector('#nl-input');
+    // gambar logo gagal dimuat → jatuh mulus ke mode huruf, jangan kotak pecah
+    var lg = panelEl.querySelector('.nl-logo img');
+    if (lg) lg.onerror = function () {
+      var box = lg.parentNode; box.className = 'nl-logo'; box.textContent = T.logo;
+    };
 
     if (T.greeting) bubble('a', T.greeting);
     launch.onclick = function () { panelEl.classList.toggle('open'); if (panelEl.classList.contains('open')) input.focus(); };
