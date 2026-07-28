@@ -80,7 +80,9 @@ export const usageService = {
     perChatbot: Array<{ chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }>;
     daily: Array<{ day: string; messages: number }>;
   }> {
-    const since = new Date(Date.now() - days * 86_400_000);
+    // ISO string, bukan objek Date — driver menolak Date pada query mentah
+    // (jebakan yang sama pernah tercatat di ops.service).
+    const since = new Date(Date.now() - days * 86_400_000).toISOString();
     return withTenant(tenantId, async (tx) => {
       const per = await tx.execute(sql`
         select a.subject as chatbot_id,
