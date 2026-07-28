@@ -108,6 +108,52 @@
 .sl-note{ margin:auto 0 0; padding-top:1.4cqw; font-size:1.2cqw; line-height:1.5;
   color:#475569; font-style:italic; border-top:1px dashed #B6C2D2; }
 
+/* ── tab Assessment — meter skor visual ─────────────────────────────── */
+.dr-assess{ display:flex; flex-direction:column; gap:var(--sp-4); max-width:1080px; }
+.as-summary{ display:grid; grid-template-columns:1.2fr repeat(4,1fr); gap:12px; }
+@media(max-width:960px){ .as-summary{ grid-template-columns:1fr 1fr; } }
+.as-overall,.as-dim{ background:var(--card); border:1px solid var(--line); border-radius:var(--rad-lg);
+  padding:18px; display:flex; flex-direction:column; gap:8px; }
+.as-overall{ background:var(--ink); border-color:var(--ink); }
+.as-overall .microlabel{ color:#93C5FD; }
+.as-overall b{ font-family:var(--font-display); font-size:46px; line-height:1; color:#fff; letter-spacing:-.03em; }
+.as-overall b small{ font-size:18px; color:#64748B; font-weight:600; }
+.as-overall .delta{ font-family:var(--font-mono); font-size:11.5px; color:#34D399; }
+.as-dim b{ font-family:var(--font-display); font-size:30px; line-height:1; letter-spacing:-.02em; }
+/* pita kesiapan: ≥8 baik · 6–7,9 waspada · <6 bahaya (warna status, hanya utk ANGKA) */
+.as-dim b.ok, .sc.ok{ color:var(--ink); }
+.as-dim b.warn, .sc.warn{ color:var(--source); }
+.as-dim b.bad, .sc.bad{ color:var(--danger); }
+.meter{ display:block; height:6px; border-radius:3px; background:var(--card-3); overflow:hidden; }
+.meter > span{ display:block; height:100%; background:var(--signal); border-radius:3px; }
+
+.as-sec{ background:var(--card); border:1px solid var(--line); border-radius:var(--rad-lg); padding:20px 22px; }
+.as-sec header{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.as-sec h2{ font-family:var(--font-display); font-size:19px; letter-spacing:-.015em; margin:0; }
+.as-badge{ font-family:var(--font-mono); font-size:13px; font-weight:700; padding:3px 10px;
+  border-radius:var(--rad-pill); border:1px solid var(--line); background:var(--card-2); }
+.as-badge.warn{ color:var(--source); } .as-badge.bad{ color:var(--danger); }
+.as-sec .desc{ margin:6px 0 14px; color:var(--muted); font-size:13.5px; }
+.as-rows{ display:flex; flex-direction:column; }
+.as-rows .row{ display:grid; grid-template-columns:220px 140px 44px 1fr; gap:14px; align-items:center;
+  padding:9px 0; border-top:1px solid var(--line); }
+@media(max-width:820px){ .as-rows .row{ grid-template-columns:1fr 90px 40px; }
+  .as-rows .gap{ grid-column:1 / -1; padding-left:0; } }
+.as-rows .nm{ font-size:13.5px; font-weight:600; }
+.as-rows .sc{ font-family:var(--font-mono); font-size:13px; text-align:right; }
+.as-rows .gap{ font-size:12.5px; color:var(--muted); line-height:1.5; }
+
+.as-prio{ margin:14px 0 0; padding:0 0 0 0; list-style:none; counter-reset:prio;
+  display:flex; flex-direction:column; gap:10px; }
+.as-prio li{ counter-increment:prio; display:flex; gap:12px; align-items:baseline;
+  padding:10px 12px; background:var(--card-2); border:1px solid var(--line); border-radius:var(--rad-md); }
+.as-prio li::before{ content:counter(prio); font-family:var(--font-mono); font-weight:700;
+  color:var(--signal); flex:0 0 auto; }
+.as-prio b{ font-size:13.5px; }
+.as-prio span{ font-size:12.5px; color:var(--muted); }
+.as-method{ font-size:12px; color:var(--faint); font-style:italic; margin:0; }
+.as-method code{ font-family:var(--font-mono); }
+
 /* ── cetak: SEMUA slide, 1 slide = 1 halaman 16:9 ───────────────────── */
 .dr-print-all{ display:none; }
 @media print {
@@ -121,4 +167,7 @@
   @page{ size:297mm 167mm; margin:0; }
   .sl-dark{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .sl{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  /* tab Assessment dicetak sebagai laporan potret biasa */
+  .dr-assess{ display:flex; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .as-sec{ break-inside:avoid; }
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import './dataroom.css';
 import { DECKS, type Deck, type Slide } from './decks';
+import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment';
 import { EmptyState, useToast } from '../../_components/ui';
 
 /**
@@ -18,13 +19,14 @@ import { EmptyState, useToast } from '../../_components/ui';
 export default function DataroomPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const [deckId, setDeckId] = useState<Deck['id']>('technical');
+  const [deckId, setDeckId] = useState<Deck['id'] | 'assessment'>('technical');
   const [i, setI] = useState(0);
   const [exporting, setExporting] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
-  const deck = DECKS.find((d) => d.id === deckId)!;
+  const isAssess = deckId === 'assessment';
+  const deck = DECKS.find((d) => d.id === deckId) ?? DECKS[0];
   const total = deck.slides.length;
 
   const go = useCallback((delta: number) => {
@@ -64,12 +66,16 @@ export default function DataroomPage() {
         <div><h1>Dataroom</h1><p className="sub">Pitch deck Nalar — layar, PDF, dan PPTX dari satu sumber. Navigasi: ←/→ · F = fullscreen.</p></div>
         <div className="cluster gap-2">
           <button className="btn btn-sm" onClick={() => window.print()}>Export PDF</button>
-          <button className={`btn btn-sm${exporting ? ' is-loading' : ''}`} disabled={exporting} onClick={toPptx}>
-            Export PPTX
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={() => void stageRef.current?.requestFullscreen?.()}>
-            <Fs /> Fullscreen
-          </button>
+          {!isAssess && (
+            <button className={`btn btn-sm${exporting ? ' is-loading' : ''}`} disabled={exporting} onClick={toPptx}>
+              Export PPTX
+            </button>
+          )}
+          {!isAssess && (
+            <button className="btn btn-primary btn-sm" onClick={() => void stageRef.current?.requestFullscreen?.()}>
+              <Fs /> Fullscreen
+            </button>
+          )}
         </div>
       </div>
 
@@ -82,10 +88,17 @@ export default function DataroomPage() {
             {d.label}
           </button>
         ))}
+        <button role="tab" aria-selected={isAssess}
+          className={`dr-tab${isAssess ? ' on' : ''}`}
+          onClick={() => setDeckId('assessment')}>
+          Assessment
+        </button>
       </div>
 
+      {isAssess && <AssessmentView />}
+
       {/* panggung — juga target fullscreen */}
-      <div className="dr-stage" ref={stageRef}>
+      {!isAssess && <div className="dr-stage" ref={stageRef}>
         <div className="dr-slidebox">
           <SlideView s={deck.slides[i]} />
         </div>
@@ -103,14 +116,79 @@ export default function DataroomPage() {
             <Chev dir="r" />
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* versi cetak: SEMUA slide berurutan (hanya tampak di @media print) */}
-      <div className="dr-print-all">
+      {!isAssess && <div className="dr-print-all">
         {deck.slides.map((s, j) => (
           <div key={j} className="dr-slidebox print"><SlideView s={s} /></div>
         ))}
+      </div>}
+    </div>
+  );
+}
+
+/* ── tab Assessment — meter skor visual (data: assessment.ts) ────────
+   Warna angka mengikuti pita kesiapan (status): ≥8 baik · 6–7,9 waspada
+   (amber) · <6 bahaya. Batang meter selalu satu warna signal (magnitudo). */
+function band(score: number): string {
+  return score >= 8 ? 'ok' : score >= 6 ? 'warn' : 'bad';
+}
+const fmtScore = (n: number) => n.toFixed(1).replace('.', ',');
+
+function AssessmentView() {
+  return (
+    <div className="dr-assess">
+      <div className="as-summary">
+        <div className="as-overall">
+          <span className="microlabel">KESELURUHAN · {ASSESSED_AT}</span>
+          <b>{fmtScore(OVERALL)}<small>/10</small></b>
+          <span className="delta">↑ dari {fmtScore(PREV.score)} ({PREV.at})</span>
+        </div>
+        {DIMENSIONS.map((d) => (
+          <div key={d.id} className="as-dim">
+            <span className="microlabel">{d.label.toUpperCase()}</span>
+            <b className={band(d.score)}>{fmtScore(d.score)}</b>
+            <span className="meter"><span style={{ width: `${d.score * 10}%` }} /></span>
+          </div>
+        ))}
       </div>
+
+      {DIMENSIONS.map((d) => (
+        <section key={d.id} className="as-sec">
+          <header>
+            <h2>{d.label}</h2>
+            <span className={`as-badge ${band(d.score)}`}>{fmtScore(d.score)}/10</span>
+          </header>
+          <p className="desc">{d.desc}</p>
+          <div className="as-rows">
+            {d.areas.map((a) => (
+              <div key={a.name} className="row">
+                <span className="nm">{a.name}</span>
+                <span className="meter"><span style={{ width: `${a.score * 10}%` }} /></span>
+                <b className={`sc ${band(a.score)}`}>{fmtScore(a.score)}</b>
+                <span className="gap">{a.gap}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <section className="as-sec">
+        <header><h2>Prioritas berikutnya</h2><span className="microlabel">DAMPAK ÷ USAHA</span></header>
+        <ol className="as-prio">
+          {PRIORITIES.map((p, i) => (
+            <li key={i}><b>{p.t}</b><span>{p.d}</span></li>
+          ))}
+        </ol>
+      </section>
+
+      <p className="as-method">
+        Metodologi: seluruh halaman produksi dijelajahi & di-screenshot via
+        agent-browser (login superadmin demo); chat & widget diuji dengan
+        pertanyaan nyata. Tak ada skor untuk fitur yang belum disaksikan
+        bekerja. Bukti: <code>docs/assessment/</code>.
+      </p>
     </div>
   );
 }
