@@ -33,11 +33,25 @@ function skipped(bagian: string, e: unknown) {
   }
 }
 
+/** Tenant buatan run ini — di-soft-delete di akhir agar tak jadi sampah di
+ *  daftar superadmin produksi (76 tenant uji pernah menumpuk sebelum ini). */
+const createdTenants: string[] = [];
+
+async function cleanupTenants(): Promise<void> {
+  if (createdTenants.length === 0) return;
+  await client`update tenants set deleted_at = now(), updated_at = now()
+    where id = any(${createdTenants}) and deleted_at is null`;
+  await client`update users set deleted_at = now(), updated_at = now()
+    where tenant_id = any(${createdTenants}) and deleted_at is null`;
+  console.log(`✓ bersih-bersih: ${createdTenants.length} tenant uji di-soft-delete`);
+}
+
 async function main() {
   // 1) signup dua tenant
   const emailA = `a_${rnd()}@smoke.nalar`;
   const a = await authService.signup({ orgName: 'Org A', name: 'Admin A', email: emailA, password: 'password123' });
   const b = await authService.signup({ orgName: 'Org B', name: 'Admin B', email: `b_${rnd()}@smoke.nalar`, password: 'password123' });
+  createdTenants.push(a.tenantId, b.tenantId);
   console.log('✓ signup A tenant=' + a.tenantId.slice(0, 8) + ' · B tenant=' + b.tenantId.slice(0, 8));
 
   // 2) login benar/salah
@@ -148,6 +162,7 @@ async function main() {
     const g = await authService.signup({
       orgName: 'Smoke Gate', name: 'Gate', email: gateEmail, password: 'password123',
     });
+    createdTenants.push(g.tenantId);
     const blocked = await authService.verifyCredentials(gateEmail, 'password123');
     const why = await authService.credentialOutcome(gateEmail, 'password123');
     const wrongPw = await authService.credentialOutcome(gateEmail, 'salah');
@@ -212,6 +227,7 @@ async function main() {
     skipped('api key provider', e);
   }
 
+  await cleanupTenants();
   if (skippedCount > 0 && !STRICT) {
     console.log(`\n⚠ ${skippedCount} bagian dilewati — jalankan dengan SMOKE_STRICT=1 agar itu dihitung gagal.`);
   }
