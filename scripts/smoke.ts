@@ -79,6 +79,17 @@ async function main() {
     if (before.length !== 0 || hits.length === 0) {
       console.log('✗ D11 assignment GAGAL'); process.exitCode = 1;
     }
+
+    // D11 + RLS: KB milik tenant A TIDAK terlihat dan TIDAK bisa dipakai
+    // tenant B — jaminan isolasi knowledge base antar-tenant.
+    const kbListB = await knowledgeBaseService.list(b.tenantId);
+    const kbVisible = kbListB.some((k) => k.id === kb.id);
+    let crossAssignRejected = false;
+    try { await knowledgeBaseService.setAssignments(b.tenantId, a.id, kb.id, []); }
+    catch { crossAssignRejected = true; }
+    console.log('✓ isolasi KB: terlihat dari tenant B=' + (kbVisible ? 'YA(BAHAYA)' : 'TIDAK')
+      + ' · assign lintas-tenant ditolak=' + crossAssignRejected);
+    if (kbVisible || !crossAssignRejected) { console.log('✗ ISOLASI KB GAGAL'); process.exitCode = 1; }
   } catch (e) {
     skipped('ingest/retrieve', e);
   }

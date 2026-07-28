@@ -169,6 +169,25 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('daftar pesan') } },
     },
+    '/api/admin/conversations': {
+      get: { summary: 'SUPERADMIN: sesi percakapan tenant mana pun (lintas-tenant, GUC 0017); chatbots=1 = daftar chatbot tenant',
+        security: [sessionAuth],
+        parameters: [
+          { name: 'tenantId', in: 'query', required: true, schema: uuid },
+          { name: 'chatbotId', in: 'query', required: false, schema: uuid },
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer' } },
+          { name: 'chatbots', in: 'query', required: false, schema: str },
+        ],
+        responses: { 200: err('{ rows, total, page, pages } | chatbot[]') } },
+    },
+    '/api/admin/conversations/{id}': {
+      get: { summary: 'SUPERADMIN: transkrip satu sesi tenant mana pun', security: [sessionAuth],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: uuid },
+          { name: 'tenantId', in: 'query', required: true, schema: uuid },
+        ],
+        responses: { 200: err('daftar pesan (blocks + citations)') } },
+    },
     '/api/team/members/{id}': {
       patch: { summary: 'RBAC tenant: ubah peran anggota (admin ⇄ member; admin terakhir dilindungi)', security: [sessionAuth],
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],

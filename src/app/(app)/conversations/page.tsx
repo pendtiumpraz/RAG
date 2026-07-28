@@ -1,21 +1,40 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useApi, api } from '../../_lib/api';
 import { Skeleton, EmptyState, ErrorState, Pager, type PageMeta } from '../../_components/ui';
 import { AnswerBlocks, renderCited } from '../../_components/answer-blocks';
 import { plainTextToBlocks, type AnswerBlock } from '@/modules/chat/blocks';
 
 interface Chatbot { id: string; name: string }
-interface Convo { id: string; visitorId: string | null; startedAt: string; preview: string | null; count: number }
+interface Convo { id: string; visitorId: string | null; startedAt: string; preview: string | null; count: number; chatbotName?: string }
 interface Message { id: string; role: string; content: string; blocks: AnswerBlock[] | null; citations: Array<{ documentId: string; score: number; title?: string | null }> | null; createdAt: string }
 interface ConvoPage extends PageMeta { rows: Convo[] }
+interface AdminBilling { tenants: Array<{ tenantId: string; tenantName: string }> }
 
 export default function ConversationsPage() {
-  const bots = useApi<Chatbot[]>('/api/chatbots');
+  const { data: session } = useSession();
+  const isSuper = session?.user?.role === 'superadmin';
+
+  /* Mode superadmin: pilih TENANT mana pun → chatbot divisinya → sesi →
+     transkrip (endpoint /api/admin/*, lintas-tenant via GUC 0017).
+     tenantId '' = tenant sendiri → endpoint biasa ber-RLS, persis yang
+     dilihat tenant biasa (mereka tak pernah bisa keluar dari isolasinya). */
+  const [tenantId, setTenantId] = useState('');
+  const tenants = useApi<AdminBilling>(isSuper ? '/api/admin/billing' : null);
+  const adminMode = isSuper && tenantId !== '';
+
   const [chatbotId, setChatbotId] = useState('');
   const [page, setPage] = useState(1);
-  const list = useApi<ConvoPage>(`/api/conversations?page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}`);
+  const ownBots = useApi<Chatbot[]>(!adminMode ? '/api/chatbots' : null);
+  const tenantBots = useApi<Chatbot[]>(adminMode ? `/api/admin/conversations?tenantId=${tenantId}&chatbots=1` : null);
+  const bots = adminMode ? tenantBots : ownBots;
+
+  const listUrl = adminMode
+    ? `/api/admin/conversations?tenantId=${tenantId}&page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}`
+    : `/api/conversations?page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}`;
+  const list = useApi<ConvoPage>(listUrl);
   const [active, setActive] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Message[] | null>(null);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
@@ -27,17 +46,33 @@ export default function ConversationsPage() {
   useEffect(() => {
     if (!active) { setMsgs(null); return; }
     setLoadingMsgs(true);
-    api<Message[]>(`/api/conversations/${active}`).then(setMsgs).catch(() => setMsgs([])).finally(() => setLoadingMsgs(false));
-  }, [active]);
+    const url = adminMode ? `/api/admin/conversations/${active}?tenantId=${tenantId}` : `/api/conversations/${active}`;
+    api<Message[]>(url).then(setMsgs).catch(() => setMsgs([])).finally(() => setLoadingMsgs(false));
+  }, [active, adminMode, tenantId]);
+
+  function resetView() { setActive(null); setPage(1); setMsgs(null); }
 
   return (
     <>
       <div className="page-head">
-        <div><h1>Conversations</h1><p className="sub">Riwayat percakapan lengkap dengan sitasi sumber di tiap jawaban.</p></div>
-        <select className="select" style={{ width: 200, minHeight: 40 }} value={chatbotId} onChange={(e) => { setChatbotId(e.target.value); setActive(null); setPage(1); }}>
-          <option value="">Semua chatbot</option>
-          {bots.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+        <div><h1>Conversations</h1><p className="sub">
+          Riwayat percakapan lengkap dengan sitasi sumber di tiap jawaban.
+          {isSuper ? ' Superadmin bisa meninjau tenant mana pun; tenant hanya melihat miliknya (RLS).' : ''}
+        </p></div>
+        <div className="cluster gap-2">
+          {isSuper && (
+            <select className="select" style={{ width: 200, minHeight: 40 }} value={tenantId}
+              onChange={(e) => { setTenantId(e.target.value); setChatbotId(''); resetView(); }}>
+              <option value="">Tenant saya</option>
+              {tenants.data?.tenants.map((t) => <option key={t.tenantId} value={t.tenantId}>{t.tenantName}</option>)}
+            </select>
+          )}
+          <select className="select" style={{ width: 200, minHeight: 40 }} value={chatbotId}
+            onChange={(e) => { setChatbotId(e.target.value); resetView(); }}>
+            <option value="">Semua chatbot</option>
+            {bots.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="card" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', minHeight: 480 }}>
@@ -51,7 +86,9 @@ export default function ConversationsPage() {
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '13px 16px', border: 'none',
                   borderBottom: '1px solid var(--line)', cursor: 'pointer', borderLeft: `2px solid ${active === c.id ? 'var(--signal)' : 'transparent'}`,
                   background: active === c.id ? 'var(--card-2)' : 'transparent' }}>
-                <div className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{c.visitorId ?? 'visitor'}</div>
+                <div className="mono" style={{ fontSize: 12, fontWeight: 600 }}>
+                  {c.chatbotName ? `${c.chatbotName} · ` : ''}{c.visitorId ?? 'visitor'}
+                </div>
                 <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{c.preview ?? '(kosong)'}</div>
                 <div className="microlabel" style={{ marginTop: 4 }}>{new Date(c.startedAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })} · {c.count} pesan</div>
               </button>
