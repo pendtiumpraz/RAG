@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { count, isNull } from 'drizzle-orm';
 import { getCurrentUser } from '@/modules/core/auth';
 import { usageService } from '@/modules/usage/usage.service';
+import { withTenant } from '@/modules/core/db/tenant-context';
+import { chatbots } from '@/modules/core/db';
 import { platformSettingsService } from '@/modules/payments/platform-settings.service';
 import { paymentGatewayService } from '@/modules/payments/payment-gateway.service';
 import { PLAN_FEATURES, FEATURE_MIN_PLAN } from '@/modules/core/limits';
@@ -28,7 +31,14 @@ export async function GET() {
   const plan = onprem ? 'onprem' : snap.plan;
   const gw = onprem ? null : await paymentGatewayService.getActive();
 
+  // Layar pilih-paket hanya untuk yang BENAR-BENAR baru: masih Free dan
+  // belum punya satu chatbot pun. Orang yang sudah mulai bekerja tak
+  // diganggu tiap login (dan on-prem tak pernah melihatnya sama sekali).
+  const botCount = onprem ? 1 : Number((await withTenant(user.tenantId, (tx) =>
+    tx.select({ n: count() }).from(chatbots).where(isNull(chatbots.deletedAt))))[0]?.n ?? 0);
+
   return NextResponse.json({
+    shouldOnboard: !onprem && plan === 'free' && botCount === 0,
     plan,
     planOnPaper: snap.planOnPaper,
     expired: snap.expired,

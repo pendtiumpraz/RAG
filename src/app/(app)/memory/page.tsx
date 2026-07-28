@@ -93,7 +93,7 @@ function MemoryPageInner() {
    Canvas tanpa dependensi — ratusan node tetap 60fps. */
 interface SimNode {
   id: string; title: string; slug: string;
-  x: number; y: number; vx: number; vy: number; r: number; deg: number;
+  x: number; y: number; vx: number; vy: number; r: number; deg: number; seed: number;
 }
 
 function GraphView({ graph }: { graph: Graph }) {
@@ -119,6 +119,7 @@ function GraphView({ graph }: { graph: Graph }) {
         id: n.id, title: n.title, slug: n.slug,
         x: Math.cos(a) * rr, y: Math.sin(a) * rr, vx: 0, vy: 0,
         deg: d, r: Math.min(4 + Math.sqrt(d) * 2.4, 14),
+        seed: (i * 2.399963) % (Math.PI * 2), // sudut emas → fase tersebar rata
       };
     });
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -179,7 +180,7 @@ function GraphView({ graph }: { graph: Graph }) {
 
     canvas.addEventListener('pointerdown', (e) => {
       const n = pick(e.offsetX, e.offsetY);
-      if (n) { drag = n; alpha = Math.max(alpha, 0.35); }
+      if (n) { drag = n; alpha = Math.max(alpha, 2.2); } // reheat: gugus ikut bergolak
       else { panning = true; }
       px = e.offsetX; py = e.offsetY;
       canvas.setPointerCapture(e.pointerId);
@@ -188,7 +189,7 @@ function GraphView({ graph }: { graph: Graph }) {
       if (drag) {
         const p = toWorld(e.offsetX, e.offsetY);
         drag.x = p.x; drag.y = p.y; drag.vx = 0; drag.vy = 0;
-        alpha = Math.max(alpha, 0.3);
+        alpha = Math.max(alpha, 1.8);
       } else if (panning) {
         tx += e.offsetX - px; ty += e.offsetY - py;
         px = e.offsetX; py = e.offsetY;
@@ -210,9 +211,21 @@ function GraphView({ graph }: { graph: Graph }) {
       scale = ns;
     }, { passive: false });
 
-    /* — fisika: repulsi + pegas + gravitasi pusat — */
-    function step() {
-      const REPULSE = 1400, SPRING = 0.035, REST = 70, GRAVITY = 0.012, DAMP = 0.82;
+    /* — fisika: semesta hidup, tak pernah membeku ─────────────────────
+       Gaya SELALU penuh (tidak diperkecil "pendinginan"): itulah bedanya
+       graph yang hidup dgn gambar diam. Akibatnya nyata:
+        • yang ter-link saling MENARIK — menempel jadi gugus;
+        • yang tak ter-link saling MENOLAK — gugus lain menyingkir;
+        • menyeret satu node MENYERET tetangganya (pegas menular), yang
+          tak terkait justru terdorong menjauh;
+        • denyut halus per-node membuatnya mengambang seperti benda langit.
+       `alpha` tinggal pengganda ENERGI TAMBAHAN sesudah interaksi (reheat),
+       tak pernah nol — bukan lagi tombol mati. */
+    function step(now: number) {
+      const REPULSE = 2400, SPRING = 0.05, REST = 62, GRAVITY = 0.005;
+      const DAMP = 0.90, MAX_V = 7, BREATH = 0.045;
+      const t = now * 0.00035;
+
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i];
         for (let j = i + 1; j < nodes.length; j++) {
@@ -220,26 +233,38 @@ function GraphView({ graph }: { graph: Graph }) {
           let dx = a.x - b.x, dy = a.y - b.y;
           let d2 = dx * dx + dy * dy;
           if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
-          const f = (REPULSE * alpha) / d2;
+          // batasi gaya jarak-dekat: tanpa ini dua node berimpit saling
+          // melontarkan diri dan seluruh graph meledak
+          const f = Math.min(REPULSE / d2, 3.5) * alpha;
           const d = Math.sqrt(d2);
           a.vx += (dx / d) * f; a.vy += (dy / d) * f;
           b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
         }
-        a.vx -= a.x * GRAVITY * alpha; a.vy -= a.y * GRAVITY * alpha;
+        // gravitasi lemah ke pusat — supaya gugus tak melayang keluar layar
+        a.vx -= a.x * GRAVITY; a.vy -= a.y * GRAVITY;
+        // denyut: tiap node punya fase sendiri → mengambang, bukan bergetar
+        a.vx += Math.cos(t + a.seed) * BREATH;
+        a.vy += Math.sin(t * 1.13 + a.seed * 1.7) * BREATH;
       }
+
       for (const l of links) {
         const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y;
         const d = Math.max(1, Math.hypot(dx, dy));
-        const f = SPRING * alpha * (d - REST);
+        // pegas penuh: inilah yang membuat tetangga IKUT saat node diseret
+        const f = SPRING * (d - REST);
         l.a.vx += (dx / d) * f; l.a.vy += (dy / d) * f;
         l.b.vx -= (dx / d) * f; l.b.vy -= (dy / d) * f;
       }
+
       for (const n of nodes) {
-        if (n === drag) continue;
+        if (n === drag) { n.vx = 0; n.vy = 0; continue; } // yang diseret ikut kursor
         n.vx *= DAMP; n.vy *= DAMP;
+        const v = Math.hypot(n.vx, n.vy);
+        if (v > MAX_V) { n.vx = (n.vx / v) * MAX_V; n.vy = (n.vy / v) * MAX_V; }
         n.x += n.vx; n.y += n.vy;
       }
-      alpha = Math.max(0.02, alpha * 0.996);
+      // energi tambahan mereda ke 1 (bukan ke nol) — gerak dasarnya abadi
+      alpha = alpha > 1 ? Math.max(1, alpha * 0.985) : 1;
     }
 
     /* — gambar — */
@@ -285,8 +310,10 @@ function GraphView({ graph }: { graph: Graph }) {
     }
 
     let raf = 0;
-    const loop = () => { if (alpha > 0.021 || hover || drag) step(); draw(); raf = requestAnimationFrame(loop); };
-    loop();
+    // Selalu melangkah — graph ini memang hidup terus. Saat tab tersembunyi
+    // browser menghentikan rAF sendiri, jadi tak ada CPU terbuang di latar.
+    const loop = (now: number) => { step(now); draw(); raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop);
 
     return () => { cancelAnimationFrame(raf); ro.disconnect(); themeObs.disconnect(); };
   }, [graph]);

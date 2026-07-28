@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../_lib/api';
-import { useEntitlements } from '../../_components/entitlements';
+import { useEntitlements, SKIP_ONBOARD_KEY } from '../../_components/entitlements';
 import { Skeleton, useToast } from '../../_components/ui';
 
 /**
@@ -82,7 +82,7 @@ export default function WelcomePage() {
               {current ? (
                 <button className="btn" disabled>Paket aktifmu</button>
               ) : p === 'free' ? (
-                <button className="btn" onClick={() => router.push('/dashboard')}>Lanjut dengan Free</button>
+                <button className="btn" onClick={() => { sessionStorage.setItem(SKIP_ONBOARD_KEY, '1'); router.push('/dashboard'); }}>Lanjut dengan Free</button>
               ) : ent.canUpgrade ? (
                 <button className={`btn btn-primary${busy === p ? ' is-loading' : ''}`}
                   disabled={!!busy} onClick={() => buy(p)}>Bayar QRIS</button>
@@ -95,7 +95,7 @@ export default function WelcomePage() {
       </div>
 
       <footer>
-        <button className="btn btn-ghost" onClick={() => router.push('/dashboard')}>
+        <button className="btn btn-ghost" onClick={() => { sessionStorage.setItem(SKIP_ONBOARD_KEY, '1'); router.push('/dashboard'); }}>
           Lewati — jelajahi dulu dengan paket Free →
         </button>
       </footer>

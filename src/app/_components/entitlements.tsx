@@ -11,6 +11,8 @@ import type { Feature } from '@/modules/core/limits';
  */
 
 export interface Entitlements {
+  /** true = pendaftar benar-benar baru (Free & belum punya chatbot) */
+  shouldOnboard: boolean;
   plan: string;
   planOnPaper: string;
   expired: boolean;
@@ -22,6 +24,10 @@ export interface Entitlements {
   planPrices: Record<string, number>;
   usage: { messages: number; messagesLimit: number | null };
 }
+
+/** Penanda sesi: pengguna memilih menjelajah dulu — jangan tawarkan
+ *  layar paket lagi sampai tab ditutup. */
+export const SKIP_ONBOARD_KEY = 'nalar.skipWelcome';
 
 export function useEntitlements() {
   return useApi<Entitlements>('/api/entitlements');

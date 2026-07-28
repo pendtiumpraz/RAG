@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import './shell.css';
 import { Icon, type IconName } from '../_components/icons';
 import { Logo, ToastProvider } from '../_components/ui';
 import { toggleTheme } from '../providers';
-import { useEntitlements, hasFeature, LockIcon } from '../_components/entitlements';
+import { useEntitlements, hasFeature, LockIcon, SKIP_ONBOARD_KEY } from '../_components/entitlements';
 import type { Feature } from '@/modules/core/limits';
 
 interface NavItem { href: string; label: string; icon: IconName; superadmin?: boolean; feature?: Feature }
@@ -44,6 +44,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? 'N').charAt(0).toUpperCase();
   const { data: ent } = useEntitlements();
+  const router = useRouter();
+
+  /* Onboarding sekali: hanya dari /dashboard (tujuan default sesudah login)
+     dan hanya untuk yang benar-benar baru. Menawarkannya dari setiap halaman
+     akan terasa seperti paywall yang mengejar-ngejar. */
+  useEffect(() => {
+    if (pathname !== '/dashboard' || !ent?.shouldOnboard) return;
+    if (sessionStorage.getItem(SKIP_ONBOARD_KEY)) return;
+    router.replace('/welcome');
+  }, [pathname, ent?.shouldOnboard, router]);
   const nav = NAV.map((g) => ({
     ...g,
     items: g.items.filter((it) => !it.superadmin || user?.role === 'superadmin'),
