@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/modules/core/auth';
+import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { memoryService } from '@/modules/memory/memory.service';
 
 export const runtime = 'nodejs';
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/memory/vault — write-back vault ke Google Drive user. */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const body = await req.json().catch(() => ({}));
   const chatbotId: string | undefined = body.chatbotId;
   if (!chatbotId) return NextResponse.json({ error: 'chatbotId wajib' }, { status: 400 });

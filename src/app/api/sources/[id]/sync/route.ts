@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { getCurrentUser } from '@/modules/core/auth';
+import { requireRole } from '@/modules/core/auth';
 import { syncService } from '@/modules/knowledge/sync.service';
 import { jobsSettled } from '@/modules/core/jobs';
 
@@ -14,7 +14,7 @@ export const maxDuration = 60;
  * `?full=1` memaksa re-ingest semua file (mis. setelah ganti model embedding).
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   const full = req.nextUrl.searchParams.get('full') === '1';
   const status = syncService.enqueue(user.tenantId, user.id, id, full);

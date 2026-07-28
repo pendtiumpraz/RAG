@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { requireRole } from '@/modules/core/auth';
 import { chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
 
 export const runtime = 'nodejs';
@@ -16,7 +16,7 @@ const PatchBody = z.object({
 
 /** PATCH /api/chatbots/:id — update. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   const parsed = PatchBody.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 /** DELETE /api/chatbots/:id — SOFT delete + kaskade app-level (Rule #3). */
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   try {
     await chatbotService.softDelete(user.tenantId, id);

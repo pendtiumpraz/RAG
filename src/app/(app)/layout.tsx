@@ -25,6 +25,7 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
   ] },
   { group: 'Organisasi', items: [
     { href: '/team', label: 'Team', icon: 'users' },
+    { href: '/usage', label: 'Usage', icon: 'pulse' },
     { href: '/billing', label: 'Billing', icon: 'card' },
     { href: '/observability', label: 'Observability', icon: 'pulse' },
     // superadmin: item difilter per-role, bukan grup terpisah — grup sendiri

@@ -24,6 +24,24 @@ export default function TeamPage() {
   const members = useApi<Member[]>('/api/team/members');
   const invites = useApi<Invitation[]>(canInvite ? '/api/team/invitations' : null);
   const [inviting, setInviting] = useState(false);
+  const toast = useToast();
+
+  /* RBAC tenant: admin bisa mengubah peran & mengeluarkan anggota.
+     Superadmin & diri sendiri tak bisa disentuh dari sini; pengaman admin
+     terakhir ditegakkan server (jangan percaya UI saja). */
+  async function changeRole(m: Member, role: string) {
+    try {
+      await api(`/api/team/members/${m.id}`, { method: 'PATCH', body: JSON.stringify({ role }) });
+      toast(`${m.email} sekarang ${role}`); members.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); members.refetch(); }
+  }
+  async function removeMember(m: Member) {
+    if (!confirm(`Keluarkan ${m.email} dari organisasi? Aksesnya dicabut seketika.`)) return;
+    try {
+      await api(`/api/team/members/${m.id}`, { method: 'DELETE' });
+      toast(`${m.email} dikeluarkan`); members.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
 
   return (
     <>
@@ -43,17 +61,33 @@ export default function TeamPage() {
           : members.loading || !members.data ? <Skeleton rows={2} />
           : (
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th><th>Bergabung</th></tr></thead>
+              <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th><th>Bergabung</th>{canInvite && <th />}</tr></thead>
               <tbody>
-                {members.data.map((m) => (
-                  <tr key={m.id}>
-                    <td><b>{m.name ?? '—'}</b>{m.email === u?.email && <span className="microlabel" style={{ marginLeft: 8 }}>KAMU</span>}</td>
-                    <td style={{ color: 'var(--muted)' }}>{m.email}</td>
-                    <td><span className="badge badge-source">{m.role}</span></td>
-                    <td><StatusBadge status={m.status} /></td>
-                    <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{m.createdAt?.slice(0, 10)}</td>
-                  </tr>
-                ))}
+                {members.data.map((m) => {
+                  const untouchable = m.role === 'superadmin' || m.email === u?.email;
+                  return (
+                    <tr key={m.id}>
+                      <td><b>{m.name ?? '—'}</b>{m.email === u?.email && <span className="microlabel" style={{ marginLeft: 8 }}>KAMU</span>}</td>
+                      <td style={{ color: 'var(--muted)' }}>{m.email}</td>
+                      <td>
+                        {canInvite && !untouchable ? (
+                          <select className="select" style={{ width: 120, minHeight: 34, padding: '4px 30px 4px 10px' }}
+                            value={m.role} onChange={(e) => changeRole(m, e.target.value)}>
+                            <option value="admin">admin</option>
+                            <option value="member">member</option>
+                          </select>
+                        ) : <span className="badge badge-source">{m.role}</span>}
+                      </td>
+                      <td><StatusBadge status={m.status} /></td>
+                      <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{m.createdAt?.slice(0, 10)}</td>
+                      {canInvite && (
+                        <td>{!untouchable && (
+                          <button className="btn btn-sm btn-ghost" onClick={() => removeMember(m)}>Keluarkan</button>
+                        )}</td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table></div>
           )}

@@ -62,6 +62,50 @@ export const invitationService = {
         .orderBy(desc(users.createdAt)));
   },
 
+  /**
+   * RBAC tenant — ubah peran anggota (admin ⇄ member).
+   * Pengaman: target superadmin tak tersentuh (peran platform, bukan tenant);
+   * admin TERAKHIR tak boleh diturunkan — tanpa admin, tenant lumpuh
+   * (tak ada yang bisa mengelola chatbot/KB/tim).
+   */
+  async setMemberRole(tenantId: string, actorId: string, userId: string, role: 'admin' | 'member') {
+    return withTenant(tenantId, async (tx) => {
+      const target = (await tx.select().from(users)
+        .where(and(eq(users.id, userId), isNull(users.deletedAt))).limit(1))[0];
+      if (!target) throw new ValidationError('Anggota tidak ditemukan');
+      if (target.role === 'superadmin') throw new ValidationError('Peran superadmin dikelola platform, bukan tenant');
+      if (target.role === role) return { id: target.id, role };
+
+      if (target.role === 'admin' && role === 'member') {
+        const admins = await tx.select({ id: users.id }).from(users).where(and(
+          eq(users.role, 'admin'), isNull(users.deletedAt)));
+        if (admins.length <= 1) throw new ValidationError('Admin terakhir tidak boleh diturunkan');
+      }
+      await tx.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId));
+      await audit(tenantId, actorId, 'team.role_changed', userId, { from: target.role, to: role });
+      return { id: userId, role };
+    });
+  },
+
+  /** Keluarkan anggota (soft delete — bisa dipulihkan platform bila keliru). */
+  async removeMember(tenantId: string, actorId: string, userId: string) {
+    if (actorId === userId) throw new ValidationError('Tidak bisa mengeluarkan diri sendiri');
+    return withTenant(tenantId, async (tx) => {
+      const target = (await tx.select().from(users)
+        .where(and(eq(users.id, userId), isNull(users.deletedAt))).limit(1))[0];
+      if (!target) throw new ValidationError('Anggota tidak ditemukan');
+      if (target.role === 'superadmin') throw new ValidationError('Superadmin tidak bisa dikeluarkan dari sini');
+      if (target.role === 'admin') {
+        const admins = await tx.select({ id: users.id }).from(users).where(and(
+          eq(users.role, 'admin'), isNull(users.deletedAt)));
+        if (admins.length <= 1) throw new ValidationError('Admin terakhir tidak boleh dikeluarkan');
+      }
+      await tx.update(users).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
+      await audit(tenantId, actorId, 'team.member_removed', userId, { email: target.email });
+      return { id: userId };
+    });
+  },
+
   async listInvitations(tenantId: string): Promise<InvitationView[]> {
     const rows = await withTenant(tenantId, (tx) =>
       tx.select().from(invitations)

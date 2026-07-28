@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { settingsService } from '@/modules/settings/settings.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { ALL_PROVIDERS } from '@/modules/core/registry';
@@ -43,7 +43,7 @@ const Body = z.object({
 
 /** POST /api/settings — simpan model aktif / prompt / theme / API keys. */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 

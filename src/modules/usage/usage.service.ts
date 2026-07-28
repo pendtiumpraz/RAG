@@ -69,6 +69,49 @@ export const usageService = {
     }
   },
 
+  /**
+   * Rincian pemakaian utk dashboard monitoring: PER CHATBOT + tren harian.
+   * Sumber: audit_logs `chat.turn` (tiap giliran mencatat tokensIn/Out dan
+   * subject = chatbotId) — tanpa tabel/pelacakan baru, dan tetap di bawah
+   * RLS tenant (withTenant). Chatbot terhapus tetap tampil (label khusus)
+   * supaya angka periode tak diam-diam menyusut.
+   */
+  async breakdown(tenantId: string, days = 30): Promise<{
+    perChatbot: Array<{ chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }>;
+    daily: Array<{ day: string; messages: number }>;
+  }> {
+    const since = new Date(Date.now() - days * 86_400_000);
+    return withTenant(tenantId, async (tx) => {
+      const per = await tx.execute(sql`
+        select a.subject as chatbot_id,
+               coalesce(c.name, '(chatbot terhapus)') as name,
+               count(*)::int as messages,
+               coalesce(sum((a.meta->>'tokensIn')::int), 0)::int as tin,
+               coalesce(sum((a.meta->>'tokensOut')::int), 0)::int as tout
+        from audit_logs a
+        left join chatbots c on c.id::text = a.subject
+        where a.action = 'chat.turn' and a.deleted_at is null
+          and a.created_at >= ${since}
+        group by 1, 2
+        order by messages desc
+      `);
+      const daily = await tx.execute(sql`
+        select to_char(date_trunc('day', a.created_at), 'YYYY-MM-DD') as day,
+               count(*)::int as messages
+        from audit_logs a
+        where a.action = 'chat.turn' and a.deleted_at is null
+          and a.created_at >= ${since}
+        group by 1 order by 1
+      `);
+      return {
+        perChatbot: (per as unknown as Array<{ chatbot_id: string; name: string; messages: number; tin: number; tout: number }>)
+          .map((r) => ({ chatbotId: r.chatbot_id, name: r.name, messages: Number(r.messages), tokensIn: Number(r.tin), tokensOut: Number(r.tout) })),
+        daily: (daily as unknown as Array<{ day: string; messages: number }>)
+          .map((r) => ({ day: r.day, messages: Number(r.messages) })),
+      };
+    });
+  },
+
   /** Increment atomik setelah giliran selesai (upsert per tenant+periode). */
   async recordTurn(tenantId: string, tokensIn: number, tokensOut: number): Promise<void> {
     const period = currentPeriod();

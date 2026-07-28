@@ -169,6 +169,21 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('daftar pesan') } },
     },
+    '/api/team/members/{id}': {
+      patch: { summary: 'RBAC tenant: ubah peran anggota (admin ⇄ member; admin terakhir dilindungi)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ role: str }, ['role'])),
+        responses: { 200: err('{ id, role }'), 422: err('pengaman ditolak') } },
+      delete: { summary: 'Keluarkan anggota (soft delete)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ id }'), 422: err('pengaman ditolak') } },
+    },
+    '/api/usage/breakdown': {
+      get: { summary: 'Monitoring pemakaian: rincian per-chatbot + tren harian (+harga model aktif utk estimasi biaya)',
+        security: [sessionAuth],
+        parameters: [{ name: 'days', in: 'query', required: false, schema: { type: 'integer' } }],
+        responses: { 200: err('{ days, model, price, perChatbot[], daily[] }') } },
+    },
     '/api/connections/{provider}/start': {
       get: { summary: 'Mulai OAuth connect akun storage → redirect ke consent',
         security: [sessionAuth],

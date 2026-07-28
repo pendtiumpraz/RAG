@@ -38,6 +38,7 @@ function currentPeriod(): string {
 const rows = <T>(r: unknown): T[] => (r as unknown as T[]) ?? [];
 
 export const opsService = {
+
   /** @param hours jendela waktu untuk aksi & galat (default 24 jam). */
   async summary(hours = 24): Promise<OpsSummary> {
     const period = currentPeriod();

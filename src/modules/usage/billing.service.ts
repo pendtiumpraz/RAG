@@ -81,7 +81,12 @@ export const billingService = {
    */
   async listAllTenants(): Promise<TenantBilling[]> {
     const period = currentPeriod();
-    const rows = await db.execute<{
+    // GUC platform_admin WAJIB: tanpa ini join usage_counters/users/chatbots
+    // tersaring RLS jadi NOL SEMUA secara diam-diam (bug nyata sebelum 0017 —
+    // komentar lama mengklaim "dilewati secara sadar" tanpa mekanisme apa pun).
+    const rows = await db.transaction(async (tx) => {
+      await tx.execute(sql`select set_config('app.admin_context', 'platform_admin', true)`);
+      return tx.execute<{
       id: string; name: string; plan: string; plan_expires_at: Date | null;
       members: string; chatbots: string; messages: string; tokens_in: string; tokens_out: string;
     }>(sql`
@@ -97,6 +102,7 @@ export const billingService = {
       where t.deleted_at is null
       order by t.created_at desc
     `);
+    });
 
     return (rows as unknown as Array<Record<string, unknown>>).map((r) => {
       const planOnPaper = String(r.plan);

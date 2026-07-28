@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq, isNull } from 'drizzle-orm';
 import { dataSources } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { getCurrentUser } from '@/modules/core/auth';
+import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { syncService } from '@/modules/knowledge/sync.service';
 import { jobsSettled } from '@/modules/core/jobs';
 
@@ -34,7 +34,7 @@ const Body = z.object({
 
 /** POST /api/sources — hubungkan sumber → langsung antre sync pertama. */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 

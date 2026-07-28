@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { requireRole } from '@/modules/core/auth';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { testProviderKey } from '@/modules/settings/key-test.service';
 import { ALL_PROVIDERS, type Provider } from '@/modules/core/registry';
@@ -20,7 +20,7 @@ const Body = z.object({ provider: z.string().min(1) });
  * Dibatasi lajunya: tiap panggilan menembak API pihak ketiga.
  */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
 
   const rl = rateLimit(`test-key:${user.tenantId}`, 10, 10 / 60);
   if (!rl.ok) {

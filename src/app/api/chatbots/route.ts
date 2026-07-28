@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
 
 export const runtime = 'nodejs';
@@ -23,7 +23,7 @@ const CreateBody = z.object({
 
 /** POST /api/chatbots — buat chatbot → balikan termasuk embed snippet. */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const parsed = CreateBody.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 

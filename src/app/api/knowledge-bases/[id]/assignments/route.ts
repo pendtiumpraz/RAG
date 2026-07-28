@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { requireRole } from '@/modules/core/auth';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
@@ -14,7 +14,7 @@ const Body = z.object({ chatbotIds: z.array(z.string().uuid()).max(100) });
  * Inilah inti D11 — 1 KB ↔ N chatbot.
  */
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });

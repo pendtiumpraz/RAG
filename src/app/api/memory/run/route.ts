@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { jobsSettled } from '@/modules/core/jobs';
 
@@ -12,7 +12,7 @@ const Body = z.object({ chatbotId: z.string().uuid() });
 
 /** POST /api/memory/run — jalankan Memory Agent (L1–L4) utk satu chatbot. */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: 'chatbotId wajib (uuid)' }, { status: 400 });
 

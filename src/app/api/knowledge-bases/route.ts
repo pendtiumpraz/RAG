@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
@@ -19,7 +19,7 @@ const Body = z.object({
 
 /** POST /api/knowledge-bases — buat KB baru (D11). */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   try {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/modules/core/auth';
+import { requireRole } from '@/modules/core/auth';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
@@ -13,7 +13,7 @@ const Body = z.object({
 
 /** PATCH /api/knowledge-bases/:id — ubah nama/deskripsi. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
 /** DELETE /api/knowledge-bases/:id — soft delete (cascade assignment+sumber+dokumen). */
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
+  const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   try {
     return NextResponse.json(await knowledgeBaseService.softDelete(user.tenantId, user.id, id));
