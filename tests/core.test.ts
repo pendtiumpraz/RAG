@@ -531,3 +531,27 @@ test('guardrail L2: trigger "blocks":[ di dokumen dinetralkan', async () => {
   assert.equal(got[0].text, 'Jawaban resmi [1]');
   assert.ok(!JSON.stringify(got).includes('TRANSFER'));
 });
+
+/* ── akurasi dokumen berversi: "RAB 2020" tak boleh tercampur 2021/2022 ── */
+test('retrieval: titleBoost memenangkan dokumen tahun yang DITANYA', async () => {
+  const { queryTokens, titleBoost } = await import('../src/modules/chat/retrieval.service');
+
+  const toks = queryTokens('apa saja isi RAB 2020?');
+  assert.ok(toks.includes('2020'), 'tahun terekstrak');
+  assert.ok(toks.includes('rab'), 'nama dokumen terekstrak');
+  assert.ok(!toks.includes('apa') && !toks.includes('saja'), 'stopword dibuang');
+
+  // skenario nyata: chunk RAB 2021 unggul tipis secara kosinus (isinya
+  // nyaris identik) — boost judul harus membalikkan urutannya
+  const base2021 = 0.62, base2020 = 0.58;
+  const s2020 = base2020 + titleBoost('RAB 2020.pdf', toks);
+  const s2021 = base2021 + titleBoost('RAB 2021.pdf', toks);
+  const s2022 = base2021 + titleBoost('RAB 2022.pdf', toks);
+  assert.ok(s2020 > s2021 && s2020 > s2022,
+    `RAB 2020 harus menang: 2020=${s2020.toFixed(2)} vs 2021=${s2021.toFixed(2)}`);
+
+  // boost dibatasi — tak boleh menenggelamkan relevansi semantik sungguhan
+  assert.ok(titleBoost('RAB 2020 revisi 2020 final 2020.pdf', toks) <= 0.2);
+  // tanpa token cocok = nol; pertanyaan umum tak terdistorsi
+  assert.equal(titleBoost('Panduan Karyawan.pdf', queryTokens('bagaimana cara cuti?')) , 0);
+});

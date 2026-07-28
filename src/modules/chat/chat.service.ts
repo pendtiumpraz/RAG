@@ -39,6 +39,14 @@ function buildPrompt(
     CONTEXT_HARDENING,
     'Answer strictly from the CONTEXT below. If the answer is not in the context, say you don\'t know.',
     'Cite sources inline as [1], [2] matching the <doc id> numbers.',
+    // Pertanyaan berversi ("RAB 2020") kerap tetap kebagian chunk tahun
+    // tetangga di konteks — model WAJIB memilah berdasar judul dokumen,
+    // bukan mencampur angka lintas versi.
+    'DOCUMENT SCOPE: when the question targets a SPECIFIC document, year, or '
+    + 'version (e.g. "RAB 2020"), use ONLY chunks whose <doc title> matches that '
+    + 'target. NEVER mix figures from sibling documents (e.g. RAB 2021/2022) into '
+    + 'the answer; if only non-matching documents are in context, say the '
+    + 'requested document is not available.',
     // Keputusan produk: jawaban TERSTRUKTUR (JSON blok — lihat chat/blocks.ts);
     // frontend merendernya jadi bubble/daftar/kartu/chart dan memegang penuh
     // styling. Model yang mengabaikan format tetap tertangani fallback parser.

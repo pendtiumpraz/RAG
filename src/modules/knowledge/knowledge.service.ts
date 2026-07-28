@@ -74,7 +74,13 @@ export const knowledgeService = {
     if (chunks.length === 0) return 0;
 
     const getApiKey = apiKeyResolver(tenantId);
-    const vectors = await embed(modelId, chunks, { tenantId, getApiKey });
+    // JUDUL ikut di-embed (konten tersimpan tetap bersih). Tanpa ini, chunk
+    // halaman tengah "RAB 2020.pdf" yang tak menyebut tahunnya mustahil
+    // dibedakan dari "RAB 2021.pdf" oleh vector search — pembeda dokumennya
+    // justru ada di NAMA BERKAS. Dokumen lama perlu re-ingest (sync Penuh)
+    // agar kebagian; delta sync normal tak menyentuh yang tak berubah.
+    const embedInput = chunks.map((c) => (input.title ? `${input.title}\n${c}` : c));
+    const vectors = await embed(modelId, embedInput, { tenantId, getApiKey });
 
     const inserted = await withTenant(tenantId, (tx) =>
       docs.insertChunks(tx, chunks.map((content, i) => ({
