@@ -186,26 +186,13 @@ a:hover{ text-decoration:underline; text-underline-offset:2px; }
 /* opsi mengikuti tema (color-scheme sudah diset di :root) */
 .select option{ background:var(--card); color:var(--ink); }
 
-/* popup terdesain — hanya browser yang mendukung customizable select */
-@supports (appearance: base-select) {
-  .select:not([multiple]), .select:not([multiple])::picker(select){ appearance:base-select; }
-  .select::picker-icon{ display:none; } /* chevron tetap punya kita */
-  .select:not([multiple])::picker(select){
-    background:var(--card); color:var(--ink); border:1px solid var(--line);
-    border-radius:var(--rad-md); box-shadow:var(--pop); padding:5px;
-    margin-top:5px; min-width:anchor-size(width);
-  }
-  .select:not([multiple]) option{
-    padding:8px 12px; border-radius:var(--rad-xs); font-size:var(--fs-sm);
-    cursor:pointer; display:flex; align-items:center; gap:8px;
-  }
-  .select:not([multiple]) option:hover,
-  .select:not([multiple]) option:focus-visible{ background:var(--card-2); outline:none; }
-  .select:not([multiple]) option:checked{
-    background:var(--tint-signal); color:var(--signal); font-weight:600; }
-  .select:not([multiple]) option:disabled{ color:var(--faint); cursor:not-allowed; }
-  .select:not([multiple]) option::checkmark{ color:var(--signal); }
-}
+/* CATATAN: eksperimen `appearance:base-select` + ::picker(select) DICABUT —
+   di lapangan menghasilkan ketimpangan ukuran (nilai terpilih besar, opsi di
+   popup kecil). Popup memakai rendering native yang konsisten; keindahan
+   dijaga di kotak tertutup (chevron kustom, hover, fokus). */
+.select{ font-size:var(--fs-sm); line-height:1.4; }
+/* varian kompak utk sel tabel/bar — pengganti resmi hack inline style */
+.select-sm{ min-height:34px; padding:5px 32px 5px 10px; background-position:right 9px center; }
 .input:focus,.select:focus,.textarea:focus{ border-color:var(--signal); box-shadow:0 0 0 3px var(--tint-signal); }
 .input:disabled,.select:disabled{ opacity:.55; cursor:not-allowed; background:var(--card-2); }
 .input[aria-invalid="true"]{ border-color:var(--danger); box-shadow:0 0 0 3px var(--tint-danger); }

@@ -71,7 +71,7 @@ export default function TeamPage() {
                       <td style={{ color: 'var(--muted)' }}>{m.email}</td>
                       <td>
                         {canInvite && !untouchable ? (
-                          <select className="select" style={{ width: 120, minHeight: 34, padding: '4px 30px 4px 10px' }}
+                          <select className="select select-sm" style={{ width: 120 }}
                             value={m.role} onChange={(e) => changeRole(m, e.target.value)}>
                             <option value="admin">admin</option>
                             <option value="member">member</option>
@@ -255,7 +255,7 @@ function SignupApprovals() {
         <span className="t">verifikasi pendaftaran</span>
         <div className="cluster gap-2">
           <span className="microlabel">SUPERADMIN · LINTAS TENANT</span>
-          <select className="select" style={{ width: 150, minHeight: 34 }}
+          <select className="select select-sm" style={{ width: 150 }}
             value={scope} onChange={(e) => { setScope(e.target.value as 'pending' | 'all'); setPage(1); }}>
             <option value="pending">Menunggu</option>
             <option value="all">Semua akun</option>
