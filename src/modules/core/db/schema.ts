@@ -299,7 +299,9 @@ export const messages = pgTable('messages', {
   role: text('role').notNull(),           // 'user' | 'assistant' | 'system'
   /** Teks polos — dipakai analytics, estimasi token, dan riwayat prompt LLM. */
   content: text('content').notNull(),
-  citations: jsonb('citations').$type<Array<{ documentId: string; score: number }>>(),
+  /** `title` disimpan ikut — riwayat harus bisa MENYEBUT dokumen rujukannya,
+   *  bukan menampilkan potongan UUID (baris lama tanpa title: fallback id). */
+  citations: jsonb('citations').$type<Array<{ documentId: string; score: number; title?: string | null }>>(),
   /**
    * Jawaban TERSTRUKTUR (chat/blocks.ts): [{type:'text'|'list'|'cards'|'chart',…}].
    * Frontend merender ini jadi bubble/daftar/kartu/chart; `content` tetap

@@ -190,7 +190,7 @@ export async function chatTurn(
       role: 'assistant',
       content: full,                      // teks polos — analytics, riwayat prompt
       blocks: blocks as unknown[],        // struktur — dirender frontend
-      citations: context.map((c) => ({ documentId: c.documentId, score: c.score })),
+      citations: context.map((c) => ({ documentId: c.documentId, score: c.score, title: c.title })),
     }));
 
   const tokensIn = estimateTokens(prompt.map((m) => m.content).join('\n'));

@@ -8,7 +8,7 @@ import { plainTextToBlocks, type AnswerBlock } from '@/modules/chat/blocks';
 
 interface Chatbot { id: string; name: string }
 interface Convo { id: string; visitorId: string | null; startedAt: string; preview: string | null; count: number }
-interface Message { id: string; role: string; content: string; blocks: AnswerBlock[] | null; citations: Array<{ documentId: string; score: number }> | null; createdAt: string }
+interface Message { id: string; role: string; content: string; blocks: AnswerBlock[] | null; citations: Array<{ documentId: string; score: number; title?: string | null }> | null; createdAt: string }
 interface ConvoPage extends PageMeta { rows: Convo[] }
 
 export default function ConversationsPage() {
@@ -88,7 +88,11 @@ export default function ConversationsPage() {
                     {!isUser && m.citations && m.citations.length > 0 && (
                       <div className="source-block" style={{ marginTop: 10 }}>
                         {m.citations.map((c, i) => (
-                          <div key={i} className="source-line"><span className="n">[{i + 1}]</span> <span className="mono">{c.documentId.slice(0, 8)}…</span>
+                          <div key={i} className="source-line"><span className="n">[{i + 1}]</span>{' '}
+                            {/* pesan lama pra-fitur tak menyimpan title → fallback id */}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {c.title ?? <span className="mono">{c.documentId.slice(0, 8)}…</span>}
+                            </span>
                             <span style={{ marginLeft: 'auto', color: 'var(--source)' }}>{c.score.toFixed(2)}</span></div>
                         ))}
                       </div>

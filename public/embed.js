@@ -67,6 +67,12 @@
       '.nl-u{align-self:flex-end;max-width:85%;background:' + T.signal + ';color:' + onSignal + ';padding:9px 12px;border-radius:' + rs + ';border-bottom-right-radius:3px}' +
       '.nl-a{align-self:stretch;background:' + card + ';border:1px solid ' + line + ';padding:11px 13px;border-radius:' + rs + '}' +
       '.nl-cite{font-family:ui-monospace,monospace;font-size:.7em;font-weight:700;color:' + T.source + ';border:1px solid ' + T.source + '55;border-radius:3px;padding:0 4px;margin:0 2px}' +
+      /* footnote dokumen rujukan (jejak retrieval — motif brand) */
+      '.nl-src{margin-top:10px;padding-top:8px;border-top:1px dashed ' + line + '}' +
+      '.nl-src .r{display:flex;align-items:center;gap:7px;padding:2px 0;font-family:ui-monospace,monospace;font-size:10.5px;color:' + mut + '}' +
+      '.nl-src .n{color:' + T.source + ';font-weight:700}' +
+      '.nl-src .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '.nl-src .s{color:' + T.source + '}' +
       /* indikator mengetik (titik tiga berdenyut) */
       '.nl-typing{display:inline-flex;gap:4px;padding:3px 0}' +
       '.nl-typing i{width:6px;height:6px;border-radius:50%;background:' + mut + ';animation:nlPulse 1.2s infinite}' +
@@ -135,6 +141,20 @@
       typing.innerHTML = '<i></i><i></i><i></i>';
       el.appendChild(typing);
       function stopTyping() { if (typing.parentNode) typing.parentNode.removeChild(typing); }
+      /* dokumen rujukan — ditampung dulu, dirender sebagai footnote saat done
+         (chip [n] di jawaban menunjuk ke daftar ini). showTrace=false = sembunyi. */
+      var sources = [];
+      function renderSources() {
+        if (!T.showTrace || !sources.length) return;
+        var d = document.createElement('div'); d.className = 'nl-src';
+        d.innerHTML = sources.map(function (s) {
+          return '<div class="r"><span class="n">[' + s.n + ']</span>' +
+            '<span class="t">' + esc(s.title || 'dokumen') + '</span>' +
+            (typeof s.score === 'number' ? '<span class="s">' + s.score.toFixed(2) + '</span>' : '') + '</div>';
+        }).join('');
+        el.appendChild(d);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
       fetch(host + '/api/chat/' + encodeURIComponent(key), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: v, conversationId: conversationId, visitorId: visitorId })
@@ -153,11 +173,12 @@
                  sesi widget jadi SATU riwayat percakapan (sebelumnya variabel
                  ini null selamanya dan tiap pesan jadi conversation baru). */
               if (ev === 'meta' && data.conversationId) { conversationId = data.conversationId; }
+              else if (ev === 'sources') { sources = data || []; }
               /* jawaban tiba BLOK demi BLOK (text/list/cards/chart) — sudah
                  tervalidasi & bebas Markdown dari server; di sini murni render.
                  Blok masuk SEBELUM indikator agar titik-tiga tetap paling bawah. */
               else if (ev === 'block') { el.insertBefore(renderBlock(data), typing); msgs.scrollTop = msgs.scrollHeight; }
-              else if (ev === 'done') { stopTyping(); }
+              else if (ev === 'done') { stopTyping(); renderSources(); }
               else if (ev === 'error') { stopTyping(); el.textContent = '⚠ ' + data.message; }
             });
             pump();

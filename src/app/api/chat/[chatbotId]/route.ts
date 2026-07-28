@@ -87,7 +87,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
       const send = (event: string, data: unknown) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       try {
-        // Kontrak SSE: meta {conversationId} → block* → done (lihat blocks.ts).
+        // Kontrak SSE: meta {conversationId} → sources → block* → done.
         await chatTurn({
           tenantId: bot.tenant_id,
           chatbotId: bot.id,
@@ -96,6 +96,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
           question,
         }, {
           onConversation: (id) => send('meta', { conversationId: id }),
+          // Dokumen rujukan utk footnote widget — judul + skor saja; cuplikan
+          // isi TIDAK dikirim ke embed publik (tampil di dashboard saja).
+          onSources: (s) => send('sources',
+            s.map((c, i) => ({ n: i + 1, title: c.title, score: c.score }))),
           onBlock: (b) => send('block', b),
         });
         send('done', {});
