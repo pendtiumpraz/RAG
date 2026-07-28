@@ -4,11 +4,11 @@ import { knowledgeService } from '@/modules/knowledge/knowledge.service';
 
 export const runtime = 'nodejs';
 
-/** GET /api/documents/trashed?chatbotId=… — dokumen ter-soft-delete. */
+/** GET /api/documents/trashed?knowledgeBaseId=… — dokumen ter-soft-delete. */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  const chatbotId = req.nextUrl.searchParams.get('chatbotId');
-  if (!chatbotId) return NextResponse.json({ error: 'chatbotId wajib' }, { status: 400 });
-  const rows = await knowledgeService.listTrashed(user.tenantId, chatbotId);
+  const knowledgeBaseId = req.nextUrl.searchParams.get('knowledgeBaseId');
+  if (!knowledgeBaseId) return NextResponse.json({ error: 'knowledgeBaseId wajib' }, { status: 400 });
+  const rows = await knowledgeService.listTrashed(user.tenantId, knowledgeBaseId);
   return NextResponse.json(rows);
 }

@@ -11,15 +11,15 @@ export const runtime = 'nodejs';
 /** Sync bisa mengunduh + embed banyak file — beri waktu setelah respons. */
 export const maxDuration = 60;
 
-/** GET /api/sources?chatbotId=… — daftar sumber data + status sync. */
+/** GET /api/sources?knowledgeBaseId=… — daftar sumber data + status sync (D11). */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  const chatbotId = req.nextUrl.searchParams.get('chatbotId');
-  if (!chatbotId) return NextResponse.json({ error: 'chatbotId wajib' }, { status: 400 });
+  const knowledgeBaseId = req.nextUrl.searchParams.get('knowledgeBaseId');
+  if (!knowledgeBaseId) return NextResponse.json({ error: 'knowledgeBaseId wajib' }, { status: 400 });
 
   const rows = await withTenant(user.tenantId, (tx) =>
     tx.select().from(dataSources).where(and(
-      eq(dataSources.chatbotId, chatbotId), isNull(dataSources.deletedAt),
+      eq(dataSources.knowledgeBaseId, knowledgeBaseId), isNull(dataSources.deletedAt),
     )));
   return NextResponse.json(rows.map((r) => ({
     ...r, jobStatus: syncService.status(r.id),
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 }
 
 const Body = z.object({
-  chatbotId: z.string().uuid(),
+  knowledgeBaseId: z.string().uuid(),
   kind: z.enum(['gdrive', 'onedrive', 'sharepoint', 'upload', 'url']),
   config: z.record(z.unknown()).default({}),   // { folderId } | { folderPath } | …
 });
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const created = await withTenant(user.tenantId, async (tx) =>
     (await tx.insert(dataSources).values({
       tenantId: user.tenantId,
-      chatbotId: parsed.data.chatbotId,
+      knowledgeBaseId: parsed.data.knowledgeBaseId,
       kind: parsed.data.kind,
       config: parsed.data.config,
     }).returning())[0]);

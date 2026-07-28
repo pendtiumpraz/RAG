@@ -1,41 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/modules/core/auth';
-import { chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
+import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
+import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
 export const runtime = 'nodejs';
 
-const PatchBody = z.object({
-  name: z.string().min(1).optional(),
-  allowedOrigins: z.array(z.string()).optional(),
-  greeting: z.string().optional(),
-  enabled: z.boolean().optional(),
-  themeConfig: z.record(z.unknown()).optional(),
-  context: z.string().max(2000).nullable().optional(),
+const Body = z.object({
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(500).nullable().optional(),
 });
 
-/** PATCH /api/chatbots/:id — update. */
+/** PATCH /api/knowledge-bases/:id — ubah nama/deskripsi. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   const { id } = await ctx.params;
-  const parsed = PatchBody.safeParse(await req.json().catch(() => ({})));
+  const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   try {
-    const updated = await chatbotService.update(user.tenantId, id, parsed.data as never);
-    return NextResponse.json(updated);
+    return NextResponse.json(await knowledgeBaseService.update(
+      user.tenantId, user.id, id, parsed.data as { name?: string; description?: string }));
   } catch (e) {
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });
     throw e;
   }
 }
 
-/** DELETE /api/chatbots/:id — SOFT delete + kaskade app-level (Rule #3). */
+/** DELETE /api/knowledge-bases/:id — soft delete (cascade assignment+sumber+dokumen). */
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   const { id } = await ctx.params;
   try {
-    await chatbotService.softDelete(user.tenantId, id);
-    return NextResponse.json({ ok: true, softDeleted: id });
+    return NextResponse.json(await knowledgeBaseService.softDelete(user.tenantId, user.id, id));
   } catch (e) {
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });
     throw e;

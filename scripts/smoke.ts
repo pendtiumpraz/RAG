@@ -60,15 +60,25 @@ async function main() {
   catch { crossOwner = true; }
   console.log('✓ tolak owner lintas-tenant=' + crossOwner);
 
-  // 6) ingest → embed(MiniLM 384→pad1536) → pgvector → retrieve cosine
+  // 6) D11: KB mandiri → assignment ke chatbot → ingest → retrieve.
+  //    Retrieval WAJIB kosong sebelum KB di-assign, terisi sesudahnya.
+  const { knowledgeBaseService } = await import('../src/modules/knowledge/knowledge-base.service');
+  const kb = await knowledgeBaseService.create(a.tenantId, a.id, { name: 'KB Smoke' });
   try {
     const chunks = await knowledgeService.ingest(a.tenantId, {
-      chatbotId: bot.id, title: 'garansi.txt',
+      knowledgeBaseId: kb.id, title: 'garansi.txt',
       text: 'Garansi produk Pro adalah 24 bulan sejak tanggal pembelian. Kerusakan akibat cairan tidak tercakup garansi standar.',
     });
     console.log('✓ ingest=' + chunks + ' chunk (embed+pgvector insert OK)');
+
+    const before = await retrievalService.retrieve(a.tenantId, bot.id, 'all-MiniLM-L6-v2', 'garansi produk pro?', 3);
+    await knowledgeBaseService.setAssignments(a.tenantId, a.id, kb.id, [bot.id]);
     const hits = await retrievalService.retrieve(a.tenantId, bot.id, 'all-MiniLM-L6-v2', 'berapa lama masa garansi produk pro?', 3);
-    console.log('✓ retrieve=' + hits.length + ' hit · top score=' + (hits[0]?.score?.toFixed(3) ?? 'n/a') + ' · "' + (hits[0]?.content?.slice(0, 40) ?? '') + '…"');
+    console.log('✓ retrieve: pra-assign=' + before.length + ' (harus 0) · pasca-assign=' + hits.length
+      + ' hit · top score=' + (hits[0]?.score?.toFixed(3) ?? 'n/a') + ' · "' + (hits[0]?.content?.slice(0, 40) ?? '') + '…"');
+    if (before.length !== 0 || hits.length === 0) {
+      console.log('✗ D11 assignment GAGAL'); process.exitCode = 1;
+    }
   } catch (e) {
     skipped('ingest/retrieve', e);
   }
@@ -80,7 +90,7 @@ async function main() {
     const sourceId = randomUUID();
     const doc = (externalId: string, externalVersion: string, text: string) =>
       knowledgeService.ingest(a.tenantId, {
-        chatbotId: bot.id, title: externalId, text, sourceId, externalId, externalVersion,
+        knowledgeBaseId: kb.id, title: externalId, text, sourceId, externalId, externalVersion,
       });
 
     await doc('f1', 'v1', 'Kebijakan retur berlaku 14 hari setelah barang diterima.');
@@ -104,7 +114,7 @@ async function main() {
 
     // chunk warisan pra-delta (tanpa external_id) harus bisa dibuang sekali jalan
     await knowledgeService.ingest(a.tenantId, {
-      chatbotId: bot.id, title: 'warisan.txt', sourceId,
+      knowledgeBaseId: kb.id, title: 'warisan.txt', sourceId,
       text: 'Dokumen hasil sync lama tanpa penanda versi upstream.',
     });
     const legacy = await knowledgeService.removeLegacy(a.tenantId, sourceId);

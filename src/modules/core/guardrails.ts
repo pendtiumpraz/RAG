@@ -41,7 +41,16 @@ const INJECTION_PATTERNS: RegExp[] = [
   /<\s*\/?\s*(system|assistant|im_start|im_end)\b[^>]*>/gi,
 ];
 
-/** Netralkan kalimat perintah-injeksi di dalam chunk dokumen. */
+/**
+ * Trigger format jawaban terstruktur (chat/blocks.ts). Dokumen yang membawa
+ * `"blocks":[…]` bisa membuat parser stream MELATCH blok buatan penyerang
+ * ketika model mengutip isi dokumen sebelum JSON-nya sendiri — blok palsu
+ * tampil di UI seolah jawaban resmi. Netralkan di sumber: pemisah zero-width
+ * membuat teks tetap terbaca manusia tapi tak pernah cocok regex parser.
+ */
+const BLOCKS_TRIGGER = /"blocks"(\s*):(\s*)\[/gi;
+
+/** Netralkan kalimat perintah-injeksi & trigger parser di dalam chunk dokumen. */
 export function sanitizeChunk(content: string): { text: string; flagged: boolean } {
   let flagged = false;
   let text = content;
@@ -52,6 +61,11 @@ export function sanitizeChunk(content: string): { text: string; flagged: boolean
     }
     re.lastIndex = 0;
   }
+  if (BLOCKS_TRIGGER.test(text)) {
+    flagged = true;
+    text = text.replace(BLOCKS_TRIGGER, '"blocks​"$1:$2[');
+  }
+  BLOCKS_TRIGGER.lastIndex = 0;
   return { text, flagged };
 }
 

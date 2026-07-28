@@ -6,6 +6,7 @@ import { audit } from '@/modules/core/guardrails';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService } from './knowledge.service';
+import { knowledgeBaseService } from './knowledge-base.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { crawlUserDrive, getUserDriveFilesMeta, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
 import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/sharepoint';
@@ -173,7 +174,7 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
         }
 
         await knowledgeService.ingest(tenantId, {
-          chatbotId: source.chatbotId,
+          knowledgeBaseId: source.knowledgeBaseId,
           title: f.name,
           text: text.slice(0, MAX_FILE_CHARS),
           sourceId,
@@ -195,15 +196,18 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
     };
     await setStatus(pending > 0 ? 'partial' : 'synced', stats);
     await audit(tenantId, 'system', 'source.sync', sourceId, {
-      kind: source.kind, chatbotId: source.chatbotId, ...stats,
+      kind: source.kind, knowledgeBaseId: source.knowledgeBaseId, ...stats,
     });
     await dispatch('source.connected', {
-      tenantId, chatbotId: source.chatbotId, sourceId, kind: source.kind,
+      tenantId, knowledgeBaseId: source.knowledgeBaseId, sourceId, kind: source.kind,
     });
 
-    // rantai otomatis: KB berubah → petakan ulang memory (L1–L5).
-    // Tak ada perubahan ⇒ tak perlu jalankan agent.
-    if (ingested || updated || removed) memoryAgent.enqueueRun(tenantId, source.chatbotId);
+    // rantai otomatis (D11): KB berubah → petakan ulang memory utk SETIAP
+    // chatbot yang memakai KB ini. Tak ada perubahan ⇒ tak perlu agent.
+    if (ingested || updated || removed) {
+      const botIds = await knowledgeBaseService.assignedChatbots(tenantId, source.knowledgeBaseId);
+      for (const botId of botIds) memoryAgent.enqueueRun(tenantId, botId);
+    }
   } catch (err) {
     await setStatus('error', { message: (err as Error).message });
     throw err;

@@ -19,16 +19,41 @@ interface Providers {
   picker?: { appId: string; apiKey: string | null } | null;
 }
 
+/** D11: KB entitas mandiri — sumber & dokumen milik KB; chatbot memakai KB
+ *  lewat assignment N:M (drawer "Assign"). */
+interface Kb {
+  id: string; name: string; description: string | null; updatedAt: string;
+  sources: number; chunks: number; chatbots: Array<{ id: string; name: string }>;
+}
+
 export default function KnowledgePage() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
-  const [chatbotId, setChatbotId] = useState('');
-  useEffect(() => { if (bots.data?.[0] && !chatbotId) setChatbotId(bots.data[0].id); }, [bots.data, chatbotId]);
+  const kbs = useApi<Kb[]>('/api/knowledge-bases');
+  const [kbId, setKbId] = useState('');
+  useEffect(() => { if (kbs.data?.[0] && !kbId) setKbId(kbs.data[0].id); }, [kbs.data, kbId]);
+  const activeKb = kbs.data?.find((k) => k.id === kbId) ?? null;
 
-  const sources = useApi<Source[]>(chatbotId ? `/api/sources?chatbotId=${chatbotId}` : null);
+  const sources = useApi<Source[]>(kbId ? `/api/sources?knowledgeBaseId=${kbId}` : null);
   const conns = useApi<Conn[]>('/api/connections');
   const oauthReady = useApi<Providers>('/api/connections/providers');
   const [adding, setAdding] = useState(false);
+  const [creatingKb, setCreatingKb] = useState(false);
+  const [assigning, setAssigning] = useState<Kb | null>(null);
   const toast = useToast();
+
+  async function createKb(name: string, description: string) {
+    const kb = await api<Kb>('/api/knowledge-bases', {
+      method: 'POST', body: JSON.stringify({ name, ...(description ? { description } : {}) }),
+    });
+    toast('Knowledge base dibuat'); setCreatingKb(false); setKbId(kb.id); kbs.refetch();
+  }
+  async function removeKb(kb: Kb) {
+    if (!confirm(`Hapus KB "${kb.name}"? Sumber & dokumennya ikut ke Sampah; chatbot yang memakainya kehilangan konteks ini.`)) return;
+    try {
+      await api(`/api/knowledge-bases/${kb.id}`, { method: 'DELETE' });
+      toast('KB dipindah ke Sampah'); if (kbId === kb.id) setKbId(''); kbs.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
 
   useEffect(() => {
     const c = new URLSearchParams(window.location.search).get('connect');
@@ -55,13 +80,51 @@ export default function KnowledgePage() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Knowledge Base</h1><p className="sub">Hubungkan banyak akun Google/Microsoft, scan seluruh Drive atau folder tertentu. Beda chatbot = beda knowledge base.</p></div>
-        <div className="cluster">
-          <select className="select" style={{ width: 190, minHeight: 40 }} value={chatbotId} onChange={(e) => setChatbotId(e.target.value)}>
-            {bots.data?.length ? bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>) : <option>Belum ada chatbot</option>}
-          </select>
-          <button className="btn btn-primary" disabled={!chatbotId} onClick={() => setAdding(true)}><Icon name="plus" size={16} /> Tambah sumber</button>
-        </div>
+        <div><h1>Knowledge Base</h1><p className="sub">KB berdiri sendiri — satu KB (mis. satu folder Drive) bisa dipakai banyak chatbot lewat Assign. Di-ingest sekali, dipakai semua.</p></div>
+        <button className="btn btn-primary" onClick={() => setCreatingKb(true)}><Icon name="plus" size={16} /> Buat KB</button>
+      </div>
+
+      {/* daftar KB + assignment */}
+      <div className="card" style={{ marginBottom: 'var(--sp-4)' }}>
+        <div className="panel-head"><span className="t">knowledge bases</span></div>
+        {kbs.error ? <ErrorState message={kbs.error} onRetry={kbs.refetch} />
+          : kbs.loading || !kbs.data ? <Skeleton rows={3} />
+          : kbs.data.length === 0 ? <EmptyState title="Belum ada knowledge base"
+              hint="Buat KB, isi sumbernya, lalu assign ke chatbot divisi yang membutuhkannya."
+              action={<button className="btn btn-primary btn-sm" onClick={() => setCreatingKb(true)}>Buat KB</button>} />
+          : (
+            <div className="table-wrap"><table className="table">
+              <thead><tr><th>Nama</th><th>Sumber</th><th>Chunk</th><th>Dipakai chatbot</th><th /></tr></thead>
+              <tbody>
+                {kbs.data.map((k) => (
+                  <tr key={k.id} style={{ background: k.id === kbId ? 'var(--card-2)' : undefined }}>
+                    <td>
+                      <button onClick={() => setKbId(k.id)} style={{ all: 'unset', cursor: 'pointer' }}>
+                        <b style={{ borderLeft: `2px solid ${k.id === kbId ? 'var(--signal)' : 'transparent'}`, paddingLeft: 8 }}>{k.name}</b>
+                      </button>
+                      {k.description && <div style={{ fontSize: 12, color: 'var(--muted)', paddingLeft: 10, marginTop: 2 }}>{k.description}</div>}
+                    </td>
+                    <td className="mono">{k.sources}</td>
+                    <td className="mono">{k.chunks}</td>
+                    <td>
+                      {k.chatbots.length === 0
+                        ? <span className="microlabel" style={{ color: 'var(--source)' }}>BELUM DI-ASSIGN — TAK DIPAKAI SIAPA PUN</span>
+                        : <div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
+                            {k.chatbots.map((c) => <span key={c.id} className="badge badge-signal">{c.name}</span>)}
+                          </div>}
+                    </td>
+                    <td>
+                      <div className="cluster gap-2">
+                        <button className="btn btn-sm" onClick={() => setAssigning(k)}><Icon name="plug" size={14} /> Assign</button>
+                        <button className="btn btn-sm" onClick={() => { setKbId(k.id); setAdding(true); }}>Tambah sumber</button>
+                        <button className="btn btn-sm btn-ghost" onClick={() => removeKb(k)}>Hapus</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
       </div>
 
       {/* Akun terhubung (multi-akun) */}
@@ -107,8 +170,11 @@ export default function KnowledgePage() {
       </div>
 
       <div className="card">
-        <div className="panel-head"><span className="t">sumber data chatbot</span></div>
-        {!chatbotId ? <EmptyState title="Buat chatbot dulu" hint="Knowledge base menempel pada chatbot." />
+        <div className="panel-head">
+          <span className="t">sumber data {activeKb ? `· ${activeKb.name}` : ''}</span>
+          {kbId && <button className="btn btn-sm" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Tambah sumber</button>}
+        </div>
+        {!kbId ? <EmptyState title="Pilih atau buat KB dulu" hint="Sumber data menempel pada knowledge base." />
           : sources.error ? <ErrorState message={sources.error} onRetry={sources.refetch} />
           : sources.loading || !sources.data ? <Skeleton rows={3} />
           : sources.data.length === 0 ? <EmptyState title="Belum ada sumber"
@@ -145,9 +211,95 @@ export default function KnowledgePage() {
           )}
       </div>
 
-      {adding && <SourceDrawer chatbotId={chatbotId} accounts={conns.data ?? []}
+      {adding && kbId && <SourceDrawer knowledgeBaseId={kbId} accounts={conns.data ?? []}
         providers={oauthReady.data ?? null} onClose={() => setAdding(false)}
-        onSaved={() => { setAdding(false); sources.refetch(); }} />}
+        onSaved={() => { setAdding(false); sources.refetch(); kbs.refetch(); }} />}
+      {creatingKb && <KbDrawer onClose={() => setCreatingKb(false)} onSave={createKb} />}
+      {assigning && <AssignDrawer kb={assigning} bots={bots.data ?? []}
+        onClose={() => setAssigning(null)}
+        onSaved={() => { setAssigning(null); kbs.refetch(); }} />}
+    </>
+  );
+}
+
+/* ── drawer: buat KB ────────────────────────────────────────────────── */
+function KbDrawer({ onClose, onSave }: { onClose: () => void; onSave: (name: string, desc: string) => Promise<void> }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Buat knowledge base">
+        <div className="dh"><h3>Buat knowledge base</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
+        <div className="db stack gap-4">
+          <div className="field"><label>Nama</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dokumen HR / SOP Finance / …" autoFocus /></div>
+          <div className="field"><label>Deskripsi (opsional)</label>
+            <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Isi & pemilik KB ini" /></div>
+          <p className="microlabel">SATU KB BISA DIPAKAI BANYAK CHATBOT — DI-INGEST SEKALI, TANPA DUPLIKASI EMBEDDING.</p>
+          {err && <span className="error">{err}</span>}
+        </div>
+        <div className="df">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} style={{ flex: 1 }} disabled={busy || !name.trim()}
+            onClick={async () => { setBusy(true); setErr(null); try { await onSave(name.trim(), desc.trim()); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); } }}>
+            Buat
+          </button>
+          <button className="btn" onClick={onClose}>Batal</button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+/* ── drawer: assign KB ke chatbot (inti D11 — 1 KB ↔ N chatbot) ────── */
+function AssignDrawer({ kb, bots, onClose, onSaved }:
+  { kb: Kb; bots: Chatbot[]; onClose: () => void; onSaved: () => void }) {
+  const [checked, setChecked] = useState<Set<string>>(new Set(kb.chatbots.map((c) => c.id)));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function save() {
+    setBusy(true); setErr(null);
+    try {
+      await api(`/api/knowledge-bases/${kb.id}/assignments`, {
+        method: 'PUT', body: JSON.stringify({ chatbotIds: [...checked] }),
+      });
+      toast('Assignment tersimpan'); onSaved();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <aside className="drawer open" role="dialog" aria-modal="true" aria-label={`Assign ${kb.name}`}>
+        <div className="dh"><h3>Assign — {kb.name}</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
+        <div className="db stack gap-3">
+          <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+            Chatbot mana saja yang boleh menjawab dari KB ini? Retrieval tiap chatbot
+            = gabungan semua KB yang di-assign padanya.
+          </p>
+          {bots.length === 0 && <span className="microlabel">BELUM ADA CHATBOT.</span>}
+          {bots.map((b) => (
+            <label key={b.id} className="cluster gap-2" style={{ cursor: 'pointer', padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8 }}>
+              <input type="checkbox" checked={checked.has(b.id)}
+                onChange={(e) => setChecked((prev) => {
+                  const next = new Set(prev);
+                  if (e.target.checked) next.add(b.id); else next.delete(b.id);
+                  return next;
+                })} />
+              <span>{b.name}</span>
+            </label>
+          ))}
+          {err && <span className="error">{err}</span>}
+        </div>
+        <div className="df">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} style={{ flex: 1 }} disabled={busy} onClick={save}>Simpan</button>
+          <button className="btn" onClick={onClose}>Batal</button>
+        </div>
+      </aside>
     </>
   );
 }
@@ -206,8 +358,8 @@ function loadPickerScript(): Promise<void> {
 
 interface PickedFile { id: string; name: string }
 
-function SourceDrawer({ chatbotId, accounts, providers, onClose, onSaved }:
-  { chatbotId: string; accounts: Conn[]; providers: Providers | null; onClose: () => void; onSaved: () => void }) {
+function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }:
+  { knowledgeBaseId: string; accounts: Conn[]; providers: Providers | null; onClose: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState('gdrive');
   const [scope, setScope] = useState<'all' | 'folder'>('all');
   const [loc, setLoc] = useState('');
@@ -268,7 +420,7 @@ function SourceDrawer({ chatbotId, accounts, providers, onClose, onSaved }:
       : { scope, accountEmail };
     if (!pickerMode && scope === 'folder') { if (kind === 'gdrive') config.folderId = loc || 'root'; else config.folderPath = loc; }
     try {
-      await api('/api/sources', { method: 'POST', body: JSON.stringify({ chatbotId, kind, config }) });
+      await api('/api/sources', { method: 'POST', body: JSON.stringify({ knowledgeBaseId, kind, config }) });
       toast('Sumber ditambah — sync berjalan'); onSaved();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }

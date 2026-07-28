@@ -13,6 +13,13 @@ import {
  * upsert usage_counters, kunci publicKey chatbot, dst.) dan chat langsung
  * gagal mencatat pemakaian. Pemulihannya `npm run db:migrate` (idempotent);
  * pencegahannya deklarasi di bawah, namanya PERSIS sama dengan di migrasi.
+ *
+ * LEBIH GAWAT LAGI — RLS: drizzle-kit juga mengelola row level security.
+ * Tabel yang TIDAK ditandai `.enableRLS()` di sini akan di-DISABLE RLS-nya
+ * oleh push. Kejadian nyata 2026-07-28: seluruh isolasi tenant produksi
+ * sempat MATI (smoke melaporkan "bocor ke B=YA") gara-gara push kolom biasa.
+ * Setiap tabel ber-`tenant_id` di bawah WAJIB diakhiri `.enableRLS()`;
+ * policy + FORCE-nya tetap milik migrations/*.sql.
  */
 
 /**
@@ -84,7 +91,7 @@ export const users = pgTable('users', {
   tenantIdx: index('idx_users_tenant_id').on(t.tenantId),
   statusIdx: index('idx_users_status').on(t.status),
   delIdx: index('idx_users_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 /** Per-tenant settings: single active LLM + embedding model + dashboard theme. */
 export const tenantSettings = pgTable('tenant_settings', {
@@ -95,7 +102,7 @@ export const tenantSettings = pgTable('tenant_settings', {
   /** White-label theme for the tenant dashboard (brand, colors, radius, font…). */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   ...stamps,
-});
+}).enableRLS();
 
 /**
  * Bentuk tema white-label — HARUS cocok dengan yang dibaca `public/embed.js`.
@@ -156,7 +163,7 @@ export const invitations = pgTable('invitations', {
   tenantIdx: index('idx_invitations_tenant_id').on(t.tenantId),
   tokenIdx: index('idx_invitations_token_hash').on(t.tokenHash),
   delIdx: index('idx_invitations_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 /* ── settings / credentials ────────────────────────────────────────── */
 export const providerCredentials = pgTable('provider_credentials', {
@@ -168,7 +175,7 @@ export const providerCredentials = pgTable('provider_credentials', {
 }, (t) => ({
   tenantIdx: index('idx_provider_credentials_tenant_id').on(t.tenantId),
   delIdx: index('idx_provider_credentials_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 /* ── chatbot ───────────────────────────────────────────────────────── */
 export const chatbots = pgTable('chatbots', {
@@ -179,6 +186,13 @@ export const chatbots = pgTable('chatbots', {
   publicKey: text('public_key').notNull().unique(), // "cb_live_xxx" — safe to expose
   allowedOrigins: jsonb('allowed_origins').$type<string[]>().default([]).notNull(),
   greeting: text('greeting').default('Halo! Ada yang bisa dibantu?'),
+  /**
+   * D11 — konteks kepemilikan/persona chatbot ("Chatbot divisi HR, menjawab
+   * kebijakan karyawan; gaya formal"). Disuntikkan ke system prompt CHATBOT
+   * INI SAJA, di atas system prompt tenant. Enterprise: tiap divisi punya
+   * chatbot dengan watak dan lingkupnya sendiri.
+   */
+  context: text('context'),
   /** Per-chatbot white-label theme served to embed.js. */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   enabled: boolean('enabled').default(true).notNull(),
@@ -191,13 +205,45 @@ export const chatbots = pgTable('chatbots', {
    *  dipakai ulang setelah chatbot di-soft-delete. */
   uqPublicKey: uniqueIndex('uq_chatbots_public_key')
     .on(t.publicKey).where(sql`deleted_at IS NULL`),
-}));
+})).enableRLS();
 
 /* ── knowledge ─────────────────────────────────────────────────────── */
-export const dataSources = pgTable('data_sources', {
+/**
+ * D11 — KB adalah ENTITAS MANDIRI per tenant, bukan milik satu chatbot.
+ * Sumber & dokumen menempel ke KB; chatbot memakainya lewat assignment N:M
+ * (`chatbot_knowledge_bases`). Satu folder Drive di-ingest SEKALI, dipakai
+ * berapa pun chatbot — tanpa duplikasi embedding.
+ */
+export const knowledgeBases = pgTable('knowledge_bases', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_knowledge_bases_tenant_id').on(t.tenantId),
+  delIdx: index('idx_knowledge_bases_deleted_at').on(t.deletedAt),
+})).enableRLS();
+
+/** Assignment N:M chatbot ↔ KB. Baris hidup = KB aktif utk chatbot itu. */
+export const chatbotKnowledgeBases = pgTable('chatbot_knowledge_bases', {
   id: uuid('id').defaultRandom().primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
   chatbotId: uuid('chatbot_id').notNull(),
+  knowledgeBaseId: uuid('knowledge_base_id').notNull(),
+  ...stamps,
+}, (t) => ({
+  chatbotIdx: index('idx_ckb_chatbot').on(t.chatbotId),
+  kbIdx: index('idx_ckb_kb').on(t.knowledgeBaseId),
+  delIdx: index('idx_ckb_deleted_at').on(t.deletedAt),
+  uqPair: uniqueIndex('uq_ckb_chatbot_kb')
+    .on(t.chatbotId, t.knowledgeBaseId).where(sql`deleted_at IS NULL`),
+})).enableRLS();
+
+export const dataSources = pgTable('data_sources', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  knowledgeBaseId: uuid('knowledge_base_id').notNull(),
   kind: text('kind').notNull(),           // 'gdrive' | 'onedrive' | 'sharepoint' | 'upload' | 'url'
   config: jsonb('config').$type<Record<string, unknown>>().notNull(),
   status: text('status').default('pending').notNull(),
@@ -205,14 +251,14 @@ export const dataSources = pgTable('data_sources', {
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_data_sources_tenant_id').on(t.tenantId),
-  chatbotIdx: index('idx_data_sources_chatbot_id').on(t.chatbotId),
+  kbIdx: index('idx_data_sources_kb').on(t.knowledgeBaseId),
   delIdx: index('idx_data_sources_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 export const documents = pgTable('documents', {
   id: uuid('id').defaultRandom().primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
-  chatbotId: uuid('chatbot_id').notNull(),
+  knowledgeBaseId: uuid('knowledge_base_id').notNull(),
   sourceId: uuid('source_id'),
   title: text('title'),
   content: text('content').notNull(),
@@ -226,11 +272,11 @@ export const documents = pgTable('documents', {
   ...stamps,
 }, (t) => ({
   embIdx: index('idx_documents_embedding').using('hnsw', t.embedding.op('vector_cosine_ops')),
-  scopeIdx: index('idx_documents_scope').on(t.tenantId, t.chatbotId, t.embeddingModel),
-  chatbotIdx: index('idx_documents_chatbot_id').on(t.chatbotId),
+  scopeIdx: index('idx_documents_scope').on(t.tenantId, t.knowledgeBaseId, t.embeddingModel),
+  kbIdx: index('idx_documents_kb').on(t.knowledgeBaseId),
   externalIdx: index('idx_documents_external').on(t.sourceId, t.externalId),
   delIdx: index('idx_documents_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 /* ── chat ──────────────────────────────────────────────────────────── */
 export const conversations = pgTable('conversations', {
@@ -244,7 +290,7 @@ export const conversations = pgTable('conversations', {
   tenantIdx: index('idx_conversations_tenant_id').on(t.tenantId),
   chatbotIdx: index('idx_conversations_chatbot_id').on(t.chatbotId),
   delIdx: index('idx_conversations_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 export const messages = pgTable('messages', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -265,7 +311,7 @@ export const messages = pgTable('messages', {
   convIdx: index('idx_messages_conversation').on(t.conversationId, t.createdAt),
   tenantIdx: index('idx_messages_tenant_id').on(t.tenantId),
   delIdx: index('idx_messages_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 /* ── usage metering (kuota per plan, dasar billing) ────────────────── */
 /** Satu baris per (tenant, periode YYYY-MM). Di-increment tiap giliran chat. */
@@ -283,7 +329,7 @@ export const usageCounters = pgTable('usage_counters', {
   /** Kunci upsert recordTurn — `on conflict (tenant_id, period) where …`. */
   uqScope: uniqueIndex('uq_usage_counters_tenant_period')
     .on(t.tenantId, t.period).where(sql`deleted_at IS NULL`),
-}));
+})).enableRLS();
 
 /* ── kredensial OAuth app — PLATFORM, bukan per-tenant ─────────────── */
 /**
@@ -428,7 +474,7 @@ export const oauthConnections = pgTable('oauth_connections', {
   /** Multi-akun: satu koneksi hidup per (user, provider, email) — migrasi 0006. */
   uqAccount: uniqueIndex('uq_oauth_connections_user_provider_account')
     .on(t.userId, t.provider, t.accountEmail).where(sql`deleted_at IS NULL`),
-}));
+})).enableRLS();
 
 /* ── audit log (Guardrail L5) ──────────────────────────────────────── */
 /** Jejak semua aksi penting: chat turn, auth, perubahan settings, guardrail hit. */
@@ -445,7 +491,7 @@ export const auditLogs = pgTable('audit_logs', {
   actionIdx: index('idx_audit_logs_action').on(t.action, t.createdAt),
   delIdx: index('idx_audit_logs_deleted_at').on(t.deletedAt),
   createdIdx: index('idx_audit_logs_created_at').on(t.createdAt.desc()),
-}));
+})).enableRLS();
 
 /* ── memory (Obsidian Memory Agent) ────────────────────────────────── */
 /**
@@ -468,7 +514,7 @@ export const memoryNotes = pgTable('memory_notes', {
 }, (t) => ({
   scopeIdx: index('idx_memory_notes_scope').on(t.tenantId, t.chatbotId, t.slug),
   delIdx: index('idx_memory_notes_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();
 
 export const memoryEdges = pgTable('memory_edges', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -484,4 +530,4 @@ export const memoryEdges = pgTable('memory_edges', {
   toIdx: index('idx_memory_edges_to').on(t.toNoteId),
   scopeIdx: index('idx_memory_edges_scope').on(t.tenantId, t.chatbotId),
   delIdx: index('idx_memory_edges_deleted_at').on(t.deletedAt),
-}));
+})).enableRLS();

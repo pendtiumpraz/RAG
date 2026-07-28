@@ -1,5 +1,5 @@
 import { eq, and, isNull } from 'drizzle-orm';
-import { tenantSettings, chatbots } from '@/modules/core/db';
+import { tenantSettings, knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
@@ -31,12 +31,12 @@ export function chunkText(text: string, size = 800, overlap = 120): string[] {
 }
 
 export const knowledgeService = {
-  listDocuments(tenantId: string, chatbotId: string) {
-    return withTenant(tenantId, (tx) => docs.listActive(tx, tenantId, chatbotId));
+  listDocuments(tenantId: string, knowledgeBaseId: string) {
+    return withTenant(tenantId, (tx) => docs.listActive(tx, tenantId, knowledgeBaseId));
   },
 
-  listTrashed(tenantId: string, chatbotId: string) {
-    return withTenant(tenantId, (tx) => docs.listTrashed(tx, tenantId, chatbotId));
+  listTrashed(tenantId: string, knowledgeBaseId: string) {
+    return withTenant(tenantId, (tx) => docs.listTrashed(tx, tenantId, knowledgeBaseId));
   },
 
   /** Manifest file upstream (delta sync) — lihat documentRepository.manifestBySource. */
@@ -54,17 +54,17 @@ export const knowledgeService = {
     return withTenant(tenantId, (tx) => docs.softDeleteLegacyBySource(tx, tenantId, sourceId));
   },
 
-  /** Chunk → embed → simpan. Validasi chatbot hidup (integritas app-level). */
+  /** Chunk → embed → simpan. Validasi KB hidup (integritas app-level — D11). */
   async ingest(tenantId: string, input: {
-    chatbotId: string; text: string; title?: string;
+    knowledgeBaseId: string; text: string; title?: string;
     sourceId?: string; metadata?: Record<string, unknown>;
     /** Delta sync: identitas + versi file di storage asal. */
     externalId?: string; externalVersion?: string;
   }): Promise<number> {
     const modelId = await withTenant(tenantId, async (tx) => {
-      const bot = await tx.select({ id: chatbots.id }).from(chatbots)
-        .where(and(eq(chatbots.id, input.chatbotId), isNull(chatbots.deletedAt))).limit(1);
-      if (!bot[0]) throw new ValidationError('Chatbot tidak ditemukan / sudah dihapus');
+      const kb = await tx.select({ id: knowledgeBases.id }).from(knowledgeBases)
+        .where(and(eq(knowledgeBases.id, input.knowledgeBaseId), isNull(knowledgeBases.deletedAt))).limit(1);
+      if (!kb[0]) throw new ValidationError('Knowledge base tidak ditemukan / sudah dihapus');
       const s = await tx.select().from(tenantSettings)
         .where(eq(tenantSettings.tenantId, tenantId)).limit(1);
       return s[0]?.activeEmbeddingModel ?? 'all-MiniLM-L6-v2';
@@ -79,7 +79,7 @@ export const knowledgeService = {
     const inserted = await withTenant(tenantId, (tx) =>
       docs.insertChunks(tx, chunks.map((content, i) => ({
         tenantId,
-        chatbotId: input.chatbotId,
+        knowledgeBaseId: input.knowledgeBaseId,
         sourceId: input.sourceId,
         title: input.title,
         content,
@@ -92,7 +92,7 @@ export const knowledgeService = {
     );
 
     await dispatch('document.ingested', {
-      tenantId, chatbotId: input.chatbotId,
+      tenantId, knowledgeBaseId: input.knowledgeBaseId,
       documentId: inserted[0]?.id ?? '', chunks: chunks.length,
     });
     return chunks.length;
@@ -102,7 +102,7 @@ export const knowledgeService = {
     return withTenant(tenantId, async (tx) => {
       const del = await docs.softDelete(tx, id);
       if (!del) throw new ValidationError('Dokumen tidak ditemukan');
-      await dispatch('document.deleted', { tenantId, chatbotId: del.chatbotId, documentId: id });
+      await dispatch('document.deleted', { tenantId, knowledgeBaseId: del.knowledgeBaseId, documentId: id });
       return del;
     });
   },

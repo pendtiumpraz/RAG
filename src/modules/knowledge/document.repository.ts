@@ -57,20 +57,20 @@ export const documentRepository = {
     return rows.length;
   },
 
-  listActive(tx: Db, tenantId: string, chatbotId: string) {
+  listActive(tx: Db, tenantId: string, knowledgeBaseId: string) {
     return tx.select({
       id: documents.id, title: documents.title, embeddingModel: documents.embeddingModel,
       sourceId: documents.sourceId, metadata: documents.metadata, updatedAt: documents.updatedAt,
     }).from(documents)
-      .where(and(eq(documents.tenantId, tenantId), eq(documents.chatbotId, chatbotId), isNull(documents.deletedAt)))
+      .where(and(eq(documents.tenantId, tenantId), eq(documents.knowledgeBaseId, knowledgeBaseId), isNull(documents.deletedAt)))
       .orderBy(desc(documents.updatedAt));
   },
 
-  listTrashed(tx: Db, tenantId: string, chatbotId: string) {
+  listTrashed(tx: Db, tenantId: string, knowledgeBaseId: string) {
     return tx.select({
       id: documents.id, title: documents.title, deletedAt: documents.deletedAt,
     }).from(documents)
-      .where(and(eq(documents.tenantId, tenantId), eq(documents.chatbotId, chatbotId), isNotNull(documents.deletedAt)))
+      .where(and(eq(documents.tenantId, tenantId), eq(documents.knowledgeBaseId, knowledgeBaseId), isNotNull(documents.deletedAt)))
       .orderBy(desc(documents.deletedAt));
   },
 
@@ -82,7 +82,7 @@ export const documentRepository = {
     const rows = await tx.update(documents)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
-      .returning({ id: documents.id, chatbotId: documents.chatbotId });
+      .returning({ id: documents.id, knowledgeBaseId: documents.knowledgeBaseId });
     return rows[0] ?? null;
   },
 

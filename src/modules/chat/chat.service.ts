@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { tenantSettings } from '@/modules/core/db';
+import { tenantSettings, chatbots } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
 import { resolveLlmModel } from './llm-catalog';
@@ -104,13 +104,18 @@ export async function chatTurn(
 
   const getApiKey = apiKeyResolver(input.tenantId);
 
-  const { settings, history, conversationId } = await withTenant(input.tenantId, async (tx) => {
+  const { settings, botContext, history, conversationId } = await withTenant(input.tenantId, async (tx) => {
     const s = (await tx.select().from(tenantSettings)
       .where(eq(tenantSettings.tenantId, input.tenantId)).limit(1))[0];
+    // D11: konteks kepemilikan/persona chatbot (divisi) — bagian dari
+    // system prompt CHATBOT INI SAJA, di atas system prompt tenant.
+    const bot = (await tx.select({ context: chatbots.context }).from(chatbots)
+      .where(eq(chatbots.id, input.chatbotId)).limit(1))[0];
     const convId = await convo.findOrCreate(tx, input.tenantId, input.chatbotId, input.conversationId, input.visitorId);
     const prior = await convo.history(tx, input.tenantId, convId);
     return {
       settings: s,
+      botContext: bot?.context?.trim() || null,
       conversationId: convId,
       history: prior.map((m) => ({ role: m.role as ChatMessage['role'], content: m.content })),
     };
@@ -125,7 +130,10 @@ export async function chatTurn(
   // Beri tahu pemanggil sumber yang ditemukan (utk panel Citations) SEBELUM streaming.
   onSources?.(context.map((c) => ({ documentId: c.documentId, title: c.title, score: c.score, content: c.content.slice(0, 240) })));
   // Guardrail L2: konteks dikeraskan (dokumen = data, injeksi disaring).
-  const { messages: prompt, injectionFlagged } = buildPrompt(settings?.systemPrompt ?? null, context, history, input.question);
+  // system efektif = konteks divisi chatbot (bila ada) + system prompt tenant
+  const systemParts = [botContext, settings?.systemPrompt].filter(Boolean) as string[];
+  const { messages: prompt, injectionFlagged } = buildPrompt(
+    systemParts.length ? systemParts.join('\n') : null, context, history, input.question);
 
   const provider = (await resolveLlmModel(llmModel))?.provider;
   // Server LLM sendiri memakai kredensial dari pendaftaran servernya, bukan

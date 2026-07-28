@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { and, eq, isNull } from 'drizzle-orm';
-import { users, documents, conversations, dataSources, type ThemeConfig } from '@/modules/core/db';
+import { users, conversations, chatbotKnowledgeBases, type ThemeConfig } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
 import { usageService } from '@/modules/usage/usage.service';
@@ -24,6 +24,8 @@ export const chatbotService = {
   async create(tenantId: string, input: {
     ownerId: string; name: string; allowedOrigins?: string[];
     greeting?: string; themeConfig?: ThemeConfig;
+    /** D11: konteks kepemilikan/persona (divisi) — masuk system prompt bot ini. */
+    context?: string;
   }) {
     // Enforcement plan: batas jumlah chatbot.
     const usage = await usageService.snapshot(tenantId);
@@ -46,6 +48,7 @@ export const chatbotService = {
         allowedOrigins: input.allowedOrigins ?? [],
         greeting: input.greeting,
         themeConfig: input.themeConfig,
+        context: input.context?.trim() || null,
       });
       await dispatch('chatbot.created', { tenantId, chatbotId: created.id, ownerId: input.ownerId });
       return created;
@@ -54,7 +57,7 @@ export const chatbotService = {
 
   async update(tenantId: string, id: string, input: Partial<{
     name: string; allowedOrigins: string[]; greeting: string;
-    enabled: boolean; themeConfig: ThemeConfig;
+    enabled: boolean; themeConfig: ThemeConfig; context: string | null;
   }>) {
     return withTenant(tenantId, async (tx) => {
       const updated = await repo.update(tx, id, input);
@@ -64,18 +67,17 @@ export const chatbotService = {
   },
 
   /**
-   * Soft delete + CASCADE di level aplikasi (bukan DB): dokumen, sumber data,
-   * dan percakapan chatbot ikut di-soft-delete agar KB tidak yatim.
+   * Soft delete + CASCADE di level aplikasi (bukan DB) — D11: KB adalah
+   * entitas BERSAMA, jadi menghapus chatbot TIDAK menyentuh KB/dokumennya;
+   * yang ikut terhapus hanya ASSIGNMENT-nya dan percakapan chatbot ini.
    */
   async softDelete(tenantId: string, id: string) {
     return withTenant(tenantId, async (tx) => {
       const deleted = await repo.softDelete(tx, id);
       if (!deleted) throw new ValidationError('Chatbot tidak ditemukan');
       const now = new Date();
-      await tx.update(documents).set({ deletedAt: now, updatedAt: now })
-        .where(and(eq(documents.chatbotId, id), isNull(documents.deletedAt)));
-      await tx.update(dataSources).set({ deletedAt: now, updatedAt: now })
-        .where(and(eq(dataSources.chatbotId, id), isNull(dataSources.deletedAt)));
+      await tx.update(chatbotKnowledgeBases).set({ deletedAt: now, updatedAt: now })
+        .where(and(eq(chatbotKnowledgeBases.chatbotId, id), isNull(chatbotKnowledgeBases.deletedAt)));
       await tx.update(conversations).set({ deletedAt: now, updatedAt: now })
         .where(and(eq(conversations.chatbotId, id), isNull(conversations.deletedAt)));
       await dispatch('chatbot.deleted', { tenantId, chatbotId: id });
@@ -83,16 +85,14 @@ export const chatbotService = {
     });
   },
 
-  /** Restore chatbot + kaskade kebalikannya. */
+  /** Restore chatbot + kaskade kebalikannya (assignment & percakapan). */
   async restore(tenantId: string, id: string) {
     return withTenant(tenantId, async (tx) => {
       const restored = await repo.restore(tx, id);
       if (!restored) throw new ValidationError('Chatbot tidak ada di Sampah');
       const now = new Date();
-      await tx.update(documents).set({ deletedAt: null, updatedAt: now })
-        .where(eq(documents.chatbotId, id));
-      await tx.update(dataSources).set({ deletedAt: null, updatedAt: now })
-        .where(eq(dataSources.chatbotId, id));
+      await tx.update(chatbotKnowledgeBases).set({ deletedAt: null, updatedAt: now })
+        .where(eq(chatbotKnowledgeBases.chatbotId, id));
       await tx.update(conversations).set({ deletedAt: null, updatedAt: now })
         .where(eq(conversations.chatbotId, id));
       await dispatch('chatbot.restored', { tenantId, chatbotId: id });

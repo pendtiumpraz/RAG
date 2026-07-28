@@ -68,13 +68,18 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   const apiKey = provider ? await getApiKey(provider) : null;
   if (!apiKey) throw new Error(`Memory agent butuh API key provider ${provider}`);
 
-  /* ── L1 · CAPTURE — agregasi chunk per judul dokumen ────────────── */
+  /* ── L1 · CAPTURE — agregasi chunk per judul dokumen ──────────────
+     D11: sumber pengetahuan chatbot = union dokumen semua KB yang
+     di-assign padanya (chatbot_knowledge_bases). */
   const docs = await withTenant(tenantId, async (tx) => {
     const rows = await tx.execute(sql`
       select title,
              string_agg(content, E'\n' order by (metadata->>'chunk')::int) as full_text
       from documents
-      where chatbot_id = ${chatbotId} and deleted_at is null and title is not null
+      where knowledge_base_id in (
+          select knowledge_base_id from chatbot_knowledge_bases
+          where chatbot_id = ${chatbotId} and deleted_at is null)
+        and deleted_at is null and title is not null
       group by title
       limit ${MAX_DOCS_PER_RUN}
     `);

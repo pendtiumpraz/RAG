@@ -211,9 +211,36 @@ dilalui sama sekali**. Jalur `full` + verifikasi restricted disimpan sebagai
 opsi nanti bila pelanggan menuntut scan folder otomatis di SaaS (on-prem /
 Workspace internal sudah bisa memakainya sekarang tanpa verifikasi).
 
+## ✅ D11 — Knowledge base jadi entitas mandiri; 1 KB ↔ N chatbot; chatbot berkonteks divisi (2026-07-28)
+
+**Decision.** Untuk pemakaian enterprise:
+1. **`knowledge_bases`** jadi tabel sendiri (per tenant). `data_sources` dan
+   `documents` menempel ke **KB**, bukan lagi ke chatbot.
+2. **Assignment N:M** lewat `chatbot_knowledge_bases` — satu KB (termasuk
+   sumber Google Drive-nya) bisa dipakai banyak chatbot; satu chatbot bisa
+   menggabung beberapa KB. Retrieval chatbot = union dokumen semua KB yang
+   di-assign padanya.
+3. **`chatbots.context`** — teks persona/kepemilikan divisi ("Chatbot divisi
+   HR, menjawab kebijakan karyawan…"), disuntikkan ke system prompt chatbot
+   itu saja, di atas system prompt tenant.
+
+**Konteks.** Sebelumnya KB terkunci 1:1 di chatbot — divisi yang berbagi
+dokumen harus meng-ingest ulang (bayar embedding dua kali, dua salinan yang
+bisa saling menyimpang). Kutipan user: "setiap chatbot dimiliki divisi
+tertentu", "1 google drive knowledge base bisa di assign ke multi chatbot".
+
+**Migrasi (0016).** Idempotent: buat tabel + RLS + grant; tiap chatbot lama
+yang punya sumber/dokumen mendapat KB `KB <nama chatbot>` hasil backfill,
+sumber & dokumen dipindah ke KB itu, assignment 1:1 dibuat — perilaku lama
+terjaga persis. Kolom `chatbot_id` di `data_sources`/`documents` di-drop.
+Sync selesai → Memory Agent dijalankan utk SETIAP chatbot ter-assign.
+
+**Status:** APPROVED user 2026-07-28 (rangkaian pesan eksplisit di atas).
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-28 | D11 = KB mandiri + assignment N:M ke chatbot + konteks divisi per chatbot | User |
 | 2026-07-27 | D10 = mode akses Drive (`full`/`picker`) dipilih superadmin; SaaS→picker utk lepas dari scope restricted | User |
 | 2026-07-26 | D9 = pendaftaran terbuka + verifikasi superadmin (berlaku juga di jalur OAuth) | User |
 | 2026-07-26 | D8 = server embedding VPS dikelola superadmin & global (per-tenant ditolak krn SSRF) | User |

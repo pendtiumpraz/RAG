@@ -7,14 +7,14 @@ import { ValidationError } from '@/modules/chatbot/chatbot.service';
 export const runtime = 'nodejs';
 
 const Body = z.object({
-  chatbotId: z.string().uuid(),
+  knowledgeBaseId: z.string().uuid(),
   title: z.string().optional(),
   text: z.string().min(1),
   sourceId: z.string().uuid().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
-/** POST /api/ingest — teks → chunk → embed → simpan ke KB chatbot. */
+/** POST /api/ingest — teks → chunk → embed → simpan ke knowledge base (D11). */
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   const parsed = Body.safeParse(await req.json());

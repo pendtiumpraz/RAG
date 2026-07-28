@@ -17,6 +17,8 @@ const CreateBody = z.object({
   allowedOrigins: z.array(z.string()).optional(),
   greeting: z.string().optional(),
   themeConfig: z.record(z.unknown()).optional(),
+  /** D11: konteks divisi/persona chatbot. */
+  context: z.string().max(2000).optional(),
 });
 
 /** POST /api/chatbots — buat chatbot → balikan termasuk embed snippet. */

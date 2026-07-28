@@ -95,16 +95,47 @@ export const openApiSpec = {
         responses: { 200: err('restored'), 404: err('tidak di Sampah') } },
     },
 
-    /* ── knowledge ── */
+    /* ── knowledge (D11: KB entitas mandiri, 1 KB ↔ N chatbot) ── */
+    '/api/knowledge-bases': {
+      get: { summary: 'Daftar KB + ringkasan (sumber, chunk, chatbot ter-assign)', security: [sessionAuth],
+        responses: { 200: err('daftar KB') } },
+      post: { summary: 'Buat knowledge base', security: [sessionAuth],
+        requestBody: json(obj({ name: str, description: str }, ['name'])),
+        responses: { 201: err('KB terbuat'), 422: err('validasi') } },
+    },
+    '/api/knowledge-bases/trashed': {
+      get: { summary: 'KB ter-soft-delete', security: [sessionAuth],
+        responses: { 200: err('daftar') } },
+    },
+    '/api/knowledge-bases/{id}': {
+      patch: { summary: 'Ubah nama/deskripsi KB', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ name: str, description: str })),
+        responses: { 200: err('updated'), 404: err('tidak ditemukan') } },
+      delete: { summary: 'Soft delete KB + kaskade (assignment, sumber, dokumen)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('softDeleted'), 404: err('tidak ditemukan') } },
+    },
+    '/api/knowledge-bases/{id}/restore': {
+      patch: { summary: 'Pulihkan KB + isi se-cascade', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('restored'), 404: err('tidak di Sampah') } },
+    },
+    '/api/knowledge-bases/{id}/assignments': {
+      put: { summary: 'Setel daftar chatbot pemakai KB (deklaratif, idempotent)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ chatbotIds: { type: 'array', items: uuid } }, ['chatbotIds'])),
+        responses: { 200: err('{ ok, chatbotIds }'), 422: err('KB/chatbot tidak ditemukan') } },
+    },
     '/api/ingest': {
       post: { summary: 'Ingest teks → chunk → embed → KB chatbot', security: [sessionAuth],
-        requestBody: json(obj({ chatbotId: uuid, title: str, text: str, sourceId: uuid },
-          ['chatbotId', 'text'])),
+        requestBody: json(obj({ knowledgeBaseId: uuid, title: str, text: str, sourceId: uuid },
+          ['knowledgeBaseId', 'text'])),
         responses: { 200: err('{ chunks }'), 422: err('chatbot tidak valid') } },
     },
     '/api/documents/trashed': {
       get: { summary: 'Dokumen ter-soft-delete', security: [sessionAuth],
-        parameters: [{ name: 'chatbotId', in: 'query', required: true, schema: uuid }],
+        parameters: [{ name: 'knowledgeBaseId', in: 'query', required: true, schema: uuid }],
         responses: { 200: err('daftar') } },
     },
     '/api/documents/{id}': {
@@ -157,12 +188,12 @@ export const openApiSpec = {
     /* ── sources & connections ── */
     '/api/sources': {
       get: { summary: 'Daftar sumber data + status sync', security: [sessionAuth],
-        parameters: [{ name: 'chatbotId', in: 'query', required: true, schema: uuid }],
+        parameters: [{ name: 'knowledgeBaseId', in: 'query', required: true, schema: uuid }],
         responses: { 200: err('daftar + jobStatus') } },
       post: { summary: 'Hubungkan sumber (gdrive/onedrive/sharepoint/upload/url) → auto-sync',
         security: [sessionAuth],
-        requestBody: json(obj({ chatbotId: uuid, kind: str, config: { type: 'object' } },
-          ['chatbotId', 'kind'])),
+        requestBody: json(obj({ knowledgeBaseId: uuid, kind: str, config: { type: 'object' } },
+          ['knowledgeBaseId', 'kind'])),
         responses: { 201: err('source + jobStatus') } },
     },
     '/api/sources/{id}/sync': {

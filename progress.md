@@ -271,6 +271,28 @@
         `drive.readonly`. ⚠️ Ingat: setelah SaaS pindah ke picker, scope
         `drive.readonly` juga harus DIHAPUS dari consent screen Console.
 
+- [x] **D11: KB mandiri + assignment N:M + konteks divisi per chatbot** (2026-07-28):
+      `knowledge_bases` & `chatbot_knowledge_bases` (RLS + uq parsial terdeklarasi);
+      `data_sources`/`documents` pindah `chatbot_id`→`knowledge_base_id`
+      (migrasi 0016 idempotent: backfill 1 KB per chatbot lama + assignment,
+      drop kolom lama — data NIB produksi selamat). Retrieval & memory agent =
+      union KB ter-assign; hapus chatbot kini hanya melepas assignment (KB
+      milik bersama); sync selesai → memory utk SETIAP chatbot pemakai.
+      `chatbots.context` (persona divisi) → system prompt per-bot. UI Knowledge
+      dirombak: daftar KB → sumber per KB → drawer Assign multi-chatbot; drawer
+      chatbot + textarea konteks. API /api/knowledge-bases (+trashed/restore/
+      assignments) di OpenAPI; smoke menguji pra/pasca-assign. Guardrail L2
+      diperluas: trigger `"blocks":[` di dokumen dinetralkan (anti blok palsu).
+- [x] **INSIDEN drizzle-kit push — RLS produksi sempat MATI** (2026-07-28):
+      push (yang dipakai utk kolom D10/D11) ternyata juga "menyamakan" RLS &
+      policy: isolasi tenant DINONAKTIFKAN lalu seluruh policy DIHAPUS.
+      Terdeteksi oleh smoke ("bocor ke B=YA"). Pemulihan: db:migrate
+      (idempotent). Pencegahan: `.enableRLS()` di 16 tabel schema + aturan
+      keras di CLAUDE.md — **produksi hanya lewat migrations/*.sql, push
+      dilarang menyentuh prod**. 0005 juga dibuat kebal keadaan multi-akun
+      (index lama dilewati bila pengganti 0006 sudah ada).
+      Smoke akhir: bocor=TIDAK, lintas-tenant ditolak, D11 pra/pasca-assign OK.
+
 ### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
 - [x] Penyesuaian serverless (db pool, lazy embeddings, vercel.json) + `docs/DEPLOY-VERCEL.md`

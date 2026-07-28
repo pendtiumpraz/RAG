@@ -7,7 +7,7 @@ import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui
 
 interface Chatbot {
   id: string; name: string; publicKey: string; enabled: boolean;
-  allowedOrigins: string[]; greeting: string | null; deletedAt?: string | null;
+  allowedOrigins: string[]; greeting: string | null; context: string | null; deletedAt?: string | null;
 }
 
 export default function ChatbotsPage() {
@@ -114,6 +114,7 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
   const bot = isNew ? null : chatbot;
   const [name, setName] = useState(bot?.name ?? 'Chatbot Baru');
   const [greeting, setGreeting] = useState(bot?.greeting ?? 'Halo! Ada yang bisa dibantu?');
+  const [context, setContext] = useState(bot?.context ?? '');
   const [origins, setOrigins] = useState((bot?.allowedOrigins ?? []).join('\n'));
   const [enabled, setEnabled] = useState(bot?.enabled ?? true);
   const [snippet, setSnippet] = useState<string | null>(
@@ -149,6 +150,12 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
         <div className="db stack gap-4">
           <div className="field"><label>Nama chatbot</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
           <div className="field"><label>Greeting</label><input className="input" value={greeting} onChange={(e) => setGreeting(e.target.value)} /></div>
+
+          {/* D11: konteks kepemilikan divisi — masuk system prompt chatbot ini saja */}
+          <div className="field"><label>Konteks divisi / persona</label>
+            <textarea className="input" rows={3} value={context} onChange={(e) => setContext(e.target.value)}
+              placeholder="Chatbot divisi HR. Menjawab kebijakan karyawan, cuti, dan benefit. Gaya formal dan ringkas." />
+            <p className="microlabel" style={{ marginTop: 6 }}>MASUK KE SYSTEM PROMPT CHATBOT INI SAJA — MENENTUKAN WATAK &amp; LINGKUP JAWABAN</p></div>
           <div className="field"><label>Allowed origins (satu per baris — kosong = semua)</label>
             <textarea className="textarea" rows={2} value={origins} onChange={(e) => setOrigins(e.target.value)} placeholder="https://situs-pelanggan.com" /></div>
           <div className="cluster" style={{ justifyContent: 'space-between' }}>

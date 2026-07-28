@@ -11,9 +11,12 @@ export interface RetrievedChunk {
 }
 
 /**
- * Vector search top-k, terkurung SATU chatbot (⇒ satu knowledge base) di
- * SATU tenant. withTenant() + filter chatbot_id + embedding_model +
- * deleted_at IS NULL ⇒ beda ID = beda KB, terisolasi penuh.
+ * Vector search top-k utk satu chatbot — D11: konteks chatbot = UNION dokumen
+ * semua KNOWLEDGE BASE yang di-assign padanya (chatbot_knowledge_bases).
+ * withTenant() + filter kb + embedding_model + deleted_at IS NULL ⇒ tetap
+ * terisolasi penuh per tenant; assignment-lah yang menentukan jangkauan.
+ * Chatbot tanpa KB ter-assign = konteks kosong (jawab "tidak tahu"), bukan
+ * error — keadaan sah saat chatbot baru dibuat.
  */
 export const retrievalService = {
   async retrieve(
@@ -29,13 +32,15 @@ export const retrievalService = {
 
     return withTenant(tenantId, async (tx) => {
       const rows = await tx.execute(sql`
-        select id, title, content,
-               1 - (embedding <=> ${vecLiteral}::vector) as score
-        from documents
-        where chatbot_id = ${chatbotId}
-          and embedding_model = ${embeddingModel}
-          and deleted_at is null
-        order by embedding <=> ${vecLiteral}::vector
+        select d.id, d.title, d.content,
+               1 - (d.embedding <=> ${vecLiteral}::vector) as score
+        from documents d
+        where d.knowledge_base_id in (
+            select a.knowledge_base_id from chatbot_knowledge_bases a
+            where a.chatbot_id = ${chatbotId} and a.deleted_at is null)
+          and d.embedding_model = ${embeddingModel}
+          and d.deleted_at is null
+        order by d.embedding <=> ${vecLiteral}::vector
         limit ${k}
       `);
       return (rows as unknown as Array<{ id: string; title: string | null; content: string; score: number }>)

@@ -97,7 +97,7 @@ async function main() {
         values.push(sql`(${tenantId}, ${bot}, ${'bench ' + (inserted + i)}, ${'Konten sintetis nomor ' + (inserted + i) + ' untuk uji beban retrieval.'}, ${MODEL}, ${randomUnitVector()}::vector)`);
       }
       await withTenant(tenantId, (tx) => tx.execute(sql`
-        insert into documents (tenant_id, chatbot_id, title, content, embedding_model, embedding)
+        insert into documents (tenant_id, knowledge_base_id, title, content, embedding_model, embedding)
         values ${sql.join(values, sql`, `)}
       `));
       inserted += size;
@@ -125,7 +125,7 @@ async function main() {
         explain (analyze, format json)
         select id, title, content, 1 - (embedding <=> ${vec}::vector) as score
         from documents
-        where chatbot_id = ${target} and embedding_model = ${MODEL} and deleted_at is null
+        where knowledge_base_id = ${target} and embedding_model = ${MODEL} and deleted_at is null
         order by embedding <=> ${vec}::vector
         limit 6
       `));
