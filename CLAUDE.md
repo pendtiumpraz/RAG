@@ -15,7 +15,7 @@ npm run lint           # next lint
 npm test               # unit tests: node --import tsx --test tests/*.test.ts (no DB needed)
 node --import tsx --test tests/core.test.ts --test-name-pattern "crypto"   # single test
 npm run smoke          # scripts/smoke.ts against a real DB (needs .env)
-npm run db:push        # drizzle-kit push (schema)
+npm run db:push        # drizzle-kit push (schema) — needs the ADMIN role (DATABASE_URL_ADMIN); nalar_app cannot ALTER
 npm run db:migrate     # runs raw SQL in migrations/ (pgvector, RLS, …) — required after db:push
 npm run db:setup-role  # creates NOBYPASSRLS role `nalar_app` (RLS only works via this role)
 ```
@@ -31,6 +31,7 @@ The project follows the "Sainskerta Loop" workflow in `loop/`. The rules that sh
 - **No dummy/hardcoded data in the frontend.** Pages call real APIs (`src/app/_lib/api.ts` `useApi` hook) with honest loading/empty/error states.
 - **CRUD in one page** with a **right-side drawer** (400px) for create/edit forms; sidebar icons are single solid-color inline SVGs.
 - **snake_case** for all DB tables/columns; migrations only (never edit schema manually in the DB).
+- **Every index created in `migrations/*.sql` must ALSO be declared in `schema.ts`** (same name; `uniqueIndex(...).where(...)` for partial uniques). `drizzle-kit push` reconciles the DB to `schema.ts` and silently DROPS undeclared indexes — this destroyed all partial unique indexes in production once (2026-07-27; broke the `usage_counters` upsert). Recovery: `npm run db:migrate` (idempotent).
 - **Architecture decisions are the user's.** Record them in `architecture-decisions.md` (Decision → Context → Status) and get approval before big changes.
 - **`progress.md` is the single source of truth for project status** — update it when phase/status changes. (`.claude/loop.md` is the loop state file but lags behind; trust `progress.md`.)
 

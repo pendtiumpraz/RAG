@@ -1,6 +1,19 @@
+import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, timestamp, jsonb, vector, index, boolean, real, integer,
+  pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer,
 } from 'drizzle-orm/pg-core';
+
+/*
+ * PENTING — index dari migrasi SQL mentah WAJIB dideklarasikan juga di sini.
+ *
+ * `drizzle-kit push` menyamakan database dengan berkas ini: index yang hanya
+ * dibuat lewat migrations/*.sql dan tidak dideklarasikan di schema DIHAPUS
+ * diam-diam oleh push berikutnya. Ini kejadian nyata di produksi 2026-07-27 —
+ * push untuk kolom baru ikut menghapus SEMUA unique index parsial (kunci
+ * upsert usage_counters, kunci publicKey chatbot, dst.) dan chat langsung
+ * gagal mencatat pemakaian. Pemulihannya `npm run db:migrate` (idempotent);
+ * pencegahannya deklarasi di bawah, namanya PERSIS sama dengan di migrasi.
+ */
 
 /**
  * Nalar schema — Sainskerta-compliant (RULES-OF-THE-GAME).
@@ -43,6 +56,7 @@ export const tenants = pgTable('tenants', {
   ...stamps,
 }, (t) => ({
   delIdx: index('idx_tenants_deleted_at').on(t.deletedAt),
+  planExpIdx: index('idx_tenants_plan_expires_at').on(t.planExpiresAt),
 }));
 
 export const users = pgTable('users', {
@@ -173,6 +187,10 @@ export const chatbots = pgTable('chatbots', {
   tenantIdx: index('idx_chatbots_tenant_id').on(t.tenantId),
   ownerIdx: index('idx_chatbots_owner_id').on(t.ownerId),
   delIdx: index('idx_chatbots_deleted_at').on(t.deletedAt),
+  /** Lookup embed publik (migrasi 0013) — versi parsial agar publicKey bisa
+   *  dipakai ulang setelah chatbot di-soft-delete. */
+  uqPublicKey: uniqueIndex('uq_chatbots_public_key')
+    .on(t.publicKey).where(sql`deleted_at IS NULL`),
 }));
 
 /* ── knowledge ─────────────────────────────────────────────────────── */
@@ -255,6 +273,9 @@ export const usageCounters = pgTable('usage_counters', {
 }, (t) => ({
   scopeIdx: index('idx_usage_counters_scope').on(t.tenantId, t.period),
   delIdx: index('idx_usage_counters_deleted_at').on(t.deletedAt),
+  /** Kunci upsert recordTurn — `on conflict (tenant_id, period) where …`. */
+  uqScope: uniqueIndex('uq_usage_counters_tenant_period')
+    .on(t.tenantId, t.period).where(sql`deleted_at IS NULL`),
 }));
 
 /* ── kredensial OAuth app — PLATFORM, bukan per-tenant ─────────────── */
@@ -299,6 +320,9 @@ export const oauthApps = pgTable('oauth_apps', {
 }, (t) => ({
   providerIdx: index('idx_oauth_apps_provider').on(t.provider),
   delIdx: index('idx_oauth_apps_deleted_at').on(t.deletedAt),
+  /** Satu kredensial hidup per provider (migrasi 0014). */
+  uqProvider: uniqueIndex('uq_oauth_apps_provider')
+    .on(t.provider).where(sql`deleted_at IS NULL`),
 }));
 
 /* ── server LLM sendiri (on-prem/VPS) — PLATFORM, bukan per-tenant ─── */
@@ -329,6 +353,9 @@ export const llmServers = pgTable('llm_servers', {
 }, (t) => ({
   enabledIdx: index('idx_llm_servers_enabled').on(t.enabled),
   delIdx: index('idx_llm_servers_deleted_at').on(t.deletedAt),
+  /** Satu server hidup per base_url (migrasi 0015). */
+  uqBaseUrl: uniqueIndex('uq_llm_servers_base_url')
+    .on(t.baseUrl).where(sql`deleted_at IS NULL`),
 }));
 
 /* ── server embedding sendiri (VPS) — PLATFORM, bukan per-tenant ───── */
@@ -360,6 +387,9 @@ export const embeddingServers = pgTable('embedding_servers', {
 }, (t) => ({
   enabledIdx: index('idx_embedding_servers_enabled').on(t.enabled),
   delIdx: index('idx_embedding_servers_deleted_at').on(t.deletedAt),
+  /** Satu server hidup per base_url (migrasi 0008). */
+  uqBaseUrl: uniqueIndex('uq_embedding_servers_base_url')
+    .on(t.baseUrl).where(sql`deleted_at IS NULL`),
 }));
 
 /** Satu model yang dilayani sebuah server embedding. */
@@ -388,6 +418,9 @@ export const oauthConnections = pgTable('oauth_connections', {
 }, (t) => ({
   scopeIdx: index('idx_oauth_connections_scope').on(t.tenantId, t.userId, t.provider),
   delIdx: index('idx_oauth_connections_deleted_at').on(t.deletedAt),
+  /** Multi-akun: satu koneksi hidup per (user, provider, email) — migrasi 0006. */
+  uqAccount: uniqueIndex('uq_oauth_connections_user_provider_account')
+    .on(t.userId, t.provider, t.accountEmail).where(sql`deleted_at IS NULL`),
 }));
 
 /* ── audit log (Guardrail L5) ──────────────────────────────────────── */
@@ -404,6 +437,7 @@ export const auditLogs = pgTable('audit_logs', {
   tenantIdx: index('idx_audit_logs_tenant_id').on(t.tenantId),
   actionIdx: index('idx_audit_logs_action').on(t.action, t.createdAt),
   delIdx: index('idx_audit_logs_deleted_at').on(t.deletedAt),
+  createdIdx: index('idx_audit_logs_created_at').on(t.createdAt.desc()),
 }));
 
 /* ── memory (Obsidian Memory Agent) ────────────────────────────────── */
