@@ -21,15 +21,19 @@ export const knowledgeBaseService = {
         name: knowledgeBases.name,
         description: knowledgeBases.description,
         updatedAt: knowledgeBases.updatedAt,
+        /* Referensi kolom luar ditulis LITERAL (`knowledge_bases.id`), bukan
+           interpolasi ${knowledgeBases.id} — drizzle merender interpolasi itu
+           sebagai `"id"` telanjang yang di dalam subquery tertangkap ke tabel
+           subquery sendiri (bug nyata: endpoint 500 di produksi). */
         sources: sql<number>`(select count(*)::int from data_sources s
-          where s.knowledge_base_id = ${knowledgeBases.id} and s.deleted_at is null)`,
+          where s.knowledge_base_id = knowledge_bases.id and s.deleted_at is null)`,
         chunks: sql<number>`(select count(*)::int from documents d
-          where d.knowledge_base_id = ${knowledgeBases.id} and d.deleted_at is null)`,
+          where d.knowledge_base_id = knowledge_bases.id and d.deleted_at is null)`,
         chatbots: sql<Array<{ id: string; name: string }>>`coalesce((
           select json_agg(json_build_object('id', c.id, 'name', c.name))
           from chatbot_knowledge_bases a
           join chatbots c on c.id = a.chatbot_id and c.deleted_at is null
-          where a.knowledge_base_id = ${knowledgeBases.id} and a.deleted_at is null), '[]')`,
+          where a.knowledge_base_id = knowledge_bases.id and a.deleted_at is null), '[]'::json)`,
       }).from(knowledgeBases)
         .where(and(eq(knowledgeBases.tenantId, tenantId), isNull(knowledgeBases.deletedAt)))
         .orderBy(desc(knowledgeBases.updatedAt)));
