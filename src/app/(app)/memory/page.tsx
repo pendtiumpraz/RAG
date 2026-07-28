@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
@@ -82,40 +82,221 @@ export default function MemoryPage() {
   );
 }
 
+/* ── Knowledge graph ala Obsidian Graph View ─────────────────────────
+   Force-directed sungguhan (bukan lingkaran statis): repulsi antar-node +
+   pegas di tiap edge + gravitasi pusat — hub yang banyak ter-link otomatis
+   mengumpul di tengah, node sepi terdorong ke tepi, persis perilaku graph
+   Obsidian. Interaksi: hover menyorot node + tetangganya (sisanya
+   meredup), drag node (fisika ikut bereaksi), pan latar, scroll = zoom ke
+   kursor, label muncul saat zoom dekat / node besar / disorot.
+   Canvas tanpa dependensi — ratusan node tetap 60fps. */
+interface SimNode {
+  id: string; title: string; slug: string;
+  x: number; y: number; vx: number; vy: number; r: number; deg: number;
+}
+
 function GraphView({ graph }: { graph: Graph }) {
-  const layout = useMemo(() => {
-    const n = graph.nodes.length;
-    const cx = 280, cy = 165, r = Math.min(140, 40 + n * 6);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    /* — data — */
     const deg = new Map<string, number>();
-    graph.edges.forEach((e) => { deg.set(e.from, (deg.get(e.from) ?? 0) + 1); deg.set(e.to, (deg.get(e.to) ?? 0) + 1); });
-    const pos = new Map<string, { x: number; y: number; hub: boolean }>();
-    graph.nodes.forEach((node, i) => {
-      const a = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2;
-      pos.set(node.id, { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, hub: (deg.get(node.id) ?? 0) >= 4 });
+    for (const e of graph.edges) {
+      deg.set(e.from, (deg.get(e.from) ?? 0) + 1);
+      deg.set(e.to, (deg.get(e.to) ?? 0) + 1);
+    }
+    const nodes: SimNode[] = graph.nodes.map((n, i) => {
+      const d = deg.get(n.id) ?? 0;
+      const a = (i / Math.max(1, graph.nodes.length)) * Math.PI * 2;
+      const rr = 60 + (i % 5) * 28; // sebar awal spiral — hindari ledakan awal
+      return {
+        id: n.id, title: n.title, slug: n.slug,
+        x: Math.cos(a) * rr, y: Math.sin(a) * rr, vx: 0, vy: 0,
+        deg: d, r: Math.min(4 + Math.sqrt(d) * 2.4, 14),
+      };
     });
-    return pos;
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const links = graph.edges
+      .map((e) => ({ a: byId.get(e.from), b: byId.get(e.to), wiki: e.kind === 'wikilink' }))
+      .filter((l): l is { a: SimNode; b: SimNode; wiki: boolean } => !!l.a && !!l.b);
+    const neighbors = new Map<string, Set<string>>();
+    for (const l of links) {
+      (neighbors.get(l.a.id) ?? neighbors.set(l.a.id, new Set()).get(l.a.id)!).add(l.b.id);
+      (neighbors.get(l.b.id) ?? neighbors.set(l.b.id, new Set()).get(l.b.id)!).add(l.a.id);
+    }
+
+    /* — warna dari token (canvas tak paham var()) — segarkan saat ganti tema — */
+    let C = readColors();
+    function readColors() {
+      const s = getComputedStyle(document.documentElement);
+      const v = (n: string, fb: string) => (s.getPropertyValue(n).trim() || fb);
+      return {
+        node: v('--signal', '#2563EB'), hub: v('--source-mark', '#F59E0B'),
+        edge: v('--line-strong', '#B6C2D2'), label: v('--muted', '#475569'),
+        halo: v('--card', '#fff'),
+      };
+    }
+    const themeObs = new MutationObserver(() => { C = readColors(); });
+    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    /* — viewport & interaksi — */
+    let W = 0, H = 0, dpr = 1;
+    let scale = 1, tx = 0, ty = 0;         // zoom + pan (dunia → layar)
+    let hover: SimNode | null = null;
+    let drag: SimNode | null = null;
+    let panning = false;
+    let px = 0, py = 0;
+    let alpha = 1;                          // "panas" simulasi
+
+    function resize() {
+      const rect = canvas!.parentElement!.getBoundingClientRect();
+      dpr = window.devicePixelRatio || 1;
+      W = rect.width; H = 460;
+      canvas!.width = W * dpr; canvas!.height = H * dpr;
+      canvas!.style.width = `${W}px`; canvas!.style.height = `${H}px`;
+      tx = W / 2; ty = H / 2;
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas.parentElement!);
+
+    const toWorld = (sx: number, sy: number) => ({ x: (sx - tx) / scale, y: (sy - ty) / scale });
+    function pick(sx: number, sy: number): SimNode | null {
+      const p = toWorld(sx, sy);
+      let best: SimNode | null = null; let bd = 12 / scale;
+      for (const n of nodes) {
+        const d = Math.hypot(n.x - p.x, n.y - p.y) - n.r;
+        if (d < bd) { bd = d; best = n; }
+      }
+      return best;
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const n = pick(e.offsetX, e.offsetY);
+      if (n) { drag = n; alpha = Math.max(alpha, 0.35); }
+      else { panning = true; }
+      px = e.offsetX; py = e.offsetY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (drag) {
+        const p = toWorld(e.offsetX, e.offsetY);
+        drag.x = p.x; drag.y = p.y; drag.vx = 0; drag.vy = 0;
+        alpha = Math.max(alpha, 0.3);
+      } else if (panning) {
+        tx += e.offsetX - px; ty += e.offsetY - py;
+        px = e.offsetX; py = e.offsetY;
+      } else {
+        hover = pick(e.offsetX, e.offsetY);
+        canvas.style.cursor = hover ? 'pointer' : 'grab';
+      }
+    });
+    const release = () => { drag = null; panning = false; };
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointerleave', () => { release(); hover = null; });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      const ns = Math.min(4, Math.max(0.25, scale * f));
+      // zoom KE ARAH kursor, bukan ke pusat
+      tx = e.offsetX - (e.offsetX - tx) * (ns / scale);
+      ty = e.offsetY - (e.offsetY - ty) * (ns / scale);
+      scale = ns;
+    }, { passive: false });
+
+    /* — fisika: repulsi + pegas + gravitasi pusat — */
+    function step() {
+      const REPULSE = 1400, SPRING = 0.035, REST = 70, GRAVITY = 0.012, DAMP = 0.82;
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j];
+          let dx = a.x - b.x, dy = a.y - b.y;
+          let d2 = dx * dx + dy * dy;
+          if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
+          const f = (REPULSE * alpha) / d2;
+          const d = Math.sqrt(d2);
+          a.vx += (dx / d) * f; a.vy += (dy / d) * f;
+          b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
+        }
+        a.vx -= a.x * GRAVITY * alpha; a.vy -= a.y * GRAVITY * alpha;
+      }
+      for (const l of links) {
+        const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y;
+        const d = Math.max(1, Math.hypot(dx, dy));
+        const f = SPRING * alpha * (d - REST);
+        l.a.vx += (dx / d) * f; l.a.vy += (dy / d) * f;
+        l.b.vx -= (dx / d) * f; l.b.vy -= (dy / d) * f;
+      }
+      for (const n of nodes) {
+        if (n === drag) continue;
+        n.vx *= DAMP; n.vy *= DAMP;
+        n.x += n.vx; n.y += n.vy;
+      }
+      alpha = Math.max(0.02, alpha * 0.996);
+    }
+
+    /* — gambar — */
+    function draw() {
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx!.clearRect(0, 0, W, H);
+      ctx!.translate(tx, ty);
+      ctx!.scale(scale, scale);
+
+      const focus = hover ?? drag;
+      const hood = focus ? (neighbors.get(focus.id) ?? new Set<string>()) : null;
+      const dimmed = (id: string) =>
+        !!focus && focus.id !== id && !hood!.has(id);
+
+      for (const l of links) {
+        const dim = focus ? dimmed(l.a.id) || dimmed(l.b.id) : false;
+        ctx!.globalAlpha = dim ? 0.06 : l.wiki ? 0.55 : 0.3;
+        ctx!.strokeStyle = l.wiki ? C.hub : C.edge;
+        ctx!.lineWidth = (l.wiki ? 1.4 : 1) / scale;
+        ctx!.beginPath(); ctx!.moveTo(l.a.x, l.a.y); ctx!.lineTo(l.b.x, l.b.y); ctx!.stroke();
+      }
+      for (const n of nodes) {
+        const dim = dimmed(n.id);
+        ctx!.globalAlpha = dim ? 0.12 : 1;
+        ctx!.beginPath(); ctx!.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx!.fillStyle = n.deg >= 4 ? C.hub : C.node;
+        ctx!.fill();
+        if (focus && (focus.id === n.id || hood!.has(n.id))) {
+          ctx!.lineWidth = 2 / scale; ctx!.strokeStyle = C.halo; ctx!.stroke();
+        }
+        // label: saat disorot / tetangganya / hub besar / zoom dekat
+        const showLabel = (focus && (focus.id === n.id || hood!.has(n.id)))
+          || (!focus && (scale > 1.4 || n.deg >= 6));
+        if (showLabel) {
+          ctx!.globalAlpha = dim ? 0.15 : 0.95;
+          ctx!.font = `${11 / scale}px ui-monospace, monospace`;
+          ctx!.textAlign = 'center';
+          ctx!.fillStyle = C.label;
+          ctx!.fillText(n.title.slice(0, 28), n.x, n.y + n.r + 12 / scale);
+        }
+      }
+      ctx!.globalAlpha = 1;
+    }
+
+    let raf = 0;
+    const loop = () => { if (alpha > 0.021 || hover || drag) step(); draw(); raf = requestAnimationFrame(loop); };
+    loop();
+
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); themeObs.disconnect(); };
   }, [graph]);
 
   return (
-    <svg viewBox="0 0 560 330" style={{ width: '100%', height: 320 }} role="img" aria-label="Knowledge graph">
-      {graph.edges.map((e, i) => {
-        const a = layout.get(e.from), b = layout.get(e.to); if (!a || !b) return null;
-        return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-          stroke={e.kind === 'wikilink' ? 'var(--source-mark)' : 'var(--line-strong)'} strokeWidth={e.kind === 'wikilink' ? 1.4 : 1} />;
-      })}
-      {graph.nodes.map((node) => {
-        const p = layout.get(node.id); if (!p) return null;
-        return (
-          <g key={node.id}>
-            <circle cx={p.x} cy={p.y} r={p.hub ? 9 : 6}
-              fill={p.hub ? 'var(--source-mark)' : 'var(--card)'} stroke={p.hub ? 'var(--source)' : 'var(--signal)'} strokeWidth={1.5}>
-              <title>{node.title}</title>
-            </circle>
-            <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize={9}
-              fontFamily="var(--font-mono)" fill="var(--muted)">{node.slug.slice(0, 14)}</text>
-          </g>
-        );
-      })}
-    </svg>
+    <div style={{ position: 'relative' }}>
+      <canvas ref={canvasRef} role="img" aria-label="Knowledge graph"
+        style={{ display: 'block', width: '100%', height: 460, borderRadius: 'var(--rad-md)', touchAction: 'none' }} />
+      <span className="microlabel" style={{ position: 'absolute', right: 10, bottom: 8, pointerEvents: 'none' }}>
+        SCROLL = ZOOM · SERET = GESER · SERET NODE = ATUR
+      </span>
+    </div>
   );
 }
