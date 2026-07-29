@@ -10,6 +10,8 @@ import { Select } from '../../_components/select';
 interface PlanSpec { id: string; messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null }
 interface Billing {
   plan: string; planOnPaper: string; planExpiresAt: string | null; expired: boolean;
+  /** workspace operator platform — tanpa batas & tak ditagih */
+  isPlatform: boolean;
   usage: { messages: number; tokensIn: number; tokensOut: number; members: number; chatbots: number };
   limits: { messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null };
   plans: PlanSpec[];
@@ -53,8 +55,18 @@ export default function BillingPage() {
       <div className="grid g2">
         <div className="card">
           <div className="panel-head"><span className="t">plan aktif</span>
-            <span className="badge badge-source">{data.plan}</span></div>
+            {/* Workspace operator bukan pelanggan — menampilkan "free" di sini
+                membingungkan, karena batasnya justru tak ada sama sekali. */}
+            <span className={`badge ${data.isPlatform ? 'badge-ok' : 'badge-source'}`}>
+              {data.isPlatform ? 'operator platform' : data.plan}
+            </span></div>
           <div className="card-pad stack gap-4">
+            {data.isPlatform && (
+              <p className="microlabel" style={{ margin: 0 }}>
+                WORKSPACE OPERATOR PLATFORM — KUOTA, CHATBOT, DAN ANGGOTA TANPA BATAS.
+                TAK PERNAH DITAGIH DAN TAK IKUT DIHITUNG SEBAGAI PELANGGAN.
+              </p>
+            )}
             <Meter label="Pesan bulan ini" used={data.usage.messages} limit={data.limits.messagesPerMonth} />
             <Meter label="Chatbot" used={data.usage.chatbots} limit={data.limits.maxChatbots} />
             <Meter label="Anggota tim" used={data.usage.members} limit={data.limits.maxMembers} />

@@ -28,6 +28,8 @@ export interface TenantBilling {
   plan: string;             // yang benar-benar berlaku
   planExpiresAt: Date | null;
   expired: boolean;
+  /** workspace operator platform — tanpa batas, tak pernah ditagih */
+  isPlatform: boolean;
   members: number;
   chatbots: number;
   messages: number;
@@ -59,15 +61,22 @@ export const billingService = {
     });
 
     const plan = effectivePlan(t.plan, t.planExpiresAt);
+    // Mode deploy & penanda operator ikut menentukan batas yang DITAMPILKAN.
+    // Tanpa ini halaman Billing memberi angka yang bertentangan dengan yang
+    // sungguh ditegakkan di jalur chat — dan angka yang berbohong lebih buruk
+    // daripada tak ada angka.
+    const { platformSettingsService } = await import('@/modules/payments/platform-settings.service');
+    const unlimited = t.isPlatform || (await platformSettingsService.mode()) === 'onprem';
     return {
       tenantId: t.id, tenantName: t.name,
       planOnPaper: t.plan, plan, planExpiresAt: t.planExpiresAt,
       expired: plan !== t.plan,
+      isPlatform: t.isPlatform,
       members: Number(memberCount), chatbots: Number(botCount),
       messages: usage?.messages ?? 0,
       tokensIn: usage?.tokensIn ?? 0,
       tokensOut: usage?.tokensOut ?? 0,
-      limits: limitsForPlan(plan),
+      limits: limitsForPlan(unlimited ? 'onprem' : plan),
     };
   },
 
@@ -87,10 +96,10 @@ export const billingService = {
     const rows = await db.transaction(async (tx) => {
       await tx.execute(sql`select set_config('app.admin_context', 'platform_admin', true)`);
       return tx.execute<{
-      id: string; name: string; plan: string; plan_expires_at: Date | null;
+      id: string; name: string; plan: string; plan_expires_at: Date | null; is_platform: boolean;
       members: string; chatbots: string; messages: string; tokens_in: string; tokens_out: string;
     }>(sql`
-      select t.id, t.name, t.plan, t.plan_expires_at,
+      select t.id, t.name, t.plan, t.plan_expires_at, t.is_platform,
              (select count(*) from users u    where u.tenant_id = t.id and u.deleted_at is null)    as members,
              (select count(*) from chatbots c where c.tenant_id = t.id and c.deleted_at is null)    as chatbots,
              coalesce(uc.messages, 0)   as messages,
@@ -111,6 +120,7 @@ export const billingService = {
       return {
         tenantId: String(r.id), tenantName: String(r.name),
         planOnPaper, plan, planExpiresAt, expired: plan !== planOnPaper,
+        isPlatform: !!r.is_platform,
         members: Number(r.members), chatbots: Number(r.chatbots),
         messages: Number(r.messages), tokensIn: Number(r.tokens_in), tokensOut: Number(r.tokens_out),
       };

@@ -30,7 +30,11 @@ export async function GET() {
   // Superadmin = pengelola PLATFORM, bukan pelanggan: ia harus bisa membuka
   // setiap fitur untuk memeriksa, mendemokan, dan menyelidiki keluhan tenant.
   // Mengunci operator dari produknya sendiri jelas keliru.
-  const platformOperator = user.role === 'superadmin';
+  // Dua penanda yang harus sepakat: peran pengguna (membuka FITUR) dan
+  // penanda tenant (membuka KUOTA). Digabung dengan OR supaya tak pernah ada
+  // celah tempat keduanya berselisih — dulu persis di celah itulah operator
+  // melihat semua fitur terbuka sementara jatahnya masih `free`.
+  const platformOperator = user.role === 'superadmin' || snap.isPlatform;
   const onprem = cfg.deploymentMode === 'onprem' || platformOperator;
   const plan = onprem ? 'onprem' : snap.plan;
   const gw = cfg.deploymentMode === 'onprem' ? null : await paymentGatewayService.getActive();

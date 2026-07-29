@@ -60,10 +60,21 @@ export const tenants = pgTable('tenants', {
    * usageService.snapshot(), bukan sekadar hiasan di UI.
    */
   planExpiresAt: timestamp('plan_expires_at'),
+  /**
+   * Workspace OPERATOR PLATFORM (memuat superadmin) — bukan pelanggan.
+   *
+   * Kuota, batas chatbot, batas anggota, dan laju permintaannya selalu tanpa
+   * batas, dan ia tak pernah ditagih. Ditandai sebagai kolom alih-alih
+   * disimpulkan dari peran saat query karena `users` ada di bawah RLS;
+   * membacanya lintas tenant menuntut escape hatch GUC, dan jalur kuota
+   * dipanggil pada tiap giliran chat.
+   */
+  isPlatform: boolean('is_platform').default(false).notNull(),
   ...stamps,
 }, (t) => ({
   delIdx: index('idx_tenants_deleted_at').on(t.deletedAt),
   planExpIdx: index('idx_tenants_plan_expires_at').on(t.planExpiresAt),
+  platformIdx: index('idx_tenants_is_platform').on(t.isPlatform).where(sql`is_platform`),
 }));
 
 export const users = pgTable('users', {

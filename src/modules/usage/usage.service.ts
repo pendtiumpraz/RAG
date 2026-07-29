@@ -31,16 +31,20 @@ export const usageService = {
   /** Plan + limit + pemakaian periode berjalan (untuk dashboard & guard). */
   async snapshot(tenantId: string): Promise<{
     plan: string; planOnPaper: string; planExpiresAt: Date | null; expired: boolean;
+    /** workspace operator platform — tanpa batas & tak pernah ditagih */
+    isPlatform: boolean;
     limits: PlanLimits; period: string;
     messages: number; tokensIn: number; tokensOut: number;
   }> {
     const period = currentPeriod();
     // plan dibaca dari tabel root `tenants` (tanpa RLS)
-    const t = await db.select({ plan: tenants.plan, planExpiresAt: tenants.planExpiresAt })
-      .from(tenants)
+    const t = await db.select({
+      plan: tenants.plan, planExpiresAt: tenants.planExpiresAt, isPlatform: tenants.isPlatform,
+    }).from(tenants)
       .where(and(eq(tenants.id, tenantId), isNull(tenants.deletedAt))).limit(1);
     const planOnPaper = t[0]?.plan ?? 'free';
     const planExpiresAt = t[0]?.planExpiresAt ?? null;
+    const isPlatform = t[0]?.isPlatform ?? false;
     const plan = effectivePlan(planOnPaper, planExpiresAt);
 
     const row = await withTenant(tenantId, async (tx) =>
@@ -57,9 +61,14 @@ export const usageService = {
     const onprem = (await platformSettingsService.mode()) === 'onprem';
 
     return {
-      plan, planOnPaper, planExpiresAt,
+      plan, planOnPaper, planExpiresAt, isPlatform,
       expired: plan !== planOnPaper,
-      limits: limitsForPlan(onprem ? 'onprem' : plan), period,
+      // Tiga jalan menuju tanpa batas, dan semuanya bertemu di sini karena
+      // inilah satu-satunya sumber batas: mode on-premise, workspace operator
+      // platform, atau plan berbayar yang memang tanpa batas. Sebelumnya
+      // operator hanya dibuka FITURnya di /api/entitlements sementara kuotanya
+      // tetap `free` — terbuka pintunya, terkunci jatahnya.
+      limits: limitsForPlan(onprem || isPlatform ? 'onprem' : plan), period,
       messages: row?.messages ?? 0,
       tokensIn: row?.tokensIn ?? 0,
       tokensOut: row?.tokensOut ?? 0,

@@ -19,6 +19,7 @@ export async function GET() {
     planOnPaper: b.planOnPaper,
     planExpiresAt: b.planExpiresAt,
     expired: b.expired,
+    isPlatform: b.isPlatform,
     usage: {
       messages: b.messages, tokensIn: b.tokensIn, tokensOut: b.tokensOut,
       members: b.members, chatbots: b.chatbots,

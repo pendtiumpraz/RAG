@@ -16,7 +16,7 @@
  */
 import { randomInt } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
-import { db, users, client } from '../src/modules/core/db';
+import { db, users, tenants, client } from '../src/modules/core/db';
 import { withTenant } from '../src/modules/core/db/tenant-context';
 import { authService } from '../src/modules/auth/auth.service';
 import { hashPassword } from '../src/modules/auth/password';
@@ -43,6 +43,14 @@ async function promote(tenantId: string, userId: string): Promise<string> {
       .where(eq(users.id, userId))
       .returning({ role: users.role }));
   if (!rows[0]) throw new Error('promosi peran tidak mengenai baris mana pun (RLS?)');
+
+  // Tandai workspace-nya sebagai milik operator platform. Tanpa langkah ini
+  // superadmin baru akan mendapat semua FITUR terbuka tapi kuota `free` —
+  // ketidakcocokan yang membingungkan dan pernah benar-benar terjadi.
+  // `tenants` tabel akar tanpa RLS, jadi update biasa sudah cukup.
+  await db.update(tenants).set({ isPlatform: true, updatedAt: new Date() })
+    .where(eq(tenants.id, tenantId));
+
   return rows[0].role;
 }
 
