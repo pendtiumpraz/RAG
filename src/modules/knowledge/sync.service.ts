@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { dataSources } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
@@ -18,6 +19,7 @@ import {
   parseDriveFolderUrl, crawlPublicFolder, downloadPublicFile, exportPublicFile,
 } from './storage/gdrive-public';
 import { oauthAppService } from '@/modules/auth/oauth-app.service';
+import { assertPublicHttpUrl } from '@/modules/core/net';
 
 /**
  * SYNC WORKER — crawl storage user → ekstrak teks → ingest KB →
@@ -350,6 +352,39 @@ async function connect(
       async fetch(f) {
         return { content: await downloadUserSharepointFile(token, f.externalId) };
       },
+    };
+  }
+
+  /**
+   * Satu halaman web. Tanpa OAuth, tanpa akun — cukup URL publik.
+   *
+   * Tetap berupa SUMBER (bukan ingest sekali jalan) supaya bisa disinkronkan
+   * ulang: halaman kebijakan, harga, atau FAQ berubah, dan delta sync akan
+   * menangkapnya lewat ETag/Last-Modified.
+   */
+  if (kind === 'url') {
+    const url = assertPublicHttpUrl(String(config.url ?? ''), { label: 'URL sumber' });
+    const res = await fetch(url, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'NalarBot/1.0 (+https://rag.sainskerta.net)' },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) throw new Error(`Halaman menjawab ${res.status} — tak bisa dibaca.`);
+
+    const mime = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+    const buf = Buffer.from(await res.arrayBuffer());
+    // Penanda versi: ETag/Last-Modified kalau server menyediakannya, kalau
+    // tidak sidik jari isi. Tanpa penanda, tiap sync akan meng-embed ulang
+    // halaman yang sama dan membakar biaya tanpa alasan.
+    const version = res.headers.get('etag')
+      ?? res.headers.get('last-modified')
+      ?? createHash('sha256').update(buf).digest('hex').slice(0, 32);
+    const name = config.title ? String(config.title) : new URL(url).pathname.split('/').filter(Boolean).pop() || new URL(url).hostname;
+
+    return {
+      files: [{ externalId: url, name: `${name}`, mimeType: mime || 'text/html', version }],
+      truncated: false,
+      async fetch() { return { content: buf, mime: mime || 'text/html' }; },
     };
   }
 

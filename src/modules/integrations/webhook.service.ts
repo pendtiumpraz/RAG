@@ -6,6 +6,7 @@ import { encryptSecret, decryptSecret } from '@/modules/core/crypto';
 import { audit } from '@/modules/core/guardrails';
 import { on, type NalarEvents } from '@/modules/core/events';
 import { enqueueJob, registerJobHandler } from '@/modules/core/jobs';
+import { assertPublicHttpUrl } from '@/modules/core/net';
 
 /**
  * WEBHOOK KELUAR — pintu keluar programatik.
@@ -205,25 +206,9 @@ async function deliverOne(
  * Loopback dikecualikan agar pengembangan lokal & on-prem tetap bisa menguji.
  */
 export function assertDeliverableUrl(raw: string): string {
-  let u: URL;
-  try { u = new URL(raw.trim()); } catch {
-    throw new Error('URL webhook tidak sah.');
-  }
-  const host = u.hostname.toLowerCase();
-  const loopback = host === 'localhost' || host === '127.0.0.1' || host === '::1';
-  if (u.protocol !== 'https:' && !loopback) {
-    throw new Error('URL webhook harus https (kecuali loopback untuk pengujian lokal).');
-  }
-  const privateRange =
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    host.endsWith('.internal') || host.endsWith('.local');
-  if (privateRange) {
-    throw new Error('URL webhook tak boleh menunjuk alamat jaringan internal.');
-  }
-  return u.toString();
+  // Aturannya tinggal di core/net karena sumber pengetahuan dari URL memakai
+  // penjagaan yang sama persis — dua salinan berarti dua peluang menyimpang.
+  return assertPublicHttpUrl(raw, { allowLoopback: true, label: 'URL webhook' });
 }
 
 function toRow(r: typeof webhooks.$inferSelect): WebhookRow {

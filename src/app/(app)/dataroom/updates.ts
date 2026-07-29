@@ -14,10 +14,25 @@ export interface ShipItem {
   decision?: string;
 }
 
-export const SHIPPED_AT = '2026-07-29';
+export const SHIPPED_AT = '2026-07-30';
 
 /* ── yang sudah jadi ─────────────────────────────────────────────── */
 export const SHIPPED: Array<{ group: string; items: ShipItem[] }> = [
+  {
+    group: 'Akses programatik & akurasi (P0)',
+    items: [
+      { title: 'API key per tenant + webhook keluar',
+        detail: 'Lubang integrasi terakhir tertutup dua arah. /api/v1/* dengan Bearer nk_live_ (me, chatbots, knowledge-bases, documents, search); webhook keluar ber-HMAC-SHA256 lewat job runner. /v1/search mengembalikan potongan + skor TANPA LLM, jadi agen pelanggan menyusun jawaban dengan model sendiri dan kuota pesan tak terpotong. Kunci disimpan sebagai sha256 saja, tampil sekali lalu hilang.' },
+      { title: 'Hybrid search: kaki leksikal + RRF + penyingkiran kembar',
+        detail: 'Vektor lemah pada token literal, full-text Postgres kuat persis di situ; digabung dengan Reciprocal Rank Fusion (peringkat, bukan skor yang tak sebanding). Ambang duplikat DIUKUR dari korpus nyata: berkas yang ter-ingest dua kali beririsan 0,699 sementara potongan lain di bawah 0,30 — ambang 0,9 yang semula dipakai meloloskan duplikat sungguhan. Skor yang dipublikasikan tetap kosinus 0..1 supaya arti lamanya utuh.' },
+      { title: 'Workspace operator platform benar-benar tanpa batas',
+        detail: 'Fitur sudah terbuka untuk superadmin, tapi KUOTANYA masih free (1.000 pesan, 1 chatbot, 2 anggota) karena snapshot kuota tak tahu peran siapa pun. Ditandai lewat kolom tenants.is_platform; satu titik sempit itu menentukan kuota, batas chatbot, kursi anggota, dan laju permintaan sekaligus.' },
+      { title: 'Sumber pengetahuan: folder Drive publik & SharePoint sungguhan',
+        detail: 'URL folder yang dibagikan publik ditarik rekursif dengan API key TANPA OAuth — satu-satunya jalur yang bebas verifikasi CASA. SharePoint tak lagi sekadar alias OneDrive pribadi: situs, document library, dan tautan berbagi kini terjangkau. Izin akun bisa ditambah inkremental tanpa memutus koneksi.' },
+      { title: 'Dropdown digambar sendiri + papan kanban backlog',
+        detail: 'Popup select bawaan digambar sistem operasi dan tak tersentuh CSS — sumber ketimpangan ukuran yang lama dikeluhkan. Diganti komponen listbox WAI-ARIA di 27 titik pakai. Backlog jadi papan kanban tersimpan di DB dengan prioritas P0..P3, nomor antrean hidup, dan modal detail.' },
+    ],
+  },
   {
     group: 'Arsitektur & data',
     items: [

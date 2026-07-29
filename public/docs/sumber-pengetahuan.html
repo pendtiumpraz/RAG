@@ -78,6 +78,7 @@ menabrak dinding di tengah jalan.</p>
     <li><a href="#drive">Google Drive lewat akun tersambung</a></li>
     <li><a href="#izin">Kenapa akun tersambung kadang tak bisa memilih berkas</a></li>
     <li><a href="#sharepoint">SharePoint &amp; OneDrive</a></li>
+    <li><a href="#upload">Unggah berkas &amp; halaman web</a></li>
     <li><a href="#batas">Batas yang berlaku di semua jalur</a></li>
   </ol>
 </div>
@@ -249,6 +250,45 @@ sudah dibagikan ke publik. Jadi tak ada jalur tanpa login di sisi Microsoft.</p>
   <p>Nalar membaca <b>atas nama pengguna</b> (delegated), bukan sebagai aplikasi
   dengan hak penuh. Kalau akun itu tak bisa membuka situsnya di browser, Nalar
   juga tidak bisa. Pesan galatnya akan menyebut hal ini apa adanya.</p>
+</div>
+
+
+<h2 id="upload">4b. Unggah berkas & halaman web <span class="tag yes">tanpa OAuth</span></h2>
+
+<p>Dua jalur untuk dokumen yang <b>tidak</b> tinggal di Drive maupun SharePoint.</p>
+
+<h3>Unggah berkas dari komputer</h3>
+<p><b>Knowledge Base</b> → <b>Tambah sumber</b> → <b>Unggah berkas dari komputer</b>.
+Format yang dibaca: PDF, DOCX, TXT, MD, CSV, JSON, HTML.</p>
+<div class="note warn">
+  <b>Batas 4 MB per unggahan — dan itu bukan pilihan kami</b>
+  <p>Itu batas badan permintaan fungsi serverless Vercel; aplikasi tak bisa
+  menaikkannya. Kalau berkasmu lebih besar, bagi jadi beberapa kali unggah.
+  Untuk pustaka besar, jalur Drive/SharePoint jauh lebih tepat karena
+  berkasnya diunduh server-ke-server tanpa melewati batas ini.</p>
+</div>
+<div class="note">
+  <b>Unggahan tak bisa disinkronkan ulang</b>
+  <p>Berkas aslinya tak tersimpan di mana pun yang bisa kami tengok lagi, jadi
+  tak ada yang bisa di-<i>sync</i>. Sebagai gantinya, <b>mengunggah nama berkas
+  yang sama akan MENGGANTI isi lamanya</b> — jadi memperbaiki dokumen cukup
+  diunggah ulang, tak akan ada dua versi berdampingan.</p>
+  <p>PDF hasil pindaian tanpa lapisan teks akan dilewati, dan alasannya
+  disebut per berkas — bukan sekadar &ldquo;gagal&rdquo;.</p>
+</div>
+
+<h3>Halaman web (URL)</h3>
+<p>Satu halaman, bukan seluruh situs. Berbeda dari unggahan, ini <b>tetap
+sumber yang bisa di-sync ulang</b>: perubahan halaman tertangkap lewat
+<code>ETag</code>/<code>Last-Modified</code>, dan bila server tak
+menyediakannya, lewat sidik jari isi — sehingga halaman yang tak berubah tidak
+di-embed ulang dan tak membakar biaya percuma.</p>
+<div class="note warn">
+  <b>Hanya https publik</b>
+  <p>Alamat jaringan internal (<code>10.x</code>, <code>192.168.x</code>,
+  <code>169.254.169.254</code>, <code>*.internal</code>) ditolak. Tanpa
+  penjagaan itu, fitur ini jadi alat menyuruh server kami mengetuk jaringan
+  privat dan membaca hasilnya.</p>
 </div>
 
 <h2 id="batas">5. Batas yang berlaku di semua jalur</h2>

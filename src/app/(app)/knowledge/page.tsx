@@ -384,14 +384,17 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const [url, setUrl] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
   const [picked, setPicked] = useState<PickedFile[]>([]);
+  /** berkas dari komputer pengguna (jenis sumber `upload`) */
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const toast = useToast();
 
-  const noAuth = kind === 'gdrive_public';
+  // Tiga jenis sumber tak butuh akun sama sekali.
+  const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload';
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
   const providerAccounts = noAuth ? [] : accounts.filter((a) => a.provider === provider);
-  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); setUrl(''); }, [kind]); // eslint-disable-line
+  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); setUrl(''); setFiles([]); }, [kind]); // eslint-disable-line
 
   const conn = providerAccounts.find((a) => a.accountEmail === accountEmail) ?? null;
   /**
@@ -405,7 +408,8 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const canPick = kind === 'gdrive' ? conn?.canPickFiles !== false : false;
   const pickerMode = kind === 'gdrive' && providers?.driveMode === 'picker' && !canScan;
   /** SharePoint memakai URL; OneDrive tetap path /me/drive. */
-  const useUrl = kind === 'gdrive_public' || kind === 'sharepoint';
+  const useUrl = kind === 'gdrive_public' || kind === 'sharepoint' || kind === 'url';
+  const isUpload = kind === 'upload';
 
   async function openPicker() {
     if (!accountEmail) { setErr('Hubungkan akun google dulu (tombol Connect di atas).'); return; }
@@ -442,7 +446,38 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
     } catch (e) { setErr((e as Error).message); }
   }
 
+  /**
+   * Unggahan TIDAK lewat /api/sources: berkasnya harus ikut dalam badan
+   * permintaan, dan tak ada yang bisa disinkronkan ulang setelahnya —
+   * ekstraksi + ingest tuntas dalam satu permintaan itu juga.
+   */
+  async function uploadFiles() {
+    if (!files.length) { setErr('Pilih berkasnya dulu.'); return; }
+    const total = files.reduce((n, f) => n + f.size, 0);
+    if (total > 4 * 1024 * 1024) {
+      setErr(`Total ${(total / 1048576).toFixed(1)} MB melebihi batas 4 MB per unggahan (batas Vercel). Bagi jadi beberapa kali.`);
+      return;
+    }
+    setBusy(true); setErr(null);
+    try {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      const r = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/upload`, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? 'Gagal mengunggah');
+      const n = j.ingested?.length ?? 0;
+      const s = j.skipped?.length ?? 0;
+      // Berkas yang dilewati disebut satu per satu beserta sebabnya — "3 dari
+      // 5 berhasil" tanpa keterangan memaksa orang menebak yang mana.
+      toast(s
+        ? `${n} berkas masuk (${j.chunks} potongan) · ${s} dilewati: ${(j.skipped as Array<{ name: string; reason: string }>).map((x) => `${x.name} — ${x.reason}`).join('; ')}`
+        : `${n} berkas masuk (${j.chunks} potongan)`);
+      onSaved();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
   async function save() {
+    if (isUpload) { await uploadFiles(); return; }
     if (!noAuth && !accountEmail) { setErr(`Hubungkan akun ${provider} dulu (tombol Connect di atas).`); return; }
     if (pickerMode && !picked.length) { setErr('Pilih dulu berkas dari Drive.'); return; }
     if (useUrl && !url.trim()) {
@@ -454,6 +489,8 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
     let config: Record<string, unknown>;
     if (kind === 'gdrive_public') {
       config = { folderUrl: url.trim() };
+    } else if (kind === 'url') {
+      config = { url: url.trim() };
     } else if (kind === 'sharepoint' && url.trim()) {
       config = { accountEmail, siteUrl: url.trim() };
     } else if (pickerMode) {
@@ -483,6 +520,8 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
               <option value="gdrive_public">Google Drive — URL folder publik (tanpa login)</option>
               <option value="onedrive">OneDrive</option>
               <option value="sharepoint">SharePoint (situs / tautan berbagi)</option>
+              <option value="upload">Unggah berkas dari komputer</option>
+              <option value="url">Halaman web (URL)</option>
             </Select></div>
 
           {/* Folder publik tak butuh akun sama sekali — jangan tampilkan
@@ -501,6 +540,43 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
                 <a className="btn btn-sm" href={`/api/connections/${provider}/start`}><Icon name="plug" size={14} /> Connect {provider}</a>
               )}
             </div>
+          )}
+
+          {isUpload && (
+            <div className="field"><label>Berkas dari komputer</label>
+              <input className="input" type="file" multiple
+                accept=".pdf,.docx,.txt,.md,.markdown,.csv,.json,.log,.yaml,.yml,.html,.htm"
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+              {files.length > 0 && (
+                <div style={{ marginTop: 8, maxHeight: 160, overflowY: 'auto' }} className="stack gap-1">
+                  {files.map((f) => (
+                    <div key={f.name} className="cluster gap-2" style={{ fontSize: 13 }}>
+                      <span className="mono" style={{ color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      <span className="mono" style={{ color: 'var(--faint)', fontSize: 11 }}>{(f.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                  ))}
+                  <p className="microlabel" style={{ marginTop: 4 }}>
+                    TOTAL {(files.reduce((n, f) => n + f.size, 0) / 1048576).toFixed(2)} MB DARI BATAS 4 MB
+                  </p>
+                </div>
+              )}
+              <p className="microlabel" style={{ marginTop: 8 }}>
+                PDF · DOCX · TXT · MD · CSV · JSON · HTML. MAKS 4 MB PER UNGGAHAN —
+                BATAS BADAN PERMINTAAN VERCEL, BUKAN PILIHAN KAMI; BAGI JADI BEBERAPA KALI
+                BILA LEBIH. UNGGAHAN TAK BISA DISINKRONKAN ULANG: BERKAS ASLINYA TAK
+                TERSIMPAN DI MANA PUN. NAMA BERKAS YANG SAMA AKAN MENGGANTI ISI LAMANYA.
+              </p></div>
+          )}
+
+          {kind === 'url' && (
+            <div className="field"><label>URL halaman</label>
+              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://situsmu.com/kebijakan-garansi" />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                SATU HALAMAN, BUKAN SELURUH SITUS. BISA DI-SYNC ULANG — PERUBAHAN
+                HALAMAN TERTANGKAP LEWAT ETAG/LAST-MODIFIED. WAJIB HTTPS PUBLIK;
+                ALAMAT JARINGAN INTERNAL DITOLAK.
+              </p></div>
           )}
 
           {kind === 'gdrive_public' && (

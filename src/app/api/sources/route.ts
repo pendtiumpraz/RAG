@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
     }).returning())[0]);
 
   let jobStatus = null;
-  if (['gdrive', 'gdrive_public', 'onedrive', 'sharepoint'].includes(parsed.data.kind)) {
+  // Jenis "upload" TIDAK di sini: berkasnya ikut di badan permintaan dan ingest-nya
+  // tuntas di /api/knowledge-bases/{id}/upload — tak ada yang bisa di-sync.
+  if (['gdrive', 'gdrive_public', 'onedrive', 'sharepoint', 'url'].includes(parsed.data.kind)) {
     jobStatus = syncService.enqueue(user.tenantId, user.id, created.id);
     // Tanpa ini, Vercel membekukan lambda begitu respons terkirim dan job
     // sync mati di tengah — status macet 'syncing', KB tak pernah terisi.

@@ -11,13 +11,13 @@ export interface AssessDimension {
   id: string; label: string; score: number; desc: string; areas: AssessArea[];
 }
 
-export const ASSESSED_AT = '2026-07-29';
-export const PREV = { at: '2026-07-28', score: 7.7 };
-export const OVERALL = 8.4;
+export const ASSESSED_AT = '2026-07-30';
+export const PREV = { at: '2026-07-29', score: 8.4 };
+export const OVERALL = 8.7;
 
 export const DIMENSIONS: AssessDimension[] = [
   {
-    id: 'uiux', label: 'UI/UX Readiness', score: 8.4,
+    id: 'uiux', label: 'UI/UX Readiness', score: 8.5,
     desc: 'Seluruh permukaan dinilai dari screenshot produksi — bukan dari kode.',
     areas: [
       { name: 'Chat + jawaban terstruktur', score: 9.0, gap: 'Belum ada stop-generation, tombol copy, riwayat sesi di halaman Chat' },
@@ -25,7 +25,7 @@ export const DIMENSIONS: AssessDimension[] = [
       { name: 'Knowledge (KB N:M)', score: 8.5, gap: 'Progres sync tak realtime; belum ada UI unggah berkas' },
       { name: 'Landing publik', score: 8.5, gap: 'Belum ada demo interaktif/video produk' },
       { name: 'Conversations', score: 8.0, gap: 'Belum ada pencarian, filter tanggal, export transkrip' },
-      { name: 'Komponen & konsistensi', score: 8.5, gap: 'Dropdown dituntaskan (eksperimen popup dicabut), ukuran select diseragamkan' },
+      { name: 'Komponen & konsistensi', score: 9.0, gap: 'Dropdown digambar sendiri (listbox WAI-ARIA) — popup akhirnya ikut design system di 27 titik pakai' },
       { name: 'Auth', score: 8.5, gap: 'Lupa-password & verifikasi email kini ada; 2FA belum' },
       { name: 'Dashboard', score: 7.0, gap: 'Setengah bawah kosong; belum ada grafik tren' },
       { name: 'Aksesibilitas', score: 7.0, gap: 'Belum diaudit menyeluruh; kontras beberapa teks ditandai Lighthouse' },
@@ -33,24 +33,24 @@ export const DIMENSIONS: AssessDimension[] = [
     ],
   },
   {
-    id: 'agentic', label: 'Agentic Readiness', score: 8.0,
+    id: 'agentic', label: 'Agentic Readiness', score: 8.7,
     desc: 'Kualitas pipeline AI dan kesiapannya diintegrasikan agen lain.',
     areas: [
       { name: 'Jawaban terstruktur (blok)', score: 9.0, gap: 'Chart baru bar/line satu seri; blok tabel belum ada' },
       { name: 'Fleksibilitas model', score: 9.0, gap: '14 model · 8 provider · self-hosted — tak ada gap berarti' },
       { name: 'Guardrails 5 lapis', score: 8.5, gap: 'Belum ada korpus eval injeksi otomatis & lapis moderasi' },
-      { name: 'Pipeline RAG', score: 8.5, gap: 'Dokumen berversi (RAB 2020 vs 2021) kini akurat; reranker & hybrid search belum' },
+      { name: 'Pipeline RAG', score: 9.0, gap: 'Hybrid search (leksikal + vektor, RRF) & penyingkiran potongan kembar sudah jalan; cross-encoder neural belum' },
       { name: 'Memory agent', score: 7.5, gap: 'Graph kini force-directed hidup; masih hanya terpicu sync, belum belajar dari percakapan' },
-      { name: 'API utk agen/integrasi', score: 6.5, gap: 'BELUM ADA API key per tenant, webhook, MCP server' },
+      { name: 'API utk agen/integrasi', score: 9.0, gap: 'API key per tenant + webhook keluar + /api/v1 (me, chatbots, KB, documents, search) sudah jalan; MCP server belum' },
     ],
   },
   {
-    id: 'feature', label: 'Feature Readiness', score: 8.8,
+    id: 'feature', label: 'Feature Readiness', score: 8.9,
     desc: 'Kelengkapan tiap fitur dibanding janji produknya.',
     areas: [
-      { name: 'KB mandiri + assignment N:M', score: 9.0, gap: 'Konektor upload & url masih enum tanpa implementasi' },
+      { name: 'KB mandiri + assignment N:M', score: 9.0, gap: 'Folder Drive publik tanpa OAuth & SharePoint situs sudah jalan; konektor upload & url masih enum tanpa implementasi' },
       { name: 'Auth + gerbang verifikasi', score: 8.5, gap: 'Lupa-password; 2FA' },
-      { name: 'Sync Drive (Picker & full) + delta', score: 8.5, gap: 'Full-scan SaaS menunggu verifikasi CASA' },
+      { name: 'Sync Drive (Picker & full) + delta', score: 9.0, gap: 'Jalur folder publik menembus kebuntuan CASA; izin akun bisa ditambah tanpa putus-sambung' },
       { name: 'Dataroom', score: 8.5, gap: 'Harga Enterprise/On-prem belum diisi (keputusan bisnis)' },
       { name: 'Analitik per chatbot', score: 8.0, gap: 'Export CSV; rentang tanggal kustom' },
       { name: 'On-premise (docker + LLM lokal)', score: 8.0, gap: 'Panduan instalasi pelanggan & lisensi belum dibakukan' },

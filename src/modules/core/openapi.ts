@@ -192,6 +192,22 @@ export const openApiSpec = {
         requestBody: json(obj({ name: str, description: str }, ['name'])),
         responses: { 201: err('KB terbuat'), 422: err('validasi') } },
     },
+    '/api/knowledge-bases/{id}/upload': {
+      post: {
+        summary: 'Unggah berkas langsung ke KB (multipart, field `files`)',
+        description: 'Ekstraksi + ingest tuntas dalam permintaan ini — unggahan TAK bisa di-sync ulang ' +
+          'karena berkas aslinya tak tersimpan. Nama berkas jadi externalId, jadi mengunggah nama yang ' +
+          'sama MENGGANTI isi lamanya. Batas 4 MB per permintaan berasal dari badan permintaan Vercel.',
+        security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: {
+          201: err('{ ok, sourceId, ingested[], skipped[{name,reason}], chunks }'),
+          400: err('tak ada berkas / terlalu banyak'),
+          404: err('KB tidak ditemukan'),
+          413: err('melebihi batas ukuran'),
+        },
+      },
+    },
     '/api/knowledge-bases/trashed': {
       get: { summary: 'KB ter-soft-delete', security: [sessionAuth],
         responses: { 200: err('daftar') } },
