@@ -26,6 +26,8 @@ const Body = z.object({
   driveAccessMode: z.enum(['full', 'picker']).optional(),
   /** API key browser Google Picker (opsional; bukan rahasia). */
   pickerApiKey: z.string().nullable().optional(),
+  /** kunci server-side utk sumber folder Drive publik (gdrive_public) */
+  driveApiKey: z.string().nullable().optional(),
 });
 
 export const PUT = superadminRoute(async (req, _ctx, actor) => {

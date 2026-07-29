@@ -10,6 +10,14 @@ import { knowledgeBaseService } from './knowledge-base.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { crawlUserDrive, getUserDriveFilesMeta, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
 import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/sharepoint';
+import {
+  isSharingLink, resolveShareLink, resolveSiteFolder, parseSharePointSiteUrl,
+  crawlDriveFolder, downloadDriveItem,
+} from './storage/sharepoint-sites';
+import {
+  parseDriveFolderUrl, crawlPublicFolder, downloadPublicFile, exportPublicFile,
+} from './storage/gdrive-public';
+import { oauthAppService } from '@/modules/auth/oauth-app.service';
 
 /**
  * SYNC WORKER — crawl storage user → ekstrak teks → ingest KB →
@@ -28,10 +36,15 @@ import { crawlUserSharepoint, downloadUserSharepointFile } from './storage/share
  * embedding berulang.
  *
  * Storage:
- *  • gdrive     — Google Drive user (OAuth google, drive.readonly)
- *  • onedrive   — /me/drive user via Microsoft Graph (OAuth microsoft)
- *  • sharepoint — path yang sama (delegated Graph token); drive spesifik
- *                 tinggal isi config.folderPath
+ *  • gdrive        — Google Drive user (OAuth google; folder rekursif dgn
+ *                    drive.readonly, atau berkas terpilih dgn drive.file)
+ *  • gdrive_public — URL folder yang dibagikan "Anyone with the link",
+ *                    dibaca dengan API KEY tanpa OAuth sama sekali. Satu-
+ *                    satunya jalur yang menarik SELURUH isi folder rekursif
+ *                    tanpa scope restricted (lihat storage/gdrive-public.ts)
+ *  • onedrive      — /me/drive user via Microsoft Graph (OAuth microsoft)
+ *  • sharepoint    — document library situs, shared link, atau /me/drive
+ *                    (lihat storage/sharepoint.ts)
  *
  * Ekstraksi: txt/md/csv/json/html langsung; PDF (pdf-parse), DOCX (mammoth);
  * Google Docs/Sheets/Slides via export teks. Format tak didukung dihitung
@@ -269,9 +282,60 @@ async function connect(
     };
   }
 
+  // Folder Drive publik — TANPA OAuth. Tak ada accountEmail, tak ada token;
+  // yang dibutuhkan hanya API key platform + folder yang benar-benar publik.
+  if (kind === 'gdrive_public') {
+    const app = await oauthAppService.get('google');
+    const apiKey = app?.driveApiKey;
+    if (!apiKey) {
+      throw new Error('Kunci Drive API belum diisi superadmin (Models & Keys → kredensial Google → Drive API key).');
+    }
+    const root = parseDriveFolderUrl(String(config.folderUrl ?? ''));
+    const raw = await crawlPublicFolder(apiKey, root, { maxFiles: MAX_LIST_FILES });
+    /** resourceKey per berkas — sebagian berkas lama menolak diunduh tanpanya. */
+    const keys = new Map(raw.filter((f) => f.resourceKey).map((f) => [f.id, f.resourceKey!]));
+    return {
+      files: raw.map((f) => ({
+        externalId: f.id, name: f.name, mimeType: f.mimeType,
+        version: f.modifiedTime ?? '',
+      })),
+      truncated: raw.length >= MAX_LIST_FILES,
+      async fetch(f) {
+        const rk = keys.get(f.externalId);
+        if (isGoogleNative(f.mimeType)) {
+          const exportMime = googleNativeExportMime(f.mimeType)!;
+          return { content: await exportPublicFile(apiKey, f.externalId, exportMime, rk), mime: exportMime };
+        }
+        return { content: await downloadPublicFile(apiKey, f.externalId, rk) };
+      },
+    };
+  }
+
   if (kind === 'onedrive' || kind === 'sharepoint') {
     const token = await connectionService.getAccessToken(tenantId, userId, 'microsoft', accountEmail);
     if (!token) throw new Error('Akun Microsoft belum terhubung (hubungkan di Knowledge → Connect Microsoft)');
+
+    // Jalur BARU: URL situs SharePoint atau tautan berbagi. Keduanya bermuara
+    // ke (driveId, itemId) lalu ditelusuri rekursif — sub-sub-folder ikut.
+    const url = config.siteUrl ? String(config.siteUrl).trim() : '';
+    if (url) {
+      const target = isSharingLink(url)
+        ? await resolveShareLink(token, url)
+        : await resolveSiteFolder(token, parseSharePointSiteUrl(url));
+      const raw = await crawlDriveFolder(token, target, { maxFiles: MAX_LIST_FILES });
+      return {
+        files: raw.map((it) => ({
+          externalId: it.id, name: it.name,
+          version: it.eTag ?? it.lastModifiedDateTime ?? '',
+        })),
+        truncated: raw.length >= MAX_LIST_FILES,
+        async fetch(f) {
+          return { content: await downloadDriveItem(token, target.driveId, f.externalId) };
+        },
+      };
+    }
+
+    // Jalur lama: OneDrive pribadi (/me/drive) berdasarkan path.
     const raw = await crawlUserSharepoint(token, {
       scope,
       folderPath: config.folderPath ? String(config.folderPath) : undefined,

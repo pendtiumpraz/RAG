@@ -474,6 +474,12 @@ export const oauthApps = pgTable('oauth_apps', {
    * ini memang dipakai client-side dan dibatasi per-referrer di Console).
    */
   pickerApiKey: text('picker_api_key'),
+  /**
+   * Google saja — API key SERVER-SIDE untuk membaca folder publik tanpa OAuth
+   * (jenis sumber `gdrive_public`). Berbeda dari `pickerApiKey`: yang itu
+   * memang dikirim ke browser, yang ini tidak pernah — karena itu terenkripsi.
+   */
+  encryptedDriveApiKey: text('encrypted_drive_api_key'),
   enabled: boolean('enabled').default(true).notNull(),
   ...stamps,
 }, (t) => ({

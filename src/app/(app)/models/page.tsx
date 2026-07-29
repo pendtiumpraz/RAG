@@ -322,6 +322,7 @@ interface OAuthApp {
   /** D10 — Google: 'full' (drive.readonly) | 'picker' (drive.file + Google Picker). */
   driveAccessMode: 'full' | 'picker';
   hasPickerApiKey: boolean;
+  hasDriveApiKey: boolean;
   enabled: boolean; hasSecret: boolean;
   source: 'database' | 'env' | 'none';
   updatedAt: string | null;
@@ -413,6 +414,7 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
   const [msTenantId, setMsTenantId] = useState(app.msTenantId ?? 'common');
   const [driveMode, setDriveMode] = useState<'full' | 'picker'>(app.driveAccessMode ?? 'full');
   const [pickerApiKey, setPickerApiKey] = useState('');
+  const [driveApiKey, setDriveApiKey] = useState('');
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const label = app.provider === 'google' ? 'Google' : 'Microsoft';
@@ -431,6 +433,8 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
             // kosong = pertahankan yang tersimpan; strip '-' utk menghapus
             ...(pickerApiKey === '-' ? { pickerApiKey: null }
               : pickerApiKey ? { pickerApiKey } : {}),
+            ...(driveApiKey === '-' ? { driveApiKey: null }
+              : driveApiKey ? { driveApiKey } : {}),
           } : {}),
         }),
       });
@@ -489,6 +493,20 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
                   KEY BROWSER (BUKAN RAHASIA) — BATASI PER-REFERRER DI CONSOLE
                 </p></div>
             )}
+
+            {/* Kunci SERVER-SIDE — beda peran dari Picker key di atas, dan
+                perbedaan itu gampang tertukar, jadi disebut eksplisit. */}
+            <div className="field"><label>Drive API key — folder publik (opsional)</label>
+              <input className="input mono" type="password" value={driveApiKey}
+                onChange={(e) => setDriveApiKey(e.target.value)}
+                placeholder={app.hasDriveApiKey ? 'kosongkan = tak diubah · "-" = hapus' : 'AIza… (Credentials → API key)'} />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                MEMBUKA SUMBER &ldquo;URL FOLDER DRIVE PUBLIK&rdquo; — SATU-SATUNYA JALUR YANG
+                MENARIK SEISI FOLDER REKURSIF TANPA VERIFIKASI GOOGLE. DIPAKAI SERVER,
+                DISIMPAN TERENKRIPSI, TAK PERNAH KE BROWSER. BATASI KE DRIVE API SAJA
+                (JANGAN PASANG PEMBATASAN REFERRER).{' '}
+                <a href="/docs/sumber-pengetahuan.html" target="_blank" rel="noreferrer">Panduan</a>
+              </p></div>
           </>)}
 
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>

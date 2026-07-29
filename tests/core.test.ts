@@ -579,3 +579,57 @@ test('backlog: seed papan kanban konsisten & kunci unik', async () => {
     assert.ok(dims.has(d as never), `tak ada kartu untuk dimensi ${d}`);
   }
 });
+
+test('gdrive publik: URL folder diurai, keliru ditolak dengan sebab', async () => {
+  const { parseDriveFolderUrl } = await import('../src/modules/knowledge/storage/gdrive-public');
+
+  const ID = '1A2b3C4d5E6f7G8h9I0j';
+  // bentuk-bentuk yang benar-benar ditempel orang
+  assert.equal(parseDriveFolderUrl(`https://drive.google.com/drive/folders/${ID}?usp=sharing`).folderId, ID);
+  assert.equal(parseDriveFolderUrl(`https://drive.google.com/drive/u/0/folders/${ID}`).folderId, ID);
+  assert.equal(parseDriveFolderUrl(`https://drive.google.com/open?id=${ID}`).folderId, ID);
+  assert.equal(parseDriveFolderUrl(`  ${ID}  `).folderId, ID, 'id telanjang diterima');
+
+  // resourceKey ikut terbawa — tanpa ini berkas lama menjawab 404
+  const rk = parseDriveFolderUrl(`https://drive.google.com/drive/folders/${ID}?resourcekey=0-abcDEF`);
+  assert.equal(rk.resourceKey, '0-abcDEF');
+
+  // Tautan BERKAS sering tertukar dengan folder — pesannya harus menunjuk itu,
+  // bukan sekadar "tidak valid".
+  assert.throws(() => parseDriveFolderUrl(`https://drive.google.com/file/d/${ID}/view`),
+    /berkas/i, 'tautan file dibedakan dari folder');
+  assert.throws(() => parseDriveFolderUrl('https://dropbox.com/x'), /Google Drive/i);
+  assert.throws(() => parseDriveFolderUrl(''), /belum diisi/i);
+});
+
+test('sharepoint: URL situs diurai, tautan berbagi disandikan sesuai Graph', async () => {
+  const { parseSharePointSiteUrl, encodeSharingUrl, isSharingLink } =
+    await import('../src/modules/knowledge/storage/sharepoint-sites');
+
+  const a = parseSharePointSiteUrl('https://acme.sharepoint.com/sites/Marketing');
+  assert.equal(a.hostname, 'acme.sharepoint.com');
+  assert.equal(a.sitePath, '/sites/Marketing');
+  assert.equal(a.folderPath, undefined);
+
+  // path folder ikut terbawa, termasuk yang ter-encode di URL
+  const b = parseSharePointSiteUrl('https://acme.sharepoint.com/sites/Marketing/Shared%20Documents/Kebijakan');
+  assert.equal(b.folderPath, 'Shared Documents/Kebijakan');
+  // /teams/ sama sahnya dengan /sites/
+  assert.equal(parseSharePointSiteUrl('https://acme.sharepoint.com/teams/Legal').sitePath, '/teams/Legal');
+
+  assert.throws(() => parseSharePointSiteUrl('https://acme.sharepoint.com/'), /sites/i);
+  assert.throws(() => parseSharePointSiteUrl('https://drive.google.com/x'), /SharePoint/i);
+
+  // Token /shares: base64url TANPA padding, berawalan 'u!'. Salah satu saja
+  // meleset → Graph menjawab 400 dan tautan yang benar tampak rusak.
+  const tok = encodeSharingUrl('https://acme.sharepoint.com/:f:/s/Marketing/Ab-1_2?e=xY');
+  assert.match(tok, /^u!/);
+  assert.ok(!tok.includes('='), 'padding dibuang');
+  assert.ok(!tok.includes('+') && !tok.includes('/'), 'base64url, bukan base64 biasa');
+  assert.equal(
+    Buffer.from(tok.slice(2).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'),
+    'https://acme.sharepoint.com/:f:/s/Marketing/Ab-1_2?e=xY', 'bisa dibalik utuh');
+
+  assert.ok(isSharingLink('https://acme.sharepoint.com/:f:/s/Marketing/Ab1'));
+  assert.ok(!isSharingLink('https://acme.sharepoint.com/sites/Marketing'));
+});

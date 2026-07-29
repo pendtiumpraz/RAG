@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menghubungkan sumber pengetahuan — Drive, SharePoint, OneDrive · Nalar</title>
+<style>
+  :root{
+    --ink:#0F172A; --muted:#64748B; --faint:#94A3B8; --line:#E2E8F0;
+    --bg:#F8FAFC; --card:#FFFFFF; --signal:#2563EB; --source:#F59E0B;
+    --good:#10B981; --danger:#DC2626;
+    --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#F1F5F9; --muted:#94A3B8; --faint:#64748B; --line:#334155;
+           --bg:#0F172A; --card:#1E293B; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.65 ui-sans-serif,system-ui,"Inter",sans-serif;}
+  .wrap{max-width:900px;margin:0 auto;padding:40px 22px 80px}
+  h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:44px 0 12px;padding-top:22px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:16px;margin:26px 0 8px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:.87em;background:var(--card);
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  pre{background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:13px 15px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6}
+  pre code{background:none;border:none;padding:0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td code{font-size:12px}
+  .lead{color:var(--muted);font-size:16px;margin-bottom:8px}
+  .note{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--signal);
+    border-radius:8px;padding:13px 16px;margin:16px 0}
+  .warn{border-left-color:var(--source)}
+  .danger{border-left-color:var(--danger)}
+  .ok{border-left-color:var(--good)}
+  .note b{display:block;margin-bottom:4px}
+  .note p{margin:6px 0 0;font-size:14px;color:var(--muted)}
+  .note p:first-of-type{margin-top:0}
+  ol{padding-left:22px} ol li{margin:9px 0}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid var(--line);
+    color:var(--muted);vertical-align:middle;margin-left:6px}
+  .tag.no{color:var(--danger);border-color:var(--danger)}
+  .tag.yes{color:var(--good);border-color:var(--good)}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:24px 0}
+  .toc a{color:var(--signal);text-decoration:none} .toc a:hover{text-decoration:underline}
+  .toc ol{margin:6px 0 0}
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--faint);font-size:13px}
+</style>
+
+<h1>Menghubungkan sumber pengetahuan</h1>
+<p class="lead">Empat cara memasukkan dokumen ke sebuah Knowledge Base — dan
+batas jujur masing-masing, supaya kamu memilih yang tepat sejak awal alih-alih
+menabrak dinding di tengah jalan.</p>
+
+<div class="note">
+  <b>Ringkas: mana yang harus kupakai?</b>
+  <p><b>Punya folder Drive dan ingin SEMUA isinya masuk, termasuk sub-sub-folder,
+  tanpa repot login?</b> → Pakai <a href="#publik">URL folder publik</a>. Ini
+  satu-satunya jalur yang tidak menyentuh verifikasi Google sama sekali.</p>
+  <p><b>Dokumennya rahasia dan tak boleh dibagikan lewat tautan?</b> →
+  <a href="#drive">Google Drive akun tersambung</a>, dengan izin baca folder.</p>
+  <p><b>Dokumennya di SharePoint / OneDrive perusahaan?</b> →
+  <a href="#sharepoint">SharePoint</a>. Selalu butuh OAuth Microsoft; tidak ada
+  jalur tanpa login.</p>
+</div>
+
+<div class="toc">
+  <b>Isi</b>
+  <ol>
+    <li><a href="#publik">Folder Google Drive publik — tanpa login</a></li>
+    <li><a href="#drive">Google Drive lewat akun tersambung</a></li>
+    <li><a href="#izin">Kenapa akun tersambung kadang tak bisa memilih berkas</a></li>
+    <li><a href="#sharepoint">SharePoint &amp; OneDrive</a></li>
+    <li><a href="#batas">Batas yang berlaku di semua jalur</a></li>
+  </ol>
+</div>
+
+<h2 id="publik">1. Folder Google Drive publik — tanpa login <span class="tag yes">tanpa OAuth</span></h2>
+
+<p>Google Drive melayani pembacaan dengan <b>API key biasa</b> untuk berkas yang
+dibagikan &ldquo;Siapa saja yang memiliki link&rdquo;. Tidak ada layar izin, tidak ada
+token pengguna, dan — ini yang penting — <b>tidak tersentuh verifikasi CASA</b>
+yang selama ini menghambat mode akses penuh.</p>
+
+<div class="note ok">
+  <b>Hanya jalur ini yang bisa &ldquo;satu folder, semua isinya ikut&rdquo;</b>
+  <p>Pilih satu folder, dan seluruh berkas di dalamnya masuk — termasuk
+  sub-folder, sub-sub-folder, sampai habis. Google Picker <i>tidak</i> bisa
+  melakukan ini; alasannya di <a href="#izin">bagian 3</a>.</p>
+</div>
+
+<h3>Langkah untuk pengguna</h3>
+<ol>
+  <li>Buka folder di Google Drive → klik kanan → <b>Bagikan</b>.</li>
+  <li>Pada &ldquo;Akses umum&rdquo;, ubah dari <i>Dibatasi</i> menjadi
+      <b>Siapa saja yang memiliki link</b>, peran <b>Pelihat</b>.</li>
+  <li>Klik <b>Salin link</b>.</li>
+  <li>Di Nalar: <b>Knowledge Base</b> → <b>Tambah sumber</b> → jenis
+      <b>Google Drive — URL folder publik</b> → tempel → <b>Tambah &amp; sync</b>.</li>
+</ol>
+
+<div class="note warn">
+  <b>Tautan &ldquo;hanya orang di organisasi ini&rdquo; TIDAK bisa dipakai</b>
+  <p>Dari sisi API, folder semacam itu sama saja dengan tidak ada — jawabannya
+  404. Kalau kamu melihat pesan &ldquo;Folder tak terlihat oleh publik&rdquo;,
+  inilah sebabnya yang paling sering. Setelan aksesnya harus benar-benar
+  &ldquo;Siapa saja yang memiliki link&rdquo;.</p>
+</div>
+
+<p>Bentuk URL yang diterima:</p>
+<pre><code>https://drive.google.com/drive/folders/1A2b3C4d5E6f7G8h9I0j
+https://drive.google.com/drive/folders/1A2b...?usp=sharing
+https://drive.google.com/drive/u/0/folders/1A2b...
+https://drive.google.com/drive/folders/1A2b...?resourcekey=0-xxxx
+1A2b3C4d5E6f7G8h9I0j                    (id telanjang juga boleh)</code></pre>
+
+<p>Kalau yang tertempel adalah tautan <b>berkas</b> (<code>/file/d/…</code>),
+Nalar akan mengatakannya secara spesifik — bukan sekadar &ldquo;URL tidak
+valid&rdquo;. Buka foldernya, lalu salin URL folder itu.</p>
+
+<h3>Persiapan superadmin — sekali saja</h3>
+<p>Jalur ini butuh satu <b>API key Drive</b> milik platform:</p>
+<ol>
+  <li>Google Cloud Console → project yang sama dengan OAuth client → <b>APIs &amp; Services</b>
+      → <b>Library</b> → aktifkan <b>Google Drive API</b>.</li>
+  <li><b>Credentials</b> → <b>Create credentials</b> → <b>API key</b>.</li>
+  <li>Batasi kunci itu: <b>API restrictions</b> → hanya <b>Google Drive API</b>.
+      Jangan pasang pembatasan HTTP referrer — kunci ini dipakai dari server,
+      bukan browser.</li>
+  <li>Nalar: <b>Models &amp; Keys</b> → kredensial OAuth → baris <b>Google</b> →
+      <b>Ubah</b> → isi <b>Drive API key</b> → simpan.</li>
+</ol>
+
+<div class="note">
+  <b>Kunci ini berbeda dari Picker API key</b>
+  <p><b>Picker API key</b> memang dikirim ke browser dan dibatasi per-referrer.
+  <b>Drive API key</b> dipakai server untuk membaca isi folder, jadi ia disimpan
+  <b>terenkripsi</b> dan tak pernah keluar dari server. Jangan tukar keduanya.</p>
+</div>
+
+<h2 id="drive">2. Google Drive lewat akun tersambung</h2>
+
+<p>Dipakai kalau dokumennya tidak boleh dibagikan lewat tautan. Ada dua rasa,
+dan yang menentukan bukan pengaturan melainkan <b>izin yang benar-benar
+diberikan akun itu saat menyambung</b>:</p>
+
+<table>
+  <thead><tr><th>Izin</th><th>Yang bisa dilakukan</th><th>Beban verifikasi Google</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>drive.file</code><br><span class="tag">picker</span></td>
+      <td>Hanya berkas yang dipilih pengguna lewat Google Picker. Berkas baru di
+          folder <b>tidak</b> ikut otomatis.</td>
+      <td>Ringan — bukan scope restricted.</td>
+    </tr>
+    <tr>
+      <td><code>drive.readonly</code><br><span class="tag">folder</span></td>
+      <td>Satu folder beserta seluruh isinya, rekursif. Berkas baru ikut pada
+          sync berikutnya.</td>
+      <td><b>Berat</b> — scope restricted: video demo + audit CASA tahunan berbayar.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="izin">3. Kenapa akun tersambung kadang tak bisa memilih berkas</h2>
+
+<p>Ini jebakan yang paling membingungkan, dan sekarang sudah dijelaskan di
+antarmuka alih-alih dibiarkan gagal diam-diam.</p>
+
+<p>Izin sebuah akun ditetapkan <b>saat akun itu disambungkan</b>, dan tersimpan
+di token. Mengubah mode akses Drive di pengaturan <b>tidak</b> mengubah token
+yang sudah ada. Jadi setelah mode diubah, akun lama tetap tampak
+&ldquo;tersambung&rdquo; padahal tokennya tak memuat izin yang dituntut mode baru
+— Picker tak menemukan apa pun, dan tak ada pesan yang menerangkan sebabnya.</p>
+
+<div class="note ok">
+  <b>Sekarang: tambah izin, bukan putus-sambung</b>
+  <p>Nalar membaca izin yang benar-benar dimiliki tiap koneksi dan menawarkan
+  tombol <b>Tambah izin baca folder</b>. Izin lama ikut terbawa ke token baru
+  (<code>include_granted_scopes</code>), akun tak perlu dipilih ulang
+  (<code>login_hint</code>), dan koneksi yang ada <b>tidak perlu diputus</b>.</p>
+</div>
+
+<div class="note warn">
+  <b>Memilih folder di Picker tidak memberi akses ke isinya</b>
+  <p>Ini batas <code>drive.file</code> dari Google, bukan pengaturan yang bisa
+  dinyalakan. Scope itu memberi akses <b>per berkas</b>. Kalau yang kamu mau
+  adalah &ldquo;klik satu folder, semua ikut&rdquo;, pilihannya cuma dua:
+  <a href="#publik">URL folder publik</a> (tanpa verifikasi) atau
+  <code>drive.readonly</code> (dengan verifikasi CASA).</p>
+</div>
+
+<h2 id="sharepoint">4. SharePoint &amp; OneDrive <span class="tag no">wajib OAuth</span></h2>
+
+<p>Microsoft <b>tidak</b> punya padanan API key untuk tautan publik. Endpoint
+<code>/shares</code> di Graph selalu meminta token — bahkan untuk tautan yang
+sudah dibagikan ke publik. Jadi tak ada jalur tanpa login di sisi Microsoft.</p>
+
+<h3>Persiapan superadmin</h3>
+<ol>
+  <li>Azure Portal → <b>App registrations</b> → daftarkan aplikasi.</li>
+  <li>Redirect URI: <code>https://&lt;domainmu&gt;/api/connections/microsoft/callback</code></li>
+  <li><b>Certificates &amp; secrets</b> → buat client secret (maksimal 24 bulan —
+      catat tanggal kedaluwarsanya).</li>
+  <li>API permissions (delegated): <code>Files.Read.All</code>, <code>Sites.Read.All</code>,
+      <code>offline_access</code>, <code>openid</code>, <code>email</code>.</li>
+  <li>Nalar: <b>Models &amp; Keys</b> → kredensial OAuth → baris <b>Microsoft</b> →
+      <b>Isi</b> → Client ID, secret, dan Directory (tenant) ID.
+      <code>common</code> berarti akun kerja maupun pribadi.</li>
+</ol>
+
+<h3>Bentuk masukan yang diterima</h3>
+<table>
+  <thead><tr><th>Bentuk</th><th>Contoh</th><th>Yang diambil</th></tr></thead>
+  <tbody>
+    <tr><td>URL situs</td>
+        <td><code>https://perusahaan.sharepoint.com/sites/Marketing</code></td>
+        <td>Document library utama situs, rekursif</td></tr>
+    <tr><td>URL folder di library</td>
+        <td><code>…/sites/Marketing/Shared Documents/Kebijakan</code></td>
+        <td>Folder itu beserta seluruh sub-foldernya</td></tr>
+    <tr><td>Tautan berbagi</td>
+        <td><code>https://perusahaan.sharepoint.com/:f:/s/Marketing/Ex4mpl3…</code></td>
+        <td>Folder yang ditunjuk tautan, rekursif</td></tr>
+    <tr><td>Dikosongkan</td>
+        <td>—</td>
+        <td>OneDrive pribadi akun yang tersambung</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>&ldquo;Shared Documents&rdquo; ditangani otomatis</b>
+  <p>Di URL SharePoint, library <code>Documents</code> muncul sebagai
+  <code>Shared Documents</code>. Nalar mencocokkan keduanya, sehingga
+  <code>Shared Documents/Kebijakan</code> tidak salah dicari sebagai folder
+  bernama &ldquo;Shared Documents&rdquo; di dalam library Documents — kekeliruan
+  yang selalu berujung 404.</p>
+</div>
+
+<div class="note warn">
+  <b>Akun yang tersambung harus punya akses ke situsnya</b>
+  <p>Nalar membaca <b>atas nama pengguna</b> (delegated), bukan sebagai aplikasi
+  dengan hak penuh. Kalau akun itu tak bisa membuka situsnya di browser, Nalar
+  juga tidak bisa. Pesan galatnya akan menyebut hal ini apa adanya.</p>
+</div>
+
+<h2 id="batas">5. Batas yang berlaku di semua jalur</h2>
+
+<table>
+  <thead><tr><th>Hal</th><th>Nilai</th><th>Kenapa</th></tr></thead>
+  <tbody>
+    <tr><td>Berkas per satu kali listing</td><td>2.000</td>
+        <td>Menentukan ketepatan deteksi berkas terhapus.</td></tr>
+    <tr><td>Unduh + embed per satu run</td><td>300</td>
+        <td>Sisanya lanjut di run berikutnya — sync memang inkremental.</td></tr>
+    <tr><td>Format yang dibaca</td>
+        <td>PDF, DOCX, TXT, MD, CSV, JSON, HTML, Google Docs/Sheets/Slides</td>
+        <td>Format lain dihitung <i>skipped</i> dan dilaporkan, tidak dibuang diam-diam.</td></tr>
+    <tr><td>Arah akses</td><td>Baca saja</td>
+        <td>Kecuali vault Memory yang memang menulis balik ke Drive pengguna.</td></tr>
+  </tbody>
+</table>
+
+<p>Sync bersifat <b>inkremental</b>: tiap berkas menyimpan penanda versinya
+(<code>modifiedTime</code> di Drive, <code>eTag</code> di Graph). Run berikutnya
+hanya mengunduh yang baru atau berubah, dan berkas yang hilang di sumber akan
+dipindahkan ke Sampah. Untuk memaksa ingest ulang seluruhnya, pakai
+<b>Sync penuh</b>.</p>
+
+<footer>
+  Nalar — panduan sumber pengetahuan. Untuk pendaftaran aplikasi OAuth,
+  lihat <a href="/docs/oauth-setup.html">Panduan OAuth</a>.
+</footer>
+
+</div>
+</body>
+</html>

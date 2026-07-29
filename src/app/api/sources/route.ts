@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
 const Body = z.object({
   knowledgeBaseId: z.string().uuid(),
-  kind: z.enum(['gdrive', 'onedrive', 'sharepoint', 'upload', 'url']),
+  kind: z.enum(['gdrive', 'gdrive_public', 'onedrive', 'sharepoint', 'upload', 'url']),
   config: z.record(z.unknown()).default({}),   // { folderId } | { folderPath } | …
 });
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }).returning())[0]);
 
   let jobStatus = null;
-  if (['gdrive', 'onedrive', 'sharepoint'].includes(parsed.data.kind)) {
+  if (['gdrive', 'gdrive_public', 'onedrive', 'sharepoint'].includes(parsed.data.kind)) {
     jobStatus = syncService.enqueue(user.tenantId, user.id, created.id);
     // Tanpa ini, Vercel membekukan lambda begitu respons terkirim dan job
     // sync mati di tengah — status macet 'syncing', KB tak pernah terisi.

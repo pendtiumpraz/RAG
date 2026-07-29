@@ -11,7 +11,11 @@ interface LastSync { ingested?: number; updated?: number; removed?: number; unch
   skipped?: number; failed?: number; pending?: number; message?: string }
 interface Source { id: string; kind: string; status: string; config: Record<string, unknown>;
   lastSyncedAt: string | null; jobStatus: { state: string } | null }
-interface Conn { id: string; provider: string; accountEmail: string; accountLabel: string | null }
+/** Koneksi akun + APA YANG BENAR-BENAR DIIZINKAN token-nya (bukan mode aktif). */
+interface Conn {
+  id: string; provider: string; accountEmail: string; accountLabel: string | null;
+  canPickFiles?: boolean; canScanFolder?: boolean;
+}
 /** Jawaban /api/connections/providers — driveMode & picker mengikuti D10. */
 interface Providers {
   google: boolean; microsoft: boolean;
@@ -358,23 +362,49 @@ function loadPickerScript(): Promise<void> {
 
 interface PickedFile { id: string; name: string }
 
+/* ── tambah sumber ──────────────────────────────────────────────────
+   Empat jalur, dan yang membedakan bukan sekadar penyedia melainkan APA
+   yang bisa dijangkau masing-masing:
+
+     gdrive         folder rekursif (butuh izin drive.readonly) ATAU berkas
+                    terpilih via Picker (drive.file). Yang tersedia ditentukan
+                    izin token yang TERSIMPAN, bukan mode yang sedang aktif.
+     gdrive_public  URL folder yang dibagikan publik — TANPA login sama sekali.
+                    Satu-satunya jalur yang menarik seisi folder rekursif tanpa
+                    scope restricted, jadi bebas verifikasi Google.
+     onedrive       /me/drive milik pengguna.
+     sharepoint     URL situs / document library / tautan berbagi (rekursif).  */
 function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }:
   { knowledgeBaseId: string; accounts: Conn[]; providers: Providers | null; onClose: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState('gdrive');
   const [scope, setScope] = useState<'all' | 'folder'>('all');
   const [loc, setLoc] = useState('');
+  /** URL folder Drive publik / URL situs SharePoint / tautan berbagi */
+  const [url, setUrl] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
   const [picked, setPicked] = useState<PickedFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const toast = useToast();
 
+  const noAuth = kind === 'gdrive_public';
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
-  const providerAccounts = accounts.filter((a) => a.provider === provider);
-  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); }, [kind]); // eslint-disable-line
+  const providerAccounts = noAuth ? [] : accounts.filter((a) => a.provider === provider);
+  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); setUrl(''); }, [kind]); // eslint-disable-line
 
-  // Mode picker hanya berlaku utk gdrive; OneDrive/SharePoint tetap folder.
-  const pickerMode = kind === 'gdrive' && providers?.driveMode === 'picker';
+  const conn = providerAccounts.find((a) => a.accountEmail === accountEmail) ?? null;
+  /**
+   * Yang menentukan pilihan bukan mode di pengaturan, melainkan izin yang
+   * BENAR-BENAR dimiliki token ini. Dulu keduanya dicampur: begitu mode diubah
+   * ke Picker, akun lama tetap tampak "tersambung" padahal tokennya tak punya
+   * izin yang dituntut Picker — dan satu-satunya jalan keluar adalah memutus
+   * lalu menyambung ulang tanpa penjelasan apa pun.
+   */
+  const canScan = kind === 'gdrive' ? conn?.canScanFolder !== false : true;
+  const canPick = kind === 'gdrive' ? conn?.canPickFiles !== false : false;
+  const pickerMode = kind === 'gdrive' && providers?.driveMode === 'picker' && !canScan;
+  /** SharePoint memakai URL; OneDrive tetap path /me/drive. */
+  const useUrl = kind === 'gdrive_public' || kind === 'sharepoint';
 
   async function openPicker() {
     if (!accountEmail) { setErr('Hubungkan akun google dulu (tombol Connect di atas).'); return; }
@@ -412,13 +442,28 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   }
 
   async function save() {
-    if (!accountEmail) { setErr(`Hubungkan akun ${provider} dulu (tombol Connect di atas).`); return; }
+    if (!noAuth && !accountEmail) { setErr(`Hubungkan akun ${provider} dulu (tombol Connect di atas).`); return; }
     if (pickerMode && !picked.length) { setErr('Pilih dulu berkas dari Drive.'); return; }
+    if (useUrl && !url.trim()) {
+      setErr(kind === 'gdrive_public' ? 'Tempel URL folder Drive yang sudah dibagikan.' : 'Tempel URL situs SharePoint atau tautan berbagi folder.');
+      return;
+    }
     setBusy(true); setErr(null);
-    const config: Record<string, unknown> = pickerMode
-      ? { accountEmail, mode: 'picker', fileIds: picked.map((p) => p.id), fileNames: picked.map((p) => p.name) }
-      : { scope, accountEmail };
-    if (!pickerMode && scope === 'folder') { if (kind === 'gdrive') config.folderId = loc || 'root'; else config.folderPath = loc; }
+
+    let config: Record<string, unknown>;
+    if (kind === 'gdrive_public') {
+      config = { folderUrl: url.trim() };
+    } else if (kind === 'sharepoint' && url.trim()) {
+      config = { accountEmail, siteUrl: url.trim() };
+    } else if (pickerMode) {
+      config = { accountEmail, mode: 'picker', fileIds: picked.map((p) => p.id), fileNames: picked.map((p) => p.name) };
+    } else {
+      config = { scope, accountEmail };
+      if (scope === 'folder') {
+        if (kind === 'gdrive') config.folderId = loc || 'root'; else config.folderPath = loc;
+      }
+    }
+
     try {
       await api('/api/sources', { method: 'POST', body: JSON.stringify({ knowledgeBaseId, kind, config }) });
       toast('Sumber ditambah — sync berjalan'); onSaved();
@@ -433,24 +478,72 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
         <div className="db stack gap-4">
           <div className="field"><label>Jenis sumber</label>
             <select className="select" value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="gdrive">Google Drive</option>
+              <option value="gdrive">Google Drive (akun tersambung)</option>
+              <option value="gdrive_public">Google Drive — URL folder publik (tanpa login)</option>
               <option value="onedrive">OneDrive</option>
-              <option value="sharepoint">SharePoint</option>
+              <option value="sharepoint">SharePoint (situs / tautan berbagi)</option>
             </select></div>
 
-          <div className="field"><label>Akun {provider}</label>
-            {providerAccounts.length ? (
-              <select className="select" value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)}>
-                {providerAccounts.map((a) => <option key={a.id} value={a.accountEmail}>{a.accountEmail}</option>)}
-              </select>
-            ) : (
-              <a className="btn btn-sm" href={`/api/connections/${provider}/start`}><Icon name="plug" size={14} /> Connect {provider}</a>
-            )}
-          </div>
+          {/* Folder publik tak butuh akun sama sekali — jangan tampilkan
+              tombol Connect yang justru membingungkan. */}
+          {!noAuth && (
+            <div className="field"><label>Akun {provider}</label>
+              {providerAccounts.length ? (
+                <select className="select" value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)}>
+                  {providerAccounts.map((a) => <option key={a.id} value={a.accountEmail}>{a.accountEmail}</option>)}
+                </select>
+              ) : providers && !providers[provider] ? (
+                <p className="microlabel" style={{ margin: 0 }}>
+                  OAUTH {provider.toUpperCase()} BELUM DIKONFIGURASI — SUPERADMIN MENGISINYA DI MODELS &amp; KEYS
+                </p>
+              ) : (
+                <a className="btn btn-sm" href={`/api/connections/${provider}/start`}><Icon name="plug" size={14} /> Connect {provider}</a>
+              )}
+            </div>
+          )}
+
+          {kind === 'gdrive_public' && (
+            <div className="field"><label>URL folder Google Drive</label>
+              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://drive.google.com/drive/folders/1A2b3C…" />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                SELURUH ISI FOLDER IKUT, TERMASUK SUB-SUB-FOLDER. SYARATNYA SATU:
+                BAGIKAN FOLDER SEBAGAI &ldquo;SIAPA SAJA YANG MEMILIKI LINK&rdquo; (PELIHAT).
+                TAUTAN TERBATAS ORGANISASI TIDAK BISA DIBACA.{' '}
+                <a href="/docs/sumber-pengetahuan.html" target="_blank" rel="noreferrer">Panduan</a>
+              </p></div>
+          )}
+
+          {kind === 'sharepoint' && (
+            <div className="field"><label>URL situs atau tautan berbagi folder</label>
+              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://perusahaan.sharepoint.com/sites/Marketing/Shared Documents/Kebijakan" />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                URL SITUS, DOCUMENT LIBRARY, ATAU TAUTAN BERBAGI FOLDER — SEMUA
+                ISINYA DITELUSURI REKURSIF. KOSONGKAN UNTUK MEMAKAI ONEDRIVE
+                PRIBADI AKUN INI.{' '}
+                <a href="/docs/sumber-pengetahuan.html" target="_blank" rel="noreferrer">Panduan</a>
+              </p></div>
+          )}
+
+          {/* Izin kurang: tawarkan MENAMBAH izin, bukan memutus koneksi. */}
+          {kind === 'gdrive' && conn && !canScan && (
+            <div className="field">
+              <p className="microlabel" style={{ margin: '0 0 8px' }}>
+                AKUN INI HANYA BERIZIN MEMBACA BERKAS YANG DIPILIH. UNTUK MENARIK
+                SATU FOLDER BESERTA SELURUH ISINYA, TAMBAHKAN IZIN BACA FOLDER —
+                KONEKSI YANG ADA TIDAK PERLU DIPUTUS.
+              </p>
+              <a className="btn btn-sm"
+                href={`/api/connections/google/start?grant=folder&account=${encodeURIComponent(accountEmail)}`}>
+                <Icon name="plug" size={14} /> Tambah izin baca folder
+              </a>
+            </div>
+          )}
 
           {pickerMode ? (
             <div className="field"><label>Berkas Drive</label>
-              <button type="button" className="btn" onClick={openPicker}>
+              <button type="button" className="btn" onClick={openPicker} disabled={!canPick}>
                 <Icon name="plus" size={14} /> Pilih berkas dari Google Drive
               </button>
               {picked.length > 0 && (
@@ -468,10 +561,12 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
               )}
               <p className="microlabel" style={{ marginTop: 8 }}>
                 MODE PICKER: HANYA BERKAS YANG DIPILIH YANG BISA DIBACA (SCOPE drive.file).
-                BERKAS BARU DI FOLDER TIDAK IKUT OTOMATIS — BUKA PICKER LAGI UNTUK MENAMBAH.
+                MEMILIH FOLDER TIDAK MEMBERI AKSES KE ISINYA — ITU BATAS GOOGLE, BUKAN
+                PENGATURAN. UNTUK SELURUH ISI FOLDER, PAKAI URL FOLDER PUBLIK ATAU
+                TAMBAH IZIN BACA FOLDER.
               </p>
             </div>
-          ) : (<>
+          ) : !useUrl ? (<>
           <div className="field"><label>Cakupan</label>
             <select className="select" value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'folder')}>
               <option value="all">Seluruh Drive (rekursif)</option>
@@ -483,7 +578,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
               <input className="input" value={loc} onChange={(e) => setLoc(e.target.value)}
                 placeholder={kind === 'gdrive' ? '1A2b3C… (kosong = root)' : '/Knowledge/support'} /></div>
           )}
-          </>)}
+          </>) : null}
 
           <p className="microlabel">SYNC MENSCAN STORAGE (PDF/DOCX/TXT/…) → INGEST → MEMORY AGENT OTOMATIS. MAKS 300 FILE/RUN.</p>
           {err && <span className="error">{err}</span>}

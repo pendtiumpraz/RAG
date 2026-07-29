@@ -28,6 +28,8 @@ export interface OAuthAppConfig {
   /** Google saja; Microsoft selalu 'full'. */
   driveAccessMode: DriveAccessMode;
   pickerApiKey?: string | null;
+  /** API key server-side utk membaca folder Drive publik (gdrive_public). */
+  driveApiKey?: string | null;
   source: 'database' | 'env';
 }
 
@@ -38,6 +40,7 @@ export interface PublicOAuthApp {
   msTenantId: string | null;
   driveAccessMode: DriveAccessMode;
   hasPickerApiKey: boolean;
+  hasDriveApiKey: boolean;
   enabled: boolean;
   hasSecret: boolean;
   source: 'database' | 'env' | 'none';
@@ -49,8 +52,8 @@ export interface PublicOAuthApp {
    'picker' : drive.file saja → akses hanya ke berkas yang dipilih user di
               Google Picker; login juga tak lagi menyeret scope Drive.       */
 
-const DRIVE_READONLY = 'https://www.googleapis.com/auth/drive.readonly';
-const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
+export const DRIVE_READONLY = 'https://www.googleapis.com/auth/drive.readonly';
+export const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
 
 /** Scope untuk alur CONNECT storage (`/api/connections/google/start`). */
 export function googleConnectScope(mode: DriveAccessMode): string {
@@ -92,6 +95,7 @@ function envConfig(provider: OAuthProviderId): OAuthAppConfig | null {
     // fallback env (on-prem/dev tanpa baris DB) — default 'full', perilaku lama
     driveAccessMode: normalizeMode(process.env.GOOGLE_DRIVE_ACCESS_MODE),
     pickerApiKey: process.env.GOOGLE_PICKER_API_KEY || null,
+    driveApiKey: process.env.GOOGLE_DRIVE_API_KEY || null,
     source: 'env',
   };
 }
@@ -117,6 +121,7 @@ export const oauthAppService = {
           msTenantId: r.msTenantId ?? 'common',
           driveAccessMode: normalizeMode(r.driveAccessMode),
           pickerApiKey: r.pickerApiKey ?? null,
+          driveApiKey: r.encryptedDriveApiKey ? decryptSecret(r.encryptedDriveApiKey) : null,
           source: 'database',
         };
       }
@@ -148,6 +153,7 @@ export const oauthAppService = {
           provider, clientId: r.clientId, msTenantId: r.msTenantId,
           driveAccessMode: normalizeMode(r.driveAccessMode),
           hasPickerApiKey: !!r.pickerApiKey,
+          hasDriveApiKey: !!r.encryptedDriveApiKey,
           enabled: r.enabled, hasSecret: !!r.encryptedSecret,
           source: 'database' as const, updatedAt: r.updatedAt,
         };
@@ -159,6 +165,7 @@ export const oauthAppService = {
         msTenantId: env?.msTenantId ?? null,
         driveAccessMode: env?.driveAccessMode ?? 'full',
         hasPickerApiKey: !!env?.pickerApiKey,
+        hasDriveApiKey: !!env?.driveApiKey,
         enabled: !!env,
         hasSecret: !!env,
         source: env ? ('env' as const) : ('none' as const),
@@ -174,6 +181,8 @@ export const oauthAppService = {
     input: {
       clientId: string; clientSecret?: string; msTenantId?: string | null; enabled?: boolean;
       driveAccessMode?: DriveAccessMode; pickerApiKey?: string | null;
+      /** null = hapus; undefined = pertahankan yang tersimpan. */
+      driveApiKey?: string | null;
     },
   ): Promise<PublicOAuthApp> {
     const clientId = input.clientId?.trim();
@@ -190,6 +199,9 @@ export const oauthAppService = {
     const driveCols = provider === 'google' ? {
       ...(input.driveAccessMode ? { driveAccessMode: normalizeMode(input.driveAccessMode) } : {}),
       ...(input.pickerApiKey !== undefined ? { pickerApiKey: input.pickerApiKey?.trim() || null } : {}),
+      ...(input.driveApiKey !== undefined ? {
+        encryptedDriveApiKey: input.driveApiKey?.trim() ? encryptSecret(input.driveApiKey.trim()) : null,
+      } : {}),
     } : {};
 
     if (existing) {
