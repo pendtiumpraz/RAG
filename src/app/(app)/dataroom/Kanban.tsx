@@ -50,6 +50,9 @@ export default function Kanban() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<Status | null>(null);
   const [adding, setAdding] = useState(false);
+  const [dim, setDim] = useState<Dim | 'all'>('all');
+  /** kartu yang alasannya sedang dibentangkan */
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const toast = useToast();
   /** salinan sebelum perpindahan — untuk mengembalikan bila server menolak */
   const undo = useRef<Row[] | null>(null);
@@ -70,9 +73,17 @@ export default function Kanban() {
     () => (items ?? []).filter((i) => i.track === track),
     [items, track],
   );
+  /** Isi kolom SEBENARNYA — tak pernah tersaring. Penulisan ulang urutan
+   *  harus melihat seluruh kolom; kalau tidak, menyeret kartu saat saringan
+   *  menyala akan mengacak posisi kartu yang sedang tersembunyi. */
   const col = useCallback(
     (s: Status) => byTrack.filter((i) => i.status === s).sort((a, b) => a.position - b.position),
     [byTrack],
+  );
+  /** Yang ditampilkan — inilah yang tunduk pada saringan. */
+  const shown = useCallback(
+    (s: Status) => col(s).filter((i) => dim === 'all' || i.dimension === dim),
+    [col, dim],
   );
 
   const done = byTrack.filter((i) => i.status === 'done').length;
@@ -157,6 +168,22 @@ export default function Kanban() {
 
       <p className="kb-sub">{meta.sub}</p>
 
+      <div className="kb-filter">
+        <button className={`kb-fc${dim === 'all' ? ' on' : ''}`} onClick={() => setDim('all')}>
+          Semua <b>{byTrack.length}</b>
+        </button>
+        {(Object.keys(DIM_LABEL) as Dim[]).map((d) => {
+          const n = byTrack.filter((i) => i.dimension === d).length;
+          if (!n) return null;
+          return (
+            <button key={d} className={`kb-fc${dim === d ? ' on' : ''}`}
+              onClick={() => setDim(dim === d ? 'all' : d)}>
+              {DIM_LABEL[d]} <b>{n}</b>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="kb-bar">
         <span className="meter">
           <span className="fill-done" style={{ width: `${byTrack.length ? (done / byTrack.length) * 100 : 0}%` }} />
@@ -167,7 +194,8 @@ export default function Kanban() {
 
       <div className="kb-board">
         {COLUMNS.map((c) => {
-          const cards = col(c.id);
+          const cards = shown(c.id);
+          const hidden = col(c.id).length - cards.length;
           return (
             <section key={c.id}
               className={`kb-col${overCol === c.id ? ' over' : ''} c-${c.id}`}
@@ -180,13 +208,15 @@ export default function Kanban() {
               }}>
               <header>
                 <b>{c.label}</b>
-                <span className="ct">{cards.length}</span>
+                {/* jumlah tersaring vs sebenarnya — supaya saringan tak
+                    pernah menyamar sebagai "tinggal segini yang tersisa" */}
+                <span className="ct">{hidden ? `${cards.length}/${cards.length + hidden}` : cards.length}</span>
               </header>
 
               <div className="kb-cards">
                 {cards.map((row) => (
                   <article key={row.id} draggable
-                    className={`kb-card ${row.track}${dragId === row.id ? ' dragging' : ''}${row.status === 'done' ? ' is-done' : ''}`}
+                    className={`kb-card ${row.track}${dragId === row.id ? ' dragging' : ''}${row.status === 'done' ? ' is-done' : ''}${open.has(row.id) ? ' open' : ''}`}
                     onDragStart={(e) => { setDragId(row.id); e.dataTransfer.effectAllowed = 'move'; }}
                     onDragEnd={() => { setDragId(null); setOverCol(null); }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -200,8 +230,13 @@ export default function Kanban() {
                       <span className={`kb-sz s-${row.size}`}>{row.size}</span>
                       <button className="kb-x" aria-label="Hapus kartu" onClick={() => void remove(row)}>×</button>
                     </div>
-                    <b>{row.title}</b>
+                    <b onClick={() => setOpen((s) => {
+                      const n = new Set(s);
+                      if (!n.delete(row.id)) n.add(row.id);
+                      return n;
+                    })}>{row.title}</b>
                     {row.why && <p>{row.why}</p>}
+                    {row.why.length > 90 && !open.has(row.id) && <span className="kb-more">KLIK JUDUL UNTUK SELENGKAPNYA</span>}
                     {row.blocked && <span className="kb-bl">MENUNGGU: {row.blocked}</span>}
                     <div className="kb-move">
                       <button aria-label="Pindah ke kolom sebelumnya" disabled={c.id === 'todo'}

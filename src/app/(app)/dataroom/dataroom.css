@@ -236,8 +236,22 @@
   background:var(--card-3); border-radius:var(--rad-pill); padding:2px 8px; }
 .kb-col.c-doing > header b{ color:var(--signal); }
 .kb-col.c-done > header b{ color:var(--good); }
-.kb-cards{ display:flex; flex-direction:column; gap:9px; }
+/* Kolom bergulir sendiri. Tanpa ini kolom "belum tersentuh" (puluhan kartu)
+   menarik seluruh papan jadi ribuan piksel dan dua kolom lain tak pernah
+   terlihat bersamaan — papan kanban kehilangan gunanya. */
+.kb-cards{ display:flex; flex-direction:column; gap:9px;
+  max-height:62vh; overflow-y:auto; padding-right:4px; }
+.kb-cards::-webkit-scrollbar{ width:6px; }
+.kb-cards::-webkit-scrollbar-thumb{ background:var(--card-3); border-radius:3px; }
 .kb-empty{ margin:8px 2px; font-size:12px; color:var(--faint); font-style:italic; }
+
+/* Saringan dimensi — 48 kartu perlu dipersempit sebelum bisa dibaca. */
+.kb-filter{ display:flex; flex-wrap:wrap; gap:6px; }
+.kb-fc{ border:1px solid var(--line); background:var(--card); cursor:pointer;
+  border-radius:var(--rad-pill); padding:4px 11px; font-size:11.5px; font-weight:600;
+  color:var(--muted); font-family:inherit; }
+.kb-fc:hover{ color:var(--ink); border-color:var(--faint); }
+.kb-fc.on{ background:var(--tint-signal); border-color:var(--signal); color:var(--signal); }
 
 .kb-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--rad-md);
   padding:11px 12px; cursor:grab; position:relative; }
@@ -246,8 +260,14 @@
 .kb-card.human{ border-left:3px solid var(--source); }
 .kb-card.dragging{ opacity:.4; }
 .kb-card.is-done b{ color:var(--muted); }
-.kb-card b{ display:block; font-size:13px; line-height:1.45; }
-.kb-card p{ margin:5px 0 0; font-size:12px; line-height:1.55; color:var(--muted); }
+.kb-card b{ display:block; font-size:13px; line-height:1.45; cursor:pointer; }
+/* Alasan diringkas 2 baris; klik judul membentangkannya. Kartu setinggi
+   paragraf penuh membuat kolom tak bisa dipindai sekilas. */
+.kb-card p{ margin:5px 0 0; font-size:12px; line-height:1.55; color:var(--muted);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.kb-card.open p{ -webkit-line-clamp:unset; overflow:visible; }
+.kb-card .kb-more{ font-family:var(--font-mono); font-size:9.5px; color:var(--faint);
+  letter-spacing:.06em; }
 .kb-top{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
 .kb-dim{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em; font-weight:700;
   padding:2px 6px; border-radius:4px; background:var(--card-3); color:var(--muted); }
@@ -267,5 +287,9 @@
 .kb-move button:hover:not(:disabled){ border-color:var(--signal); color:var(--signal); }
 .kb-move button:disabled{ opacity:.3; cursor:default; }
 
-@media print{ .kb-move, .kb-x, .kb-head .btn{ display:none !important; }
-  .kb-board{ grid-template-columns:repeat(3,1fr); } .kb-card{ break-inside:avoid; } }
+/* Cetak: papan jadi laporan — tak ada gulir, tak ada teks terpotong. */
+@media print{ .kb-move, .kb-x, .kb-head .btn, .kb-filter, .kb-more{ display:none !important; }
+  .kb-board{ grid-template-columns:repeat(3,1fr); }
+  .kb-cards{ max-height:none; overflow:visible; }
+  .kb-card{ break-inside:avoid; }
+  .kb-card p{ -webkit-line-clamp:unset; overflow:visible; } }
