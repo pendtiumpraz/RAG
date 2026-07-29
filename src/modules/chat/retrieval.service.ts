@@ -127,14 +127,21 @@ export const retrievalService = {
           limit ${pool}
         )
         select d.id, d.title, d.content,
-               v.rnk as vec_rank, l.rnk as lex_rank
+               v.rnk as vec_rank, l.rnk as lex_rank,
+               -- Kemiripan kosinus tetap dibawa keluar meski PERINGKAT-nya
+               -- ditentukan RRF. Alasannya: skor yang dipublikasikan sudah
+               -- terlanjur berarti "kemiripan 0..1" — dipakai chip sitasi di
+               -- widget dan parameter minScore di /api/v1/search. Menggantinya
+               -- dengan nilai RRF (~0,02) akan membuat minScore: 0.5 menyaring
+               -- habis semua hasil tanpa ada yang tahu sebabnya.
+               (1 - (d.embedding <=> ${vecLiteral}::vector)) as cos
         from vec v
         full outer join lex l on l.id = v.id
         join documents d on d.id = coalesce(v.id, l.id)
       `);
       return res as unknown as Array<{
         id: string; title: string | null; content: string;
-        vec_rank: number | null; lex_rank: number | null;
+        vec_rank: number | null; lex_rank: number | null; cos: number | null;
       }>;
     });
 
@@ -152,15 +159,24 @@ export const retrievalService = {
     ]);
 
     const meta = new Map(rows.map((r) => [r.id, r]));
+    /**
+     * Dua angka, dua tugas — dan memisahkannya yang membuat keduanya jujur:
+     *  • `rank`  — nilai RRF (+ dorongan judul). MENENTUKAN URUTAN. Skalanya
+     *              kecil dan relatif; tak pernah keluar dari modul ini.
+     *  • `score` — kemiripan kosinus 0..1. DIPUBLIKASIKAN. Inilah yang sudah
+     *              terlanjur dipahami sebagai "seberapa mirip" oleh chip
+     *              sitasi widget dan parameter minScore di API publik.
+     */
     const scored = [...fused.entries()].map(([id, s]) => {
       const r = meta.get(id)!;
-      // titleBoost tetap dipakai sebagai dorongan terakhir. Kaki leksikal
-      // sudah menangkap sebagian besar kasusnya, tapi judul adalah sinyal
-      // yang lebih kuat daripada kemunculan token di badan teks — dan
-      // skalanya disesuaikan dengan besaran RRF, bukan kosinus.
       return {
         id, title: r.title, content: r.content,
-        score: s + titleBoost(r.title, tokens) * 0.05,
+        // titleBoost tetap dipakai sebagai dorongan terakhir: kaki leksikal
+        // menangkap sebagian besar kasusnya, tapi judul sinyal yang lebih kuat
+        // daripada kemunculan token di badan teks. Skalanya disesuaikan dengan
+        // besaran RRF, bukan kosinus.
+        rank: s + titleBoost(r.title, tokens) * 0.05,
+        score: Number(r.cos ?? 0),
       };
     });
 
@@ -168,7 +184,9 @@ export const retrievalService = {
     // ia tak membawa informasi baru sama sekali, sedangkan MMR hanya
     // mengurangi nilai — dan kembar yang relevansinya nyaris sama tetap
     // menang di MMR. Baru sesudah itu MMR menata keragaman yang lebih halus.
-    const cand = scored.map((s) => ({ id: s.id, score: s.score, tokens: contentTokens(s.content) }));
+    // Pemilihan memakai nilai RRF, bukan kosinus — urutan ditentukan
+    // penggabungan dua kaki, bukan salah satunya saja.
+    const cand = scored.map((s) => ({ id: s.id, score: s.rank, tokens: contentTokens(s.content) }));
     const picked = mmrSelect(dedupeNearDuplicates(cand), k, MMR_LAMBDA);
     const pos = new Map(scored.map((s) => [s.id, s]));
     return picked.map((p) => {
