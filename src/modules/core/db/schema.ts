@@ -440,6 +440,9 @@ export const backlogItems = pgTable('backlog_items', {
   size: text('size').default('M').notNull(),
   blocked: text('blocked'),
   status: text('status').default('todo').notNull(), // todo | doing | done
+  /** P0 kerjakan dulu · P1 penting · P2 normal · P3 nanti. Terpisah dari
+   *  `position` supaya menyeret kartu tak mengubah penilaian kepentingannya. */
+  priority: text('priority').default('P2').notNull(),
   position: integer('position').default(0).notNull(),
   ...stamps,
 }, (t) => ({

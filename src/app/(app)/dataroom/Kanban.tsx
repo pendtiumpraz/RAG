@@ -22,11 +22,12 @@ import { Select } from '../../_components/select';
 type Track = 'human' | 'agent';
 type Status = 'todo' | 'doing' | 'done';
 type Dim = 'uiux' | 'agentic' | 'feature' | 'launch';
+type Pri = 'P0' | 'P1' | 'P2' | 'P3';
 
 interface Row {
   id: string; key: string; track: Track; dimension: Dim;
   title: string; why: string; size: 'S' | 'M' | 'L';
-  blocked: string | null; status: Status; position: number;
+  blocked: string | null; status: Status; position: number; priority: Pri;
 }
 
 const COLUMNS: Array<{ id: Status; label: string; hint: string }> = [
@@ -34,6 +35,10 @@ const COLUMNS: Array<{ id: Status; label: string; hint: string }> = [
   { id: 'doing', label: 'Sedang dikerjakan', hint: 'Berjalan' },
   { id: 'done', label: 'Selesai', hint: 'Tuntas' },
 ];
+
+const PRI_LABEL: Record<Pri, string> = {
+  P0: 'Kerjakan lebih dulu', P1: 'Penting', P2: 'Normal', P3: 'Nanti',
+};
 
 const DIM_LABEL: Record<Dim, string> = {
   uiux: 'UI/UX', agentic: 'Agentic', feature: 'Feature', launch: 'Launching',
@@ -52,8 +57,8 @@ export default function Kanban() {
   const [overCol, setOverCol] = useState<Status | null>(null);
   const [adding, setAdding] = useState(false);
   const [dim, setDim] = useState<Dim | 'all'>('all');
-  /** kartu yang alasannya sedang dibentangkan */
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  /** kartu yang sedang dibuka detailnya */
+  const [detail, setDetail] = useState<Row | null>(null);
   const toast = useToast();
   /** salinan sebelum perpindahan — untuk mengembalikan bila server menolak */
   const undo = useRef<Row[] | null>(null);
@@ -86,6 +91,20 @@ export default function Kanban() {
     (s: Status) => col(s).filter((i) => dim === 'all' || i.dimension === dim),
     [col, dim],
   );
+
+  /**
+   * Nomor antrean per kartu — dihitung lintas KOLOM sepanjang track, bukan
+   * per kolom. Kalau dihitung per kolom, memindahkan kartu ke 'sedang
+   * dikerjakan' akan me-nomor-satu-kan kartu lain di 'belum tersentuh' dan
+   * urutan kerja jadi bohong.
+   */
+  const queueNo = useMemo(() => {
+    const order = [...byTrack].sort((a, b) => {
+      const st = (s: Status) => (s === 'doing' ? 0 : s === 'todo' ? 1 : 2);
+      return st(a.status) - st(b.status) || a.position - b.position;
+    });
+    return new Map(order.map((r, i) => [r.id, i + 1]));
+  }, [byTrack]);
 
   const done = byTrack.filter((i) => i.status === 'done').length;
   const doing = byTrack.filter((i) => i.status === 'doing').length;
@@ -217,7 +236,7 @@ export default function Kanban() {
               <div className="kb-cards">
                 {cards.map((row) => (
                   <article key={row.id} draggable
-                    className={`kb-card ${row.track}${dragId === row.id ? ' dragging' : ''}${row.status === 'done' ? ' is-done' : ''}${open.has(row.id) ? ' open' : ''}`}
+                    className={`kb-card ${row.track}${dragId === row.id ? ' dragging' : ''}${row.status === 'done' ? ' is-done' : ''}`}
                     onDragStart={(e) => { setDragId(row.id); e.dataTransfer.effectAllowed = 'move'; }}
                     onDragEnd={() => { setDragId(null); setOverCol(null); }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -227,17 +246,17 @@ export default function Kanban() {
                       setDragId(null);
                     }}>
                     <div className="kb-top">
+                      {/* Nomor antrean HIDUP: ikut berubah saat kartu diseret,
+                          jadi ia selalu menjawab "kerjakan yang mana dulu". */}
+                      <span className="kb-no">#{queueNo.get(row.id) ?? '–'}</span>
+                      <span className={`kb-pri p-${row.priority}`} title={PRI_LABEL[row.priority]}>{row.priority}</span>
                       <span className={`kb-dim d-${row.dimension}`}>{DIM_LABEL[row.dimension]}</span>
                       <span className={`kb-sz s-${row.size}`}>{row.size}</span>
                       <button className="kb-x" aria-label="Hapus kartu" onClick={() => void remove(row)}>×</button>
                     </div>
-                    <b onClick={() => setOpen((s) => {
-                      const n = new Set(s);
-                      if (!n.delete(row.id)) n.add(row.id);
-                      return n;
-                    })}>{row.title}</b>
+                    <b onClick={() => setDetail(row)}>{row.title}</b>
                     {row.why && <p>{row.why}</p>}
-                    {row.why.length > 90 && !open.has(row.id) && <span className="kb-more">KLIK JUDUL UNTUK SELENGKAPNYA</span>}
+                    <span className="kb-more">KLIK JUDUL UNTUK DETAIL</span>
                     {row.blocked && <span className="kb-bl">MENUNGGU: {row.blocked}</span>}
                     <div className="kb-move">
                       <button aria-label="Pindah ke kolom sebelumnya" disabled={c.id === 'todo'}
@@ -256,7 +275,109 @@ export default function Kanban() {
 
       {adding && <AddCard track={track} onClose={() => setAdding(false)}
         onSaved={(row) => { setItems((v) => [...(v ?? []), row]); setAdding(false); toast('Kartu ditambahkan'); }} />}
+
+      {detail && (
+        <Detail
+          row={detail}
+          no={queueNo.get(detail.id) ?? 0}
+          onClose={() => setDetail(null)}
+          onStatus={(s) => { void place(detail.id, s); setDetail({ ...detail, status: s }); }}
+          onPriority={async (p) => {
+            const prev = detail.priority;
+            // optimistik dulu — papan tak boleh terasa lambat saat menilai
+            setDetail({ ...detail, priority: p });
+            setItems((v) => (v ?? []).map((i) => (i.id === detail.id ? { ...i, priority: p } : i)));
+            try {
+              const r = await fetch('/api/admin/backlog', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: detail.id, priority: p }),
+              });
+              if (!r.ok) throw new Error('Gagal menyimpan prioritas');
+            } catch (e) {
+              setDetail({ ...detail, priority: prev });
+              setItems((v) => (v ?? []).map((i) => (i.id === detail.id ? { ...i, priority: prev } : i)));
+              toast((e as Error).message, 'error');
+            }
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ── modal detail kartu ──────────────────────────────────────────────
+   Kartu di papan sengaja ringkas supaya kolom bisa dipindai sekilas; alasan
+   lengkap, kepentingan, dan penyanderanya dibaca di sini. Dari sini pula
+   status & prioritas bisa diubah tanpa menyeret apa pun — jalur yang jauh
+   lebih mudah di ponsel. */
+function Detail({ row, no, onClose, onStatus, onPriority }: {
+  row: Row; no: number; onClose: () => void;
+  onStatus: (s: Status) => void; onPriority: (p: Pri) => void;
+}) {
+  // Esc menutup — kebiasaan dialog yang selalu dicoba orang lebih dulu.
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="backdrop show" onClick={onClose} />
+      <div className="kb-modal" role="dialog" aria-modal="true" aria-label={row.title}>
+        <header>
+          <div className="kb-mtop">
+            <span className="kb-no">#{no}</span>
+            <span className={`kb-pri p-${row.priority}`}>{row.priority}</span>
+            <span className={`kb-dim d-${row.dimension}`}>{DIM_LABEL[row.dimension]}</span>
+            <span className={`kb-sz s-${row.size}`}>{row.size}</span>
+            <span className={`kb-trk ${row.track}`}>
+              {row.track === 'human' ? 'BUTUH TANGANMU' : 'BISA DIKERJAKAN CLAUDE'}
+            </span>
+          </div>
+          <button className="icon-btn" aria-label="Tutup" onClick={onClose}>×</button>
+        </header>
+
+        <div className="kb-mbody">
+          <h3>{row.title}</h3>
+          <p className="why">{row.why}</p>
+
+          {row.blocked && (
+            <div className="kb-mblock">
+              <span className="microlabel">TERSANDERA</span>
+              <p>{row.blocked}</p>
+            </div>
+          )}
+
+          <div className="kb-mgrid">
+            <div>
+              <span className="microlabel">STATUS</span>
+              <div className="kb-mseg">
+                {COLUMNS.map((c) => (
+                  <button key={c.id} className={row.status === c.id ? 'on' : ''}
+                    onClick={() => onStatus(c.id)}>{c.label}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className="microlabel">PRIORITAS</span>
+              <div className="kb-mseg pri">
+                {(Object.keys(PRI_LABEL) as Pri[]).map((p) => (
+                  <button key={p} className={`p-${p}${row.priority === p ? ' on' : ''}`}
+                    title={PRI_LABEL[p]} onClick={() => onPriority(p)}>{p}</button>
+                ))}
+              </div>
+              <p className="kb-mhint">{PRI_LABEL[row.priority]}</p>
+            </div>
+          </div>
+
+          <p className="kb-mmeta">
+            Bobot {row.size === 'S' ? 'S — hitungan jam' : row.size === 'M' ? 'M — setengah hari' : 'L — berhari-hari'}
+            {' · '}kunci <code>{row.key}</code>
+          </p>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -268,6 +389,7 @@ function AddCard({ track, onClose, onSaved }: {
   const [why, setWhy] = useState('');
   const [dimension, setDim] = useState<Dim>('feature');
   const [size, setSize] = useState<'S' | 'M' | 'L'>('M');
+  const [priority, setPriority] = useState<Pri>('P2');
   const [blocked, setBlocked] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -277,7 +399,7 @@ function AddCard({ track, onClose, onSaved }: {
     try {
       const r = await fetch('/api/admin/backlog', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track, dimension, title, why, size, blocked: blocked || undefined }),
+        body: JSON.stringify({ track, dimension, title, why, size, priority, blocked: blocked || undefined }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'Gagal menyimpan');
@@ -304,6 +426,12 @@ function AddCard({ track, onClose, onSaved }: {
           <div className="field"><label>Dimensi</label>
             <Select className="select-sm"  value={dimension} onChange={(e) => setDim(e.target.value as Dim)}>
               {(Object.keys(DIM_LABEL) as Dim[]).map((d) => <option key={d} value={d}>{DIM_LABEL[d]}</option>)}
+            </Select></div>
+          <div className="field"><label>Prioritas</label>
+            <Select className="select-sm" value={priority} onChange={(e) => setPriority(e.target.value as Pri)}>
+              {(Object.keys(PRI_LABEL) as Pri[]).map((p) => (
+                <option key={p} value={p}>{p} — {PRI_LABEL[p]}</option>
+              ))}
             </Select></div>
           <div className="field"><label>Bobot</label>
             <Select className="select-sm"  value={size} onChange={(e) => setSize(e.target.value as 'S' | 'M' | 'L')}>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { superadminRoute } from '../_guard';
-import { backlogService, DIMENSION_LABEL, STATUS_LABEL } from '@/modules/core/backlog.service';
+import { backlogService, DIMENSION_LABEL, STATUS_LABEL, type Priority } from '@/modules/core/backlog.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,7 @@ const CreateBody = z.object({
   title: z.string().min(3).max(160),
   why: z.string().max(600).default(''),
   size: z.enum(['S', 'M', 'L']).default('M'),
+  priority: z.enum(['P0', 'P1', 'P2', 'P3']).default('P2'),
   blocked: z.string().max(200).optional(),
 });
 
@@ -46,6 +47,22 @@ export const POST = superadminRoute(async (req, _ctx, actor) => {
   }
   const item = await backlogService.create(actor, parsed.data);
   return NextResponse.json({ item }, { status: 201 });
+});
+
+const PriorityBody = z.object({
+  id: z.string().uuid(),
+  priority: z.enum(['P0', 'P1', 'P2', 'P3']),
+});
+
+/** PUT — ubah kepentingan kartu. Terpisah dari PATCH (yang mengatur antrean)
+ *  supaya menyeret kartu tak pernah diam-diam menulis ulang prioritasnya. */
+export const PUT = superadminRoute(async (req, _ctx, actor) => {
+  const parsed = PriorityBody.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Input tidak valid' }, { status: 400 });
+  }
+  await backlogService.setPriority(actor, parsed.data.id, parsed.data.priority as Priority);
+  return NextResponse.json({ ok: true });
 });
 
 /** DELETE — soft delete; kartu seed yang dihapus tak dibangkitkan lagi. */

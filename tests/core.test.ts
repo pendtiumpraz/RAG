@@ -567,10 +567,18 @@ test('backlog: seed papan kanban konsisten & kunci unik', async () => {
     assert.ok(['human', 'agent'].includes(s.track), `track tak dikenal: ${s.key}`);
     assert.ok(s.dimension in DIMENSION_LABEL, `dimensi tak dikenal: ${s.key}`);
     assert.ok(['S', 'M', 'L'].includes(s.size), `bobot tak dikenal: ${s.key}`);
+    assert.ok(['P0', 'P1', 'P2', 'P3'].includes(s.priority), `prioritas tak dikenal: ${s.key}`);
     assert.ok(s.why.length > 20, `kartu tanpa alasan yang berguna: ${s.key}`);
     // Pemisahan track hanya bermakna kalau alasan tersanderanya disebut.
     if (s.track === 'human') assert.ok(s.blocked, `kartu human wajib menyebut penyanderanya: ${s.key}`);
     else assert.ok(!s.blocked, `kartu agent tak boleh punya penyandera: ${s.key}`);
+  }
+
+  // Tiap track wajib punya P0: papan tanpa 'kerjakan dulu' tak menjawab
+  // pertanyaan yang membuatnya ada.
+  for (const t of ['human', 'agent']) {
+    assert.ok(SEED.some((s) => s.track === t && s.priority === 'P0'),
+      `track ${t} tak punya satu pun kartu P0`);
   }
 
   // Papan harus mencakup keempat dimensi assessment, bukan hanya yang mudah.
