@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import './dataroom.css';
 import { DECKS, type Deck, type Slide } from './decks';
 import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment';
-import { SHIPPED, HUMAN_TOUCH, AGENT_BACKLOG, SHIPPED_AT, type TodoItem } from './updates';
+import { SHIPPED, SHIPPED_AT } from './updates';
+import Kanban from './Kanban';
 import { EmptyState, useToast } from '../../_components/ui';
 
 /**
@@ -137,45 +138,33 @@ export default function DataroomPage() {
   );
 }
 
-/* ── tab Update & Backlog (data: updates.ts) ────────────────────────
-   Sisa pekerjaan dipisah tegas: yang butuh MANUSIA (kredensial, keputusan
-   bisnis, pihak ketiga) vs yang bisa dikerjakan AGEN. Tanpa pemisahan itu
-   daftar backlog cuma panjang, tak menuntun apa pun. */
-function TodoList({ items, tone }: { items: TodoItem[]; tone: 'human' | 'agent' }) {
-  return (
-    <ol className={`up-todo ${tone}`}>
-      {items.map((t) => (
-        <li key={t.rank}>
-          <span className="rk">{t.rank}</span>
-          <div className="bd">
-            <b>{t.title}<span className={`sz s-${t.size}`}>{t.size}</span></b>
-            <p>{t.why}</p>
-            {t.blocked && <span className="bl">MENUNGGU: {t.blocked}</span>}
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
+/* ── tab Update & Backlog ────────────────────────────────────────────
+   Dua bagian: catatan perubahan (statis, updates.ts) dan PAPAN KANBAN
+   (D15, tersimpan di DB). Papan dipisah tegas: yang butuh MANUSIA
+   (kredensial, keputusan bisnis, pihak ketiga) vs yang bisa dikerjakan
+   AGEN — tanpa pemisahan itu backlog cuma panjang, tak menuntun apa pun. */
 function UpdatesView() {
   return (
     <div className="dr-assess up">
-      <div className="as-summary" style={{ gridTemplateColumns: '1.2fr 1fr 1fr' }}>
+      <section className="as-sec">
+        <header>
+          <h2>Papan pekerjaan</h2>
+          <span className="microlabel">SERET KARTU ANTAR KOLOM · TERSIMPAN OTOMATIS</span>
+        </header>
+        <p className="desc">
+          Daftar lengkap yang tersisa menuju 10/10 di semua dimensi, diturunkan
+          dari tiap celah di tab Assessment. Seret kartu (atau pakai tombol ←/→)
+          untuk menandai apa yang sedang berjalan dan apa yang sudah tuntas —
+          posisinya tersimpan di server.
+        </p>
+        <Kanban />
+      </section>
+
+      <div className="as-summary" style={{ gridTemplateColumns: '1fr' }}>
         <div className="as-overall">
-          <span className="microlabel">RINGKASAN · {SHIPPED_AT}</span>
+          <span className="microlabel">SUDAH JALAN · {SHIPPED_AT}</span>
           <b>{SHIPPED.reduce((n, g) => n + g.items.length, 0)}<small> perubahan</small></b>
           <span className="delta">4 keputusan arsitektur · 5 insiden ditutup</span>
-        </div>
-        <div className="as-dim">
-          <span className="microlabel">BUTUH KAMU</span>
-          <b className="warn">{HUMAN_TOUCH.length}</b>
-          <span className="meter"><span style={{ width: '100%', background: 'var(--source)' }} /></span>
-        </div>
-        <div className="as-dim">
-          <span className="microlabel">BISA KUKERJAKAN</span>
-          <b>{AGENT_BACKLOG.length}</b>
-          <span className="meter"><span style={{ width: '100%' }} /></span>
         </div>
       </div>
 
@@ -196,22 +185,10 @@ function UpdatesView() {
         </section>
       ))}
 
-      <section className="as-sec">
-        <header><h2>Butuh tanganmu</h2><span className="as-badge warn">{HUMAN_TOUCH.length} hal</span></header>
-        <p className="desc">Semuanya tersandera kredensial, keputusan bisnis, atau pihak ketiga —
-          tak ada yang bisa kuselesaikan sendiri.</p>
-        <TodoList items={HUMAN_TOUCH} tone="human" />
-      </section>
-
-      <section className="as-sec">
-        <header><h2>Bisa kukerjakan</h2><span className="as-badge">{AGENT_BACKLOG.length} hal</span></header>
-        <p className="desc">Urut dampak. Sebut nomornya atau judulnya, langsung kugarap.</p>
-        <TodoList items={AGENT_BACKLOG} tone="agent" />
-      </section>
-
       <p className="as-method">
-        S = hitungan jam · M = setengah hari · L = berhari-hari. Daftar ini
-        hidup: setiap kali sesuatu selesai, ia naik ke bagian &ldquo;sudah jalan&rdquo;.
+        S = hitungan jam · M = setengah hari · L = berhari-hari. Kartu di papan
+        bisa ditambah sendiri lewat tombol <b>+ Kartu</b>; kartu bawaan yang
+        dihapus tak akan muncul lagi.
       </p>
     </div>
   );

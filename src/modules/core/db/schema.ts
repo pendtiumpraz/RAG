@@ -416,6 +416,27 @@ export const payments = pgTable('payments', {
     .on(t.provider, t.providerRef).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
+/* ── backlog kanban (D15) — PLATFORM, tanpa RLS ────────────────────── */
+/** Papan pekerjaan produk di Dataroom. `track` memisah yang butuh manusia
+ *  (kredensial/keputusan/pihak ketiga) dari yang bisa dikerjakan agen. */
+export const backlogItems = pgTable('backlog_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  key: text('key').notNull(),
+  track: text('track').notNull(),          // 'human' | 'agent'
+  dimension: text('dimension').notNull(),  // uiux | agentic | feature | launch
+  title: text('title').notNull(),
+  why: text('why').notNull(),
+  size: text('size').default('M').notNull(),
+  blocked: text('blocked'),
+  status: text('status').default('todo').notNull(), // todo | doing | done
+  position: integer('position').default(0).notNull(),
+  ...stamps,
+}, (t) => ({
+  boardIdx: index('idx_backlog_track_status').on(t.track, t.status, t.position),
+  delIdx: index('idx_backlog_deleted_at').on(t.deletedAt),
+  uqKey: uniqueIndex('uq_backlog_key').on(t.key).where(sql`deleted_at IS NULL`),
+}));
+
 /* ── kredensial OAuth app — PLATFORM, bukan per-tenant ─────────────── */
 /**
  * Client ID & secret aplikasi OAuth (Google / Microsoft).

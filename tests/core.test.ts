@@ -555,3 +555,27 @@ test('retrieval: titleBoost memenangkan dokumen tahun yang DITANYA', async () =>
   // tanpa token cocok = nol; pertanyaan umum tak terdistorsi
   assert.equal(titleBoost('Panduan Karyawan.pdf', queryTokens('bagaimana cara cuti?')) , 0);
 });
+
+test('backlog: seed papan kanban konsisten & kunci unik', async () => {
+  const { SEED, DIMENSION_LABEL } = await import('../src/modules/core/backlog.service');
+
+  // Kunci ganda = kartu hilang diam-diam (insert-nya onConflictDoNothing).
+  const keys = SEED.map((s) => s.key);
+  assert.equal(new Set(keys).size, keys.length, 'kunci seed harus unik');
+
+  for (const s of SEED) {
+    assert.ok(['human', 'agent'].includes(s.track), `track tak dikenal: ${s.key}`);
+    assert.ok(s.dimension in DIMENSION_LABEL, `dimensi tak dikenal: ${s.key}`);
+    assert.ok(['S', 'M', 'L'].includes(s.size), `bobot tak dikenal: ${s.key}`);
+    assert.ok(s.why.length > 20, `kartu tanpa alasan yang berguna: ${s.key}`);
+    // Pemisahan track hanya bermakna kalau alasan tersanderanya disebut.
+    if (s.track === 'human') assert.ok(s.blocked, `kartu human wajib menyebut penyanderanya: ${s.key}`);
+    else assert.ok(!s.blocked, `kartu agent tak boleh punya penyandera: ${s.key}`);
+  }
+
+  // Papan harus mencakup keempat dimensi assessment, bukan hanya yang mudah.
+  const dims = new Set(SEED.map((s) => s.dimension));
+  for (const d of Object.keys(DIMENSION_LABEL)) {
+    assert.ok(dims.has(d as never), `tak ada kartu untuk dimensi ${d}`);
+  }
+});

@@ -213,6 +213,21 @@ export const openApiSpec = {
         responses: { 200: err('{ ok, testSent }') } },
     },
 
+    /* ── papan kanban backlog (D15, Dataroom) ───────────────────────── */
+    '/api/admin/backlog': {
+      get: { summary: 'SUPERADMIN: seluruh kartu papan (seed disisipkan otomatis)', security: [sessionAuth],
+        responses: { 200: err('{ items, labels }') } },
+      patch: { summary: 'SUPERADMIN: pindahkan kartu antar kolom + tulis ulang urutan kolom tujuan', security: [sessionAuth],
+        requestBody: json(obj({ id: str, status: str, order: { type: 'array', items: str } }, ['id', 'status', 'order'])),
+        responses: { 200: err('{ ok }'), 400: err('input tidak valid') } },
+      post: { summary: 'SUPERADMIN: tambah kartu sendiri', security: [sessionAuth],
+        requestBody: json(obj({ track: str, dimension: str, title: str, why: str, size: str, blocked: str }, ['track', 'dimension', 'title'])),
+        responses: { 201: err('{ item }'), 400: err('input tidak valid') } },
+      delete: { summary: 'SUPERADMIN: hapus kartu (soft delete — kartu seed tak dibangkitkan lagi)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'query', required: true, schema: str }],
+        responses: { 200: err('{ ok }'), 400: err('id wajib') } },
+    },
+
     /* ── pembayaran (D12: QRIS, config di DB, halaman bayar sendiri) ── */
     '/api/payments': {
       get: { summary: 'Riwayat transaksi tenant', security: [sessionAuth],

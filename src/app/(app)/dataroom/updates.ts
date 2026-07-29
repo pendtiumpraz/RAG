@@ -1,10 +1,10 @@
 /**
- * DATAROOM · UPDATE & BACKLOG — catatan perkembangan dan sisa pekerjaan.
+ * DATAROOM · UPDATE — catatan perkembangan.
  *
- * Dipisah tegas jadi dua: yang HANYA BISA DIKERJAKAN MANUSIA (butuh
- * kredensial, keputusan bisnis, atau pihak ketiga) dan yang BISA
- * DIKERJAKAN AGEN. Pemisahan ini yang membuat daftar sisa pekerjaan
- * berguna — bukan sekadar panjang.
+ * Berisi CATATAN PERUBAHAN saja. Sisa pekerjaan pindah ke papan kanban
+ * (`modules/core/backlog.service.ts`) karena statusnya harus tersimpan di
+ * DB — daftar statis tak bisa membedakan "belum tersentuh" dari "sedang
+ * dikerjakan" dari "selesai".
  */
 
 export interface ShipItem {
@@ -12,16 +12,6 @@ export interface ShipItem {
   detail: string;
   /** rujukan keputusan arsitektur bila ada */
   decision?: string;
-}
-
-export interface TodoItem {
-  title: string;
-  why: string;
-  /** perkiraan bobot: S (jam), M (setengah hari), L (berhari-hari) */
-  size: 'S' | 'M' | 'L';
-  /** urutan dampak: 1 tertinggi */
-  rank: number;
-  blocked?: string;
 }
 
 export const SHIPPED_AT = '2026-07-29';
@@ -97,57 +87,4 @@ export const SHIPPED: Array<{ group: string; items: ShipItem[] }> = [
         detail: 'Sisa smoke test memenuhi daftar superadmin. Dibersihkan, dan smoke kini merapikan tenant ujinya sendiri.' },
     ],
   },
-];
-
-/* ── hanya bisa dikerjakan manusia ───────────────────────────────── */
-export const HUMAN_TOUCH: TodoItem[] = [
-  { rank: 1, size: 'S', title: 'Isi kredensial SMTP (Gmail + App Password)',
-    why: 'Membuka verifikasi email, reset password, undangan tim, dan kabar akun disetujui. Kodenya sudah menunggu — tinggal Settings → panel Email → kirim uji.',
-    blocked: 'Butuh akun email & App Password milikmu' },
-  { rank: 2, size: 'S', title: 'Isi kredensial gateway pembayaran + daftarkan callback',
-    why: 'Menyalakan pembelian plan. Isi salah satu (sandbox dulu) di Billing → Aktifkan → salin URL callback ke dashboard provider.',
-    blocked: 'Butuh akun merchant Midtrans/Tripay/Xendit' },
-  { rank: 3, size: 'M', title: 'Verifikasi OAuth Google — ajukan ulang',
-    why: 'Beranda sudah memenuhi semua syarat (judul, tujuan, ringkasan Inggris, privasi). Yang tersisa: minta pengindeksan di Search Console lalu submit ulang, dan balas tiket Trust & Safety.',
-    blocked: 'Hanya pemilik project Google Cloud yang bisa' },
-  { rank: 4, size: 'S', title: 'Tetapkan harga Enterprise & lisensi on-premise',
-    why: 'Slide bisnis dan halaman paket sudah siap menampilkannya; angkanya keputusanmu.',
-    blocked: 'Keputusan bisnis' },
-  { rank: 5, size: 'S', title: 'Siapkan kotak surat kontak resmi',
-    why: 'Kebijakan privasi menyebutnya sebagai kanal permintaan penghapusan data; sekarang masih memakai Gmail pribadi.',
-    blocked: 'Butuh akses DNS/mail domain' },
-  { rank: 6, size: 'L', title: 'Pen-test eksternal & template DPA',
-    why: 'Diminta pelanggan enterprise sebelum tanda tangan. Fondasinya sudah kuat (RLS, enkripsi, audit), tinggal pembuktian pihak ketiga.',
-    blocked: 'Butuh vendor & penasihat hukum' },
-  { rank: 7, size: 'M', title: 'Keputusan: Picker selamanya atau kejar CASA?',
-    why: 'Mode Picker sudah jalan tanpa verifikasi berat. Full-scan Drive di SaaS menuntut audit CASA tahunan berbayar — layak hanya bila pelanggan menuntutnya.',
-    blocked: 'Keputusan produk + biaya' },
-];
-
-/* ── bisa dikerjakan agen ────────────────────────────────────────── */
-export const AGENT_BACKLOG: TodoItem[] = [
-  { rank: 1, size: 'M', title: 'API key per tenant + webhook keluar',
-    why: 'Satu-satunya lubang besar yang tersisa untuk integrasi: akses programatik masih memakai cookie sesi. Membuka pemakaian oleh agen/sistem lain milik pelanggan.' },
-  { rank: 2, size: 'S', title: 'UI unggah berkas langsung ke KB',
-    why: 'Jenis sumber `upload` sudah ada di skema tapi belum ada jalurnya — pelanggan tanpa Google Drive kini terpaksa lewat API.' },
-  { rank: 3, size: 'S', title: 'Sesi widget bertahan saat halaman dimuat ulang',
-    why: 'Percakapan pengunjung terputus jadi sesi baru setiap refresh; cukup disimpan di localStorage.' },
-  { rank: 4, size: 'S', title: 'Tombol hentikan jawaban & salin di halaman Chat',
-    why: 'Dua hal yang paling terasa hilang saat memakai chat sehari-hari.' },
-  { rank: 5, size: 'M', title: 'Pencarian, filter tanggal, dan ekspor di Conversations',
-    why: 'Riwayat sudah lengkap tapi belum bisa ditelusuri — makin banyak percakapan makin terasa.' },
-  { rank: 6, size: 'M', title: 'Hybrid search + reranker',
-    why: 'Menggabungkan pencarian kata kunci dengan vektor, lalu menyusun ulang hasilnya. Peningkatan akurasi terbesar yang tersisa setelah perbaikan dokumen berversi.' },
-  { rank: 7, size: 'S', title: 'Grafik tren di Dashboard',
-    why: 'Separuh bawah dashboard masih kosong; datanya sudah ada di metering.' },
-  { rank: 8, size: 'M', title: 'Alerting di Observability',
-    why: 'Saat ini hanya papan baca — kegagalan sync atau lonjakan galat tak memberi tahu siapa pun.' },
-  { rank: 9, size: 'M', title: 'Audit aksesibilitas & responsif mobile',
-    why: 'Lighthouse menandai kontras beberapa teks; tabel lebar belum diuji di layar sempit.' },
-  { rank: 10, size: 'M', title: 'Help center / panduan pengguna',
-    why: 'Panduan OAuth sudah ada, tapi pengguna baru belum punya dokumentasi memakai produknya.' },
-  { rank: 11, size: 'S', title: 'Ekspor CSV analitik & rentang tanggal kustom',
-    why: 'Permintaan wajar begitu analitik dipakai untuk rapat.' },
-  { rank: 12, size: 'M', title: 'Blok tabel & chart multi-seri di jawaban',
-    why: 'Jawaban terstruktur baru mendukung chart satu seri; data perbandingan sering butuh tabel.' },
 ];

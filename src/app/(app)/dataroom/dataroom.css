@@ -198,3 +198,74 @@
 .up-todo .sz.s-L{ color:var(--danger); } .up-todo .sz.s-M{ color:var(--source); }
 .up-todo .bl{ display:inline-block; margin-top:7px; font-family:var(--font-mono); font-size:10px;
   letter-spacing:.06em; color:var(--source); }
+
+/* ── papan kanban backlog (D15) ─────────────────────────────────────── */
+.kb{ display:flex; flex-direction:column; gap:14px; }
+.kb-msg{ padding:22px; text-align:center; color:var(--muted); font-size:13.5px; }
+.kb-msg.err{ color:var(--danger); }
+.kb-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.kb-switch{ display:inline-flex; gap:4px; padding:4px; background:var(--card-2);
+  border:1px solid var(--line); border-radius:var(--rad-pill); }
+.kb-tk{ display:inline-flex; align-items:center; gap:8px; border:0; background:none; cursor:pointer;
+  padding:7px 14px; border-radius:var(--rad-pill); font-size:13px; font-weight:600; color:var(--muted);
+  font-family:inherit; }
+.kb-tk:hover{ color:var(--ink); }
+.kb-tk.on{ background:var(--card); color:var(--ink); box-shadow:0 1px 2px rgba(15,23,42,.08); }
+.kb-tk .n{ font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--faint);
+  padding:2px 7px; border-radius:var(--rad-pill); background:var(--card-3); }
+.kb-tk.on.agent .n{ color:var(--signal); } .kb-tk.on.human .n{ color:var(--source); }
+.kb-sub{ margin:0; font-size:13px; color:var(--muted); }
+
+.kb-bar{ display:flex; align-items:center; gap:12px; }
+.kb-bar .meter{ flex:1; display:flex; height:6px; }
+/* dua segmen bersebelahan: selesai (hijau) lalu berjalan (biru), sisanya kosong */
+.kb-bar .fill-done{ background:var(--good-mark); }
+.kb-bar .fill-doing{ background:var(--signal); border-left:2px solid var(--card); }
+.kb-bar .mono{ font-family:var(--font-mono); font-size:11px; color:var(--faint); white-space:nowrap; }
+
+.kb-board{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
+@media(max-width:900px){ .kb-board{ grid-template-columns:1fr; } }
+.kb-col{ background:var(--card-2); border:1px solid var(--line); border-radius:var(--rad-lg);
+  padding:12px; display:flex; flex-direction:column; gap:10px; min-height:140px;
+  transition:border-color .12s, background .12s; }
+.kb-col.over{ border-color:var(--signal); background:var(--tint-signal); }
+.kb-col > header{ display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:0 2px 8px; border-bottom:1px solid var(--line); }
+.kb-col > header b{ font-size:13px; letter-spacing:-.005em; }
+.kb-col .ct{ font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--faint);
+  background:var(--card-3); border-radius:var(--rad-pill); padding:2px 8px; }
+.kb-col.c-doing > header b{ color:var(--signal); }
+.kb-col.c-done > header b{ color:var(--good); }
+.kb-cards{ display:flex; flex-direction:column; gap:9px; }
+.kb-empty{ margin:8px 2px; font-size:12px; color:var(--faint); font-style:italic; }
+
+.kb-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--rad-md);
+  padding:11px 12px; cursor:grab; position:relative; }
+.kb-card:active{ cursor:grabbing; }
+.kb-card.agent{ border-left:3px solid var(--signal); }
+.kb-card.human{ border-left:3px solid var(--source); }
+.kb-card.dragging{ opacity:.4; }
+.kb-card.is-done b{ color:var(--muted); }
+.kb-card b{ display:block; font-size:13px; line-height:1.45; }
+.kb-card p{ margin:5px 0 0; font-size:12px; line-height:1.55; color:var(--muted); }
+.kb-top{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.kb-dim{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em; font-weight:700;
+  padding:2px 6px; border-radius:4px; background:var(--card-3); color:var(--muted); }
+.kb-sz{ font-family:var(--font-mono); font-size:9.5px; font-weight:700; padding:2px 6px;
+  border-radius:4px; background:var(--card-3); color:var(--muted); }
+.kb-sz.s-M{ color:var(--source); } .kb-sz.s-L{ color:var(--danger); }
+.kb-x{ margin-left:auto; border:0; background:none; cursor:pointer; color:var(--faint);
+  font-size:16px; line-height:1; padding:0 2px; opacity:0; transition:opacity .12s; }
+.kb-card:hover .kb-x, .kb-x:focus-visible{ opacity:1; }
+.kb-x:hover{ color:var(--danger); }
+.kb-bl{ display:inline-block; margin-top:7px; font-family:var(--font-mono); font-size:9.5px;
+  letter-spacing:.06em; color:var(--source); }
+/* jalur non-tetikus: seret-lepas HTML5 tak bisa dipakai keyboard & sentuh */
+.kb-move{ display:flex; gap:4px; margin-top:9px; }
+.kb-move button{ flex:1; border:1px solid var(--line); background:var(--card-2); cursor:pointer;
+  border-radius:var(--rad-sm); font-size:12px; line-height:1; padding:5px 0; color:var(--muted); }
+.kb-move button:hover:not(:disabled){ border-color:var(--signal); color:var(--signal); }
+.kb-move button:disabled{ opacity:.3; cursor:default; }
+
+@media print{ .kb-move, .kb-x, .kb-head .btn{ display:none !important; }
+  .kb-board{ grid-template-columns:repeat(3,1fr); } .kb-card{ break-inside:avoid; } }
