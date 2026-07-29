@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
+import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
 
 interface LlmModel { id: string; label: string; provider: string }
@@ -87,20 +88,20 @@ export default function ModelsPage() {
         <div className="stack gap-4">
           <div className="card"><div className="panel-head"><span className="t">model chat aktif</span><span className="badge badge-signal">1 aktif</span></div>
             <div className="card-pad"><div className="field"><label>Model</label>
-              <select className="select" value={llm} onChange={(e) => setLlm(e.target.value)}>
+              <Select value={llm} onChange={(e) => setLlm(e.target.value)}>
                 {data.llmModels.map((m) => <option key={m.id} value={m.id}>{m.label} — {m.provider}</option>)}
-              </select></div></div></div>
+              </Select></div></div></div>
 
           <div className="card"><div className="panel-head"><span className="t">model embedding aktif</span><span className="badge badge-source">1 aktif</span></div>
             <div className="card-pad"><div className="field"><label>Model</label>
-              <select className="select" value={emb} onChange={(e) => setEmb(e.target.value)}>
+              <Select value={emb} onChange={(e) => setEmb(e.target.value)}>
                 {/* Ukuran nyata ada di label tiap model (dari registry) — jangan
                     menuliskannya lagi di sini supaya tak pernah bertentangan. */}
                 <optgroup label="Lokal — ringan">{g.localSmall.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
                 <optgroup label="Lokal — akurasi tinggi">{g.localLarge.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
                 {!!g.selfhosted.length && <optgroup label="Server sendiri (VPS)">{g.selfhosted.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>}
                 <optgroup label="API">{g.api.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
-              </select></div></div></div>
+              </Select></div></div></div>
 
           <div className="card"><div className="panel-head"><span className="t">system prompt</span></div>
             <div className="card-pad"><div className="field"><label>Instruksi</label>
@@ -474,11 +475,11 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
 
           {app.provider === 'google' && (<>
             <div className="field"><label>Mode akses Drive</label>
-              <select className="select" value={driveMode}
+              <Select value={driveMode}
                 onChange={(e) => setDriveMode(e.target.value as 'full' | 'picker')}>
                 <option value="full">Full — scan folder rekursif (drive.readonly, scope RESTRICTED)</option>
                 <option value="picker">Picker — user pilih berkas (drive.file, verifikasi ringan)</option>
-              </select>
+              </Select>
               <p className="microlabel" style={{ marginTop: 6 }}>
                 PICKER = BEBAS VERIFIKASI BERAT GOOGLE (VIDEO DEMO + CASA) ·
                 HAPUS JUGA drive.readonly DARI CONSENT SCREEN

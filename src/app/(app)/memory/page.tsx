@@ -1,6 +1,7 @@
 'use client';
 
 import { FeatureGate } from '../../_components/entitlements';
+import { Select } from '../../_components/select';
 import { useEffect, useRef, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
@@ -38,9 +39,9 @@ function MemoryPageInner() {
       <div className="page-head">
         <div><h1>Memory</h1><p className="sub">Knowledge graph ala Obsidian dari dokumenmu — catatan ber-[[wikilink]], L1–L5.</p></div>
         <div className="cluster">
-          <select className="select" style={{ width: 190, minHeight: 40 }} value={chatbotId} onChange={(e) => setChatbotId(e.target.value)}>
+          <Select style={{ width: 190, minHeight: 40 }} value={chatbotId} onChange={(e) => setChatbotId(e.target.value)}>
             {bots.data?.length ? bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>) : <option>Belum ada chatbot</option>}
-          </select>
+          </Select>
           <button className={`btn${busy === 'run' ? ' is-loading' : ''}`} disabled={!chatbotId || !!busy} onClick={run}><Icon name="sync" size={15} /> Jalankan Agent</button>
           <button className={`btn btn-primary${busy === 'vault' ? ' is-loading' : ''}`} disabled={!chatbotId || !!busy} onClick={syncVault}>Sync ke Drive</button>
         </div>

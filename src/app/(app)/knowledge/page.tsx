@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
+import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
 
 interface Chatbot { id: string; name: string }
@@ -477,21 +478,21 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
         <div className="dh"><h3>Tambah sumber</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-4">
           <div className="field"><label>Jenis sumber</label>
-            <select className="select" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="gdrive">Google Drive (akun tersambung)</option>
               <option value="gdrive_public">Google Drive — URL folder publik (tanpa login)</option>
               <option value="onedrive">OneDrive</option>
               <option value="sharepoint">SharePoint (situs / tautan berbagi)</option>
-            </select></div>
+            </Select></div>
 
           {/* Folder publik tak butuh akun sama sekali — jangan tampilkan
               tombol Connect yang justru membingungkan. */}
           {!noAuth && (
             <div className="field"><label>Akun {provider}</label>
               {providerAccounts.length ? (
-                <select className="select" value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)}>
+                <Select value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)}>
                   {providerAccounts.map((a) => <option key={a.id} value={a.accountEmail}>{a.accountEmail}</option>)}
-                </select>
+                </Select>
               ) : providers && !providers[provider] ? (
                 <p className="microlabel" style={{ margin: 0 }}>
                   OAUTH {provider.toUpperCase()} BELUM DIKONFIGURASI — SUPERADMIN MENGISINYA DI MODELS &amp; KEYS
@@ -568,10 +569,10 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
             </div>
           ) : !useUrl ? (<>
           <div className="field"><label>Cakupan</label>
-            <select className="select" value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'folder')}>
+            <Select value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'folder')}>
               <option value="all">Seluruh Drive (rekursif)</option>
               <option value="folder">Folder tertentu (rekursif)</option>
-            </select></div>
+            </Select></div>
 
           {scope === 'folder' && (
             <div className="field"><label>{kind === 'gdrive' ? 'Folder ID' : 'Folder path'}</label>

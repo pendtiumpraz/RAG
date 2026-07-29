@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, useToast } from '../../_components/ui';
+import { Select } from '../../_components/select';
 
 interface PlanSpec { id: string; messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null }
 interface Billing {
@@ -152,12 +153,12 @@ function UpgradeQris({ prices, currentPlan }: { prices: Record<string, number>; 
     <div className="stack gap-3">
       <span className="microlabel">UPGRADE VIA QRIS — BAYAR DI HALAMAN INI JUGA, TANPA PINDAH SITUS</span>
       <div className="cluster gap-2">
-        <select className="select" style={{ width: 150 }} value={plan} onChange={(e) => setPlan(e.target.value)}>
+        <Select style={{ width: 150 }} value={plan} onChange={(e) => setPlan(e.target.value)}>
           {buyable.map((p) => <option key={p} value={p}>{p} — Rp {fmt(prices[p])}/bln</option>)}
-        </select>
-        <select className="select" style={{ width: 130 }} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+        </Select>
+        <Select style={{ width: 130 }} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
           {[1, 3, 6, 12].map((m) => <option key={m} value={m}>{m} bulan</option>)}
-        </select>
+        </Select>
         <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={pay}>
           Bayar Rp {fmt(total)}
         </button>
@@ -219,11 +220,11 @@ function PaymentSettings() {
         <div className="cluster gap-4" style={{ alignItems: 'flex-end' }}>
           <div className="field" style={{ width: 260 }}>
             <label>Mode deploy</label>
-            <select className="select" value={data.deploymentMode} disabled={busy}
+            <Select value={data.deploymentMode} disabled={busy}
               onChange={(e) => void put({ deploymentMode: e.target.value }, 'Mode deploy tersimpan')}>
               <option value="saas">SaaS — pembayaran & kuota aktif</option>
               <option value="onprem">On-premise — bayar mati, semua unlimited</option>
-            </select>
+            </Select>
           </div>
           {/* harga plan */}
           {(['pro', 'enterprise'] as const).map((p) => (
@@ -379,9 +380,9 @@ function PlanDrawer({ tenant, plans, onClose, onSaved }: {
           <button className="icon-btn" onClick={onClose} aria-label="Tutup">×</button></div>
         <div className="db stack gap-4">
           <div className="field"><label>Plan</label>
-            <select className="select" value={plan} onChange={(e) => setPlan(e.target.value)}>
+            <Select value={plan} onChange={(e) => setPlan(e.target.value)}>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
-            </select></div>
+            </Select></div>
           <div className="field"><label>Berlaku sampai</label>
             <input className="input mono" type="date" value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)} />

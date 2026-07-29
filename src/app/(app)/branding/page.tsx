@@ -1,6 +1,7 @@
 'use client';
 
 import { FeatureGate } from '../../_components/entitlements';
+import { Select } from '../../_components/select';
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
@@ -117,9 +118,9 @@ function BrandingPageInner() {
       <div className="page-head">
         <div><h1>Branding</h1><p className="sub">Tampilan widget di situs pelanggan. Tiap chatbot punya tampilannya sendiri.</p></div>
         <div className="cluster gap-2">
-          <select className="select" style={{ width: 200 }} value={id} onChange={(e) => setId(e.target.value)}>
+          <Select style={{ width: 200 }} value={id} onChange={(e) => setId(e.target.value)}>
             {bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          </Select>
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={save}>Simpan</button>
         </div>
       </div>
@@ -160,23 +161,23 @@ function BrandingPageInner() {
             </div>
 
             <div className="field"><label>Sudut membulat</label>
-              <select className="select" value={cfg.radius} onChange={(e) => set('radius')(e.target.value)}>
+              <Select value={cfg.radius} onChange={(e) => set('radius')(e.target.value)}>
                 <option value="4px">Tajam (4px)</option>
                 <option value="12px">Sedang (12px)</option>
                 <option value="20px">Bulat (20px)</option>
-              </select></div>
+              </Select></div>
 
             <div className="cluster gap-4">
               <div className="field" style={{ flex: 1 }}><label>Tema</label>
-                <select className="select" value={cfg.mode}
+                <Select value={cfg.mode}
                   onChange={(e) => set('mode')(e.target.value as 'light' | 'dark')}>
                   <option value="light">Terang</option><option value="dark">Gelap</option>
-                </select></div>
+                </Select></div>
               <div className="field" style={{ flex: 1 }}><label>Posisi</label>
-                <select className="select" value={cfg.position}
+                <Select value={cfg.position}
                   onChange={(e) => set('position')(e.target.value as 'left' | 'right')}>
                   <option value="right">Kanan bawah</option><option value="left">Kiri bawah</option>
-                </select></div>
+                </Select></div>
             </div>
 
             <div className="field"><label>Sapaan pembuka</label>

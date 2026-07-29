@@ -1,6 +1,7 @@
 'use client';
 
 import { FeatureGate } from '../../_components/entitlements';
+import { Select } from '../../_components/select';
 import { useEffect, useState } from 'react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
@@ -38,14 +39,14 @@ function AnalyticsPageInner() {
       <div className="page-head">
         <div><h1>Analitik</h1><p className="sub">Apa yang ditanyakan orang, dan bagian knowledge base mana yang benar-benar terpakai.</p></div>
         <div className="cluster gap-2">
-          <select className="select" style={{ width: 190 }} value={id} onChange={(e) => setId(e.target.value)}>
+          <Select style={{ width: 190 }} value={id} onChange={(e) => setId(e.target.value)}>
             {bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select className="select" style={{ width: 150 }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          </Select>
+          <Select style={{ width: 150 }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
             <option value={7}>7 hari</option>
             <option value={30}>30 hari</option>
             <option value={90}>90 hari</option>
-          </select>
+          </Select>
         </div>
       </div>
 

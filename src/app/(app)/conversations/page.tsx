@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useApi, api } from '../../_lib/api';
 import { Skeleton, EmptyState, ErrorState, Pager, type PageMeta } from '../../_components/ui';
+import { Select } from '../../_components/select';
 import { AnswerBlocks, renderCited } from '../../_components/answer-blocks';
 import { plainTextToBlocks, type AnswerBlock } from '@/modules/chat/blocks';
 
@@ -61,17 +62,17 @@ export default function ConversationsPage() {
         </p></div>
         <div className="cluster gap-2">
           {isSuper && (
-            <select className="select" style={{ width: 200, minHeight: 40 }} value={tenantId}
+            <Select style={{ width: 200, minHeight: 40 }} value={tenantId}
               onChange={(e) => { setTenantId(e.target.value); setChatbotId(''); resetView(); }}>
               <option value="">Tenant saya</option>
               {tenants.data?.tenants.map((t) => <option key={t.tenantId} value={t.tenantId}>{t.tenantName}</option>)}
-            </select>
+            </Select>
           )}
-          <select className="select" style={{ width: 200, minHeight: 40 }} value={chatbotId}
+          <Select style={{ width: 200, minHeight: 40 }} value={chatbotId}
             onChange={(e) => { setChatbotId(e.target.value); resetView(); }}>
             <option value="">Semua chatbot</option>
             {bots.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 

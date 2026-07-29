@@ -281,3 +281,46 @@ table.table tr:last-child td{ border-bottom:none; }
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important;
     transition-duration:.001ms !important; scroll-behavior:auto !important; }
 }
+
+/* ── Dropdown kustom (_components/select.tsx) ────────────────────────
+   Popup `<select>` native digambar sistem operasi dan tak tersentuh CSS —
+   itu sebabnya nilai terpilih tampak besar sedangkan daftar opsinya kecil
+   dan kaku. Komponen ini menggambar popup-nya sendiri supaya keduanya
+   berbicara dengan bahasa visual yang sama.
+   z-index 55: di atas drawer (50), di bawah tooltip (60) — dropdown di
+   dalam drawer harus tetap terlihat.                                     */
+.nsel{ position:relative; width:100%; }
+.nsel-btn{ width:100%; min-height:44px; display:flex; align-items:center; gap:8px;
+  background:var(--card); color:var(--ink); border:1px solid var(--line);
+  border-radius:var(--rad-md); padding:9px 12px; cursor:pointer; text-align:left;
+  font:inherit; font-size:var(--fs-sm); line-height:1.4; outline:none;
+  transition:border-color var(--dur-fast), box-shadow var(--dur-fast); }
+.nsel-btn:hover:not(:disabled){ border-color:var(--faint); }
+.nsel-btn:focus-visible,
+.nsel-btn[aria-expanded="true"]{ border-color:var(--signal); box-shadow:0 0 0 3px var(--tint-signal); }
+.nsel-btn:disabled{ opacity:.55; cursor:not-allowed; background:var(--card-2); }
+.nsel-val{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nsel-val.ph{ color:var(--faint); }
+.nsel-chev{ flex:none; color:var(--faint); transition:transform var(--dur-fast); }
+.nsel-btn[aria-expanded="true"] .nsel-chev{ transform:rotate(180deg); }
+
+.nsel-pop{ position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:55;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--rad-md);
+  box-shadow:var(--pop); padding:5px; max-height:280px; overflow-y:auto; }
+.nsel-pop::-webkit-scrollbar{ width:8px; }
+.nsel-pop::-webkit-scrollbar-thumb{ background:var(--card-3); border-radius:4px; }
+.nsel-grp{ font-size:var(--fs-xs); letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); padding:9px 10px 5px; font-weight:600; }
+.nsel-grp:first-child{ padding-top:5px; }
+.nsel-opt{ display:flex; align-items:center; gap:10px; justify-content:space-between;
+  /* ukuran huruf SAMA PERSIS dengan kotak tertutup — inti perbaikannya */
+  font-size:var(--fs-sm); line-height:1.45; padding:9px 10px; border-radius:var(--rad-sm);
+  cursor:pointer; color:var(--ink); }
+.nsel-opt > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nsel-opt[data-active="1"]{ background:var(--card-2); }
+.nsel-opt.on{ color:var(--signal); font-weight:600; }
+.nsel-opt.on svg{ flex:none; }
+.nsel-opt.off{ opacity:.45; cursor:not-allowed; }
+/* varian kompak — padanan .select-sm untuk sel tabel & bar filter */
+.nsel.select-sm .nsel-btn{ min-height:34px; padding:5px 10px; font-size:var(--fs-xs); }
+.nsel.select-sm .nsel-opt{ font-size:var(--fs-xs); padding:7px 9px; }

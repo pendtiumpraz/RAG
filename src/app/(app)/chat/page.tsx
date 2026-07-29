@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import './chat.css';
 import { useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
+import { Select } from '../../_components/select';
 import { EmptyState } from '../../_components/ui';
 import { AnswerBlocks } from '../../_components/answer-blocks';
 import type { AnswerBlock } from '@/modules/chat/blocks';
@@ -86,10 +87,10 @@ export default function ChatPage() {
               title="Mulai percakapan baru — sesi berjalan tersimpan di Conversations">
               <Icon name="plus" size={14} /> Sesi baru
             </button>
-            <select className="select" style={{ width: 200, minHeight: 40 }} value={chatbotId}
+            <Select style={{ width: 200, minHeight: 40 }} value={chatbotId}
               onChange={(e) => { setChatbotId(e.target.value); newSession(); /* beda bot = beda riwayat */ }}>
               {bots.data?.length ? bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>) : <option>Belum ada chatbot</option>}
-            </select>
+            </Select>
           </div>
         </div>
 

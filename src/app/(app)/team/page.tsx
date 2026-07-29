@@ -1,6 +1,7 @@
 'use client';
 
 import { FeatureGate } from '../../_components/entitlements';
+import { Select } from '../../_components/select';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
@@ -72,11 +73,11 @@ function TeamPageInner() {
                       <td style={{ color: 'var(--muted)' }}>{m.email}</td>
                       <td>
                         {canInvite && !untouchable ? (
-                          <select className="select select-sm" style={{ width: 120 }}
+                          <Select className="select-sm"  style={{ width: 120 }}
                             value={m.role} onChange={(e) => changeRole(m, e.target.value)}>
                             <option value="admin">admin</option>
                             <option value="member">member</option>
-                          </select>
+                          </Select>
                         ) : <span className="badge badge-source">{m.role}</span>}
                       </td>
                       <td><StatusBadge status={m.status} /></td>
@@ -202,10 +203,10 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
               <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="rekan@perusahaan.com" /></div>
             <div className="field"><label>Peran</label>
-              <select className="select" value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>
+              <Select value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>
                 <option value="member">Member — pakai chatbot &amp; knowledge</option>
                 <option value="admin">Admin — kelola tim &amp; pengaturan</option>
-              </select></div>
+              </Select></div>
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>
               Yang diundang bergabung ke workspace ini dan langsung aktif —
               tidak perlu menunggu verifikasi, karena undangan ini sendiri yang
@@ -256,11 +257,11 @@ function SignupApprovals() {
         <span className="t">verifikasi pendaftaran</span>
         <div className="cluster gap-2">
           <span className="microlabel">SUPERADMIN · LINTAS TENANT</span>
-          <select className="select select-sm" style={{ width: 150 }}
+          <Select className="select-sm"  style={{ width: 150 }}
             value={scope} onChange={(e) => { setScope(e.target.value as 'pending' | 'all'); setPage(1); }}>
             <option value="pending">Menunggu</option>
             <option value="all">Semua akun</option>
-          </select>
+          </Select>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { FeatureGate } from '../../_components/entitlements';
+import { Select } from '../../_components/select';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useApi } from '../../_lib/api';
@@ -49,12 +50,12 @@ function UsagePageInner() {
     <>
       <div className="page-head">
         <div><h1>Usage</h1><p className="sub">Monitoring pemakaian — per chatbot{isSuper ? ' dan per tenant' : ''}. Sumber angka: metering & audit tiap giliran chat.</p></div>
-        <select className="select" style={{ width: 170, minHeight: 40 }} value={days}
+        <Select style={{ width: 170, minHeight: 40 }} value={days}
           onChange={(e) => setDays(Number(e.target.value))}>
           <option value={7}>7 hari terakhir</option>
           <option value={30}>30 hari terakhir</option>
           <option value={90}>90 hari terakhir</option>
-        </select>
+        </Select>
       </div>
 
       {/* kartu ringkasan periode berjalan */}

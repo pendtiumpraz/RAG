@@ -27,7 +27,10 @@ const P: Record<IconName, React.ReactNode> = {
   moon: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />,
   plug: <><path d="M9 3v6M15 3v6M6 9h12v2a6 6 0 0 1-12 0V9ZM12 17v4" /></>,
   sync: <><path d="M20 11a8 8 0 0 0-14.5-4.5M4 4v3h3" /><path d="M4 13a8 8 0 0 0 14.5 4.5M20 20v-3h-3" /></>,
-  logout: <><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 12h10M17 9l3 3-3 3" /></>,
+  // Pintu di KIRI, panah keluar ke KANAN. Versi sebelumnya menaruh pintu di
+  // x 15–20 sementara panahnya membentang x 10–20 — ujung panah menembus
+  // bingkai pintunya sendiri, dan hasilnya terbaca sebagai coretan.
+  logout: <><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" /><path d="M16 8l4 4-4 4M20 12h-9" /></>,
   card: <><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6 15h4" /></>,
   pulse: <path d="M2 12h4l3-7 4 14 3-7h6" />,
 };

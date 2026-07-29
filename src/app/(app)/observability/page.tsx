@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
+import { Select } from '../../_components/select';
 
 interface Ops {
   window: string;
@@ -31,12 +32,12 @@ export default function ObservabilityPage() {
     <>
       <div className="page-head">
         <div><h1>Observability</h1><p className="sub">Kesehatan sistem &amp; aktivitas nyata lintas tenant.</p></div>
-        <select className="select" style={{ width: 160 }} value={hours}
+        <Select style={{ width: 160 }} value={hours}
           onChange={(e) => setHours(Number(e.target.value))}>
           <option value={1}>1 jam terakhir</option>
           <option value={24}>24 jam terakhir</option>
           <option value={168}>7 hari terakhir</option>
-        </select>
+        </Select>
       </div>
 
       <div className="grid g2" style={{ marginBottom: 'var(--sp-4)' }}>

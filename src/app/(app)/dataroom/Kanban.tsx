@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../_components/ui';
+import { Select } from '../../_components/select';
 
 /**
  * KANBAN BACKLOG (D15) — papan sisa pekerjaan di Dataroom.
@@ -301,15 +302,15 @@ function AddCard({ track, onClose, onSaved }: {
             <textarea className="input" rows={4} value={why} onChange={(e) => setWhy(e.target.value)}
               placeholder="Apa yang rusak atau hilang tanpa ini" /></div>
           <div className="field"><label>Dimensi</label>
-            <select className="select select-sm" value={dimension} onChange={(e) => setDim(e.target.value as Dim)}>
+            <Select className="select-sm"  value={dimension} onChange={(e) => setDim(e.target.value as Dim)}>
               {(Object.keys(DIM_LABEL) as Dim[]).map((d) => <option key={d} value={d}>{DIM_LABEL[d]}</option>)}
-            </select></div>
+            </Select></div>
           <div className="field"><label>Bobot</label>
-            <select className="select select-sm" value={size} onChange={(e) => setSize(e.target.value as 'S' | 'M' | 'L')}>
+            <Select className="select-sm"  value={size} onChange={(e) => setSize(e.target.value as 'S' | 'M' | 'L')}>
               <option value="S">S — hitungan jam</option>
               <option value="M">M — setengah hari</option>
               <option value="L">L — berhari-hari</option>
-            </select></div>
+            </Select></div>
           {track === 'human' && (
             <div className="field"><label>Tersandera apa</label>
               <input className="input" value={blocked} onChange={(e) => setBlocked(e.target.value)}
