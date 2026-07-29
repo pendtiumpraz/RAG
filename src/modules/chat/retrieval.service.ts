@@ -2,6 +2,14 @@ import { sql } from 'drizzle-orm';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { embed } from '@/modules/knowledge/embeddings';
+import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusion';
+
+/**
+ * Bobot MMR: 0,75 condong ke relevansi, cukup untuk membuang potongan yang
+ * benar-benar kembar tanpa membuang potongan kedua dari dokumen panjang yang
+ * memang saling melengkapi.
+ */
+const MMR_LAMBDA = 0.75;
 
 export interface RetrievedChunk {
   documentId: string;
@@ -48,10 +56,24 @@ export function titleBoost(title: string | null, tokens: string[]): number {
 }
 
 /**
- * Vector search top-k utk satu chatbot — D11: konteks chatbot = UNION dokumen
- * semua KNOWLEDGE BASE yang di-assign padanya (chatbot_knowledge_bases).
- * withTenant() + filter kb + embedding_model + deleted_at IS NULL ⇒ tetap
- * terisolasi penuh per tenant; assignment-lah yang menentukan jangkauan.
+ * HYBRID SEARCH top-k utk satu chatbot.
+ *
+ * Dua kaki yang saling menutup titik buta:
+ *   • VEKTOR   — menilai makna. Kuat pada parafrase ("klaim" ↔ "pengklaiman"),
+ *                lemah pada token literal ("RAB 2020" vs "RAB 2021" nyaris
+ *                identik secara embedding).
+ *   • LEKSIKAL — full-text Postgres (kolom tergenerasi `fts`, migrasi 0027).
+ *                Kuat persis di tempat vektor lemah: kode, tahun, nomor, nama.
+ *
+ * Hasil keduanya digabung dengan Reciprocal Rank Fusion — memakai PERINGKAT,
+ * bukan skor, karena kosinus (0..1) dan ts_rank_cd (skala lain, tak terbatas)
+ * tak sebanding dan menjumlahkannya berarti didominasi kaki yang kebetulan
+ * berangka besar. Lalu MMR menyingkirkan potongan kembar, yang nyata terjadi
+ * ketika satu berkas ter-ingest dua kali.
+ *
+ * D11: konteks chatbot = UNION dokumen semua KNOWLEDGE BASE yang di-assign
+ * padanya. withTenant() + filter kb + embedding_model + deleted_at IS NULL ⇒
+ * tetap terisolasi penuh per tenant; assignment-lah yang menentukan jangkauan.
  * Chatbot tanpa KB ter-assign = konteks kosong (jawab "tidak tahu"), bukan
  * error — keadaan sah saat chatbot baru dibuat.
  */
@@ -67,31 +89,91 @@ export const retrievalService = {
     const [qVec] = await embed(embeddingModel, [query], { tenantId, getApiKey });
     const vecLiteral = `[${qVec.join(',')}]`;
     const tokens = queryTokens(query);
+    // Kandidat diambil jauh lebih banyak dari k: penggabungan & penyaringan
+    // kembar baru bermakna kalau ada yang bisa dipilih.
+    const pool = Math.min(Math.max(k * 5, 20), 40);
 
-    return withTenant(tenantId, async (tx) => {
-      // Kandidat diambil LEBIH BANYAK dari k lalu di-rerank dgn titleBoost —
-      // supaya chunk dokumen yang judulnya cocok token query (mis. "2020")
-      // bisa naik walau kalah tipis secara kosinus dari tahun tetangganya.
-      const pool = Math.min(k * 4, 24);
-      const rows = await tx.execute(sql`
+    const rows = await withTenant(tenantId, async (tx) => {
+      // SATU perjalanan ke database untuk kedua kaki. Menjalankannya sebagai
+      // dua query berarti dua kali latensi jaringan pada jalur terpanas produk.
+      const res = await tx.execute(sql`
+        with kb as (
+          select a.knowledge_base_id as id
+          from chatbot_knowledge_bases a
+          where a.chatbot_id = ${chatbotId} and a.deleted_at is null
+        ),
+        vec as (
+          select d.id, row_number() over (order by d.embedding <=> ${vecLiteral}::vector) as rnk
+          from documents d
+          where d.knowledge_base_id in (select id from kb)
+            and d.embedding_model = ${embeddingModel}
+            and d.deleted_at is null
+            and d.embedding is not null
+          order by d.embedding <=> ${vecLiteral}::vector
+          limit ${pool}
+        ),
+        q as (select plainto_tsquery('simple', ${query}) as tsq),
+        lex as (
+          select d.id, row_number() over (order by ts_rank_cd(d.fts, q.tsq) desc) as rnk
+          from documents d, q
+          where d.knowledge_base_id in (select id from kb)
+            and d.embedding_model = ${embeddingModel}
+            and d.deleted_at is null
+            -- Query yang seluruhnya stopword menghasilkan tsquery kosong dan
+            -- tak mencocoki apa pun; kaki ini lalu kosong dan penggabungan
+            -- otomatis jatuh ke vektor murni. Itu memang perilaku yang benar.
+            and d.fts @@ q.tsq
+          order by ts_rank_cd(d.fts, q.tsq) desc
+          limit ${pool}
+        )
         select d.id, d.title, d.content,
-               1 - (d.embedding <=> ${vecLiteral}::vector) as score
-        from documents d
-        where d.knowledge_base_id in (
-            select a.knowledge_base_id from chatbot_knowledge_bases a
-            where a.chatbot_id = ${chatbotId} and a.deleted_at is null)
-          and d.embedding_model = ${embeddingModel}
-          and d.deleted_at is null
-        order by d.embedding <=> ${vecLiteral}::vector
-        limit ${pool}
+               v.rnk as vec_rank, l.rnk as lex_rank
+        from vec v
+        full outer join lex l on l.id = v.id
+        join documents d on d.id = coalesce(v.id, l.id)
       `);
-      return (rows as unknown as Array<{ id: string; title: string | null; content: string; score: number }>)
-        .map((r) => ({
-          documentId: r.id, title: r.title, content: r.content,
-          score: Number(r.score) + titleBoost(r.title, tokens),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, k);
+      return res as unknown as Array<{
+        id: string; title: string | null; content: string;
+        vec_rank: number | null; lex_rank: number | null;
+      }>;
+    });
+
+    if (!rows.length) return [];
+
+    // Susun ulang tiap kaki jadi daftar berurut untuk RRF.
+    const byRank = (pick: (r: (typeof rows)[number]) => number | null) =>
+      rows.filter((r) => pick(r) != null)
+        .sort((a, b) => Number(pick(a)) - Number(pick(b)))
+        .map((r) => r.id);
+
+    const fused = rrfFuse([
+      { ids: byRank((r) => r.vec_rank) },
+      { ids: byRank((r) => r.lex_rank) },
+    ]);
+
+    const meta = new Map(rows.map((r) => [r.id, r]));
+    const scored = [...fused.entries()].map(([id, s]) => {
+      const r = meta.get(id)!;
+      // titleBoost tetap dipakai sebagai dorongan terakhir. Kaki leksikal
+      // sudah menangkap sebagian besar kasusnya, tapi judul adalah sinyal
+      // yang lebih kuat daripada kemunculan token di badan teks — dan
+      // skalanya disesuaikan dengan besaran RRF, bukan kosinus.
+      return {
+        id, title: r.title, content: r.content,
+        score: s + titleBoost(r.title, tokens) * 0.05,
+      };
+    });
+
+    // Dua tahap, dan urutannya penting. Kembar dibuang TEGAS lebih dulu:
+    // ia tak membawa informasi baru sama sekali, sedangkan MMR hanya
+    // mengurangi nilai — dan kembar yang relevansinya nyaris sama tetap
+    // menang di MMR. Baru sesudah itu MMR menata keragaman yang lebih halus.
+    const cand = scored.map((s) => ({ id: s.id, score: s.score, tokens: contentTokens(s.content) }));
+    const picked = mmrSelect(dedupeNearDuplicates(cand), k, MMR_LAMBDA);
+    const pos = new Map(scored.map((s) => [s.id, s]));
+    return picked.map((p) => {
+      const s = pos.get(p.id)!;
+      return { documentId: s.id, title: s.title, content: s.content, score: s.score };
     });
   },
 };

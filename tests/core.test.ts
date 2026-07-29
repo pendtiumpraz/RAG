@@ -684,3 +684,73 @@ test('webhook: hanya kejadian yang dikenal boleh dilanggan', async () => {
   }
   assert.equal(new Set(WEBHOOK_EVENTS).size, WEBHOOK_EVENTS.length, 'tak ada duplikat');
 });
+
+test('fusion RRF: kesepakatan dua kaki mengalahkan juara satu kaki', async () => {
+  const { rrfFuse, RRF_K } = await import('../src/modules/chat/fusion');
+
+  // A peringkat 2 di keduanya; B juara di vektor tapi absen di leksikal.
+  const f = rrfFuse([
+    { ids: ['B', 'A', 'C'] },   // vektor
+    { ids: ['D', 'A', 'E'] },   // leksikal
+  ]);
+  assert.ok(f.get('A')! > f.get('B')!,
+    'dokumen yang disetujui KEDUA metode harus menang atas juara satu metode');
+  assert.ok(f.get('B')! > f.get('C')!);
+
+  // Nilainya memang 1/(K+peringkat) — bukan skor mentah kaki mana pun,
+  // sehingga ganti model embedding tak menuntut penerapan ulang ambang.
+  assert.equal(f.get('C'), 1 / (RRF_K + 3));
+  assert.equal(f.get('A'), 1 / (RRF_K + 2) + 1 / (RRF_K + 2));
+
+  // Satu kaki kosong (query seluruhnya stopword) → jatuh ke kaki lain, utuh.
+  const solo = rrfFuse([{ ids: ['X', 'Y'] }, { ids: [] }]);
+  assert.equal(solo.size, 2);
+  assert.ok(solo.get('X')! > solo.get('Y')!);
+
+  // Bobot kaki dihormati.
+  const w = rrfFuse([{ ids: ['P'] }, { ids: ['Q'], weight: 3 }]);
+  assert.ok(w.get('Q')! > w.get('P')!);
+});
+
+test('fusion: kembar dibuang tegas, MMR menata keragaman halus', async () => {
+  const { mmrSelect, contentTokens, jaccard, dedupeNearDuplicates } =
+    await import('../src/modules/chat/fusion');
+
+  const kembar = 'nomor induk berusaha diterbitkan lembaga oss kepada perusahaan';
+  const lain = 'prosedur pengajuan cuti tahunan karyawan tetap perusahaan';
+  const beda = 'rencana anggaran biaya pembangunan gudang tahap dua';
+
+  assert.equal(jaccard(contentTokens(kembar), contentTokens(kembar)), 1);
+  assert.ok(jaccard(contentTokens(kembar), contentTokens(beda)) < 0.2);
+
+  const items = [
+    { id: 'a', score: 0.90, tokens: contentTokens(kembar) },
+    { id: 'b', score: 0.89, tokens: contentTokens(kembar) },  // kembar dgn a
+    { id: 'c', score: 0.60, tokens: contentTokens(lain) },
+    { id: 'd', score: 0.55, tokens: contentTokens(beda) },
+  ];
+
+  // MMR SENDIRIAN tidak membuang kembar yang relevansinya nyaris sama — itu
+  // benar secara matematis (λ condong ke relevansi), dan justru sebabnya
+  // duplikat butuh penyingkiran tersendiri, bukan sekadar pengurangan nilai.
+  assert.ok(mmrSelect(items, 2, 0.75).map((p) => p.id).includes('b'));
+
+  const bersih = dedupeNearDuplicates(items).map((p) => p.id);
+  assert.deepEqual(bersih, ['a', 'c', 'd'], 'kembar berskor lebih rendah dibuang');
+
+  const picked = mmrSelect(dedupeNearDuplicates(items), 3, 0.75).map((p) => p.id);
+  assert.equal(picked[0], 'a', 'yang paling relevan tetap pertama');
+  assert.ok(!picked.includes('b'), 'kembar tak boleh memakan slot mana pun');
+
+  // Ambang sengaja tinggi: dua bagian berbeda dari dokumen panjang yang
+  // sevokabuler TIDAK boleh ikut terbuang.
+  const mirip = [
+    { id: 'p', score: 0.9, tokens: contentTokens('garansi produk berlaku dua puluh empat bulan sejak pembelian') },
+    { id: 'q', score: 0.8, tokens: contentTokens('garansi tidak berlaku untuk kerusakan akibat kelalaian pengguna') },
+  ];
+  assert.equal(dedupeNearDuplicates(mirip).length, 2, 'mirip ≠ kembar');
+
+  // λ = 1 berarti murni relevansi — perilaku lama bisa dipulihkan utuh.
+  assert.deepEqual(mmrSelect(items, 3, 1).map((p) => p.id), ['a', 'b', 'c']);
+  assert.deepEqual(mmrSelect(items, 0, 0.7), []);
+});

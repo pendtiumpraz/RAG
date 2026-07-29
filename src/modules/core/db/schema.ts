@@ -1,7 +1,13 @@
 import { sql } from 'drizzle-orm';
 import {
   pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer, smallint,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+/** tsvector — tak ada tipe bawaan drizzle; hanya perlu dikenali, tak pernah ditulis dari aplikasi. */
+const tsvector = customType<{ data: string; driverData: string }>({
+  dataType: () => 'tsvector',
+});
 
 /*
  * PENTING — index dari migrasi SQL mentah WAJIB dideklarasikan juga di sini.
@@ -292,6 +298,18 @@ export const documents = pgTable('documents', {
   externalId: text('external_id'),
   /** Versi upstream (Drive modifiedTime / Graph eTag) — pembanding delta sync. */
   externalVersion: text('external_version'),
+  /**
+   * Kaki LEKSIKAL hybrid search (migrasi 0027) — judul + isi, konfigurasi
+   * `simple`. Kolom TERGENERASI: tak ada jalur tulis yang bisa lupa
+   * memperbaruinya, dan aplikasi tak pernah mengisinya sendiri.
+   *
+   * Dinyatakan di sini semata agar `drizzle-kit push` tidak menghapusnya —
+   * kolom & indeks yang hanya lahir dari migrasi SQL akan dibuang diam-diam
+   * oleh push berikutnya (lihat catatan di kepala berkas ini).
+   */
+  fts: tsvector('fts').generatedAlwaysAs(
+    sql`to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, ''))`,
+  ),
   ...stamps,
 }, (t) => ({
   embIdx: index('idx_documents_embedding').using('hnsw', t.embedding.op('vector_cosine_ops')),
@@ -299,6 +317,9 @@ export const documents = pgTable('documents', {
   kbIdx: index('idx_documents_kb').on(t.knowledgeBaseId),
   externalIdx: index('idx_documents_external').on(t.sourceId, t.externalId),
   delIdx: index('idx_documents_deleted_at').on(t.deletedAt),
+  /* Kaki leksikal hybrid search (migrasi 0027). WAJIB dideklarasikan di sini:
+     drizzle-kit push menghapus indeks & kolom yang tak dinyatakan di schema. */
+  ftsIdx: index('idx_documents_fts').using('gin', t.fts),
 })).enableRLS();
 
 /* ── chat ──────────────────────────────────────────────────────────── */
