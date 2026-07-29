@@ -641,3 +641,46 @@ test('sharepoint: URL situs diurai, tautan berbagi disandikan sesuai Graph', asy
   assert.ok(isSharingLink('https://acme.sharepoint.com/:f:/s/Marketing/Ab1'));
   assert.ok(!isSharingLink('https://acme.sharepoint.com/sites/Marketing'));
 });
+
+test('webhook: tanda tangan HMAC & penolakan URL yang tak layak kirim', async () => {
+  const { signPayload, verifySignature, assertDeliverableUrl } =
+    await import('../src/modules/integrations/webhook.service');
+
+  const secret = 'whsec_contoh';
+  const body = JSON.stringify({ event: 'document.ingested', data: { chunks: 3 } });
+  const sig = signPayload(secret, body);
+
+  assert.match(sig, /^[0-9a-f]{64}$/, 'hex sha256');
+  assert.ok(verifySignature(secret, body, sig));
+  // Satu byte berubah di body harus membatalkan tanda tangan — kalau tidak,
+  // penerima bisa dibohongi dengan isi yang disunting di tengah jalan.
+  assert.ok(!verifySignature(secret, body + ' ', sig));
+  assert.ok(!verifySignature('whsec_lain', body, sig));
+  assert.ok(!verifySignature(secret, body, ''), 'tanda tangan kosong ditolak');
+
+  // SSRF: tanpa penjagaan ini webhook jadi alat mengetuk jaringan internal
+  // memakai server kita, dan hasilnya terbaca lewat status yang kita catat.
+  assert.throws(() => assertDeliverableUrl('http://contoh.com/hook'), /https/i);
+  assert.throws(() => assertDeliverableUrl('https://169.254.169.254/latest/meta-data'), /internal/i);
+  assert.throws(() => assertDeliverableUrl('https://10.0.0.5/hook'), /internal/i);
+  assert.throws(() => assertDeliverableUrl('https://192.168.1.1/hook'), /internal/i);
+  assert.throws(() => assertDeliverableUrl('https://172.16.9.9/hook'), /internal/i);
+  assert.throws(() => assertDeliverableUrl('https://db.internal/hook'), /internal/i);
+  assert.throws(() => assertDeliverableUrl('bukan-url'), /tidak sah/i);
+
+  // Yang sah tetap lolos; loopback dikecualikan demi pengujian lokal & on-prem.
+  assert.ok(assertDeliverableUrl('https://sistemmu.com/hooks/nalar').startsWith('https://'));
+  assert.ok(assertDeliverableUrl('http://localhost:3000/hook').startsWith('http://localhost'));
+});
+
+test('webhook: hanya kejadian yang dikenal boleh dilanggan', async () => {
+  const { WEBHOOK_EVENTS, EVENT_LABEL } =
+    await import('../src/modules/integrations/webhook.service');
+
+  // Tiap kejadian wajib punya label — daftar tanpa label memaksa pengguna
+  // menebak arti "conversation.turn" di UI.
+  for (const e of WEBHOOK_EVENTS) {
+    assert.ok(EVENT_LABEL[e]?.length > 5, `kejadian tanpa label: ${e}`);
+  }
+  assert.equal(new Set(WEBHOOK_EVENTS).size, WEBHOOK_EVENTS.length, 'tak ada duplikat');
+});

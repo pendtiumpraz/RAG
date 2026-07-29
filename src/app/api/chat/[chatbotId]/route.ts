@@ -3,6 +3,7 @@ import { resolveChatbotByPublicKey } from '@/modules/core/db/tenant-context';
 import { chatTurn } from '@/modules/chat/chat.service';
 import { rateLimit } from '@/modules/core/limits';
 import { usageService, QuotaExceededError } from '@/modules/usage/usage.service';
+import { ensureIntegrations } from '../../_wire';
 
 export const runtime = 'nodejs';
 
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chatbotId: 
 
 /** POST — satu giliran chat, jawaban distream sebagai SSE. */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId: string }> }) {
+  ensureIntegrations();
   const { chatbotId: publicKey } = await ctx.params;
   const bot = await resolveChatbotByPublicKey(publicKey);
   if (!bot || !bot.enabled) return new Response('Chatbot not found', { status: 404 });

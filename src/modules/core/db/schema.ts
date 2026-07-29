@@ -427,6 +427,52 @@ export const payments = pgTable('payments', {
     .on(t.provider, t.providerRef).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
+/* ── akses programatik: API key masuk & webhook keluar ─────────────── */
+/**
+ * Kunci API per tenant.
+ *
+ * Yang tersimpan HANYA sha256 dari kunci penuh — kunci mentahnya ditampilkan
+ * sekali saat dibuat lalu hilang. Dengan begitu bocornya database tidak dengan
+ * sendirinya menyerahkan akses API. `prefix` disimpan terpisah agar UI tetap
+ * bisa membedakan kunci tanpa menyimpan nilai yang berguna bagi penyerang.
+ */
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  prefix: text('prefix').notNull(),
+  keyHash: text('key_hash').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().default(['read']).notNull(),
+  createdBy: uuid('created_by'),
+  lastUsedAt: timestamp('last_used_at'),
+  expiresAt: timestamp('expires_at'),
+  revokedAt: timestamp('revoked_at'),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_api_keys_tenant').on(t.tenantId),
+  delIdx: index('idx_api_keys_deleted_at').on(t.deletedAt),
+  uqHash: uniqueIndex('uq_api_keys_hash').on(t.keyHash).where(sql`deleted_at IS NULL`),
+})).enableRLS();
+
+/** Webhook keluar. Body ditandatangani HMAC-SHA256 dengan `encryptedSecret`. */
+export const webhooks = pgTable('webhooks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  url: text('url').notNull(),
+  encryptedSecret: text('encrypted_secret').notNull(),
+  events: jsonb('events').$type<string[]>().default([]).notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  /** jejak pengiriman TERAKHIR — cukup untuk menjawab "gagal kenapa, kapan" */
+  lastStatus: integer('last_status'),
+  lastAttemptAt: timestamp('last_attempt_at'),
+  lastError: text('last_error'),
+  failCount: integer('fail_count').default(0).notNull(),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_webhooks_tenant').on(t.tenantId),
+  delIdx: index('idx_webhooks_deleted_at').on(t.deletedAt),
+})).enableRLS();
+
 /* ── backlog kanban (D15) — PLATFORM, tanpa RLS ────────────────────── */
 /** Papan pekerjaan produk di Dataroom. `track` memisah yang butuh manusia
  *  (kredensial/keputusan/pihak ketiga) dari yang bisa dikerjakan agen. */

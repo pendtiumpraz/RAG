@@ -6,6 +6,9 @@ export { default } from 'next-auth/middleware';
  *  • /api/auth/*  — NextAuth + signup + pra-cek alasan login
  *  • /api/invitations/* — pratinjau & penerimaan undangan (belum ada sesi)
  *  • /api/health  — uptime monitor
+ *  • /api/v1/*    — API publik pelanggan; autentikasinya API key (Bearer),
+ *                   dan pemanggilnya mesin — mengalihkan mereka ke halaman
+ *                   login jelas tak berguna. Penjagaannya di app/api/v1/_guard.
  *  • /invite/*    — halaman penerimaan undangan
  *  • /            — landing
  *  • /auth        — halaman masuk/daftar
@@ -50,6 +53,11 @@ export const config = {
     '/api/connections/:path*',
     '/api/team/:path*',
     '/api/billing/:path*',
+    // Pengelolaan kunci & webhook butuh sesi; PEMAKAIANNYA (/api/v1/*) tidak.
+    '/api/keys/:path*',
+    '/api/keys',
+    '/api/webhooks/:path*',
+    '/api/webhooks',
     '/api/admin/:path*',
     // D12: buat/lihat tagihan butuh sesi. Webhook gateway
     // (/api/payments/callback/*) TIDAK didaftarkan — publik, otentikasinya

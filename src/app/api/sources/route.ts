@@ -6,6 +6,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { syncService } from '@/modules/knowledge/sync.service';
 import { jobsSettled } from '@/modules/core/jobs';
+import { ensureIntegrations } from '../_wire';
 
 export const runtime = 'nodejs';
 /** Sync bisa mengunduh + embed banyak file — beri waktu setelah respons. */
@@ -34,6 +35,7 @@ const Body = z.object({
 
 /** POST /api/sources — hubungkan sumber → langsung antre sync pertama. */
 export async function POST(req: NextRequest) {
+  ensureIntegrations();
   const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });

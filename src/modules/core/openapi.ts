@@ -4,6 +4,8 @@
  */
 
 const sessionAuth = { cookieAuth: [] as string[] };
+/** API publik pelanggan — Bearer nk_live_… (lihat /api/v1/*). */
+const apiKeyAuth = { bearerAuth: [] as string[] };
 const err = (desc: string) => ({ description: desc });
 const json = (schema: object) => ({ content: { 'application/json': { schema } } });
 const obj = (props: Record<string, object>, required?: string[]) =>
@@ -26,6 +28,8 @@ export const openApiSpec = {
     securitySchemes: {
       cookieAuth: { type: 'apiKey', in: 'cookie', name: 'next-auth.session-token',
         description: 'Sesi NextAuth (JWT berisi userId/tenantId/role).' },
+      bearerAuth: { type: 'http', scheme: 'bearer',
+        description: 'API key tenant: Authorization: Bearer nk_live_… (atau header X-Api-Key). Terbitkan di Settings → API key.' },
     },
     schemas: {
       Chatbot: obj({ id: uuid, name: str, publicKey: str, allowedOrigins: { type: 'array', items: str },
@@ -57,6 +61,77 @@ export const openApiSpec = {
       },
     },
     '/api/openapi': { get: { summary: 'Spec ini', responses: { 200: err('OpenAPI JSON') } } },
+
+    /* ── API PUBLIK PELANGGAN (v1) — auth: Bearer nk_live_… ──────────
+       Permukaan stabil untuk sistem & agen milik pelanggan. Sengaja TIDAK
+       memakai sesi: pemanggilnya mesin. Izin per kunci: read / write / chat
+       (write sudah mencakup read).                                        */
+    '/api/v1/me': {
+      get: { summary: 'Identitas pemegang kunci + kuota berjalan', security: [apiKeyAuth],
+        responses: { 200: err('{ tenant, key, plan, usage }'), 401: err('kunci tidak sah/dicabut/kedaluwarsa') } },
+    },
+    '/api/v1/chatbots': {
+      get: { summary: 'Daftar chatbot tenant (termasuk publicKey)', security: [apiKeyAuth],
+        responses: { 200: err('{ chatbots }'), 403: err('kunci tanpa izin read') } },
+    },
+    '/api/v1/knowledge-bases': {
+      get: { summary: 'Daftar knowledge base + jumlah potongan', security: [apiKeyAuth],
+        responses: { 200: err('{ knowledgeBases }') } },
+    },
+    '/api/v1/documents': {
+      get: { summary: 'Dokumen logis dalam KB (potongan dikelompokkan per `ref`)', security: [apiKeyAuth],
+        parameters: [{ name: 'knowledgeBaseId', in: 'query', schema: uuid }],
+        responses: { 200: err('{ documents: [{ ref, title, chunks, … }] }') } },
+      post: { summary: 'Masukkan teks ke knowledge base (potong + embed)', security: [apiKeyAuth],
+        requestBody: json(obj({
+          knowledgeBaseId: uuid, text: str, title: str,
+          metadata: { type: 'object' }, externalId: str, externalVersion: str,
+        }, ['knowledgeBaseId', 'text'])),
+        responses: { 201: err('{ ok, chunks }'), 400: err('input tidak valid'),
+          403: err('kunci tanpa izin write'), 422: err('KB tidak ditemukan') } },
+      delete: { summary: 'Cabut satu dokumen logis beserta seluruh potongannya', security: [apiKeyAuth],
+        parameters: [{ name: 'ref', in: 'query', required: true, schema: str }],
+        responses: { 200: err('{ ok, removedChunks }'), 404: err('tidak ditemukan') } },
+    },
+    '/api/v1/search': {
+      post: {
+        summary: 'Pencarian semantik MURNI — potongan + skor, tanpa LLM',
+        description: 'Tak membakar token LLM dan tak memotong kuota pesan. Terikat satu chatbot ' +
+          'karena chatbot-lah yang menentukan KB mana yang boleh dibaca (D11).',
+        security: [apiKeyAuth],
+        requestBody: json(obj({ chatbotId: uuid, query: str, k: num, minScore: num },
+          ['chatbotId', 'query'])),
+        responses: { 200: err('{ query, embeddingModel, results }'),
+          403: err('kunci tanpa izin chat'), 404: err('chatbot tidak ditemukan') },
+      },
+    },
+
+    /* ── pengelolaan kunci & webhook (ber-sesi, admin) ── */
+    '/api/keys': {
+      get: { summary: 'Daftar API key tenant (tanpa nilai kuncinya)', security: [sessionAuth],
+        responses: { 200: err('{ keys, scopes }') } },
+      post: { summary: 'Terbitkan API key — kunci mentah dibalas SEKALI', security: [sessionAuth],
+        requestBody: json(obj({ name: str, scopes: { type: 'array', items: str }, expiresAt: str },
+          ['name', 'scopes'])),
+        responses: { 201: err('{ key, row }'), 400: err('input tidak valid') } },
+      delete: { summary: 'Cabut kunci (baris tetap ada demi jejak audit)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'query', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }') } },
+    },
+    '/api/webhooks': {
+      get: { summary: 'Daftar webhook + kejadian yang tersedia', security: [sessionAuth],
+        responses: { 200: err('{ webhooks, events }') } },
+      post: { summary: 'Tambah webhook — secret dibalas SEKALI', security: [sessionAuth],
+        requestBody: json(obj({ url: str, events: { type: 'array', items: str } }, ['url', 'events'])),
+        responses: { 201: err('{ secret, row }'), 422: err('URL tak layak kirim (non-https / alamat internal)') } },
+      patch: { summary: 'Ubah / nyalakan-matikan / kirim kejadian uji', security: [sessionAuth],
+        requestBody: json(obj({ id: uuid, url: str, events: { type: 'array', items: str },
+          enabled: bool, test: bool }, ['id'])),
+        responses: { 200: err('{ ok } atau hasil uji { ok, status, error }') } },
+      delete: { summary: 'Hapus webhook', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'query', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }') } },
+    },
 
     /* ── auth ── */
     '/api/auth/signup': {

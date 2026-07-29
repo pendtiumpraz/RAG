@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireRole } from '@/modules/core/auth';
 import { knowledgeService } from '@/modules/knowledge/knowledge.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { ensureIntegrations } from '../_wire';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +17,7 @@ const Body = z.object({
 
 /** POST /api/ingest — teks → chunk → embed → simpan ke knowledge base (D11). */
 export async function POST(req: NextRequest) {
+  ensureIntegrations();
   const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });

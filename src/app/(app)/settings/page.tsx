@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, useToast } from '../../_components/ui';
+import Integrations from './Integrations';
 import { toggleTheme } from '../../providers';
 
 interface Settings { active: { themeConfig: { theme?: { signal?: string; source?: string } } | null } | null }
@@ -68,6 +69,8 @@ export default function SettingsPage() {
             </tbody></table></div></div>
         </div>
       )}
+
+      <Integrations />
 
       {session?.user?.role === 'superadmin' && <MailSettings />}
     </>

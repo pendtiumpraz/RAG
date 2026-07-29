@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCurrentUser } from '@/modules/core/auth';
 import { chatTurn, type ChatSource } from '@/modules/chat/chat.service';
+import { ensureIntegrations } from '../../_wire';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +12,7 @@ export const runtime = 'nodejs';
  * Retrieval terkurung tenant user (withTenant) → aman.
  */
 export async function POST(req: NextRequest) {
+  ensureIntegrations();
   const user = await getCurrentUser();
   const body = await req.json().catch(() => ({}));
   const chatbotId: string = body.chatbotId ?? '';
