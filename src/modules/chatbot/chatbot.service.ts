@@ -2,6 +2,9 @@ import { nanoid } from 'nanoid';
 import { and, eq, isNull } from 'drizzle-orm';
 import { users, conversations, chatbotKnowledgeBases, type ThemeConfig } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
+import {
+  normalizePolicy, type LanguageMode, type Tone, type Grounding,
+} from '@/modules/chat/answer-policy';
 import { dispatch } from '@/modules/core/events';
 import { usageService } from '@/modules/usage/usage.service';
 import { chatbotRepository as repo } from './chatbot.repository';
@@ -58,9 +61,37 @@ export const chatbotService = {
   async update(tenantId: string, id: string, input: Partial<{
     name: string; allowedOrigins: string[]; greeting: string;
     enabled: boolean; themeConfig: ThemeConfig; context: string | null;
+    /* Kebijakan jawaban (D14). */
+    temperature: number; maxTokens: number; languageMode: string;
+    tone: string; grounding: string; answerRules: string | null;
   }>) {
     return withTenant(tenantId, async (tx) => {
-      const updated = await repo.update(tx, id, input);
+      // Kebijakan DINORMALKAN di server sebelum menyentuh DB. Klien boleh
+      // mengirim apa saja; batas temperature/token dan daftar nilai sah
+      // ditegakkan di sini (dan sekali lagi oleh CHECK constraint migrasi
+      // 0030) — bukan diserahkan pada slider di browser.
+      const touchesPolicy = ['temperature', 'maxTokens', 'languageMode', 'tone', 'grounding', 'answerRules']
+        .some((k) => k in input);
+      let patch = input;
+      if (touchesPolicy) {
+        const current = await repo.findById(tx, id);
+        if (!current) throw new ValidationError('Chatbot tidak ditemukan');
+        const p = normalizePolicy({
+          temperature: input.temperature ?? current.temperature,
+          maxTokens: input.maxTokens ?? current.maxTokens,
+          language: (input.languageMode ?? current.languageMode) as LanguageMode,
+          tone: (input.tone ?? current.tone) as Tone,
+          grounding: (input.grounding ?? current.grounding) as Grounding,
+          rules: input.answerRules !== undefined ? input.answerRules : current.answerRules,
+        });
+        patch = {
+          ...input,
+          temperature: p.temperature, maxTokens: p.maxTokens,
+          languageMode: p.language, tone: p.tone, grounding: p.grounding,
+          answerRules: p.rules,
+        };
+      }
+      const updated = await repo.update(tx, id, patch);
       if (!updated) throw new ValidationError('Chatbot tidak ditemukan');
       return updated;
     });

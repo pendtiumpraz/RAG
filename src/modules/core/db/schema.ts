@@ -122,6 +122,17 @@ export const tenantSettings = pgTable('tenant_settings', {
   activeLlmModel: text('active_llm_model').default('claude-sonnet-5').notNull(),
   activeEmbeddingModel: text('active_embedding_model').default('all-MiniLM-L6-v2').notNull(),
   systemPrompt: text('system_prompt'),
+  /**
+   * PAKSA retrieval bertingkat menyala, mengabaikan ambang otomatis.
+   *
+   * Normalnya TAK PERLU disentuh: mode bertingkat menyala sendiri begitu KB
+   * cukup besar (lihat TIERED_MIN_CHUNKS). Saklar ini ada untuk satu hal —
+   * mengukur ketepatannya lebih awal pada korpus pelanggan saat pemasangan,
+   * sebelum korpusnya melewati ambang. Membuat pemilik data MEMILIH antara dua
+   * mode adalah rancangan yang keliru: mereka tak punya dasar untuk menilainya,
+   * dan pilihan yang salah baru terasa berbulan-bulan kemudian.
+   */
+  tieredRetrieval: boolean('tiered_retrieval').default(false).notNull(),
   /** White-label theme for the tenant dashboard (brand, colors, radius, font…). */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   ...stamps,
@@ -224,6 +235,21 @@ export const chatbots = pgTable('chatbots', {
   logo: text('logo'),
   /** Per-chatbot white-label theme served to embed.js. */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
+  /* ── kebijakan jawaban (migrasi 0030) ─────────────────────────────
+     Semua penyedia LLM sebelumnya dipanggil TANPA temperature, jadi jalan
+     pada default masing-masing — OpenAI & Anthropic 1.0. Pada mesin yang
+     tugasnya mengutip dokumen, itu meminta model kreatif justru saat ia
+     harus patuh. Arti tiap nilai: src/modules/chat/answer-policy.ts. */
+  temperature: real('temperature').default(0.2).notNull(),
+  maxTokens: integer('max_tokens').default(2048).notNull(),
+  /** 'auto' (ikut bahasa penanya) | 'id' | 'en' */
+  languageMode: text('language_mode').default('auto').notNull(),
+  /** 'netral' | 'formal' | 'ramah' | 'ringkas' | 'teknis' */
+  tone: text('tone').default('netral').notNull(),
+  /** 'strict' (hanya dari dokumen) | 'balanced' | 'open' */
+  grounding: text('grounding').default('strict').notNull(),
+  /** Aturan bebas pemilik — disisipkan sebagai preferensi GAYA saja. */
+  answerRules: text('answer_rules'),
   enabled: boolean('enabled').default(true).notNull(),
   ...stamps,
 }, (t) => ({
@@ -316,6 +342,14 @@ export const documents = pgTable('documents', {
    * kolom & indeks yang hanya lahir dari migrasi SQL akan dibuang diam-diam
    * oleh push berikutnya (lihat catatan di kepala berkas ini).
    */
+  /**
+   * Identitas DOKUMEN LOGIS di atas tabel potongan (migrasi 0029).
+   * Aturannya sama dengan yang dipakai /api/v1/documents; tergenerasi supaya
+   * tak ada jalur tulis yang bisa lupa mengisinya.
+   */
+  docRef: text('doc_ref').generatedAlwaysAs(
+    sql`coalesce(external_id, title, id::text)`,
+  ),
   fts: tsvector('fts').generatedAlwaysAs(
     sql`to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, ''))`,
   ),
@@ -334,6 +368,36 @@ export const documents = pgTable('documents', {
      sini — cukup untuk mencegah  menghapusnya, dan itulah
      satu-satunya alasan baris ini ada. Definisi sebenarnya di migrasi. */
   dimsIdx: index('idx_documents_dims').on(t.embeddingDims),
+  docRefIdx: index('idx_documents_doc_ref').on(t.knowledgeBaseId, t.docRef).where(sql`deleted_at IS NULL`),
+})).enableRLS();
+
+/**
+ * LAPISAN PERTAMA retrieval bertingkat (migrasi 0029) — satu baris per
+ * DOKUMEN LOGIS, bukan per potongan.
+ *
+ * `centroid` = rerata vektor seluruh potongan dokumen itu. Pada mode
+ * bertingkat, INILAH satu-satunya indeks vektor yang perlu residen di RAM:
+ * ±200 ribu dokumen ≈ 0,3 GB, dan angkanya tak bertambah walau tiap dokumen
+ * makin tebal. Potongan baru dibaca dari disk setelah dokumennya lolos
+ * penyaringan.
+ */
+export const documentVectors = pgTable('document_vectors', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  knowledgeBaseId: uuid('knowledge_base_id').notNull(),
+  /** Identitas dokumen logis: external_id ?? title ?? id. */
+  docRef: text('doc_ref').notNull(),
+  title: text('title'),
+  embeddingModel: text('embedding_model').notNull(),
+  embeddingDims: smallint('embedding_dims'),
+  centroid: vector('centroid', { dimensions: 1536 }),
+  chunks: integer('chunks').default(0).notNull(),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_document_vectors_tenant').on(t.tenantId),
+  delIdx: index('idx_document_vectors_deleted_at').on(t.deletedAt),
+  uqDoc: uniqueIndex('uq_document_vectors_doc')
+    .on(t.knowledgeBaseId, t.docRef, t.embeddingModel).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 /* ── chat ──────────────────────────────────────────────────────────── */

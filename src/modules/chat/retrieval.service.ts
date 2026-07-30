@@ -11,6 +11,13 @@ import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusio
  */
 const MMR_LAMBDA = 0.75;
 
+/**
+ * Kandidat DOKUMEN dari lapisan pertama. Sengaja jauh lebih banyak dari
+ * jumlah potongan yang akhirnya dipakai: rerata dokumen tebal itu kabur, dan
+ * dokumen yang terlewat di sini tak akan pernah dibaca di lapisan kedua.
+ */
+const TIER1_DOCS = 40;
+
 export interface RetrievedChunk {
   documentId: string;
   title: string | null;
@@ -112,6 +119,56 @@ export const retrievalService = {
     // kembar baru bermakna kalau ada yang bisa dipilih.
     const pool = Math.min(Math.max(k * 5, 20), 40);
 
+    /**
+     * Lapisan penyaring dokumen dipakai HANYA bila vektornya memang ada.
+     *
+     * Tak ada mode yang harus dipilih siapa pun: lapisan pertama dibangun
+     * sendiri oleh ingest begitu sebuah knowledge base melewati ambang
+     * TIERED_MIN_CHUNKS, dan keberadaannya ITULAH sinyalnya. Di korpus kecil
+     * indeks datar tak memakan apa pun dan tak punya risiko recall sama
+     * sekali, jadi menambah lapisan di sana cuma menambah satu lompatan
+     * tanpa imbalan.
+     *
+     * Satu query EXISTS berindeks — jauh lebih murah daripada menghitung
+     * potongan pada tiap pertanyaan.
+     */
+    const tiered = await withTenant(tenantId, async (tx) => {
+      const r = await tx.execute(sql`
+        select exists (
+          select 1 from document_vectors v
+          where v.embedding_model = ${embeddingModel}
+            and v.deleted_at is null
+            and v.knowledge_base_id in (
+              select a.knowledge_base_id from chatbot_knowledge_bases a
+              where a.chatbot_id = ${chatbotId} and a.deleted_at is null)
+        ) as ada`);
+      return Boolean((r as unknown as Array<{ ada: boolean }>)[0]?.ada);
+    });
+
+    /**
+     * Pada mode bertingkat, kaki vektor dibatasi ke potongan milik dokumen
+     * yang lolos penyaringan. Kandidat dokumen diambil JAUH lebih banyak dari
+     * yang dibutuhkan (TIER1_DOCS) karena rerata sebuah dokumen tebal itu
+     * kabur — ia mewakili tema umumnya, bukan kalimat spesifik di dalamnya.
+     *
+     * Kaki LEKSIKAL sengaja TIDAK ikut dibatasi: ia menelusuri seluruh korpus
+     * apa pun modenya. Itulah jaring pengaman terhadap kelemahan lapisan
+     * pertama — pencarian kode, nomor, atau nama yang persis tetap menjangkau
+     * dokumen yang centroid-nya meleset.
+     */
+    const tierFilter = tiered
+      ? sql`and d.doc_ref in (
+          select v.doc_ref from document_vectors v
+          where v.embedding_model = ${embeddingModel}
+            and v.deleted_at is null
+            and v.knowledge_base_id in (select id from kb)
+            ${useSub ? sql`and v.embedding_dims = ${dims}` : sql``}
+          order by ${tiered && useSub
+            ? sql`subvector(v.centroid, 1, ${dims})::vector(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::vector, 1, ${dims})::vector(${sql.raw(String(dims))})`
+            : sql`v.centroid <=> ${vecLiteral}::vector`}
+          limit ${TIER1_DOCS})`
+      : sql``;
+
     const rows = await withTenant(tenantId, async (tx) => {
       // SATU perjalanan ke database untuk kedua kaki. Menjalankannya sebagai
       // dua query berarti dua kali latensi jaringan pada jalur terpanas produk.
@@ -129,6 +186,7 @@ export const retrievalService = {
             and d.deleted_at is null
             and d.embedding is not null
             ${dimsFilter}
+            ${tierFilter}
           order by ${dist}
           limit ${pool}
         ),

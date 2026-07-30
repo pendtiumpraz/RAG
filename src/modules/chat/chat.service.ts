@@ -7,6 +7,9 @@ import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { conversationRepository as convo } from './conversation.repository';
 import { retrievalService, type RetrievedChunk } from './retrieval.service';
 import { streamChat, type ChatMessage } from './llm';
+import {
+  normalizePolicy, policyDirectives, samplingFor, type AnswerPolicy,
+} from './answer-policy';
 import { estimateTokens } from '@/modules/core/limits';
 import { usageService } from '@/modules/usage/usage.service';
 import {
@@ -125,18 +128,28 @@ export async function chatTurn(
 
   const getApiKey = apiKeyResolver(input.tenantId);
 
-  const { settings, botContext, history, conversationId } = await withTenant(input.tenantId, async (tx) => {
+  const { settings, botContext, policy, history, conversationId } = await withTenant(input.tenantId, async (tx) => {
     const s = (await tx.select().from(tenantSettings)
       .where(eq(tenantSettings.tenantId, input.tenantId)).limit(1))[0];
     // D11: konteks kepemilikan/persona chatbot (divisi) — bagian dari
     // system prompt CHATBOT INI SAJA, di atas system prompt tenant.
-    const bot = (await tx.select({ context: chatbots.context }).from(chatbots)
-      .where(eq(chatbots.id, input.chatbotId)).limit(1))[0];
+    const bot = (await tx.select({
+      context: chatbots.context,
+      temperature: chatbots.temperature,
+      maxTokens: chatbots.maxTokens,
+      language: chatbots.languageMode,
+      tone: chatbots.tone,
+      grounding: chatbots.grounding,
+      rules: chatbots.answerRules,
+    }).from(chatbots).where(eq(chatbots.id, input.chatbotId)).limit(1))[0];
     const convId = await convo.findOrCreate(tx, input.tenantId, input.chatbotId, input.conversationId, input.visitorId);
     const prior = await convo.history(tx, input.tenantId, convId);
     return {
       settings: s,
       botContext: bot?.context?.trim() || null,
+      // Baris chatbot lama (pra-migrasi 0030) tak punya kolom ini; normalize
+      // mengisinya dengan default aman — bukan default penyedia yang 1.0.
+      policy: normalizePolicy(bot as Partial<AnswerPolicy> | undefined),
       conversationId: convId,
       history: prior.map((m) => ({ role: m.role as ChatMessage['role'], content: m.content })),
     };
@@ -151,8 +164,12 @@ export async function chatTurn(
   // Beri tahu pemanggil sumber yang ditemukan (utk panel Citations) SEBELUM streaming.
   onSources?.(context.map((c) => ({ documentId: c.documentId, title: c.title, score: c.score, content: c.content.slice(0, 240) })));
   // Guardrail L2: konteks dikeraskan (dokumen = data, injeksi disaring).
-  // system efektif = konteks divisi chatbot (bila ada) + system prompt tenant
-  const systemParts = [botContext, settings?.systemPrompt].filter(Boolean) as string[];
+  // system efektif = konteks divisi chatbot + system prompt tenant + KEBIJAKAN.
+  // Kebijakan ditaruh PALING BAWAH: bagian akhir system prompt adalah yang
+  // paling dipatuhi model, dan aturan bahasa + kepatuhan sumber justru yang
+  // paling sering dilanggar kalau terkubur di tengah.
+  const systemParts = [botContext, settings?.systemPrompt, policyDirectives(policy)]
+    .filter(Boolean) as string[];
   const { messages: prompt, injectionFlagged } = buildPrompt(
     systemParts.length ? systemParts.join('\n') : null, context, history, input.question);
 
@@ -187,7 +204,7 @@ export async function chatTurn(
 
   // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
   // kredensialnya dari pendaftaran server — bukan dari argumen ini.
-  for await (const delta of streamChat(llmModel, prompt, apiKey ?? '')) {
+  for await (const delta of streamChat(llmModel, prompt, apiKey ?? '', samplingFor(policy))) {
     parser.push(delta);
     // Budget dihitung dari delta MENTAH — model tetap menghasilkan token
     // walau parser masih menahan blok yang belum lengkap.

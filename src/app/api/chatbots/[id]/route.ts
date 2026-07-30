@@ -12,6 +12,15 @@ const PatchBody = z.object({
   enabled: z.boolean().optional(),
   themeConfig: z.record(z.unknown()).optional(),
   context: z.string().max(2000).nullable().optional(),
+  /* Kebijakan jawaban (D14). Batas nyata ditegakkan `normalizePolicy` di
+     service + CHECK constraint migrasi 0030; zod di sini hanya menolak
+     bentuk yang jelas salah supaya galatnya jelas di 400, bukan di 500. */
+  temperature: z.number().min(0).max(1).optional(),
+  maxTokens: z.number().int().min(256).max(8192).optional(),
+  languageMode: z.enum(['auto', 'id', 'en']).optional(),
+  tone: z.enum(['netral', 'formal', 'ramah', 'ringkas', 'teknis']).optional(),
+  grounding: z.enum(['strict', 'balanced', 'open']).optional(),
+  answerRules: z.string().max(2000).nullable().optional(),
 });
 
 /** PATCH /api/chatbots/:id — update. */

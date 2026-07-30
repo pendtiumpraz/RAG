@@ -32,9 +32,48 @@ interface Providers {
 
 /** D11: KB entitas mandiri — sumber & dokumen milik KB; chatbot memakai KB
  *  lewat assignment N:M (drawer "Assign"). */
+/**
+ * Sel "Mode pencarian" + penjelasannya.
+ *
+ * Ditulis untuk pemilik data, bukan untuk insinyur: yang perlu mereka tahu
+ * cuma apakah seluruh isi masih ditelusuri (ya, selalu) dan kenapa modenya
+ * bisa berubah sendiri. Tak ada tombol di sini DENGAN SENGAJA — memilih mode
+ * retrieval menuntut penilaian yang tak punya dasar untuk mereka buat, dan
+ * salah pilih berarti jawaban yang diam-diam kehilangan dokumen.
+ */
+function RetrievalModeCell({ tier1, chunks }: { tier1: number; chunks: number }) {
+  const bertingkat = tier1 > 0;
+  return (
+    <td>
+      <div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
+        <span className={`badge ${bertingkat ? 'badge-signal' : ''}`}>
+          {bertingkat ? 'Bertingkat' : 'Langsung'}
+        </span>
+        <span
+          title={bertingkat
+            ? `Korpus ini sudah besar (${chunks.toLocaleString('id-ID')} potongan), jadi pencarian `
+              + `berjalan dua tahap: memilih ${tier1.toLocaleString('id-ID')} dokumen yang relevan dulu, `
+              + 'baru membaca isinya. Hasilnya sama; yang berubah cuma jumlah memori server yang '
+              + 'dibutuhkan — dan angka itu berhenti tumbuh walau dokumen terus bertambah. '
+              + 'Pencarian kata/nomor persis tetap menyapu SELURUH isi, apa pun modenya.'
+            : `Korpus ini masih kecil (${chunks.toLocaleString('id-ID')} potongan), jadi seluruh isi `
+              + 'ditelusuri langsung dalam satu tahap — cara paling teliti. Mode bertingkat menyala '
+              + 'sendiri kalau isinya sudah cukup besar; tak ada yang perlu Anda atur.'}
+          className="microlabel"
+          style={{ cursor: 'help', borderBottom: '1px dotted var(--border)' }}
+        >
+          APA INI?
+        </span>
+      </div>
+    </td>
+  );
+}
+
 interface Kb {
   id: string; name: string; description: string | null; updatedAt: string;
   sources: number; chunks: number; chatbots: Array<{ id: string; name: string }>;
+  /** Jumlah dokumen dengan vektor lapisan pertama; > 0 = mode bertingkat. */
+  tier1?: number;
 }
 
 export default function KnowledgePage() {
@@ -130,7 +169,7 @@ export default function KnowledgePage() {
               action={<button className="btn btn-primary btn-sm" onClick={() => setCreatingKb(true)}>Buat KB</button>} />
           : (
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Sumber</th><th>Chunk</th><th>Dipakai chatbot</th><th /></tr></thead>
+              <thead><tr><th>Nama</th><th>Sumber</th><th>Chunk</th><th>Mode pencarian</th><th>Dipakai chatbot</th><th /></tr></thead>
               <tbody>
                 {kbs.data.map((k) => (
                   <tr key={k.id} style={{ background: k.id === kbId ? 'var(--card-2)' : undefined }}>
@@ -142,6 +181,7 @@ export default function KnowledgePage() {
                     </td>
                     <td className="mono">{k.sources}</td>
                     <td className="mono">{k.chunks}</td>
+                    <RetrievalModeCell tier1={k.tier1 ?? 0} chunks={k.chunks} />
                     <td>
                       {k.chatbots.length === 0
                         ? <span className="microlabel" style={{ color: 'var(--source)' }}>BELUM DI-ASSIGN — TAK DIPAKAI SIAPA PUN</span>

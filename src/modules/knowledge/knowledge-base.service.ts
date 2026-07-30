@@ -29,6 +29,14 @@ export const knowledgeBaseService = {
           where s.knowledge_base_id = knowledge_bases.id and s.deleted_at is null)`,
         chunks: sql<number>`(select count(*)::int from documents d
           where d.knowledge_base_id = knowledge_bases.id and d.deleted_at is null)`,
+        /* Berapa dokumen yang sudah punya vektor lapisan pertama. > 0 berarti
+           KB ini berjalan pada mode BERTINGKAT — dan keberadaan baris itulah
+           satu-satunya sinyalnya, sama seperti yang dibaca retrieval. Angka
+           ini yang ditampilkan ke pengguna; jangan menyimpulkan modenya dari
+           jumlah potongan di frontend, karena ambangnya bisa dipaksa nyala
+           lewat tenant_settings saat pemasangan on-prem. */
+        tier1: sql<number>`(select count(*)::int from document_vectors v
+          where v.knowledge_base_id = knowledge_bases.id and v.deleted_at is null)`,
         chatbots: sql<Array<{ id: string; name: string }>>`coalesce((
           select json_agg(json_build_object('id', c.id, 'name', c.name))
           from chatbot_knowledge_bases a

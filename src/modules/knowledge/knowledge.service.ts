@@ -1,4 +1,4 @@
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import { tenantSettings, knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
@@ -6,6 +6,7 @@ import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { embed, embeddingDims } from './embeddings';
 import { documentRepository as docs } from './document.repository';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { documentVectorsService } from './document-vectors.service';
 
 /** Chunker naif tapi solid: ~800 char, overlap ~120, pecah di batas kalimat. */
 export function chunkText(text: string, size = 800, overlap = 120): string[] {
@@ -28,6 +29,61 @@ export function chunkText(text: string, size = 800, overlap = 120): string[] {
     start = end - overlap;
   }
   return chunks.filter(Boolean);
+}
+
+
+/* ── lapisan pertama retrieval bertingkat ─────────────────────────────
+   Ambang: di bawah ini, indeks vektor datar tak memakan apa pun dan tak
+   punya risiko recall sama sekali — menambah lapisan penyaring di sana cuma
+   menambah satu lompatan tanpa imbalan. Di atasnya, indeks datar mulai
+   menuntut RAM yang tumbuh linear terhadap korpus, dan lapisan pertamalah
+   yang menghentikan pertumbuhan itu.
+
+   200 ribu potongan ≈ 300 MB indeks datar — masih nyaman di mana pun. Di
+   47 juta potongan ia jadi 69 GB, dan itu yang harus dicegah. */
+const TIERED_MIN_CHUNKS = 200_000;
+
+/**
+ * Bangun/perbarui vektor dokumen bila KB ini sudah cukup besar.
+ *
+ * Dipanggil setelah ingest. Kegagalannya TIDAK boleh menggagalkan ingest:
+ * lapisan pertama adalah optimasi, dan dokumen yang sudah masuk tetap bisa
+ * dicari lewat indeks datar. Karena itu galatnya dicatat, bukan dilempar.
+ */
+async function maybeBuildTier1(
+  tenantId: string,
+  knowledgeBaseId: string,
+  modelId: string,
+  input: { externalId?: string; title?: string },
+): Promise<void> {
+  try {
+    const forced = await withTenant(tenantId, async (tx) => {
+      const s = await tx.select({ t: tenantSettings.tieredRetrieval }).from(tenantSettings)
+        .where(eq(tenantSettings.tenantId, tenantId)).limit(1);
+      return s[0]?.t === true;
+    });
+
+    if (!forced) {
+      // Hitung HANYA saat ingest, bukan saat menjawab — di jalur panas ini
+      // akan jadi beban baru, kebalikan dari tujuannya.
+      const n = await withTenant(tenantId, async (tx) => {
+        const r = await tx.execute(sql`
+          select count(*)::int n from documents
+          where knowledge_base_id = ${knowledgeBaseId} and deleted_at is null`);
+        return Number((r as unknown as Array<{ n: number }>)[0]?.n ?? 0);
+      });
+      if (n < TIERED_MIN_CHUNKS) return;
+    }
+
+    // Hanya dokumen yang BARU SAJA berubah — membangun ulang seluruh KB pada
+    // tiap berkas akan mengubah sync jadi O(n²).
+    const ref = input.externalId ?? input.title;
+    await documentVectorsService.rebuild(
+      tenantId, knowledgeBaseId, modelId, ref ? [ref] : [],
+    );
+  } catch (err) {
+    console.error('[tier1] gagal membangun vektor dokumen:', err);
+  }
 }
 
 export const knowledgeService = {
@@ -81,8 +137,7 @@ export const knowledgeService = {
     // agar kebagian; delta sync normal tak menyentuh yang tak berubah.
     const embedInput = chunks.map((c) => (input.title ? `${input.title}\n${c}` : c));
     const vectors = await embed(modelId, embedInput, { tenantId, getApiKey });
-    // Dicatat per potongan, bukan disimpulkan dari nama model saat query —
-    //     lihat catatan di kolomnya.
+    // Dicatat per potongan, bukan disimpulkan dari nama model saat query.
     const dims = await embeddingDims(modelId);
 
     const inserted = await withTenant(tenantId, (tx) =>
@@ -100,6 +155,11 @@ export const knowledgeService = {
         metadata: { ...input.metadata, chunk: i },
       }))),
     );
+
+    // Lapisan pertama retrieval bertingkat dijaga tetap mutakhir DI SINI,
+    // bukan lewat mode yang dipilih pengguna: begitu sebuah KB cukup besar
+    // sehingga indeks datarnya jadi masalah, lapisan itu tumbuh sendiri.
+    await maybeBuildTier1(tenantId, input.knowledgeBaseId, modelId, input);
 
     await dispatch('document.ingested', {
       tenantId, knowledgeBaseId: input.knowledgeBaseId,

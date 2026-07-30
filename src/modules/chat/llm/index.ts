@@ -9,15 +9,30 @@ export interface ChatMessage {
   content: string;
 }
 
+/**
+ * Parameter sampling. WAJIB diteruskan ke penyedia — tanpa ini tiap penyedia
+ * memakai defaultnya sendiri, dan default OpenAI/Anthropic adalah 1.0. Untuk
+ * mesin RAG itu berarti model diminta kreatif tepat ketika ia harus patuh
+ * pada dokumen. Lihat `answer-policy.ts`.
+ */
+export interface Sampling {
+  temperature?: number;
+  maxTokens?: number;
+}
+
+/** Dipakai bila pemanggil tak menyebut apa pun (mis. agent memori). */
+const SAMPLING_FALLBACK = { temperature: 0.2, maxTokens: 2048 };
+
 /** Non-stream helper: kumpulkan seluruh stream jadi satu string (dipakai agent). */
 export async function completeChat(
   modelId: string,
   messages: ChatMessage[],
   apiKey: string,
   maxChars = 8000,
+  sampling: Sampling = {},
 ): Promise<string> {
   let full = '';
-  for await (const delta of streamChat(modelId, messages, apiKey)) {
+  for await (const delta of streamChat(modelId, messages, apiKey, sampling)) {
     full += delta;
     if (full.length > maxChars) break;
   }
@@ -42,10 +57,14 @@ export async function* streamChat(
   modelId: string,
   messages: ChatMessage[],
   apiKey: string,
+  sampling: Sampling = {},
 ): AsyncGenerator<string> {
   // Katalog = registry cloud + model dari server LLM sendiri, jadi async.
   const model = await resolveLlmModel(modelId);
   if (!model) throw new Error(`Unknown LLM model: ${modelId}`);
+
+  const temperature = sampling.temperature ?? SAMPLING_FALLBACK.temperature;
+  const maxTokens = sampling.maxTokens ?? SAMPLING_FALLBACK.maxTokens;
 
   // Server sendiri (Ollama/vLLM/LM Studio): protokol OpenAI, alamat & token
   // datang dari pendaftaran server — bukan dari kunci provider per-tenant.
@@ -58,6 +77,8 @@ export async function* streamChat(
     const stream = await client.chat.completions.create({
       model: served,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      temperature,
+      max_tokens: maxTokens,
       stream: true,
     });
     for await (const chunk of stream) {
@@ -73,7 +94,8 @@ export async function* streamChat(
       const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n');
       const stream = await client.messages.stream({
         model: modelId,
-        max_tokens: 2048,
+        max_tokens: maxTokens,
+        temperature,
         system: system || undefined,
         messages: messages
           .filter((m) => m.role !== 'system')
@@ -95,6 +117,7 @@ export async function* streamChat(
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }],
         })),
+        config: { temperature, maxOutputTokens: maxTokens },
       });
       for await (const chunk of stream) {
         if (chunk.text) yield chunk.text;
@@ -108,6 +131,8 @@ export async function* streamChat(
       const stream = await client.chat.completions.create({
         model: modelId,
         messages,
+        temperature,
+        max_tokens: maxTokens,
         stream: true,
       });
       for await (const chunk of stream) {
