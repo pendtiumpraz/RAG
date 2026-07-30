@@ -27,15 +27,43 @@ const PLAN_LABEL: Record<string, string> = {
 const angka = (n: number) =>
   n === Infinity ? 'tanpa batas' : n.toLocaleString('id-ID');
 
+/** ±680 karakter per potongan — angka yang sama dengan slide penyimpanan. */
+const CHAR_PER_POTONGAN = 680;
+/** Bagian berkas kantoran yang benar-benar jadi teks (nilai tengah). */
+const RASIO_TEKS = 0.02;
+
+const ringkas = (n: number) =>
+  n === Infinity ? '∞'
+    : n >= 1e6 ? `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0).replace('.', ',')} jt`
+    : n >= 1e3 ? `${Math.round(n / 1e3)} rb`
+    : String(n);
+
+/** Kuota potongan → perkiraan berkas sumber yang muat. */
+const setaraBerkas = (potongan: number) => {
+  if (potongan === Infinity) return '∞';
+  const byte = (potongan * CHAR_PER_POTONGAN) / RASIO_TEKS;
+  return byte >= 1e12 ? `${(byte / 1e12).toFixed(1).replace('.', ',')} TB`
+    : byte >= 1e9 ? `${Math.round(byte / 1e9)} GB`
+    : `${Math.round(byte / 1e6)} MB`;
+};
+
 export function ScenePlans() {
   const plans = ['free', 'pro', 'enterprise', 'onprem'];
+  /* SEMUA baris membaca PLAN_LIMITS. Dua baris terbawah dulu ditulis mati
+     sebagai "tanpa batas" — dan begitu kuotanya benar-benar dipasang, slide
+     ini jadi berbohong tanpa ada yang menyadarinya. Slide yang mengutip
+     konstanta tak bisa tertinggal dari kodenya. */
   const kolom = [
     { t: 'Pesan / bulan', f: (p: string) => angka(PLAN_LIMITS[p].messagesPerMonth) },
     { t: 'Chatbot', f: (p: string) => angka(PLAN_LIMITS[p].maxChatbots) },
     { t: 'Anggota tim', f: (p: string) => angka(PLAN_LIMITS[p].maxMembers) },
     { t: 'Laju (burst)', f: (p: string) => `${PLAN_LIMITS[p].chatBurst}/detik` },
-    { t: 'Knowledge base', f: () => 'tanpa batas' },
-    { t: 'Dokumen & ukuran', f: () => 'tanpa batas' },
+    { t: 'Knowledge base', f: (p: string) => angka(PLAN_LIMITS[p].maxKnowledgeBases) },
+    { t: 'Potongan dokumen', f: (p: string) => ringkas(PLAN_LIMITS[p].maxChunks) },
+    {
+      t: 'Setara berkas sumber',
+      f: (p: string) => setaraBerkas(PLAN_LIMITS[p].maxChunks),
+    },
   ];
 
   /* Geometri ditulis sebagai konstanta, bukan angka yang bertebaran. Versi
@@ -50,7 +78,7 @@ export function ScenePlans() {
 
   return (
     <svg viewBox={`0 0 760 ${Y_CATATAN + 48}`} role="img"
-      aria-label="Batas tiap paket langganan: pesan per bulan, chatbot, anggota tim, laju, dan yang belum dibatasi">
+      aria-label="Batas tiap paket langganan: pesan per bulan, chatbot, anggota tim, laju, knowledge base, potongan dokumen, dan perkiraan berkas sumber yang setara">
       <text x="0" y="12" className="sc-k">yang benar-benar ditegakkan kode · bukan janji brosur</text>
 
       {/* kepala kolom */}
@@ -66,34 +94,35 @@ export function ScenePlans() {
 
       {kolom.map((k, r) => {
         const y = Y_TABEL + r * H_BARIS;
-        const belum = k.t === 'Knowledge base' || k.t === 'Dokumen & ukuran';
+        // Baris terakhir adalah TERJEMAHAN, bukan kuota — dibedakan supaya
+        // tak ada yang mengira "68 GB" itu angka yang ditegakkan kode.
+        const turunan = k.t === 'Setara berkas sumber';
         return (
           <g key={k.t} className="an-in" style={{ ['--d' as string]: `${0.5 + r * 0.1}s` }}>
             <line x1="0" y1={y + 8} x2="760" y2={y + 8} stroke="#EEF2F7" strokeWidth="1" />
-            {/* Label & keterangannya SEBARIS, bukan bertumpuk — dua baris teks
-                dalam satu baris tabel setinggi 26px pasti bersinggungan. */}
-            <text x="0" y={y} className={belum ? 'sc-s' : 'sc-t'}>{k.t}</text>
-            {belum && (
-              <text x={k.t.length * 6.2 + 10} y={y} className="sc-k" fill={AMBER}>belum dibatasi</text>
+            <text x="0" y={y} className={turunan ? 'sc-s' : 'sc-t'}>{k.t}</text>
+            {turunan && (
+              <text x={k.t.length * 6.2 + 12} y={y} className="sc-k">perkiraan, bukan kuota</text>
             )}
             {plans.map((p, i) => (
               <text key={p} x={281 + i * 138} y={y} textAnchor="middle"
-                className={belum ? 'sc-s' : 'sc-t'}
-                fill={belum ? ABU : undefined}>{k.f(p)}</text>
+                className={turunan ? 'sc-s' : 'sc-t'}
+                fill={turunan ? ABU : undefined}>{k.f(p)}</text>
             ))}
           </g>
         );
       })}
 
-      {/* Celah yang harus disebut, bukan disembunyikan. */}
+      {/* Kenapa kuotanya per POTONGAN dan bukan per gigabyte — pertanyaan
+          pertama siapa pun yang membaca tabel ini. */}
       <g className="an-in" style={{ ['--d' as string]: '1.4s' }}>
         <rect x="0" y={Y_CATATAN} width="760" height="42" rx="6"
-          fill="#FFFBEB" stroke={AMBER} strokeWidth="1.5" />
+          fill="#EFF6FF" stroke={BIRU} strokeWidth="1.5" />
         <text x="14" y={Y_CATATAN + 19} className="sc-t">
-          Knowledge base, jumlah dokumen, dan besar penyimpanan BELUM punya kuota.
+          Kuota dihitung per POTONGAN, bukan per gigabyte — karena potonganlah satuan biaya yang nyata.
         </text>
         <text x="14" y={Y_CATATAN + 33} className="sc-s">
-          Untuk on-premise itu benar — batasnya server pelanggan. Untuk SaaS ia perlu ada sebelum pelanggan berbayar pertama masuk.
+          Dua pelanggan dengan 10 GB Drive bisa menghabiskan jatah yang jauh berbeda: PDF hasil pindai nyaris tak berisi teks, CSV hampir seluruhnya teks.
         </text>
       </g>
     </svg>

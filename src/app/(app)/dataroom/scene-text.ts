@@ -99,12 +99,12 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Pada on-premise', d: 'Biaya berulang bisa ditekan hingga nol dengan model yang dijalankan sendiri; yang tersisa hanya listrik dan perawatan server.' },
   ],
   plans: [
-    { t: 'Free — 1.000 pesan/bulan', d: '1 chatbot, 2 anggota. Sengaja tetap fungsional penuh: orang tak membayar produk yang belum pernah dilihatnya bekerja.' },
-    { t: 'Pro — 50.000 pesan/bulan', d: '10 chatbot, 15 anggota, laju 40/detik. Membuka analitik, memory, branding, dan tim.' },
-    { t: 'Enterprise — tanpa batas', d: 'Chatbot dan anggota tanpa batas, laju 120/detik, plus laporan pemakaian.' },
-    { t: 'On-Premise — tanpa batas', d: 'Laju 240/detik. Kuota tak berlaku sama sekali karena batasnya server pelanggan sendiri.' },
-    { t: 'Yang BELUM dibatasi', d: 'Jumlah knowledge base, jumlah dokumen, dan besar penyimpanan. Untuk on-premise itu benar; untuk SaaS ia perlu ditambahkan sebelum pelanggan berbayar pertama masuk.' },
-    { t: 'Semua angka di atas ditegakkan kode', d: 'Diambil langsung dari core/limits.ts, bukan diketik ulang di slide — presentasi tak bisa menjanjikan yang produknya tak lakukan.' },
+    { t: 'Free — 1.000 pesan/bulan', d: '1 chatbot, 2 anggota, 2 knowledge base, 5 ribu potongan (±500 dokumen · ±170 MB berkas). Sengaja tetap fungsional penuh: orang tak membayar produk yang belum pernah dilihatnya bekerja.' },
+    { t: 'Pro — 50.000 pesan/bulan', d: '10 chatbot, 15 anggota, 20 knowledge base, 200 ribu potongan (±20 ribu dokumen · ±6,8 GB berkas). Membuka analitik, memory, branding, dan tim.' },
+    { t: 'Enterprise — 2 juta potongan', d: '±200 ribu dokumen, ±68 GB berkas, 200 knowledge base. Chatbot dan anggota tanpa batas. Penyimpanannya BERHINGGA dengan sengaja — pada SaaS, penyimpanan tanpa batas berarti biaya yang tak bisa diperkirakan.' },
+    { t: 'On-Premise — tanpa batas', d: 'Semua kuota mati. Batasnya server milik pelanggan sendiri, dan memaksakan kuota buatan di atas perangkat yang sudah mereka bayar hanya terasa mengada-ada.' },
+    { t: 'Kuota per POTONGAN, bukan per gigabyte', d: 'Potonganlah satuan biaya yang nyata: 8.228 byte baris + ±1.570 byte indeks vektor yang harus residen di RAM. Dua pelanggan dengan 10 GB Drive bisa menghabiskan jatah yang jauh berbeda — PDF pindaian nyaris tak berisi teks, CSV hampir seluruhnya teks.' },
+    { t: 'Semua angka ditegakkan kode', d: 'Diambil langsung dari core/limits.ts, dan ditegakkan di knowledgeService.ingest() — satu jalur yang dilewati sync, unggahan, konektor URL, dan API sekaligus.' },
   ],
   capacity: [
     { t: 'Dasar perhitungan', d: '8.189 byte per potongan di tabel (diukur dengan pg_column_size pada data produksi) + ±1.570 byte indeks berdimensi asli. Sisanya aritmetika.' },

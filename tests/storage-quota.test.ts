@@ -104,3 +104,32 @@ test('terjemahan kuota ke satuan manusia konsisten', async () => {
   assert.ok(pro * BYTES_PER_CHUNK > 1e9 && pro * BYTES_PER_CHUNK < 3e9,
     'perkiraan ukuran basis data Pro di luar rentang yang masuk akal');
 });
+
+/* ── slide tak boleh tertinggal dari kode ──────────────────────────── */
+
+test('slide batas langganan MEMBACA kuota, bukan menuliskannya mati', async () => {
+  const { readFileSync } = await import('node:fs');
+  const s = readFileSync('src/app/(app)/dataroom/scenes-limits.tsx', 'utf8');
+  // Ini akar masalah yang sungguh terjadi: baris knowledge base & dokumen
+  // ditulis mati sebagai "tanpa batas", lalu kuotanya benar-benar dipasang —
+  // dan slide itu berbohong tanpa ada yang menyadarinya. Slide yang mengutip
+  // konstanta tak bisa tertinggal dari kodenya.
+  assert.ok(!/f: \(\) => 'tanpa batas'/.test(s),
+    'ada baris tabel yang menuliskan batas secara mati, bukan membaca PLAN_LIMITS');
+  for (const k of ['maxKnowledgeBases', 'maxChunks', 'maxChatbots', 'maxMembers', 'messagesPerMonth']) {
+    assert.ok(s.includes(`PLAN_LIMITS[p].${k}`), `slide tak membaca ${k}`);
+  }
+});
+
+test('tak ada slide yang masih menyebut kuota penyimpanan belum ada', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of [
+    'src/app/(app)/dataroom/scenes-limits.tsx',
+    'src/app/(app)/dataroom/scene-text.ts',
+    'src/app/(app)/dataroom/decks.ts',
+  ]) {
+    const s = readFileSync(f, 'utf8');
+    assert.ok(!/BELUM punya kuota|belum dibatasi|Yang BELUM dibatasi/i.test(s),
+      `${f} masih menyatakan kuota penyimpanan belum ada — padahal sudah ditegakkan`);
+  }
+});

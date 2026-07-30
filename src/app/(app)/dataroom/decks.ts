@@ -631,8 +631,8 @@ const hla: Slide[] = [
     note: 'Dua rasio ditampilkan dengan sengaja: 2% untuk MEMPERKIRAKAN, 3% untuk MERENCANAKAN server. Merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan memori enam bulan setelah pemasangan. Angka 3% inilah yang dipakai proposal on-premise, jadi kedua dek tak pernah berselisih. Spesifikasi server memang ditentukan oleh berapa banyak yang diambil — dan tabel inilah penerjemahnya.' },
 
   { kind: 'anim', kicker: 'BATAS LANGGANAN', scene: 'plans',
-    title: 'Apa yang dibatasi tiap paket — dan apa yang belum',
-    note: 'Angka di slide ini diambil langsung dari core/limits.ts, tempat kuotanya benar-benar ditegakkan. Yang belum punya kuota disebut apa adanya: jumlah knowledge base, jumlah dokumen, dan besar penyimpanan. Untuk on-premise itu memang benar — batasnya server pelanggan. Untuk SaaS ia perlu ditambahkan sebelum pelanggan berbayar pertama masuk, karena satu tenant Free bisa mengunggah puluhan gigabyte tanpa tertahan apa pun.' },
+    title: 'Apa yang dibatasi tiap paket',
+    note: 'Seluruh angka di slide ini dibaca langsung dari core/limits.ts, tempat kuotanya benar-benar ditegakkan — bukan diketik ulang. Penegakannya di knowledgeService.ingest(), satu jalur yang dilewati sync, unggahan manual, konektor URL, dan API publik sekaligus; kuota yang hanya dijaga satu rute adalah kuota yang punya pintu belakang. Baris terakhir tabel adalah TERJEMAHAN, bukan kuota: ia memperkirakan berapa GB berkas yang muat, dan angkanya berubah besar mengikuti jenis berkasnya.' },
 
   { kind: 'anim', kicker: 'KAPASITAS', scene: 'capacity',
     title: 'Berapa banyak yang muat — Vercel, on-premise, AWS',
