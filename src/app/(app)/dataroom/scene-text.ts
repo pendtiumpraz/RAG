@@ -99,11 +99,11 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Pada on-premise', d: 'Biaya berulang bisa ditekan hingga nol dengan model yang dijalankan sendiri; yang tersisa hanya listrik dan perawatan server.' },
   ],
   plans: [
-    { t: 'Free — 1.000 pesan/bulan', d: '1 chatbot, 2 anggota, 2 knowledge base, 5 ribu potongan (±500 dokumen · ±170 MB berkas). Sengaja tetap fungsional penuh: orang tak membayar produk yang belum pernah dilihatnya bekerja.' },
-    { t: 'Pro — 50.000 pesan/bulan', d: '10 chatbot, 15 anggota, 20 knowledge base, 200 ribu potongan (±20 ribu dokumen · ±6,8 GB berkas). Membuka analitik, memory, branding, dan tim.' },
-    { t: 'Enterprise — 2 juta potongan', d: '±200 ribu dokumen, ±68 GB berkas, 200 knowledge base. Chatbot dan anggota tanpa batas. Penyimpanannya BERHINGGA dengan sengaja — pada SaaS, penyimpanan tanpa batas berarti biaya yang tak bisa diperkirakan.' },
-    { t: 'On-Premise — tanpa batas', d: 'Semua kuota mati. Batasnya server milik pelanggan sendiri, dan memaksakan kuota buatan di atas perangkat yang sudah mereka bayar hanya terasa mengada-ada.' },
-    { t: 'Kuota per POTONGAN, bukan per gigabyte', d: 'Potonganlah satuan biaya yang nyata: 8.228 byte baris + ±1.570 byte indeks vektor yang harus residen di RAM. Dua pelanggan dengan 10 GB Drive bisa menghabiskan jatah yang jauh berbeda — PDF pindaian nyaris tak berisi teks, CSV hampir seluruhnya teks.' },
+    { t: 'Free — 1.000 potongan', d: '1 chatbot, 1 knowledge base, 2 anggota, 1.000 pesan/bulan. Setara ±100 dokumen atau ±34 MB berkas — profil perusahaan, katalog, dan FAQ muat dengan longgar.' },
+    { t: 'Pro — 15.000 potongan', d: '10 chatbot, 5 knowledge base, 15 anggota, 50.000 pesan/bulan. Setara ±1.500 dokumen atau ±510 MB berkas; cukup untuk beberapa divisi dengan pengetahuannya masing-masing.' },
+    { t: 'Enterprise — 150.000 potongan', d: '25 knowledge base, chatbot & anggota tanpa batas. Setara ±15.000 dokumen. Penyimpanannya tetap BERHINGGA dengan sengaja: pada SaaS, penyimpanan tanpa batas berarti biaya yang tak bisa diperkirakan.' },
+    { t: 'On-Premise — SATU-SATUNYA yang tanpa batas', d: 'Semua kuota mati, karena batasnya server milik pelanggan sendiri. Yang butuh lebih dari kuota Enterprise memang bukan pelanggan SaaS.' },
+    { t: 'Kuotanya sengaja kecil', d: 'Sasaran SaaS ini adalah chatbot yang ditanam di landing page — profil, katalog, harga, FAQ. Itu puluhan dokumen, bukan arsip. Kuota jauh di atas kebutuhan bukan kemurahan hati; ia mengundang pemakaian yang tak pernah jadi pendapatan.' },
     { t: 'Semua angka ditegakkan kode', d: 'Diambil langsung dari core/limits.ts, dan ditegakkan di knowledgeService.ingest() — satu jalur yang dilewati sync, unggahan, konektor URL, dan API sekaligus.' },
   ],
   capacity: [

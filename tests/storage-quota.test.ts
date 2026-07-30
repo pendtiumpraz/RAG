@@ -38,15 +38,35 @@ test('enterprise SaaS tetap berhingga', async () => {
     'enterprise tanpa batas — biaya penyimpanan jadi tak terduga');
 });
 
-test('kuota Pro masuk akal terhadap atap Neon', async () => {
-  const { PLAN_LIMITS, INDEX_BYTES_PER_CHUNK } = await load();
-  // Neon berhenti di 16 CU / 64 GB RAM. Kalau satu penyewa Pro saja sudah
-  // memakan sebagian besar atapnya, angkanya salah — bukan kuota, melainkan
-  // janji yang tak bisa ditepati.
+test('kuota SaaS tetap kecil — sasarannya chatbot landing page, bukan arsip', async () => {
+  const { PLAN_LIMITS, BYTES_PER_CHUNK, INDEX_BYTES_PER_CHUNK } = await load();
+  const perTenant = (p: string) =>
+    PLAN_LIMITS[p].maxChunks * (BYTES_PER_CHUNK + INDEX_BYTES_PER_CHUNK);
+
+  // Sasaran produk SaaS ini adalah chatbot yang ditanam di landing page:
+  // profil perusahaan, katalog, daftar harga, FAQ. Itu puluhan dokumen, bukan
+  // arsip. Kuota yang jauh melebihi kebutuhan bukan kemurahan hati — ia
+  // mengundang pemakaian yang tak pernah jadi pendapatan, dengan biaya yang
+  // ditanggung platform. Yang butuh lebih dari ini adalah pelanggan
+  // ON-PREMISE, dan di sana batasnya server mereka sendiri.
+  assert.ok(perTenant('free') <= 25e6, `Free memakan ${Math.round(perTenant('free') / 1e6)} MB — terlalu besar untuk paket gratis`);
+  assert.ok(perTenant('pro') <= 300e6, `Pro memakan ${Math.round(perTenant('pro') / 1e6)} MB — terlalu besar`);
+  assert.ok(perTenant('enterprise') <= 3e9, `Enterprise memakan ${Math.round(perTenant('enterprise') / 1e9)} GB — terlalu besar untuk SaaS`);
+
+  // Dan tetap harus muat banyak penyewa di satu basis data.
   const atapPotongan = (64 * 1e9) / INDEX_BYTES_PER_CHUNK;
-  const muat = atapPotongan / PLAN_LIMITS.pro.maxChunks;
-  assert.ok(muat >= 100,
-    `hanya ${Math.round(muat)} penyewa Pro yang muat di Neon terbesar — kuotanya terlalu longgar`);
+  assert.ok(atapPotongan / PLAN_LIMITS.pro.maxChunks >= 1_000,
+    'kurang dari 1.000 penyewa Pro yang muat di Neon terbesar — kuotanya terlalu longgar');
+});
+
+test('HANYA on-premise yang tanpa batas', async () => {
+  const { PLAN_LIMITS } = await load();
+  for (const p of ['free', 'pro', 'enterprise']) {
+    assert.notEqual(PLAN_LIMITS[p].maxChunks, Infinity, `${p} tanpa batas penyimpanan`);
+    assert.notEqual(PLAN_LIMITS[p].maxKnowledgeBases, Infinity, `${p} tanpa batas knowledge base`);
+  }
+  assert.equal(PLAN_LIMITS.onprem.maxChunks, Infinity);
+  assert.equal(PLAN_LIMITS.onprem.maxKnowledgeBases, Infinity);
 });
 
 test('kuota ditegakkan di ingest(), bukan hanya di rute', () => {
@@ -100,9 +120,11 @@ test('terjemahan kuota ke satuan manusia konsisten', async () => {
   // bukan diketik ulang — kalau tidak, dua layar menyebut angka berbeda untuk
   // paket yang sama.
   const pro = PLAN_LIMITS.pro.maxChunks;
-  assert.equal(Math.round(pro / CHUNKS_PER_DOC), 20_000);
-  assert.ok(pro * BYTES_PER_CHUNK > 1e9 && pro * BYTES_PER_CHUNK < 3e9,
-    'perkiraan ukuran basis data Pro di luar rentang yang masuk akal');
+  // Terjemahannya dihitung, bukan diketik: kalau kuotanya diubah, angka di UI
+  // dan kalkulator ikut sendiri dan tak ada dua layar yang berselisih.
+  assert.equal(Math.round(pro / CHUNKS_PER_DOC), pro / 10);
+  assert.ok(pro * BYTES_PER_CHUNK > 10e6 && pro * BYTES_PER_CHUNK < 300e6,
+    'perkiraan ukuran basis data Pro di luar rentang yang masuk akal untuk chatbot landing page');
 });
 
 /* ── slide tak boleh tertinggal dari kode ──────────────────────────── */

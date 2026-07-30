@@ -47,39 +47,50 @@ export const CHUNKS_PER_DOC = 10;
 /**
  * Kuota per plan.
  *
- * Angka penyimpanan diturunkan dari atap infrastrukturnya, bukan dikarang:
- * Neon berhenti di 16 CU / 64 GB RAM, yang pada indeks berdimensi asli
- * memuat ±40 juta potongan. Kuota Pro 200 ribu potongan berarti 200 penyewa
- * Pro masih muat di satu Neon terbesar — ruang tumbuh yang masuk akal
- * sebelum harus pindah, dan itulah pertimbangan yang menentukan angkanya.
+ * ANGKA PENYIMPANANNYA DITENTUKAN OLEH KEGUNAANNYA, bukan oleh atap
+ * infrastruktur. Sasaran SaaS ini adalah chatbot yang ditanam di landing page
+ * perusahaan — pengetahuan yang dijawabnya berupa profil perusahaan, katalog
+ * produk, daftar harga, FAQ, dan ketentuan layanan. Itu puluhan dokumen,
+ * bukan arsip. Kuota yang jauh lebih besar dari kebutuhan bukan kemurahan
+ * hati; ia mengundang pemakaian yang tak pernah jadi pendapatan, dan biayanya
+ * ditanggung platform.
  *
- * `onprem` sengaja TANPA BATAS pada semuanya: di sana batasnya server milik
- * pelanggan, dan memaksakan kuota buatan di atas perangkat yang sudah mereka
- * bayar hanya akan terasa mengada-ada.
+ * Terjemahan tiap angka (rasio teks 2%, ±10 potongan per dokumen):
+ *
+ *   1.000 potongan  ≈ 100 dokumen · ±680 KB teks · ±34 MB berkas · ±10 MB DB
+ *  15.000 potongan  ≈ 1.500 dokumen · ±10 MB teks · ±510 MB berkas · ±147 MB DB
+ * 150.000 potongan  ≈ 15.000 dokumen · ±102 MB teks · ±5 GB berkas · ±1,5 GB DB
+ *
+ * Yang butuh lebih dari itu bukan pelanggan SaaS, melainkan pelanggan
+ * on-premise — dan di sana batasnya server mereka sendiri.
+ *
+ * `onprem` sengaja TANPA BATAS pada semuanya: memaksakan kuota buatan di atas
+ * perangkat yang sudah mereka bayar hanya akan terasa mengada-ada.
  */
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free: {
     messagesPerMonth: 1_000, chatBurst: 10, chatRefillPerSec: 0.5,
     maxChatbots: 1, maxMembers: 2,
-    // ±500 dokumen · ±4 MB teks · ±49 MB di basis data. Cukup untuk
-    // membuktikan produknya bekerja pada dokumen sungguhan, jauh dari cukup
-    // untuk memindahkan seluruh arsip perusahaan tanpa membayar.
-    maxKnowledgeBases: 2, maxChunks: 5_000,
+    // Satu knowledge base, ±100 dokumen. Profil perusahaan + katalog + FAQ
+    // muat dengan longgar — cukup untuk membuktikan produknya bekerja pada
+    // dokumen sungguhan, jauh dari cukup untuk memindahkan arsip perusahaan.
+    maxKnowledgeBases: 1, maxChunks: 1_000,
   },
   pro: {
     messagesPerMonth: 50_000, chatBurst: 40, chatRefillPerSec: 5,
     maxChatbots: 10, maxMembers: 15,
-    // ±20 ribu dokumen · ±160 MB teks · ±2 GB di basis data.
-    maxKnowledgeBases: 20, maxChunks: 200_000,
+    // ±1.500 dokumen di 5 knowledge base — cukup untuk beberapa divisi dengan
+    // pengetahuannya masing-masing, yang memang bentuk pemakaian Pro.
+    maxKnowledgeBases: 5, maxChunks: 15_000,
   },
   enterprise: {
     messagesPerMonth: Infinity, chatBurst: 120, chatRefillPerSec: 20,
     maxChatbots: Infinity, maxMembers: Infinity,
-    // ±200 ribu dokumen · ±1,6 GB teks · ±20 GB di basis data. BERHINGGA
-    // dengan sengaja: pada SaaS, penyimpanan tanpa batas berarti platform
-    // menanggung biaya yang tak bisa diperkirakan. Angkanya bisa dinaikkan
-    // per pelanggan lewat negosiasi — yang tak boleh adalah tak ada angkanya.
-    maxKnowledgeBases: 200, maxChunks: 2_000_000,
+    // ±15.000 dokumen. BERHINGGA dengan sengaja: pada SaaS, penyimpanan tanpa
+    // batas berarti platform menanggung biaya yang tak bisa diperkirakan.
+    // Angkanya boleh dinaikkan per pelanggan lewat negosiasi — yang tak boleh
+    // adalah tak ada angkanya sama sekali.
+    maxKnowledgeBases: 25, maxChunks: 150_000,
   },
   onprem: {
     messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40,
