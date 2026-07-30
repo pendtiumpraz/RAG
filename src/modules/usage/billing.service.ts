@@ -2,6 +2,7 @@ import { sql, eq, and, isNull, desc, count } from 'drizzle-orm';
 import { db, tenants, users, chatbots, usageCounters } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { limitsForPlan, PLAN_LIMITS, PLAN_FEATURES } from '@/modules/core/limits';
+import { limitsFor } from '@/modules/core/limits-server';
 import { effectivePlan } from './usage.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { audit } from '@/modules/core/guardrails';
@@ -76,7 +77,7 @@ export const billingService = {
       messages: usage?.messages ?? 0,
       tokensIn: usage?.tokensIn ?? 0,
       tokensOut: usage?.tokensOut ?? 0,
-      limits: limitsForPlan(unlimited ? 'onprem' : plan),
+      limits: await limitsFor(unlimited ? 'onprem' : plan),
     };
   },
 

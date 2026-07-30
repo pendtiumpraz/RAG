@@ -219,6 +219,29 @@ export const openApiSpec = {
         responses: { 200: err('{ rows[], more, page }') },
       },
     },
+    '/api/admin/plan-quotas': {
+      get: {
+        summary: 'Kuota tiap paket — default kode + penimpa yang berlaku',
+        description: 'Angka kuota adalah keputusan BISNIS: berapa yang cukup menarik tanpa '
+          + 'membuat orang betah gratis selamanya hanya bisa dijawab dengan mencoba lalu '
+          + 'menyesuaikan. Menaruhnya di kode membuat tiap penyesuaian menuntut deploy — dan '
+          + 'penyesuaian yang mahal tak pernah dilakukan. Superadmin saja.',
+        security: [sessionAuth],
+        responses: { 200: err('{ defaults, overrides }') },
+      },
+      put: {
+        summary: 'Setel kuota paket (berlaku seketika)',
+        description: 'Kunci yang TIDAK disebut kembali ke default kode. Nilai `null` berarti '
+          + 'tanpa batas — Infinity tak punya padanan di JSON. Paket `onprem` sengaja DITOLAK '
+          + 'di sini dan diabaikan saat penerapan: batasnya server milik pelanggan, dan satu '
+          + 'salah ketik bisa mematikan pemasangan yang sudah mereka bayar sendiri.',
+        security: [sessionAuth],
+        requestBody: json(obj({
+          free: { type: 'object' }, pro: { type: 'object' }, enterprise: { type: 'object' },
+        })),
+        responses: { 200: err('{ ok, overrides }'), 400: err('nilai tak sah') },
+      },
+    },
     '/api/usage/storage': {
       get: {
         summary: 'Pemakaian penyimpanan terhadap kuota paket',

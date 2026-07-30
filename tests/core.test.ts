@@ -38,7 +38,11 @@ test('rate limiter token bucket', async () => {
   assert.equal(blocked.ok, false);
   assert.ok(blocked.retryAfterSec > 0);
   assert.equal(limitsForPlan('free').maxChatbots, 1);
-  assert.equal(limitsForPlan(undefined).messagesPerMonth, 1000);
+  // Plan tak dikenal / kosong JATUH ke free — bukan ke tanpa batas. Nilai
+  // free-nya sendiri keputusan bisnis yang bisa berubah, jadi yang diuji
+  // adalah kesetaraannya, bukan angkanya.
+  assert.equal(limitsForPlan(undefined).messagesPerMonth, limitsForPlan('free').messagesPerMonth);
+  assert.ok(Number.isFinite(limitsForPlan('free').messagesPerMonth), 'free tak boleh tanpa batas');
   assert.equal(estimateTokens('abcd'.repeat(10)), 10);
 });
 

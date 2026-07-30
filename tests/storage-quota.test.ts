@@ -123,8 +123,11 @@ test('terjemahan kuota ke satuan manusia konsisten', async () => {
   // Terjemahannya dihitung, bukan diketik: kalau kuotanya diubah, angka di UI
   // dan kalkulator ikut sendiri dan tak ada dua layar yang berselisih.
   assert.equal(Math.round(pro / CHUNKS_PER_DOC), pro / 10);
-  assert.ok(pro * BYTES_PER_CHUNK > 10e6 && pro * BYTES_PER_CHUNK < 300e6,
-    'perkiraan ukuran basis data Pro di luar rentang yang masuk akal untuk chatbot landing page');
+  // Batas atasnya saja yang dijaga: kuota kecil adalah keputusan bisnis yang
+  // sah (Free sengaja dibuat tanggung), sedangkan kuota BESAR pada SaaS
+  // adalah biaya yang tak bisa diperkirakan.
+  assert.ok(pro * BYTES_PER_CHUNK < 300e6,
+    'kuota Pro terlalu besar untuk chatbot landing page');
 });
 
 /* ── slide tak boleh tertinggal dari kode ──────────────────────────── */

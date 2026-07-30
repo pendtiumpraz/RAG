@@ -114,6 +114,7 @@ export default function BillingPage() {
       </div>
 
       {session?.user?.role === 'superadmin' && <PaymentSettings />}
+      {session?.user?.role === 'superadmin' && <PlanQuotas />}
       {session?.user?.role === 'superadmin' && <AllTenants />}
     </>
   );
@@ -412,5 +413,132 @@ function PlanDrawer({ tenant, plans, onClose, onSaved }: {
         </div>
       </aside>
     </>
+  );
+}
+
+/* ── kuota plan (superadmin) ─────────────────────────────────────────
+   Angka kuota adalah keputusan BISNIS: berapa yang cukup menarik tanpa
+   membuat orang betah gratis selamanya hanya bisa dijawab dengan mencoba,
+   mengamati, lalu menyesuaikan. Kalau tiap penyesuaian menuntut deploy, ia
+   tak akan pernah dilakukan. */
+
+interface QuotaResp {
+  defaults: Record<string, Record<string, number>>;
+  overrides: Record<string, Record<string, number | null>>;
+}
+
+/** Baris yang boleh disetel + namanya dalam bahasa manusia. */
+const BARIS: Array<{ k: string; t: string; n: string }> = [
+  { k: 'messagesPerMonth', t: 'Pesan / bulan', n: 'giliran chat yang dihitung ke kuota' },
+  { k: 'maxChunks', t: 'Potongan dokumen', n: '±10 potongan = 1 dokumen pendek' },
+  { k: 'maxKnowledgeBases', t: 'Knowledge base', n: 'kumpulan sumber terpisah' },
+  { k: 'maxChatbots', t: 'Chatbot', n: 'widget yang bisa ditanam' },
+  { k: 'maxMembers', t: 'Anggota tim', n: 'kursi aktif + undangan berlaku' },
+  { k: 'chatBurst', t: 'Laju (burst)', n: 'permintaan beruntun sebelum ditahan' },
+];
+
+const PAKET = ['free', 'pro', 'enterprise'] as const;
+const NAMA: Record<string, string> = { free: 'Free', pro: 'Pro', enterprise: 'Enterprise' };
+
+function PlanQuotas() {
+  const q = useApi<QuotaResp>('/api/admin/plan-quotas');
+  const [draft, setDraft] = useState<Record<string, Record<string, string>>>({});
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  /** Nilai yang BERLAKU: penimpa bila ada, selain itu default kode. */
+  function berlaku(plan: string, k: string): string {
+    const d = draft[plan]?.[k];
+    if (d !== undefined) return d;
+    const o = q.data?.overrides?.[plan]?.[k];
+    if (o === null) return '∞';
+    if (typeof o === 'number') return String(o);
+    const def = q.data?.defaults?.[plan]?.[k];
+    return def === undefined ? '' : (def === null || !Number.isFinite(def) ? '∞' : String(def));
+  }
+
+  async function simpan() {
+    setBusy(true);
+    try {
+      // Hanya yang DISENTUH yang dikirim. Kunci yang tak disebut kembali ke
+      // default kode — jadi mengosongkan kolom adalah cara mengembalikannya.
+      const body: Record<string, Record<string, number | null>> = {};
+      for (const p of PAKET) {
+        for (const b of BARIS) {
+          const v = draft[p]?.[b.k];
+          if (v === undefined) continue;
+          const bersih = v.trim();
+          if (bersih === '') continue;                       // dikosongkan → default
+          body[p] ??= {};
+          body[p][b.k] = bersih === '∞' || /^tak/i.test(bersih) ? null : Number(bersih);
+        }
+      }
+      await api('/api/admin/plan-quotas', { method: 'PUT', body: JSON.stringify(body) });
+      toast('Kuota disimpan — berlaku seketika');
+      setDraft({}); q.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head">
+        <span className="t">kuota paket</span>
+        <span className="microlabel">BERLAKU SEKETIKA · TANPA DEPLOY</span>
+      </div>
+      <div className="card-pad stack gap-4">
+        <p className="sub" style={{ margin: 0 }}>
+          Kosongkan sebuah kolom untuk mengembalikannya ke nilai bawaan kode.
+          Tulis <b>∞</b> untuk tanpa batas. Paket <b>On-Premise</b> tak ada di sini
+          dengan sengaja: batasnya server milik pelanggan, dan satu salah ketik
+          bisa mematikan pemasangan yang sudah mereka bayar sendiri.
+        </p>
+
+        {q.error ? <ErrorState message={q.error} onRetry={q.refetch} />
+          : q.loading ? <Skeleton rows={4} />
+          : (
+            <div className="table-wrap"><table className="table">
+              <thead><tr>
+                <th>Kuota</th>
+                {PAKET.map((p) => <th key={p}>{NAMA[p]}</th>)}
+              </tr></thead>
+              <tbody>
+                {BARIS.map((b) => (
+                  <tr key={b.k}>
+                    <td>
+                      <b>{b.t}</b>
+                      <div className="microlabel" style={{ marginTop: 2 }}>{b.n}</div>
+                    </td>
+                    {PAKET.map((p) => (
+                      <td key={p}>
+                        <input
+                          className="input mono" style={{ width: 110, textAlign: 'right' }}
+                          value={berlaku(p, b.k)}
+                          onChange={(e) => setDraft((s) => ({
+                            ...s, [p]: { ...(s[p] ?? {}), [b.k]: e.target.value },
+                          }))}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
+
+        <div className="cluster gap-2">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={simpan}>
+            Simpan kuota
+          </button>
+          {Object.keys(draft).length > 0 && (
+            <button className="btn btn-ghost" onClick={() => setDraft({})}>Batalkan perubahan</button>
+          )}
+        </div>
+
+        <p className="microlabel">
+          KUOTA YANG MENOLAK TANPA MENJELASKAN TAK DIBACA SEBAGAI BATAS, MELAINKAN SEBAGAI
+          PRODUK YANG RUSAK — PENOLAKANNYA MENYEBUT SEBAB DAN JALAN KELUARNYA (KODE 402).
+        </p>
+      </div>
+    </div>
   );
 }

@@ -55,50 +55,67 @@ export const CHUNKS_PER_DOC = 10;
  * hati; ia mengundang pemakaian yang tak pernah jadi pendapatan, dan biayanya
  * ditanggung platform.
  *
- * Terjemahan tiap angka (rasio teks 2%, ±10 potongan per dokumen):
+ * Terjemahan tiap angka (±10 potongan per dokumen, ±680 karakter per potongan):
  *
- *   1.000 potongan  ≈ 100 dokumen · ±680 KB teks · ±34 MB berkas · ±10 MB DB
- *  15.000 potongan  ≈ 1.500 dokumen · ±10 MB teks · ±510 MB berkas · ±147 MB DB
- * 150.000 potongan  ≈ 15.000 dokumen · ±102 MB teks · ±5 GB berkas · ±1,5 GB DB
+ *      10 potongan  ≈   1 dokumen pendek ·  ±7 KB teks · ±29 KB di basis data
+ *     100 potongan  ≈  10 dokumen        · ±68 KB teks · ±290 KB di basis data
+ *   1.000 potongan  ≈ 100 dokumen        ·  ±0,7 MB teks · ±2,9 MB di basis data
  *
- * Yang butuh lebih dari itu bukan pelanggan SaaS, melainkan pelanggan
- * on-premise — dan di sana batasnya server mereka sendiri.
+ * ANGKA-ANGKA INI HANYA DEFAULT. Sejak migrasi 0036 superadmin bisa
+ * menyetelnya dari panel Billing tanpa deploy — karena berapa yang cukup
+ * menarik tanpa membuat orang betah gratis selamanya hanya bisa dijawab
+ * dengan mencoba, mengamati, lalu menyesuaikan.
  *
- * `onprem` sengaja TANPA BATAS pada semuanya: memaksakan kuota buatan di atas
- * perangkat yang sudah mereka bayar hanya akan terasa mengada-ada.
+ * `onprem` sengaja TANPA BATAS pada semuanya, dan satu-satunya yang tak bisa
+ * ditimpa jadi berhingga: memaksakan kuota buatan di atas perangkat yang
+ * sudah mereka bayar hanya akan terasa mengada-ada.
  */
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free: {
-    messagesPerMonth: 1_000, chatBurst: 10, chatRefillPerSec: 0.5,
-    maxChatbots: 1, maxMembers: 2,
-    // Satu knowledge base, ±100 dokumen. Profil perusahaan + katalog + FAQ
-    // muat dengan longgar — cukup untuk membuktikan produknya bekerja pada
-    // dokumen sungguhan, jauh dari cukup untuk memindahkan arsip perusahaan.
-    maxKnowledgeBases: 1, maxChunks: 1_000,
+    /* FREE ADALAH RUANG COBA, BUKAN PAKET PEMAKAIAN — dan itu keputusan
+       sadar. Angkanya sengaja dibuat tanggung: cukup untuk MELIHAT produknya
+       bekerja pada dokumen sungguhan, tak cukup untuk memakainya.
+
+       Yang harus dijaga agar keputusan ini tak berbalik jadi kerugian:
+       pesan penolakannya harus MENYEBUT sebabnya dan menawarkan jalan
+       keluarnya (QuotaError → 402, bukan galat generik). Batas yang menolak
+       tanpa menjelaskan tak dibaca sebagai batas, melainkan sebagai produk
+       yang rusak. */
+    messagesPerMonth: 10, chatBurst: 5, chatRefillPerSec: 0.2,
+    maxChatbots: 1, maxMembers: 1,
+    // ±1 dokumen pendek. Sengaja: satu berkas cukup membuktikan jawabannya
+    // benar-benar bersumber dari dokumen yang diunggah.
+    maxKnowledgeBases: 1, maxChunks: 10,
   },
   pro: {
-    messagesPerMonth: 50_000, chatBurst: 40, chatRefillPerSec: 5,
+    messagesPerMonth: 5_000, chatBurst: 40, chatRefillPerSec: 5,
     maxChatbots: 10, maxMembers: 15,
-    // ±1.500 dokumen di 5 knowledge base — cukup untuk beberapa divisi dengan
-    // pengetahuannya masing-masing, yang memang bentuk pemakaian Pro.
-    maxKnowledgeBases: 5, maxChunks: 15_000,
+    // ±10 dokumen. Cukup untuk chatbot landing page yang sungguhan: profil
+    // perusahaan, katalog, daftar harga, FAQ.
+    maxKnowledgeBases: 5, maxChunks: 100,
   },
   enterprise: {
-    messagesPerMonth: Infinity, chatBurst: 120, chatRefillPerSec: 20,
+    messagesPerMonth: 50_000, chatBurst: 120, chatRefillPerSec: 20,
     maxChatbots: Infinity, maxMembers: Infinity,
-    // ±15.000 dokumen. BERHINGGA dengan sengaja: pada SaaS, penyimpanan tanpa
-    // batas berarti platform menanggung biaya yang tak bisa diperkirakan.
-    // Angkanya boleh dinaikkan per pelanggan lewat negosiasi — yang tak boleh
-    // adalah tak ada angkanya sama sekali.
-    maxKnowledgeBases: 25, maxChunks: 150_000,
+    // ±100 dokumen. BERHINGGA dengan sengaja: pada SaaS, kuota tanpa batas
+    // berarti platform menanggung biaya yang tak bisa diperkirakan. Angkanya
+    // dinaikkan per pelanggan lewat panel admin — yang tak boleh adalah tak
+    // ada angkanya sama sekali.
+    maxKnowledgeBases: 25, maxChunks: 1_000,
   },
   onprem: {
+    // SATU-SATUNYA yang tanpa batas, dan tak bisa ditimpa jadi berhingga
+    // (lihat limitsFor): di sana batasnya server milik pelanggan sendiri.
     messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40,
     maxChatbots: Infinity, maxMembers: Infinity,
     maxKnowledgeBases: Infinity, maxChunks: Infinity,
   },
 };
 
+
+/* Kuota EFEKTIF (default + penimpa admin) hidup di limits-server.ts —
+   berkas ini sengaja tak menyentuh basis data sama sekali, karena
+   konstantanya dipakai komponen klien di Dataroom. */
 export function limitsForPlan(plan: string | null | undefined): PlanLimits {
   return PLAN_LIMITS[plan ?? 'free'] ?? PLAN_LIMITS.free;
 }

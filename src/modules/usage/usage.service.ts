@@ -1,7 +1,8 @@
 import { sql, and, eq, isNull } from 'drizzle-orm';
 import { db, tenants, usageCounters } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { limitsForPlan, type PlanLimits } from '@/modules/core/limits';
+import { type PlanLimits } from '@/modules/core/limits';
+import { limitsFor } from '@/modules/core/limits-server';
 
 export class QuotaExceededError extends Error {
   constructor(public limit: number) {
@@ -68,7 +69,7 @@ export const usageService = {
       // platform, atau plan berbayar yang memang tanpa batas. Sebelumnya
       // operator hanya dibuka FITURnya di /api/entitlements sementara kuotanya
       // tetap `free` — terbuka pintunya, terkunci jatahnya.
-      limits: limitsForPlan(onprem || isPlatform ? 'onprem' : plan), period,
+      limits: await limitsFor(onprem || isPlatform ? 'onprem' : plan), period,
       messages: row?.messages ?? 0,
       tokensIn: row?.tokensIn ?? 0,
       tokensOut: row?.tokensOut ?? 0,

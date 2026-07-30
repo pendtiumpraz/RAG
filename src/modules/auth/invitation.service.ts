@@ -5,7 +5,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { hashPassword } from './password';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { audit } from '@/modules/core/guardrails';
-import { limitsForPlan } from '@/modules/core/limits';
+import { limitsFor } from '@/modules/core/limits-server';
 import { effectivePlan } from '@/modules/usage/usage.service';
 import type { AuthUser } from './auth.service';
 
@@ -160,7 +160,7 @@ export const invitationService = {
     // masuk sekaligus. D12: mode on-premise = kursi tanpa batas.
     const { platformSettingsService } = await import('@/modules/payments/platform-settings.service');
     const onprem = (await platformSettingsService.mode()) === 'onprem';
-    const limits = limitsForPlan(onprem ? 'onprem' : plan);
+    const limits = await limitsFor(onprem ? 'onprem' : plan);
     if (memberCount + pendingCount >= limits.maxMembers) {
       throw new ValidationError(
         `Kuota anggota plan "${plan}" penuh (${limits.maxMembers} kursi, terpakai `

@@ -538,6 +538,13 @@ export const platformSettings = pgTable('platform_settings', {
   smtpConfig: jsonb('smtp_config').$type<Record<string, string | number | boolean>>(),
   /** App password SMTP (AES-256-GCM) — tak pernah dibaca balik ke browser. */
   encryptedSmtpPassword: text('encrypted_smtp_password'),
+  /**
+   * Penimpa kuota per plan (migrasi 0036) — angka kuota adalah keputusan
+   * BISNIS yang perlu bisa disesuaikan tanpa deploy. NULL / kunci yang
+   * hilang = pakai default di core/limits.ts. `null` sebagai nilai berarti
+   * TANPA BATAS, karena Infinity tak punya padanan di JSON.
+   */
+  planQuotas: jsonb('plan_quotas').$type<Record<string, Record<string, number | null>>>(),
   ...stamps,
 });
 

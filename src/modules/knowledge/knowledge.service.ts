@@ -8,7 +8,8 @@ import { documentRepository as docs } from './document.repository';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { documentVectorsService } from './document-vectors.service';
 import { contentFingerprint, fingerprintable, nameSizeKey } from './dedupe';
-import { limitsForPlan, BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
+import { BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
+import { limitsFor } from '@/modules/core/limits-server';
 
 /** Chunker naif tapi solid: ~800 char, overlap ~120, pecah di batas kalimat. */
 export function chunkText(text: string, size = 800, overlap = 120): string[] {
@@ -153,7 +154,7 @@ async function assertChunkQuota(tenantId: string, tambahan: number): Promise<voi
 
   // Operator platform tak pernah dibatasi, sejalan dengan kuota lain.
   if (isPlatform) return;
-  const batas = limitsForPlan(plan).maxChunks;
+  const batas = (await limitsFor(plan)).maxChunks;
   if (batas === Infinity) return;
 
   const dipakai = await chunkUsage(tenantId);
@@ -180,7 +181,7 @@ export const knowledgeService = {
       const row = (r as unknown as Array<{ plan: string; is_platform: boolean }>)[0];
       return { plan: row?.plan ?? 'free', isPlatform: row?.is_platform === true };
     });
-    const l = limitsForPlan(plan);
+    const l = await limitsFor(plan);
     const chunks = await chunkUsage(tenantId);
     const kbs = await withTenant(tenantId, async (tx) => {
       const r = await tx.execute(sql`
