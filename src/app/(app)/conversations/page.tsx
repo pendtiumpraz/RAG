@@ -32,10 +32,40 @@ export default function ConversationsPage() {
   const tenantBots = useApi<Chatbot[]>(adminMode ? `/api/admin/conversations?tenantId=${tenantId}&chatbots=1` : null);
   const bots = adminMode ? tenantBots : ownBots;
 
+  /* Filter. `q` ditunda (debounce) supaya mengetik tak menembak satu
+     permintaan per huruf — pencarian ini menyentuh tabel messages. */
+  const [q, setQ] = useState('');
+  const [qDebounced, setQDebounced] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setQDebounced(q.trim()), 350);
+    return () => clearTimeout(t);
+  }, [q]);
+  /* Filter berubah = halaman balik ke 1. Tanpa ini, menyaring saat berada di
+     halaman 5 menampilkan daftar kosong padahal hasilnya ada di halaman 1. */
+  useEffect(() => { setPage(1); setActive(null); }, [qDebounced, from, to, chatbotId, tenantId]);
+
+  const filterQs = [
+    qDebounced ? `q=${encodeURIComponent(qDebounced)}` : '',
+    from ? `from=${from}` : '',
+    to ? `to=${to}` : '',
+  ].filter(Boolean).join('&');
+  const hasFilter = !!filterQs;
+
   const listUrl = adminMode
-    ? `/api/admin/conversations?tenantId=${tenantId}&page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}`
-    : `/api/conversations?page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}`;
+    ? `/api/admin/conversations?tenantId=${tenantId}&page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}${filterQs ? `&${filterQs}` : ''}`
+    : `/api/conversations?page=${page}${chatbotId ? `&chatbotId=${chatbotId}` : ''}${filterQs ? `&${filterQs}` : ''}`;
   const list = useApi<ConvoPage>(listUrl);
+
+  /** Ekspor menuruti filter yang sedang aktif — bukan seluruh riwayat. */
+  function exportCsv() {
+    const base = adminMode
+      ? `/api/admin/conversations?tenantId=${tenantId}&export=csv`
+      : '/api/conversations?export=csv';
+    const url = `${base}${chatbotId ? `&chatbotId=${chatbotId}` : ''}${filterQs ? `&${filterQs}` : ''}`;
+    window.location.href = url;
+  }
   const [active, setActive] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Message[] | null>(null);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
@@ -74,6 +104,43 @@ export default function ConversationsPage() {
             {bots.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
         </div>
+      </div>
+
+      {/* Baris filter — satu baris di atas daftar, sesuai pola halaman lain. */}
+      <div className="card card-pad" style={{ marginBottom: 'var(--sp-4)' }}>
+        <div className="cluster gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div className="field" style={{ flex: '1 1 260px', minWidth: 220 }}>
+            <label>Cari isi percakapan</label>
+            <input className="input" value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="kata yang diingat muncul di percakapan…" />
+          </div>
+          <div className="field" style={{ width: 160 }}>
+            <label>Dari tanggal</label>
+            <input className="input" type="date" value={from} max={to || undefined}
+              onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="field" style={{ width: 160 }}>
+            <label>Sampai tanggal</label>
+            <input className="input" type="date" value={to} min={from || undefined}
+              onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <div className="cluster gap-2">
+            {hasFilter && (
+              <button className="btn" onClick={() => { setQ(''); setFrom(''); setTo(''); }}>Bersihkan</button>
+            )}
+            <button className="btn" onClick={exportCsv} disabled={!list.data?.total}>
+              Ekspor CSV{hasFilter ? ' (tersaring)' : ''}
+            </button>
+          </div>
+        </div>
+        {/* Angka hasil disebut apa adanya: pencarian yang tak menemukan apa pun
+            harus terlihat sebagai "0 hasil", bukan sebagai daftar yang rusak. */}
+        {list.data && (
+          <p className="microlabel" style={{ margin: '10px 0 0' }}>
+            {list.data.total} PERCAKAPAN{hasFilter ? ' COCOK FILTER' : ''}
+            {qDebounced ? ' · PENCARIAN MENYENTUH ISI SETIAP PESAN, BUKAN HANYA PREVIEW' : ''}
+          </p>
+        )}
       </div>
 
       <div className="card" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', minHeight: 480 }}>

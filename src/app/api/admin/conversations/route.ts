@@ -18,10 +18,33 @@ export const GET = superadminRoute(async (req) => {
   if (q.get('chatbots') === '1') {
     return NextResponse.json(await adminConversationsService.chatbots(tenantId));
   }
+  // Filter dibaca dengan aturan yang sama seperti jalur tenant: `to` = akhir
+  // hari, kalau tidak rentang satu hari selalu kosong.
+  const term = q.get('q')?.trim();
+  const fromRaw = q.get('from');
+  const toRaw = q.get('to');
+  const filter: { q?: string; from?: Date; to?: Date } = {};
+  if (term) filter.q = term.slice(0, 200);
+  if (fromRaw) { const d = new Date(fromRaw); if (!Number.isNaN(+d)) filter.from = d; }
+  if (toRaw) { const d = new Date(toRaw); if (!Number.isNaN(+d)) { d.setHours(23, 59, 59, 999); filter.to = d; } }
+
+  if (q.get('export') === 'csv') {
+    const csv = await adminConversationsService.exportCsv(tenantId, q.get('chatbotId') || null, filter);
+    const stamp = new Date().toISOString().slice(0, 10);
+    return new NextResponse(`﻿${csv}`, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="percakapan-${stamp}.csv"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
   return NextResponse.json(await adminConversationsService.conversations(
     tenantId,
     q.get('chatbotId') || null,
     Number(q.get('page')) || 1,
     Number(q.get('pageSize')) || 25,
+    filter,
   ));
 });

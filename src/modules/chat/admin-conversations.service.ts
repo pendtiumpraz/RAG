@@ -1,5 +1,30 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/modules/core/db';
+import { csvCell } from './conversation.service';
+/**
+ * Fragmen filter untuk pandangan lintas-tenant.
+ *
+ * Aturannya HARUS sama dengan `filterConds()` di conversation.repository —
+ * kalau menyimpang, superadmin dan tenant akan melihat hasil berbeda untuk
+ * pencarian yang sama, dan yang salah tak akan pernah ketahuan sampai ada
+ * yang membandingkan keduanya. Ditulis terpisah karena pandangan ini memakai
+ * SQL mentah dengan alias `c`, bukan query builder.
+ *
+ * Tanggal dikirim sebagai string ISO: driver menolak objek Date pada query
+ * mentah — jebakan yang sudah tercatat di ops.service dan usage.breakdown.
+ */
+function adminFilter(f: { q?: string; from?: Date; to?: Date }) {
+  const parts: ReturnType<typeof sql>[] = [];
+  if (f.from) parts.push(sql`and c.started_at >= ${f.from.toISOString()}`);
+  if (f.to) parts.push(sql`and c.started_at <= ${f.to.toISOString()}`);
+  if (f.q?.trim()) {
+    const like = `%${f.q.trim().replace(/[%_]/g, (m) => `\\${m}`)}%`;
+    parts.push(sql`and exists (select 1 from messages m
+      where m.conversation_id = c.id and m.deleted_at is null and m.content ilike ${like})`);
+  }
+  return parts.length ? sql.join(parts, sql` `) : sql``;
+}
+
 
 /**
  * CONVERSATIONS LINTAS-TENANT — pandangan platform utk SUPERADMIN:
@@ -33,7 +58,7 @@ export const adminConversationsService = {
   },
 
   /** Daftar sesi tenant itu (opsional per chatbot), berhalaman. */
-  async conversations(tenantId: string, chatbotId: string | null, page = 1, pageSize = 25) {
+  async conversations(tenantId: string, chatbotId: string | null, page = 1, pageSize = 25, f: { q?: string; from?: Date; to?: Date } = {}) {
     const limit = Math.min(Math.max(pageSize, 1), 100);
     const offset = (Math.max(page, 1) - 1) * limit;
     return withPlatformAdmin(async (tx) => {
@@ -52,6 +77,7 @@ export const adminConversationsService = {
         left join chatbots b on b.id = c.chatbot_id
         where c.tenant_id = ${tenantId} and c.deleted_at is null
           ${chatbotId ? sql`and c.chatbot_id = ${chatbotId}` : sql``}
+          ${adminFilter(f)}
         order by c.started_at desc
         limit ${limit} offset ${offset}
       `));
@@ -59,6 +85,7 @@ export const adminConversationsService = {
         select count(*)::int as n from conversations c
         where c.tenant_id = ${tenantId} and c.deleted_at is null
           ${chatbotId ? sql`and c.chatbot_id = ${chatbotId}` : sql``}
+          ${adminFilter(f)}
       `));
       const total = Number(totalRow[0]?.n ?? 0);
       return {
@@ -70,6 +97,48 @@ export const adminConversationsService = {
         total, page: Math.max(page, 1), pageSize: limit,
         pages: Math.max(1, Math.ceil(total / limit)),
       };
+    });
+  },
+
+  /**
+   * Ekspor CSV lintas-tenant — satu baris per pesan, memakai csvCell() yang
+   * SAMA dengan jalur tenant supaya penjagaan CSV injection-nya tak menyimpang.
+   */
+  async exportCsv(tenantId: string, chatbotId: string | null, f: { q?: string; from?: Date; to?: Date }) {
+    const MAX = 1000;
+    return withPlatformAdmin(async (tx) => {
+      const list = rows<{
+        id: string; chatbot_name: string; visitor_id: string | null; started_at: string;
+        role: string; content: string; created_at: string; seq: number;
+      }>(await tx.execute(sql`
+        with pilih as (
+          select c.id, coalesce(b.name, '(chatbot terhapus)') as chatbot_name,
+                 c.visitor_id, c.started_at
+          from conversations c
+          left join chatbots b on b.id = c.chatbot_id
+          where c.tenant_id = ${tenantId} and c.deleted_at is null
+            ${chatbotId ? sql`and c.chatbot_id = ${chatbotId}` : sql``}
+            ${adminFilter(f)}
+          order by c.started_at desc
+          limit ${MAX}
+        )
+        select p.id, p.chatbot_name, p.visitor_id, p.started_at,
+               m.role, m.content, m.created_at,
+               row_number() over (partition by p.id order by m.created_at) as seq
+        from pilih p
+        join messages m on m.conversation_id = p.id and m.deleted_at is null
+        order by p.started_at desc, m.created_at asc
+      `));
+
+      const head = ['percakapan_id', 'chatbot', 'pengunjung', 'dimulai', 'urutan', 'peran', 'waktu', 'isi'];
+      const lines = [head.join(',')];
+      for (const r of list) {
+        lines.push([
+          r.id, r.chatbot_name, r.visitor_id ?? '', String(r.started_at),
+          String(r.seq), r.role, String(r.created_at), r.content ?? '',
+        ].map(csvCell).join(','));
+      }
+      return lines.join('\r\n');
     });
   },
 
