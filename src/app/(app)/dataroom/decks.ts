@@ -350,6 +350,11 @@ const diskFor = (gbText: number) =>
   (chunksFor(gbText) * (BYTES_ROW + BYTES_IDX) * OVERHEAD) / 1024 ** 3;
 /** GB teks → RAM yang dibutuhkan indeks HNSW agar tetap residen, dalam GB. */
 const ramFor = (gbText: number) => (chunksFor(gbText) * BYTES_IDX) / 1024 ** 3;
+/** Indeks berdimensi asli — TERUKUR 4,07x lebih kecil setelah migrasi 0028. */
+const BYTES_IDX_OPT = Math.round(BYTES_IDX / 4.07);
+/** Disk SESUDAH optimasi: indeksnya mengecil, kolomnya tidak. */
+const diskFor2 = (gbText: number) =>
+  (chunksFor(gbText) * (BYTES_ROW + BYTES_IDX_OPT) * OVERHEAD) / 1024 ** 3;
 
 const gb = (n: number) => `${Math.round(n).toLocaleString('id-ID')} GB`;
 const jt = (n: number) => `Rp ${n.toLocaleString('id-ID')} jt`;
@@ -389,22 +394,22 @@ const proposal: Slide[] = [
     ],
     note: 'Dasar hitungan: 8.189 byte/potongan TERUKUR di basis data produksi (pg_column_size), + indeks HNSW 6,4 kB, + cadangan 40% utk WAL & autovacuum. Indeks harus residen di RAM agar pencarian tetap di bawah satu detik.' },
 
-  { kind: 'table', kicker: 'OPTIMASI WAJIB', title: 'Satu penyetelan yang memangkas kebutuhan hampir tiga kali',
+  { kind: 'table', kicker: 'OPTIMASI TERPASANG', title: 'Indeks berdimensi asli — RAM 4× lebih kecil, hasil tak berubah sedikit pun',
     small: true,
-    headers: ['Teks', 'Disk — apa adanya', 'Disk — teroptimasi', 'RAM — apa adanya', 'RAM — teroptimasi'],
+    headers: ['Teks', 'RAM sebelum', 'RAM sesudah', 'Disk sebelum', 'Disk sesudah'],
     rows: [
-      ['10 GB', gb(diskFor(10)), gb(diskFor(10) / 2.7), gb(ramFor(10)), gb(ramFor(10) / 3.6)],
-      ['20 GB', gb(diskFor(20)), gb(diskFor(20) / 2.7), gb(ramFor(20)), gb(ramFor(20) / 3.6)],
-      ['30 GB', gb(diskFor(30)), gb(diskFor(30) / 2.7), gb(ramFor(30)), gb(ramFor(30) / 3.6)],
+      ['10 GB', gb(ramFor(10)), gb(ramFor(10) / 4.07), gb(diskFor(10)), gb(diskFor2(10))],
+      ['20 GB', gb(ramFor(20)), gb(ramFor(20) / 4.07), gb(diskFor(20)), gb(diskFor2(20))],
+      ['30 GB', gb(ramFor(30)), gb(ramFor(30) / 4.07), gb(diskFor(30)), gb(diskFor2(30))],
     ],
-    note: 'Kolom vektor saat ini berukuran tetap 1.536 dimensi, sementara model embedding yang dipakai menghasilkan 384 dimensi — sisanya diisi NOL. Menyesuaikan kolom ke dimensi asli memangkas disk ±2,7× dan RAM ±3,6×. WAJIB dikerjakan SEBELUM ingest pertama: mengubahnya setelah jutaan potongan masuk berarti menghitung ulang seluruh embedding dari nol. Sudah masuk rencana kerja kami dan TIDAK ditagihkan terpisah.' },
+    note: 'SUDAH TERPASANG, bukan rencana. Model embedding menghasilkan 384 dimensi tetapi kolomnya berukuran tetap 1.536 — sisanya nol. Karena nol tak menyumbang apa pun pada perhitungan jarak, indeks cukup dibangun atas dimensi aslinya: hasil pencarian IDENTIK (diverifikasi selisih persis 0 terhadap data nyata), sementara indeksnya 4,07× lebih kecil. Perhatikan disk hanya turun ±1,5×: yang mengecil adalah indeksnya, sedangkan kolomnya masih menyimpan padding — itu memang disengaja, karena RAM-lah yang menentukan kelas server, dan disk jauh lebih murah daripada waktu re-embed jutaan potongan.' },
 
   { kind: 'table', kicker: 'SPESIFIKASI SERVER', title: 'Server yang kami rekomendasikan',
     small: true,
     headers: ['Komponen', 'Minimum', 'Direkomendasikan', 'Catatan'],
     rows: [
       ['CPU', '16 core', '32 core', 'ingest awal & embedding memakai seluruh core'],
-      ['RAM', '128 GB', '256 GB', 'indeks vektor WAJIB residen — batas yang paling menentukan; 128 GB cukup SETELAH optimasi dimensi'],
+      ['RAM', '64 GB', '128 GB', '64 GB cukup sampai ±25 GB teks; 128 GB menutup perkiraan atas (69 GB) dengan ruang lega'],
       ['Disk data', '1 TB NVMe', '2 TB NVMe', 'bukan HDD: pencarian vektor sensitif pada IOPS acak'],
       ['Disk backup', '2 TB', '4 TB (terpisah)', 'snapshot Postgres + WAL archive'],
       ['GPU (opsional)', 'tidak perlu', 'RTX 4090 24GB', 'hanya bila LLM ikut dijalankan lokal'],
@@ -417,9 +422,9 @@ const proposal: Slide[] = [
     small: true,
     headers: ['Rancangan', 'Yang residen di RAM', 'RAM', 'Disk', 'Status'],
     rows: [
-      ['Datar — semua potongan satu indeks', 'seluruh 47 jt vektor', '282 GB', '901 GB', 'berjalan hari ini'],
-      ['Dimensi asli (tanpa padding)', 'seluruh 47 jt vektor, 4× lebih kecil', '79 GB', '332 GB', 'siap dikerjakan'],
-      ['BERTINGKAT — indeks di level dokumen', 'hanya ±200 rb vektor dokumen', '1–3 GB', '221 GB', 'dirancang, belum dibangun'],
+      ['Datar 1.536 dim — sebelum optimasi', 'seluruh 47 jt vektor', '282 GB', '901 GB', 'ditinggalkan'],
+      ['Datar dimensi asli — TERPASANG', 'seluruh 47 jt vektor, 4× lebih kecil', '69 GB', '603 GB', 'berjalan hari ini'],
+      ['BERTINGKAT — indeks di level dokumen', 'hanya ±200 rb vektor dokumen', '1–3 GB', '603 GB', 'dirancang, belum dibangun'],
     ],
     note: 'Berkas asli SELALU tinggal di SharePoint — tak pernah disalin. Yang dibahas di sini hanya indeks pencariannya. Pada rancangan bertingkat, pencarian menyaring di tingkat DOKUMEN lebih dulu (indeks kecil, residen), lalu potongan dokumen terpilih dibaca dari disk sesuai kebutuhan — jadi RAM tak lagi tumbuh mengikuti besar korpus. Kejujuran yang perlu disampaikan: rancangan ini BELUM terpasang, dan ia menukar sedikit ketepatan (dokumen yang terlewat di tingkat pertama tak akan pernah dibaca di tingkat kedua) dengan penghematan yang sangat besar.' },
 
