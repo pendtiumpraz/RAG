@@ -63,8 +63,8 @@ const usd = (n: number) =>
    jadi menariknya dari API justru membuat dua salinan dokumen yang sama
    menampilkan angka berbeda. Perbarui satu baris ini sebelum penawaran —
    tanggalnya ikut tercetak di catatan kaki slide harga.               */
-const USD_IDR = 16_500;
-const RATE_AT = 'Jan 2026';
+const USD_IDR = 18_000;
+const RATE_AT = '30 Jul 2026';
 
 /** Rupiah ringkas: "Rp1,2 jt" / "Rp165 rb" — deck dibaca dari jauh, deret
  *  digit penuh tak terbaca dan tak menambah informasi apa pun. */
