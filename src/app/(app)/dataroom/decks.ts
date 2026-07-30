@@ -9,6 +9,7 @@
  * DIHITUNG di berkas ini (bukan diketik manual) dari skenario pemakaian yang
  * sama untuk semua provider — apples to apples.
  */
+import type { SceneId } from './scene-text';
 
 export type Slide =
   | { kind: 'cover'; kicker: string; title: string; subtitle: string; foot: string }
@@ -17,9 +18,15 @@ export type Slide =
   | { kind: 'stats'; kicker: string; title: string; stats: Array<{ v: string; l: string; n?: string }>; note?: string }
   | { kind: 'flow'; kicker: string; title: string; steps: Array<{ t: string; d?: string }>; note?: string }
   | { kind: 'table'; kicker: string; title: string; headers: string[]; rows: string[][]; note?: string; small?: boolean }
+  /**
+   * Slide ILUSTRASI beranimasi (dek HLA). Adegannya SVG + CSS murni di
+   * `scenes.tsx` — bukan gambar, jadi ia ikut menskala, ikut tema, dan tetap
+   * terbaca saat dicetak (animasinya mati, isinya tampil penuh).
+   */
+  | { kind: 'anim'; kicker: string; title: string; scene: SceneId; note?: string }
   | { kind: 'closing'; title: string; subtitle: string; foot: string };
 
-export interface Deck { id: 'technical' | 'business' | 'proposal'; label: string; slides: Slide[] }
+export interface Deck { id: 'hla' | 'technical' | 'business' | 'proposal'; label: string; slides: Slide[] }
 
 /* ── skenario biaya (dipakai SEMUA provider — apples to apples) ─────── */
 /** Per giliran chat RAG: ±3.000 token masuk (konteks retrieval + riwayat +
@@ -546,7 +553,80 @@ const proposal: Slide[] = [
     foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
 ];
 
+/* ══════════════════════════════════════════════════════════════════
+   HLA — DOKUMENTASI ARSITEKTUR BERANIMASI
+   ══════════════════════════════════════════════════════════════════
+
+   Dek ini menjelaskan CARA KERJA, bukan menjual. Sasarannya tim IT klien
+   dan siapa pun yang harus paham apa yang terjadi pada dokumen mereka.
+
+   Tiap slide ilustrasi memakai adegan SVG beranimasi di `scenes.tsx` —
+   bukan gambar diam dan bukan tangkapan layar, sehingga ia ikut menskala,
+   ikut tema terang/gelap, dan tetap terbaca saat dicetak jadi PDF. */
+const hla: Slide[] = [
+  { kind: 'cover', kicker: 'HIGH-LEVEL ARCHITECTURE', title: 'Cara Nalar Bekerja',
+    subtitle: 'Dari berkas di SharePoint sampai jawaban bersitasi — setiap tahap, dan apa yang terjadi pada dokumen Anda di dalamnya.',
+    foot: 'PT Sainskerta Solusi Nusantara · dokumentasi arsitektur' },
+
+  { kind: 'bullets', kicker: 'RINGKASAN', title: 'Dua jalur yang berbeda sama sekali',
+    bullets: [
+      'JALUR MASUK — berjalan saat sync, sekali per berkas. Berkas dibaca, teksnya diambil, dipotong, diubah jadi vektor, lalu disimpan. Mahal, tapi hanya sekali.',
+      'JALUR TANYA — berjalan tiap pertanyaan, dalam hitungan detik. Tak ada berkas yang dibaca ulang di sini; yang dicari adalah potongan yang sudah tersimpan.',
+      'Berkas ASLI tak pernah disalin ke mana pun. Ia tetap tinggal di Drive atau SharePoint Anda; yang tersimpan adalah teksnya, di basis data Anda sendiri.',
+      'Semua yang digambarkan di dek ini berjalan pada SATU basis kode yang sama untuk mode SaaS maupun on-premise — tak ada versi "yang dikurangi".',
+    ],
+    note: 'Memisahkan dua jalur ini penting untuk membaca biaya: yang menentukan tagihan bulanan adalah jalur tanya, sedangkan yang menentukan spesifikasi server adalah jalur masuk.' },
+
+  { kind: 'anim', kicker: 'JALUR MASUK', scene: 'ingest',
+    title: 'Dari berkas ke potongan yang bisa dicari',
+    note: 'Berkas memang harus diunduh — teks di dalam PDF tidak ada di metadata. Tapi ia hanya singgah di memori selama ekstraksi dan tak pernah ditulis ke disk. Yang tersimpan adalah teksnya: PDF 40 MB berisi 30 halaman menjadi sekitar 60 KB.' },
+
+  { kind: 'anim', kicker: 'REDUNDANSI', scene: 'dedupe',
+    title: 'Berkas kembar tak dibayar dua kali',
+    note: 'Berkas kembar dicatat dan ditampilkan, tidak dibuang diam-diam — kalau sebuah berkas hilang begitu saja, pemiliknya akan mengira sync-nya gagal, dan tak ada cara mengetahui bedanya. Lingkupnya satu knowledge base: dokumen yang sama sengaja boleh hidup di dua KB berbeda, karena masing-masing melayani chatbot divisi yang berbeda.' },
+
+  { kind: 'anim', kicker: 'JALUR TANYA', scene: 'legs',
+    title: 'Tiga cara mencari, satu jawaban',
+    note: 'Kaki vektor menangkap MAKNA ("aturan cuti" menemukan dokumen yang menyebut "hak istirahat tahunan"), kaki leksikal menangkap yang PERSIS (nomor kontrak, nama, kode pasal), kaki memory menangkap yang MENYELURUH. Ketiganya digabung dengan pemeringkatan gabungan, bukan dijumlahkan skornya — skor dari mesin pencari yang berbeda tak setara dan tak boleh dijumlahkan.' },
+
+  { kind: 'anim', kicker: 'DUA MODE', scene: 'tiers',
+    title: 'Mode hemat menyala sendiri, tak perlu dipilih',
+    note: 'Memilih mode retrieval menuntut penilaian yang pemilik data tak punya dasar untuk membuatnya, dan salah pilih berarti jawaban yang diam-diam kehilangan dokumen. Karena itu ambangnya ditentukan sistem saat memasukkan dokumen, bukan disodorkan sebagai saklar.' },
+
+  { kind: 'anim', kicker: 'PERILAKU JAWABAN', scene: 'policy',
+    title: 'Empat tuas per chatbot — termasuk rem anti-karangan',
+    note: 'Pada mode kepatuhan KETAT, pertanyaan yang jawabannya tak ada di dokumen dijawab "tidak ada di dokumen" — dan itu jawaban yang benar. Bot yang mengarang jawaban meyakinkan jauh lebih berbahaya daripada bot yang mengaku tak tahu.' },
+
+  { kind: 'anim', kicker: 'PENJAGA', scene: 'guardrails',
+    title: 'Lima lapis yang dilewati setiap pertanyaan',
+    note: 'Kelimanya berjalan pada tiap giliran, bukan hanya pada mode tertentu. Jejak audit di lapis kelima mencatat pertanyaan, jawaban, dan dokumen mana yang dipakai — sehingga setiap jawaban bisa ditelusuri kembali ke sumbernya, bahkan berbulan-bulan kemudian.' },
+
+  { kind: 'anim', kicker: 'ISOLASI', scene: 'rls',
+    title: 'Batas antar pelanggan dijaga database, bukan kode',
+    note: 'Perbedaannya besar: batas yang dijaga kode aplikasi bisa bocor karena satu kueri yang lupa menyaring. Batas yang dijaga database tak bisa — kebijakannya melekat pada tabel, dan aplikasi menyambung sebagai peran yang tak berhak melewatinya.' },
+
+  { kind: 'anim', kicker: 'MEMORY', scene: 'memory',
+    title: 'Ringkasan yang jadi peta pengetahuan',
+    note: 'Ringkasannya ditandai tegas sebagai tulisan AI. Model boleh memakainya untuk gambaran umum, tapi angka, tanggal, nama, dan nomor pasal SELALU wajib diambil dari teks asli — sebab ringkasan adalah tafsiran, bukan kutipan.' },
+
+  { kind: 'flow', kicker: 'RANGKUMAN', title: 'Satu pertanyaan, ujung ke ujung',
+    steps: [
+      { t: 'Pertanyaan masuk', d: 'widget, API, atau dashboard' },
+      { t: 'Penjaga & kuota', d: 'sanitasi + batas laju' },
+      { t: 'Cari tiga kaki', d: 'satu perjalanan database' },
+      { t: 'Susun konteks', d: '6 potongan terpilih' },
+      { t: 'Model menjawab', d: 'sesuai kebijakan chatbot' },
+      { t: 'Sitasi & audit', d: 'sumber ikut dikirim' },
+    ],
+    note: 'Seluruh rantai ini berjalan dalam hitungan detik, dan setiap mata rantainya tercatat — termasuk dokumen mana yang dipakai untuk menyusun jawaban.' },
+
+  { kind: 'closing', title: 'Tak ada kotak hitam.',
+    subtitle: 'Setiap jawaban bisa ditelusuri ke potongan dokumen yang melahirkannya, dan setiap tahap di dek ini berjalan di server yang Anda kendalikan.',
+    foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
+];
+
 export const DECKS: Deck[] = [
+  { id: 'hla', label: 'HLA — Cara Nalar Bekerja', slides: hla },
   { id: 'technical', label: 'Pitch Deck — Technical', slides: technical },
   { id: 'business', label: 'Pitch Deck — Business', slides: business },
   { id: 'proposal', label: 'Proposal — On-Premise 1 TB', slides: proposal },

@@ -1,4 +1,5 @@
 import type { Deck, Slide } from './decks';
+import { SCENE_STEPS } from './scene-text';
 
 /**
  * Ekspor PPTX — dibangun dari MODEL DATA yang sama dengan renderer DOM,
@@ -96,6 +97,25 @@ function addSlide(pptx: Pptx, s: Slide): void {
       sl.addText(st.t, { x: x + 0.18, y: 3.2, w: w - 0.36, h: 0.7, fontSize: 13.5, bold: true, color: INK });
       if (st.d) sl.addText(st.d, { x: x + 0.18, y: 3.9, w: w - 0.36, h: 0.9, fontSize: 10, color: MUTED });
       if (i < n - 1) sl.addText('→', { x: x + w + 0.05, y: 3.4, w: 0.5, h: 0.5, fontSize: 18, color: AMBER, align: 'center' });
+    });
+    return;
+  }
+
+  if (s.kind === 'anim') {
+    /* PPTX tak bisa membawa SVG beranimasi. Diekspor sebagai padanan TEKS
+       (scene-text.ts) — dua kolom kartu — sehingga slide yang di layar paling
+       jelas tidak jadi slide yang di PowerPoint paling kosong. */
+    const steps = SCENE_STEPS[s.scene];
+    steps.forEach((st, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 0.75 + col * 6.05, y = 2.0 + row * 1.5;
+      sl.addShape('roundRect', {
+        x, y, w: 5.8, h: 1.32, rectRadius: 0.08,
+        fill: { color: CARD }, line: { color: LINE, width: 1 },
+      });
+      sl.addShape('rect', { x, y, w: 0.06, h: 1.32, fill: { color: BLUE }, line: { width: 0 } });
+      sl.addText(st.t, { x: x + 0.24, y: y + 0.12, w: 5.4, h: 0.34, fontSize: 13, bold: true, color: INK });
+      sl.addText(st.d, { x: x + 0.24, y: y + 0.46, w: 5.4, h: 0.78, fontSize: 10, color: MUTED });
     });
     return;
   }

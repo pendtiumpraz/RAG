@@ -1,0 +1,84 @@
+/**
+ * PADANAN TEKS tiap adegan HLA.
+ *
+ * Ada dua alasan berkas ini terpisah dari `scenes.tsx`:
+ *
+ *  1. PPTX tak bisa membawa SVG beranimasi. Tanpa padanan teks, slide
+ *     ilustrasi akan terekspor KOSONG — dek yang di layar paling jelas justru
+ *     jadi dek yang di PowerPoint paling hampa.
+ *  2. `export.ts` bukan komponen React; mengimpor berkas ber-JSX ke sana akan
+ *     menyeret seluruh pohon render ke jalur ekspor tanpa alasan.
+ *
+ * Isinya bukan keterangan gambar, melainkan ISI yang sama disampaikan lewat
+ * kata — dibaca sendiri pun utuh.
+ */
+
+export type SceneId =
+  | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory';
+
+export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
+  ingest: [
+    { t: 'Listing', d: 'Metadata saja — nama, ukuran, versi. Belum ada berkas yang ditarik.' },
+    { t: 'Unduh', d: 'Berkas dibaca ke memori. Teks di dalam PDF tak ada di metadata, jadi tahap ini tak bisa dilewati.' },
+    { t: 'Ekstrak teks', d: 'PDF dan DOCX diubah jadi teks polos. Berkas aslinya lalu dilepas — tak pernah ditulis ke disk.' },
+    { t: 'Potong', d: 'Teks dipecah jadi potongan ±800 karakter di batas kalimat.' },
+    { t: 'Embed', d: 'Tiap potongan diubah jadi vektor — inilah yang membuat pencarian memahami makna, bukan hanya kata.' },
+    { t: 'Simpan', d: 'Teks + vektor masuk basis data. Berkas asli tetap tinggal di Drive/SharePoint Anda.' },
+  ],
+  dedupe: [
+    { t: 'Lapis 1 — nama + ukuran', d: 'Dinilai dari listing, SEBELUM mengunduh. Berkas yang sama disalin ke folder lain langsung dilewati.' },
+    { t: 'Batasnya', d: 'Lapis ini luput pada salinan yang di-rename — bentuk redundansi paling lazim di Drive dan SharePoint.' },
+    { t: 'Lapis 2 — sidik jari isi', d: 'sha256 atas teks hasil ekstraksi. Menangkap salinan yang di-rename dan berkas sama berformat berbeda.' },
+    { t: 'Sekaligus mengoreksi lapis 1', d: 'Dua berkas yang kebetulan senama-seukuran tapi isinya beda tetap masuk keduanya.' },
+    { t: 'Yang dihemat', d: 'Bukan unduhannya — melainkan embedding dan penyimpanan vektor, bagian yang menentukan spesifikasi server.' },
+    { t: 'Kembar dicatat', d: 'Ditampilkan beserta alasannya, tidak dibuang diam-diam: berkas yang lenyap tanpa jejak tak bisa dibedakan dari sync yang gagal.' },
+  ],
+  legs: [
+    { t: 'Kaki vektor', d: 'Mencari berdasarkan MAKNA — "aturan cuti" menemukan dokumen yang menyebut "hak istirahat tahunan".' },
+    { t: 'Kaki leksikal', d: 'Mencari yang PERSIS — nomor kontrak, nama orang, kode pasal. Yang lemah di pencarian makna.' },
+    { t: 'Kaki memory', d: 'Mencari di ringkasan tingkat dokumen — menjawab pertanyaan bergambaran luas.' },
+    { t: 'Penggabungan peringkat', d: 'Ketiganya digabung lewat PERINGKAT, bukan penjumlahan skor: skor dari mesin pencari berbeda tak setara.' },
+    { t: 'Penyaringan', d: 'Potongan kembar dibuang, lalu keragaman ditata supaya konteks tak berisi enam kalimat yang mirip.' },
+    { t: 'Jaring pengaman', d: 'Kaki leksikal TAK PERNAH ikut disaring mode hemat — pencarian nomor & nama selalu menyapu seluruh korpus.' },
+  ],
+  tiers: [
+    { t: 'Mode langsung', d: 'Seluruh potongan berada dalam satu indeks. Cara paling teliti, dipakai selama korpus masih kecil.' },
+    { t: 'Batasnya', d: 'Kebutuhan memori tumbuh mengikuti besar korpus — pada 1 TB itu berarti 282 GB sebelum optimasi.' },
+    { t: 'Mode bertingkat', d: 'Yang residen di memori hanya satu vektor per DOKUMEN; potongannya dibaca dari disk sesuai kebutuhan.' },
+    { t: 'Hasilnya', d: '282 GB → 69 GB (dimensi asli, terpasang & terukur) → 1–3 GB (bertingkat, terpasang).' },
+    { t: 'Menyala sendiri', d: 'Ambangnya ditentukan sistem saat memasukkan dokumen. Tak ada mode yang perlu dipilih siapa pun.' },
+    { t: 'Kenapa tak jadi saklar', d: 'Memilih mode retrieval menuntut penilaian yang pemilik data tak punya dasar untuk membuatnya, dan salah pilih berarti jawaban yang diam-diam kehilangan dokumen.' },
+  ],
+  policy: [
+    { t: 'Bahasa', d: 'Ikut bahasa penanya (dinilai per pesan), atau dikunci ke Indonesia / Inggris.' },
+    { t: 'Kepatuhan sumber', d: 'Ketat = tak ada di dokumen berarti bot menjawab "tidak ada". Itu jawaban yang benar.' },
+    { t: 'Nada', d: 'Formal, ramah, ringkas, atau teknis — disetel per chatbot, bukan per perusahaan.' },
+    { t: 'Kreativitas', d: 'Default 0,2 dan dijepit maksimum 1,0, ditegakkan di service maupun di basis data.' },
+    { t: 'Kenapa itu penting', d: 'Sebelumnya tak satu pun penyedia dikirimi nilai ini, jadi semua berjalan pada bawaannya: 1,0 — nilai untuk menulis prosa.' },
+    { t: 'Aturan bebas pemilik', d: 'Disisipkan sebagai preferensi GAYA, tak pernah bisa melonggarkan aturan bahasa dan kepatuhan di atasnya.' },
+  ],
+  guardrails: [
+    { t: 'L1 · Sanitasi masukan', d: 'Pertanyaan dibersihkan sebelum menyentuh apa pun.' },
+    { t: 'L2 · Anti penyusupan', d: 'Teks dokumen selalu dibungkus sebagai DATA — kalimat "abaikan aturan sebelumnya" di dalam PDF tetap dibaca sebagai isi, bukan perintah.' },
+    { t: 'L3 · Batas eksekusi', d: 'Waktu dan panjang jawaban dibatasi, sehingga satu pertanyaan tak bisa menghabiskan sumber daya.' },
+    { t: 'L4 · Redaksi rahasia', d: 'Kunci dan token yang terlanjur ada di dokumen disensor sebelum jawaban meninggalkan server.' },
+    { t: 'L5 · Jejak audit', d: 'Pertanyaan, jawaban, dan dokumen yang dipakai tercatat — jawaban bisa ditelusuri berbulan-bulan kemudian.' },
+    { t: 'Berlaku selalu', d: 'Kelimanya berjalan pada tiap giliran, bukan hanya pada mode tertentu. Tak ada jalur pintas.' },
+  ],
+  rls: [
+    { t: 'Kunci dipasang di transaksi', d: 'Identitas pelanggan ditanamkan di dalam transaksi basis data, bukan disimpan di kode aplikasi.' },
+    { t: 'Kebijakan melekat pada tabel', d: 'Basis data sendiri yang menyaring baris, sehingga tak ada kueri yang bisa "lupa" menyaring.' },
+    { t: 'Peran yang dibatasi', d: 'Aplikasi menyambung sebagai peran yang TIDAK berhak melewati kebijakan itu.' },
+    { t: 'Akibatnya', d: 'Kueri yang salah tulis sekalipun tetap tak bisa melintas antar pelanggan.' },
+    { t: 'Bedanya dengan penyaringan di kode', d: 'Batas yang dijaga kode bocor karena satu baris yang lupa; batas yang dijaga basis data tidak punya baris untuk dilupakan.' },
+    { t: 'Pada on-premise', d: 'Seluruh mekanisme ini berjalan di server Anda sendiri, dengan basis kode yang sama persis.' },
+  ],
+  memory: [
+    { t: 'Ringkas', d: 'Tiap dokumen diringkas sekali oleh model, sekaligus diberi kategori. Satu panggilan per dokumen, hasilnya dipakai ulang.' },
+    { t: 'Tautkan', d: 'Topik yang muncul di beberapa dokumen dijadikan tautan antar catatan.' },
+    { t: 'Graf pengetahuan', d: 'Hasilnya peta yang bisa ditelusuri — dokumen mana bicara tentang apa, dan mana yang saling berkaitan.' },
+    { t: 'Tinjauan opsional', d: 'Bila dinyalakan, hanya ringkasan yang disetujui yang masuk graf dan ikut menjawab.' },
+    { t: 'Kegunaannya saat menjawab', d: 'Menjawab yang tak bisa dijawab potongan mana pun — "dokumen ini isinya apa", "aturan cuti tersebar di mana saja".' },
+    { t: 'Batas pemakaiannya', d: 'Ditandai tegas sebagai tulisan AI. Angka, tanggal, nama, dan nomor pasal SELALU diambil dari teks asli.' },
+  ],
+};

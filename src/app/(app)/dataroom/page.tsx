@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import './dataroom.css';
 import { DECKS, type Deck, type Slide } from './decks';
+import { SCENES } from './scenes';
 import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment';
 import { SHIPPED, SHIPPED_AT } from './updates';
 import Kanban from './Kanban';
@@ -325,6 +326,13 @@ function SlideView({ s }: { s: Slide }) {
             </div>
           ))}
         </div>
+      )}
+
+      {s.kind === 'anim' && (
+        /* `key` pada scene MEMAKSA remount tiap slide dibuka — tanpa itu,
+           React memakai ulang node yang sama dan animasinya tak pernah
+           berjalan lagi saat pengguna kembali ke slide ini. */
+        <div className="sl-anim" key={s.scene}>{SCENES[s.scene]()}</div>
       )}
 
       {s.kind === 'table' && (
