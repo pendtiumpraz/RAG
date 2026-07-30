@@ -33,8 +33,14 @@ function buildPrompt(
     const clipped = c.content.slice(0, EXEC_LIMITS.maxContextCharsPerChunk);
     const { text, flagged } = sanitizeChunk(clipped);
     if (flagged) injectionFlagged = true;
-    return `<doc id="${i + 1}" title="${(c.title ?? '').replace(/"/g, '')}">\n${text}\n</doc>`;
+    // Ringkasan buatan agen Memory DITANDAI. Tanpa penanda ini model melihat
+    // parafrase LLM dengan label yang sama seperti kutipan asli, dan boleh
+    // mengutipnya seolah itu bunyi dokumen — karangan yang lahir dari
+    // pipeline kita sendiri, bukan dari model.
+    const kind = c.kind === 'memory' ? ' type="summary"' : '';
+    return `<doc id="${i + 1}"${kind} title="${(c.title ?? '').replace(/"/g, '')}">\n${text}\n</doc>`;
   });
+  const adaRingkasan = context.slice(0, EXEC_LIMITS.maxContextChunks).some((c) => c.kind === 'memory');
   const contextBlock = capped.length ? capped.join('\n\n') : '(no relevant documents found)';
 
   const sys = [
@@ -53,6 +59,14 @@ function buildPrompt(
     // Keputusan produk: jawaban TERSTRUKTUR (JSON blok — lihat chat/blocks.ts);
     // frontend merendernya jadi bubble/daftar/kartu/chart dan memegang penuh
     // styling. Model yang mengabaikan format tetap tertangani fallback parser.
+    ...(adaRingkasan ? [
+      'DERIVED SUMMARIES: a <doc> marked type="summary" is an AI-written summary of a '
+      + 'document, not the document\'s own wording. Use it for orientation — what a document '
+      + 'covers, how topics relate, where to look. NEVER quote it as if it were the source '
+      + 'text, and never take a specific figure, date, name, clause, or amount from it. '
+      + 'For any specific fact, rely on an unmarked <doc>; if none carries that fact, say '
+      + 'the detail is not in the retrieved documents.',
+    ] : []),
     BLOCK_FORMAT_INSTRUCTIONS,
     '\n=== CONTEXT ===\n' + contextBlock,
   ].join('\n');

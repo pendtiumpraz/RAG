@@ -18,11 +18,32 @@ const MMR_LAMBDA = 0.75;
  */
 const TIER1_DOCS = 40;
 
+/** Kandidat catatan Memory yang diadu di RRF. Kecil: tabelnya satu baris per
+ *  dokumen, dan gunanya memberi gambaran luas — bukan menyapu korpus. */
+const MEM_POOL = 12;
+
+/** Jatah maksimum ringkasan dalam hasil akhir: sepertiga, minimal satu.
+ *  Teks asli harus tetap mayoritas — lihat alasannya di ekor `retrieve()`. */
+const memCap = (k: number) => Math.max(1, Math.floor(k / 3));
+
 export interface RetrievedChunk {
   documentId: string;
   title: string | null;
   content: string;
   score: number;
+  /**
+   * Asal potongan ini.
+   *
+   * `document` — teks ASLI dari berkas pelanggan.
+   * `memory`   — RINGKASAN yang ditulis LLM dari berkas itu (agen Memory).
+   *
+   * Perbedaannya wajib dibawa sampai ke prompt dan sitasi. Ringkasan adalah
+   * tafsiran, bukan kutipan; menyodorkannya ke model dengan label yang sama
+   * seperti teks asli berarti model boleh mengutip kalimat buatan AI seolah
+   * itu bunyi dokumen — persis jenis karangan yang mode kepatuhan ketat
+   * ada untuk mencegahnya.
+   */
+  kind?: 'document' | 'memory';
 }
 
 /* ── bantuan leksikal utk pertanyaan yang MENUNJUK dokumen tertentu ──
@@ -204,8 +225,32 @@ export const retrievalService = {
           order by ts_rank_cd(d.fts, q.tsq) desc
           limit ${pool}
         )
-        select d.id, d.title, d.content,
-               v.rnk as vec_rank, l.rnk as lex_rank,
+        ,
+        /* ── KAKI KETIGA · MEMORY ────────────────────────────────────
+           Catatan agen Memory: satu ringkasan per DOKUMEN, ber-[[wikilink]].
+           Ia menjawab yang tak bisa dijawab potongan mana pun — "dokumen ini
+           isinya apa", "aturan cuti tersebar di mana saja" — karena tak ada
+           satu potongan 800 karakter yang memuat gambaran utuhnya.
+
+           Kaki, BUKAN gerbang. Catatan Memory adalah tafsiran LLM: kalau agen
+           luput mencatat sebuah topik, menjadikannya penyaring berarti dokumen
+           itu tak terjangkau sama sekali, tanpa pesan galat apa pun. Sebagai
+           kaki, ia hanya bisa MENAMBAH kandidat — tak pernah menyembunyikan.
+
+           Tabelnya kecil (satu baris per dokumen, bukan per potongan), jadi
+           ikut di perjalanan yang sama tanpa biaya berarti. */
+        mem as (
+          select m.id, row_number() over (order by m.embedding <=> ${vecLiteral}::vector) as rnk,
+                 (1 - (m.embedding <=> ${vecLiteral}::vector)) as cos
+          from memory_notes m
+          where m.chatbot_id = ${chatbotId}
+            and m.deleted_at is null
+            and m.embedding is not null
+          order by m.embedding <=> ${vecLiteral}::vector
+          limit ${MEM_POOL}
+        )
+        select 'document' as kind, d.id, d.title, d.content,
+               v.rnk as vec_rank, l.rnk as lex_rank, null::bigint as mem_rank,
                -- Kemiripan kosinus tetap dibawa keluar meski PERINGKAT-nya
                -- ditentukan RRF. Alasannya: skor yang dipublikasikan sudah
                -- terlanjur berarti "kemiripan 0..1" — dipakai chip sitasi di
@@ -216,10 +261,18 @@ export const retrievalService = {
         from vec v
         full outer join lex l on l.id = v.id
         join documents d on d.id = coalesce(v.id, l.id)
+
+        union all
+
+        select 'memory', n.id, n.title, n.content_md,
+               null::bigint, null::bigint, m.rnk, m.cos
+        from mem m join memory_notes n on n.id = m.id
       `);
       return res as unknown as Array<{
+        kind: 'document' | 'memory';
         id: string; title: string | null; content: string;
-        vec_rank: number | null; lex_rank: number | null; cos: number | null;
+        vec_rank: number | null; lex_rank: number | null;
+        mem_rank: number | null; cos: number | null;
       }>;
     });
 
@@ -234,6 +287,7 @@ export const retrievalService = {
     const fused = rrfFuse([
       { ids: byRank((r) => r.vec_rank) },
       { ids: byRank((r) => r.lex_rank) },
+      { ids: byRank((r) => r.mem_rank) },
     ]);
 
     const meta = new Map(rows.map((r) => [r.id, r]));
@@ -248,7 +302,7 @@ export const retrievalService = {
     const scored = [...fused.entries()].map(([id, s]) => {
       const r = meta.get(id)!;
       return {
-        id, title: r.title, content: r.content,
+        id, title: r.title, content: r.content, kind: r.kind,
         // titleBoost tetap dipakai sebagai dorongan terakhir: kaki leksikal
         // menangkap sebagian besar kasusnya, tapi judul sinyal yang lebih kuat
         // daripada kemunculan token di badan teks. Skalanya disesuaikan dengan
@@ -265,11 +319,30 @@ export const retrievalService = {
     // Pemilihan memakai nilai RRF, bukan kosinus — urutan ditentukan
     // penggabungan dua kaki, bukan salah satunya saja.
     const cand = scored.map((s) => ({ id: s.id, score: s.rank, tokens: contentTokens(s.content) }));
-    const picked = mmrSelect(dedupeNearDuplicates(cand), k, MMR_LAMBDA);
+    // Diambil LEBIH dari k: sebagian bisa gugur oleh jatah ringkasan di bawah,
+    // dan tanpa cadangan, slot konteks yang mahal itu terbuang kosong.
+    const picked = mmrSelect(dedupeNearDuplicates(cand), k + memCap(k), MMR_LAMBDA);
     const pos = new Map(scored.map((s) => [s.id, s]));
-    return picked.map((p) => {
+
+    /**
+     * Jatah ringkasan DIBATASI. Ringkasan berguna untuk pertanyaan bergambaran
+     * luas, tapi ia tafsiran — bukan bunyi dokumen. Kalau ia boleh mengisi
+     * seluruh konteks, jawaban atas pertanyaan faktual ("berapa nilai
+     * kontraknya") akan bersandar pada parafrase LLM alih-alih angka aslinya.
+     * Karena itu ia bersaing dalam RRF seperti kaki lain, lalu yang melebihi
+     * jatah dibuang di ujung — mendahulukan teks asli.
+     */
+    const hasil: RetrievedChunk[] = [];
+    let mem = 0;
+    for (const p of picked) {
+      if (hasil.length >= k) break;
       const s = pos.get(p.id)!;
-      return { documentId: s.id, title: s.title, content: s.content, score: s.score };
-    });
+      if (s.kind === 'memory') {
+        if (mem >= memCap(k)) continue;   // dilewati; cadangan mengisi slotnya
+        mem++;
+      }
+      hasil.push({ documentId: s.id, title: s.title, content: s.content, score: s.score, kind: s.kind });
+    }
+    return hasil;
   },
 };
