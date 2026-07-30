@@ -9,7 +9,8 @@ import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui
 interface Chatbot { id: string; name: string }
 /** Ringkasan run delta terakhir — ditulis sync.service ke config.lastSync. */
 interface LastSync { ingested?: number; updated?: number; removed?: number; unchanged?: number;
-  skipped?: number; failed?: number; pending?: number; message?: string }
+  skipped?: number; noText?: number; duplicates?: number;
+  failed?: number; pending?: number; message?: string; quotaExceeded?: string }
 interface Source { id: string; kind: string; status: string; config: Record<string, unknown>;
   lastSyncedAt: string | null; jobStatus: { state: string } | null }
 /** Koneksi akun + APA YANG BENAR-BENAR DIIZINKAN token-nya (bukan mode aktif). */
@@ -423,7 +424,17 @@ function DeltaSummary({ last }: { last?: LastSync }) {
         ? <span style={{ color: 'var(--muted)' }}>tak ada perubahan</span>
         : changed.map(([sym, n, color]) => <span key={sym} style={{ color }}>{sym}{n}</span>)}
       {!!last.unchanged && <span style={{ color: 'var(--muted)' }}>· {last.unchanged} tetap</span>}
-      {!!last.skipped && <span style={{ color: 'var(--muted)' }}>· {last.skipped} dilewati</span>}
+      {!!last.skipped && <span style={{ color: 'var(--muted)' }}>· {last.skipped} format tak didukung</span>}
+      {/* Disebut TERPISAH dan berwarna amber: berkasnya DOKUMEN, formatnya
+          didukung, tapi isinya gambar. Pemiliknya perlu menjalankan OCR —
+          tindakan yang sama sekali berbeda dari 'format tak didukung'. */}
+      {!!last.noText && (
+        <span style={{ color: 'var(--source)' }} title="Terunduh dan formatnya didukung, tapi tak ada teks yang bisa dibaca — hampir selalu PDF hasil pindai tanpa OCR.">
+          · {last.noText} tanpa teks
+        </span>
+      )}
+      {!!last.duplicates && <span style={{ color: 'var(--muted)' }}>· {last.duplicates} kembar</span>}
+      {last.quotaExceeded && <span style={{ color: 'var(--danger)' }}>· kuota habis</span>}
       {!!last.failed && <span style={{ color: 'var(--danger)' }}>· {last.failed} gagal</span>}
       {!!last.pending && <span style={{ color: 'var(--source)' }}>· {last.pending} antre</span>}
     </span>
@@ -651,6 +662,23 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
 
           {isUpload && (
             <div className="field"><label>Berkas dari komputer</label>
+              {/* Petunjuk format ditaruh SEBELUM pemilih berkas, bukan sesudah:
+                  sesudahnya orang sudah terlanjur memilih, dan nasihat yang
+                  datang setelah keputusan bukan nasihat. Tiga kalimat, karena
+                  ketiganya menyelamatkan dari kekecewaan yang berbeda. */}
+              <div className="card card-pad" style={{ background: 'var(--card-2)', marginBottom: 10 }}>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
+                  <b>Markdown memberi jawaban paling tepat.</b> Judul, daftar, dan tabelnya ikut
+                  terbaca, jadi dokumen dipotong di batas bagian — bukan di tengah kalimat — dan
+                  sitasinya menunjuk tepat ke bagian yang benar.
+                </p>
+                <p style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.6, color: 'var(--muted)' }}>
+                  PDF dan DOCX tetap didukung penuh. Yang perlu diwaspadai hanya satu:
+                  <b> PDF hasil pindai (foto halaman) tak menghasilkan teks sama sekali</b> tanpa OCR —
+                  berkasnya terunggah, tapi bot tak akan tahu isinya. Kalau dokumenmu hasil scan,
+                  jalankan OCR dulu atau salin isinya ke teks.
+                </p>
+              </div>
               <input className="input" type="file" multiple
                 accept=".pdf,.docx,.txt,.md,.markdown,.csv,.json,.log,.yaml,.yml,.html,.htm"
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />

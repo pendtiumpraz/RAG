@@ -117,6 +117,40 @@ test('kembar dilaporkan TERPISAH dari format tak didukung', () => {
   // "dilewati karena formatnya tak didukung" dan "dilewati karena kembar"
   // menuntut tindakan berbeda dari pemilik data; menggabungkannya
   // menyembunyikan keduanya.
-  assert.ok(/duplicates,\n\s*skipped, failed, pending/.test(SYNC),
-    'hitungan kembar tak dilaporkan terpisah dari skipped');
+  // Dicocokkan per-nama, bukan per-urutan: uji yang mengunci urutan field
+  // akan gagal setiap kali ada sebab baru disisipkan — dan gagalnya tak
+  // menandakan apa pun yang rusak.
+  const mulai = SYNC.indexOf('const stats = {');
+  // Dicari SESUDAH `mulai`: `setStatus('syncing')` muncul jauh lebih awal di
+  // berkas ini, dan mencarinya dari nol menghasilkan potongan kosong yang
+  // membuat uji gagal tanpa ada yang rusak.
+  const stats = SYNC.slice(mulai, SYNC.indexOf('await setStatus(', mulai));
+  for (const k of ['duplicates', 'skipped', 'failed', 'pending']) {
+    assert.ok(new RegExp(`\\b${k}\\b`).test(stats), `hitungan ${k} tak dilaporkan`);
+  }
+});
+
+/* ── petunjuk format & pelaporan sebab ─────────────────────────────── */
+
+test('PDF pindaian dilaporkan TERPISAH dari format tak didukung', () => {
+  // Keduanya sama-sama tak masuk, tapi menuntut tindakan yang berbeda:
+  // "format tak didukung" berarti berkasnya memang bukan dokumen teks;
+  // "tanpa teks" berarti berkasnya DOKUMEN tapi isinya gambar, dan
+  // pemiliknya perlu menjalankan OCR. Menggabungkannya menghasilkan laporan
+  // "5.000 dilewati" yang tak menuntun ke mana pun.
+  assert.match(SYNC, /noText\+\+/, 'sync tak memisahkan berkas tanpa teks');
+  assert.match(SYNC, /skipped, noText, failed/, 'noText tak dilaporkan terpisah');
+});
+
+test('petunjuk format ada SEBELUM pemilih berkas', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ui = readFileSync('src/app/(app)/knowledge/page.tsx', 'utf8');
+  const iPetunjuk = ui.indexOf('Markdown memberi jawaban paling tepat');
+  const iInput = ui.indexOf('<input className="input" type="file" multiple');
+  // Nasihat yang datang setelah orang memilih berkas bukan nasihat.
+  assert.ok(iPetunjuk > 0, 'petunjuk format hilang dari UI unggah');
+  assert.ok(iPetunjuk < iInput, 'petunjuk format muncul setelah pemilih berkas');
+  // Peringatan PDF pindaian adalah yang paling menyelamatkan — tanpa itu
+  // orang mengunggah puluhan megabyte dan bot-nya tak tahu apa-apa.
+  assert.match(ui, /PDF hasil pindai/i, 'peringatan PDF pindaian hilang');
 });

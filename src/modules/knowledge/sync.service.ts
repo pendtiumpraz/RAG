@@ -179,6 +179,9 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
     const isUpdate = new Set(plan.update.map((f) => f.externalId));
 
     let ingested = 0, updated = 0, failed = 0, duplicates = 0;
+    /** Terunduh, formatnya didukung, tapi ekstraksinya kosong — hampir selalu
+     *  PDF hasil pindai tanpa OCR. */
+    let noText = 0;
     /** Pesan kuota bila sync berhenti karena jatah habis; null = tak terjadi. */
     let quotaStop: string | null = null;
     for (const f of batch) {
@@ -205,7 +208,16 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
 
         const { content, mime } = await conn.fetch(f);
         const text = await extractText(f.name, content, mime);
-        if (text === null) { skipped++; continue; }
+        if (text === null) {
+          // DIBEDAKAN dari 'format tak didukung'. Keduanya sama-sama tak
+          // masuk, tapi menuntut tindakan yang sama sekali berbeda: format
+          // tak didukung berarti berkasnya memang bukan dokumen teks; ini
+          // berarti berkasnya DOKUMEN tapi isinya gambar — dan pemiliknya
+          // perlu menjalankan OCR. Menggabungkan keduanya membuat laporan
+          // '5.000 dilewati' yang tak menuntun ke mana pun.
+          noText++;
+          continue;
+        }
 
         // Versi baru menggantikan yang lama — buang chunk lama DULU agar
         // KB tidak berisi dua versi dokumen yang sama.
@@ -251,7 +263,7 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
       // didukung" dan "dilewati karena kembar" menuntut tindakan yang berbeda
       // dari pemilik data, dan menggabungkannya menyembunyikan keduanya.
       duplicates,
-      skipped, failed, pending, at: new Date().toISOString(),
+      skipped, noText, failed, pending, at: new Date().toISOString(),
       // Disebut TERPISAH: kuota habis menuntut tindakan yang sama sekali
       // berbeda dari berkas yang gagal diproses.
       ...(quotaStop ? { quotaExceeded: quotaStop } : {}),
