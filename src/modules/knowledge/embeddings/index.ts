@@ -58,3 +58,15 @@ export async function embed(
   // Samakan ke dimensi kolom pgvector (zero-pad) — konsisten insert & query.
   return vectors.map((v) => padVector(v));
 }
+
+/**
+ * Dimensi ASLI model, sebelum zero-padding.
+ *
+ * Disimpan bersama tiap potongan (documents.embedding_dims) supaya indeks
+ * parsial berdimensi asli tahu baris mana miliknya. Memakai nama model di SQL
+ * akan menyimpang begitu registry bertambah; angka tak bisa menyimpang.
+ */
+export async function embeddingDims(modelId: string): Promise<number | null> {
+  const model = await resolveEmbeddingModel(modelId);
+  return model?.dimensions ?? null;
+}

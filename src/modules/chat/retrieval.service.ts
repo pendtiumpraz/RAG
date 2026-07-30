@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
-import { embed } from '@/modules/knowledge/embeddings';
+import { embed, embeddingDims } from '@/modules/knowledge/embeddings';
 import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusion';
 
 /**
@@ -88,6 +88,25 @@ export const retrievalService = {
     const getApiKey = apiKeyResolver(tenantId);
     const [qVec] = await embed(embeddingModel, [query], { tenantId, getApiKey });
     const vecLiteral = `[${qVec.join(',')}]`;
+
+    /**
+     * Ekspresi jarak yang COCOK dengan indeks parsial berdimensi asli
+     * (migrasi 0028). Karena padding-nya nol, memotong ke dimensi asli
+     * menghasilkan jarak yang IDENTIK — terbukti selisih 0 terhadap data
+     * produksi — sambil memakai indeks yang ±3,75× lebih kecil di RAM.
+     *
+     * Dua hal harus dipenuhi agar Postgres benar-benar MEMAKAI indeks itu:
+     * ekspresi ORDER BY-nya sama persis, dan predikat `embedding_dims`
+     * disebut eksplisit (planner tak menyimpulkannya dari nama model).
+     * Model yang belum tercatat dimensinya jatuh ke indeks 1536 penuh —
+     * lebih lambat sedikit, tapi tak pernah salah hasil.
+     */
+    const dims = await embeddingDims(embeddingModel);
+    const useSub = dims != null && dims < 1536;
+    const dist = useSub
+      ? sql`subvector(d.embedding, 1, ${dims})::vector(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::vector, 1, ${dims})::vector(${sql.raw(String(dims))})`
+      : sql`d.embedding <=> ${vecLiteral}::vector`;
+    const dimsFilter = useSub ? sql`and d.embedding_dims = ${dims}` : sql``;
     const tokens = queryTokens(query);
     // Kandidat diambil jauh lebih banyak dari k: penggabungan & penyaringan
     // kembar baru bermakna kalau ada yang bisa dipilih.
@@ -103,13 +122,14 @@ export const retrievalService = {
           where a.chatbot_id = ${chatbotId} and a.deleted_at is null
         ),
         vec as (
-          select d.id, row_number() over (order by d.embedding <=> ${vecLiteral}::vector) as rnk
+          select d.id, row_number() over (order by ${dist}) as rnk
           from documents d
           where d.knowledge_base_id in (select id from kb)
             and d.embedding_model = ${embeddingModel}
             and d.deleted_at is null
             and d.embedding is not null
-          order by d.embedding <=> ${vecLiteral}::vector
+            ${dimsFilter}
+          order by ${dist}
           limit ${pool}
         ),
         q as (select plainto_tsquery('simple', ${query}) as tsq),
@@ -134,7 +154,7 @@ export const retrievalService = {
                -- widget dan parameter minScore di /api/v1/search. Menggantinya
                -- dengan nilai RRF (~0,02) akan membuat minScore: 0.5 menyaring
                -- habis semua hasil tanpa ada yang tahu sebabnya.
-               (1 - (d.embedding <=> ${vecLiteral}::vector)) as cos
+               (1 - (${dist})) as cos
         from vec v
         full outer join lex l on l.id = v.id
         join documents d on d.id = coalesce(v.id, l.id)

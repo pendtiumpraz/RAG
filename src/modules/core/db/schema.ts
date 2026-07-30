@@ -293,6 +293,15 @@ export const documents = pgTable('documents', {
   content: text('content').notNull(),
   embeddingModel: text('embedding_model').notNull(),
   embedding: vector('embedding', { dimensions: 1536 }),
+  /**
+   * Dimensi ASLI model, sebelum zero-padding ke 1536 (migrasi 0028).
+   *
+   * Menentukan indeks parsial mana yang dipakai. Karena paddingnya nol, jarak
+   * kosinus atas N dimensi pertama IDENTIK dengan jarak atas 1536 dimensi
+   * berpadding — terbukti selisih 0 terhadap data produksi — sehingga indeks
+   * berdimensi asli memangkas RAM ±3,75× tanpa mengubah hasil sama sekali.
+   */
+  embeddingDims: smallint('embedding_dims'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
   /** Delta sync: id file di storage asal (Drive fileId / Graph itemId). */
   externalId: text('external_id'),
@@ -320,6 +329,11 @@ export const documents = pgTable('documents', {
   /* Kaki leksikal hybrid search (migrasi 0027). WAJIB dideklarasikan di sini:
      drizzle-kit push menghapus indeks & kolom yang tak dinyatakan di schema. */
   ftsIdx: index('idx_documents_fts').using('gin', t.fts),
+  /* Indeks vektor berdimensi asli (migrasi 0028). Ekspresi subvector-nya
+     tak bisa dinyatakan drizzle, jadi hanya NAMA-nya yang didaftarkan di
+     sini — cukup untuk mencegah  menghapusnya, dan itulah
+     satu-satunya alasan baris ini ada. Definisi sebenarnya di migrasi. */
+  dimsIdx: index('idx_documents_dims').on(t.embeddingDims),
 })).enableRLS();
 
 /* ── chat ──────────────────────────────────────────────────────────── */

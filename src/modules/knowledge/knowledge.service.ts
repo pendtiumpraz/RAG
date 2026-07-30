@@ -3,7 +3,7 @@ import { tenantSettings, knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
-import { embed } from './embeddings';
+import { embed, embeddingDims } from './embeddings';
 import { documentRepository as docs } from './document.repository';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
@@ -81,6 +81,9 @@ export const knowledgeService = {
     // agar kebagian; delta sync normal tak menyentuh yang tak berubah.
     const embedInput = chunks.map((c) => (input.title ? `${input.title}\n${c}` : c));
     const vectors = await embed(modelId, embedInput, { tenantId, getApiKey });
+    // Dicatat per potongan, bukan disimpulkan dari nama model saat query —
+    //     lihat catatan di kolomnya.
+    const dims = await embeddingDims(modelId);
 
     const inserted = await withTenant(tenantId, (tx) =>
       docs.insertChunks(tx, chunks.map((content, i) => ({
@@ -91,6 +94,7 @@ export const knowledgeService = {
         content,
         embeddingModel: modelId,
         embedding: vectors[i],
+        embeddingDims: dims,
         externalId: input.externalId,
         externalVersion: input.externalVersion,
         metadata: { ...input.metadata, chunk: i },

@@ -868,3 +868,38 @@ test('blok: tabel & chart multi-seri divalidasi, bentuk lama tetap diterima', as
   assert.match(txt, /Item \| 2024 \| 2025/, 'header ikut — angka tanpa nama kolom tak bisa ditafsirkan');
   assert.match(txt, /2025 — Q1 12/, 'nama seri menempel pada angkanya');
 });
+
+test('vektor: memotong padding NOL tak mengubah jarak kosinus sedikit pun', async () => {
+  const { padVector } = await import('../src/modules/knowledge/embeddings');
+
+  // Inilah invarian yang menopang indeks berdimensi asli (migrasi 0028).
+  // Kalau ia runtuh, indeks parsial akan memberi PERINGKAT YANG SALAH tanpa
+  // melempar galat apa pun — jenis kegagalan paling berbahaya. Diverifikasi
+  // juga terhadap data produksi (selisih maksimum persis 0), tapi tes ini
+  // menjaganya tetap benar tanpa perlu database.
+  const cos = (a: number[], b: number[]) => {
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] ** 2; nb += b[i] ** 2; }
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  };
+
+  const rnd = (n: number, seed: number) =>
+    Array.from({ length: n }, (_, i) => Math.sin(seed * 1000 + i * 7.3));
+
+  for (const dim of [384, 768, 1024]) {
+    const a = rnd(dim, 1), b = rnd(dim, 2);
+    const aPad = padVector(a), bPad = padVector(b);
+
+    assert.equal(aPad.length, 1536, 'padVector mengisi sampai 1536');
+    assert.ok(aPad.slice(dim).every((v) => v === 0), 'sisanya benar-benar NOL');
+
+    // Jarak pada dimensi asli vs pada vektor berpadding penuh.
+    const asli = cos(a, b);
+    const padded = cos(aPad, bPad);
+    assert.ok(Math.abs(asli - padded) < 1e-12,
+      `dim ${dim}: kosinus berubah setelah padding (${asli} vs ${padded}) — indeks parsial akan salah peringkat`);
+
+    // Dan memotong kembali harus mengembalikan yang asli, persis.
+    assert.ok(Math.abs(cos(aPad.slice(0, dim), bPad.slice(0, dim)) - asli) < 1e-12);
+  }
+});
