@@ -44,17 +44,30 @@ CREATE INDEX IF NOT EXISTS idx_documents_dims ON documents (embedding_dims);
 
 -- Indeks parsial per dimensi. Masing-masing hanya memuat baris berdimensi itu,
 -- jadi tak ada vektor yang terpotong keliru.
-CREATE INDEX IF NOT EXISTS idx_documents_emb_384 ON documents
-  USING hnsw ((subvector(embedding, 1, 384)::vector(384)) vector_cosine_ops)
-  WHERE embedding_dims = 384;
+-- DIBUNGKUS PENJAGA TIPE (ditambahkan bersama migrasi 0035): pada basis data
+-- yang kolomnya sudah `halfvec`, indeks di bawah gagal dan menghentikan
+-- SELURUH db:migrate. Lihat penjelasan lengkap di 0029.
+DO $migrasi0028$
+BEGIN
+  IF (SELECT udt_name FROM information_schema.columns
+      WHERE table_name = 'documents' AND column_name = 'embedding'
+      LIMIT 1) <> 'vector' THEN
+    RETURN;   -- sudah halfvec: indeksnya milik migrasi 0035
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_documents_emb_768 ON documents
-  USING hnsw ((subvector(embedding, 1, 768)::vector(768)) vector_cosine_ops)
-  WHERE embedding_dims = 768;
+  CREATE INDEX IF NOT EXISTS idx_documents_emb_384 ON documents
+    USING hnsw ((subvector(embedding, 1, 384)::vector(384)) vector_cosine_ops)
+    WHERE embedding_dims = 384;
 
-CREATE INDEX IF NOT EXISTS idx_documents_emb_1024 ON documents
-  USING hnsw ((subvector(embedding, 1, 1024)::vector(1024)) vector_cosine_ops)
-  WHERE embedding_dims = 1024;
+  CREATE INDEX IF NOT EXISTS idx_documents_emb_768 ON documents
+    USING hnsw ((subvector(embedding, 1, 768)::vector(768)) vector_cosine_ops)
+    WHERE embedding_dims = 768;
+
+  CREATE INDEX IF NOT EXISTS idx_documents_emb_1024 ON documents
+    USING hnsw ((subvector(embedding, 1, 1024)::vector(1024)) vector_cosine_ops)
+    WHERE embedding_dims = 1024;
+END
+$migrasi0028$;
 
 -- Indeks 1536 penuh TETAP ADA: ia melayani model yang memang 1536 dimensi
 -- (OpenAI, Cohere) dan baris lama yang dimensinya belum tercatat.

@@ -132,9 +132,27 @@ export const retrievalService = {
     const dims = await embeddingDims(embeddingModel);
     const useSub = dims != null && dims < 1536;
     const dist = useSub
-      ? sql`subvector(d.embedding, 1, ${dims})::vector(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::vector, 1, ${dims})::vector(${sql.raw(String(dims))})`
-      : sql`d.embedding <=> ${vecLiteral}::vector`;
+      ? sql`subvector(d.embedding, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
+      : sql`d.embedding <=> ${vecLiteral}::halfvec`;
     const dimsFilter = useSub ? sql`and d.embedding_dims = ${dims}` : sql``;
+
+    /**
+     * Jarak untuk kaki Memory — memakai subvector dengan alasan yang BERBEDA
+     * dari kaki dokumen.
+     *
+     * `memory_notes` tak punya kolom `embedding_dims`, jadi catatan lama yang
+     * lahir saat vektor masih diberi padding tersimpan 1.536 dimensi,
+     * sementara catatan baru 384. Membandingkannya langsung dengan literal
+     * 384 dimensi ditolak Postgres: "different halfvec dimensions 1536 and
+     * 384" — dan itu MEMATIKAN seluruh pencarian, bukan cuma kaki Memory,
+     * karena ketiganya satu kueri.
+     *
+     * Memotong kedua sisi ke dimensi model menyamakan keduanya, dan hasilnya
+     * tetap tepat: bagian yang dibuang dari catatan lama adalah nol.
+     */
+    const memDist = useSub
+      ? sql`subvector(m.embedding, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
+      : sql`m.embedding <=> ${vecLiteral}::halfvec`;
     const tokens = queryTokens(query);
     // Kandidat diambil jauh lebih banyak dari k: penggabungan & penyaringan
     // kembar baru bermakna kalau ada yang bisa dipilih.
@@ -185,8 +203,8 @@ export const retrievalService = {
             and v.knowledge_base_id in (select id from kb)
             ${useSub ? sql`and v.embedding_dims = ${dims}` : sql``}
           order by ${tiered && useSub
-            ? sql`subvector(v.centroid, 1, ${dims})::vector(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::vector, 1, ${dims})::vector(${sql.raw(String(dims))})`
-            : sql`v.centroid <=> ${vecLiteral}::vector`}
+            ? sql`subvector(v.centroid, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
+            : sql`v.centroid <=> ${vecLiteral}::halfvec`}
           limit ${TIER1_DOCS})`
       : sql``;
 
@@ -240,8 +258,8 @@ export const retrievalService = {
            Tabelnya kecil (satu baris per dokumen, bukan per potongan), jadi
            ikut di perjalanan yang sama tanpa biaya berarti. */
         mem as (
-          select m.id, row_number() over (order by m.embedding <=> ${vecLiteral}::vector) as rnk,
-                 (1 - (m.embedding <=> ${vecLiteral}::vector)) as cos
+          select m.id, row_number() over (order by ${memDist}) as rnk,
+                 (1 - (${memDist})) as cos
           from memory_notes m
           where m.chatbot_id = ${chatbotId}
             and m.deleted_at is null
@@ -249,7 +267,7 @@ export const retrievalService = {
             -- Hanya ringkasan yang DIAKUI boleh ikut menjawab. Yang menunggu
             -- tinjauan atau ditolak tak pernah menyentuh jawaban pelanggan.
             and m.status = 'active'
-          order by m.embedding <=> ${vecLiteral}::vector
+          order by ${memDist}
           limit ${MEM_POOL}
         )
         select 'document' as kind, d.id, d.title, d.content,

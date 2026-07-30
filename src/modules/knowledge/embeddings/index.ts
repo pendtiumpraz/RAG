@@ -5,20 +5,32 @@ import { embedApi } from './api';
 // embedding API. Untuk on-prem/VPS, jalur lokal tetap tersedia penuh.
 
 /**
- * Dimensi kolom pgvector (documents/memory_notes). Dipilih 1536 karena:
- *  • cukup untuk semua model aktif (≤1536 dims),
- *  • ≤2000 → HNSW index valid.
- * Semua vektor di-zero-pad ke ukuran ini sebelum masuk DB; padding nol
- * TIDAK mengubah dot-product / norma, jadi peringkat cosine tetap sama.
+ * Batas ATAS dimensi yang boleh didaftarkan — bukan lagi dimensi kolom.
+ *
+ * Sejak migrasi 0035 kolomnya `halfvec` TANPA batasan dimensi, jadi tiap
+ * baris menyimpan dimensi aslinya: 384 untuk MiniLM, bukan 1.536 berpadding.
+ * Angka ini tinggal menjaga satu hal: HNSW pgvector menolak dimensi di atas
+ * 2.000, jadi model yang lebih besar dari itu tak boleh masuk registry.
  */
 export const VECTOR_DIM = 1536;
 
+/**
+ * Potong vektor yang melebihi batas. TIDAK lagi memberi padding.
+ *
+ * Padding nol dulu diperlukan karena kolomnya `vector(1536)` — satu kolom
+ * pgvector hanya bisa satu dimensi, jadi model 384 dimensi harus dipanjangkan.
+ * Biayanya besar dan tersembunyi: tiga perempat setiap vektor adalah NOL yang
+ * tetap dibayar penuh di disk dan RAM — 6.148 byte untuk yang sebenarnya
+ * cukup 776.
+ *
+ * Kolom halfvec tanpa batasan menghapus keharusan itu. Baris LAMA yang
+ * terlanjur berpadding tetap terbaca: kueri memakai subvector(x, 1, N), yang
+ * mengambil bagian sama persis entah sisanya nol atau memang tak ada.
+ */
 export function padVector(v: number[], dim = VECTOR_DIM): number[] {
-  if (v.length === dim) return v;
-  if (v.length > dim) return v.slice(0, dim); // guard; model >dim tak didaftarkan
-  const out = v.slice();
-  while (out.length < dim) out.push(0);
-  return out;
+  // Penjaga, bukan jalur normal: model di atas batas tak didaftarkan sama
+  // sekali. Kalau toh lolos, dipotong daripada menolak seluruh ingest.
+  return v.length > dim ? v.slice(0, dim) : v;
 }
 
 export interface EmbedContext {
@@ -55,7 +67,8 @@ export async function embed(
     if (!apiKey) throw new Error(`No API key configured for ${model.provider}`);
     vectors = await embedApi(model, texts, apiKey);
   }
-  // Samakan ke dimensi kolom pgvector (zero-pad) — konsisten insert & query.
+  // Dimensi ASLI dipertahankan (migrasi 0035). Hanya yang melebihi batas
+  // HNSW yang dipotong — dan model semacam itu memang tak didaftarkan.
   return vectors.map((v) => padVector(v));
 }
 

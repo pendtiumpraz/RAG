@@ -377,15 +377,18 @@ test('isExtractable menyaring sebelum download', async () => {
 });
 
 /* ── vector padding (fix pgvector) ─────────────────────────────────── */
-test('padVector zero-pads & preserves cosine', async () => {
+test('vektor disimpan pada dimensi ASLI — tak lagi diberi padding', async () => {
   const { padVector, VECTOR_DIM } = await import('../src/modules/knowledge/embeddings');
-  const v = [0.6, 0.8]; // norm 1
-  const p = padVector(v);
-  assert.equal(p.length, VECTOR_DIM);
-  assert.equal(p[0], 0.6); assert.equal(p[2], 0);
-  // dot product identik (nol tak menambah apa-apa)
-  const dot = p.reduce((s, x, i) => s + x * padVector(v)[i], 0);
-  assert.ok(Math.abs(dot - 1) < 1e-9);
+  // Sejak migrasi 0035 kolomnya `halfvec` TANPA batasan dimensi, jadi baris
+  // 384 dimensi menyimpan 384 — bukan 1.536 dengan tiga perempatnya nol yang
+  // tetap dibayar penuh (terukur: 776 byte vs 6.148).
+  const v = [0.6, 0.8];
+  assert.deepEqual(padVector(v), v, 'vektor masih diberi padding');
+
+  // Yang TERSISA dari fungsi ini hanya penjaga batas atas: HNSW pgvector
+  // menolak dimensi di atas 2.000, jadi model sebesar itu tak boleh masuk.
+  const kebesaran = Array.from({ length: VECTOR_DIM + 10 }, () => 0.1);
+  assert.equal(padVector(kebesaran).length, VECTOR_DIM, 'vektor kebesaran tak dipotong');
 });
 
 /* ── mode akses Drive (D10) — scope per mode ───────────────────────── */
@@ -870,7 +873,6 @@ test('blok: tabel & chart multi-seri divalidasi, bentuk lama tetap diterima', as
 });
 
 test('vektor: memotong padding NOL tak mengubah jarak kosinus sedikit pun', async () => {
-  const { padVector } = await import('../src/modules/knowledge/embeddings');
 
   // Inilah invarian yang menopang indeks berdimensi asli (migrasi 0028).
   // Kalau ia runtuh, indeks parsial akan memberi PERINGKAT YANG SALAH tanpa
@@ -886,11 +888,18 @@ test('vektor: memotong padding NOL tak mengubah jarak kosinus sedikit pun', asyn
   const rnd = (n: number, seed: number) =>
     Array.from({ length: n }, (_, i) => Math.sin(seed * 1000 + i * 7.3));
 
+  /* Padding dibuat DI SINI, bukan lewat padVector(): sejak migrasi 0035
+     fungsi itu tak lagi memberi padding sama sekali. Tapi invariannya justru
+     makin penting — dialah yang membenarkan pemotongan baris LAMA yang
+     terlanjur berpadding, dan kalau ia runtuh, pemotongan itu diam-diam
+     mengubah peringkat tanpa satu pun galat. */
+  const pad = (v: number[], dim = 1536) => [...v, ...Array(dim - v.length).fill(0)];
+
   for (const dim of [384, 768, 1024]) {
     const a = rnd(dim, 1), b = rnd(dim, 2);
-    const aPad = padVector(a), bPad = padVector(b);
+    const aPad = pad(a), bPad = pad(b);
 
-    assert.equal(aPad.length, 1536, 'padVector mengisi sampai 1536');
+    assert.equal(aPad.length, 1536);
     assert.ok(aPad.slice(dim).every((v) => v === 0), 'sisanya benar-benar NOL');
 
     // Jarak pada dimensi asli vs pada vektor berpadding penuh.

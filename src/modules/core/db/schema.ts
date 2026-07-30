@@ -1,12 +1,27 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer, smallint, bigint,
+  pgTable, uuid, text, timestamp, jsonb, index, uniqueIndex, boolean, real, integer, smallint, bigint,
   customType,
 } from 'drizzle-orm/pg-core';
 
 /** tsvector — tak ada tipe bawaan drizzle; hanya perlu dikenali, tak pernah ditulis dari aplikasi. */
 const tsvector = customType<{ data: string; driverData: string }>({
   dataType: () => 'tsvector',
+});
+
+/**
+ * halfvec — vektor presisi setengah pgvector (migrasi 0035). 2 byte per
+ * dimensi, bukan 4.
+ *
+ * SENGAJA TANPA batasan dimensi: kolom halfvec tak berbatas menyimpan dimensi
+ * ASLI tiap baris (384 untuk MiniLM), sementara `vector(1536)` memaksa semua
+ * ke 1.536 dengan tiga perempatnya nol yang tetap dibayar penuh — 776 byte
+ * vs 6.148, terukur di produksi. Drizzle tak punya tipe ini; ia hanya perlu
+ * DIKENALI, karena aplikasi menulisnya lewat SQL bertipe eksplisit.
+ */
+const halfvec = customType<{ data: number[]; driverData: string }>({
+  dataType: () => 'halfvec',
+  toDriver: (v: number[]) => `[${v.join(',')}]`,
 });
 
 /*
@@ -327,7 +342,7 @@ export const documents = pgTable('documents', {
   title: text('title'),
   content: text('content').notNull(),
   embeddingModel: text('embedding_model').notNull(),
-  embedding: vector('embedding', { dimensions: 1536 }),
+  embedding: halfvec('embedding'),
   /**
    * Dimensi ASLI model, sebelum zero-padding ke 1536 (migrasi 0028).
    *
@@ -445,7 +460,7 @@ export const documentVectors = pgTable('document_vectors', {
   title: text('title'),
   embeddingModel: text('embedding_model').notNull(),
   embeddingDims: smallint('embedding_dims'),
-  centroid: vector('centroid', { dimensions: 1536 }),
+  centroid: halfvec('centroid'),
   chunks: integer('chunks').default(0).notNull(),
   ...stamps,
 }, (t) => ({
@@ -853,7 +868,7 @@ export const memoryNotes = pgTable('memory_notes', {
    *  dan /api/v1/documents, supaya tautannya bisa di-JOIN dengan pasti. */
   docRef: text('doc_ref'),
   sourceDocumentId: uuid('source_document_id'),
-  embedding: vector('embedding', { dimensions: 1536 }),
+  embedding: halfvec('embedding'),
   ...stamps,
 }, (t) => ({
   scopeIdx: index('idx_memory_notes_scope').on(t.tenantId, t.chatbotId, t.slug),

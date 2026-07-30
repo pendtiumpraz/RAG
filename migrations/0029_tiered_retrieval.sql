@@ -57,19 +57,40 @@ CREATE INDEX IF NOT EXISTS idx_document_vectors_tenant ON document_vectors (tena
 CREATE INDEX IF NOT EXISTS idx_document_vectors_deleted_at ON document_vectors (deleted_at);
 
 /* Indeks lapisan pertama — berdimensi asli, sama seperti 0028. INILAH
-   satu-satunya indeks vektor yang perlu residen di RAM pada mode bertingkat. */
-CREATE INDEX IF NOT EXISTS idx_docvec_384 ON document_vectors
-  USING hnsw ((subvector(centroid, 1, 384)::vector(384)) vector_cosine_ops)
-  WHERE embedding_dims = 384;
-CREATE INDEX IF NOT EXISTS idx_docvec_768 ON document_vectors
-  USING hnsw ((subvector(centroid, 1, 768)::vector(768)) vector_cosine_ops)
-  WHERE embedding_dims = 768;
-CREATE INDEX IF NOT EXISTS idx_docvec_1024 ON document_vectors
-  USING hnsw ((subvector(centroid, 1, 1024)::vector(1024)) vector_cosine_ops)
-  WHERE embedding_dims = 1024;
-CREATE INDEX IF NOT EXISTS idx_docvec_1536 ON document_vectors
-  USING hnsw (centroid vector_cosine_ops)
-  WHERE embedding_dims = 1536 OR embedding_dims IS NULL;
+   satu-satunya indeks vektor yang perlu residen di RAM pada mode bertingkat.
+
+   DIBUNGKUS PENJAGA TIPE (ditambahkan bersama migrasi 0035). Migrasi 0035
+   mengubah kolom ini jadi `halfvec` dan membangun ulang indeksnya dengan
+   operator halfvec. Tanpa penjaga, pernyataan di bawah gagal pada basis data
+   yang sudah melewati 0035 — "operator class vector_cosine_ops does not
+   accept data type halfvec" — dan kegagalan itu menghentikan SELURUH
+   db:migrate, termasuk migrasi baru sesudahnya.
+
+   Berkas migrasi tak boleh berubah maknanya bagi basis data yang belum
+   menjalankannya, jadi isinya dipertahankan; yang ditambahkan hanya syarat
+   "jalankan bila kolomnya masih vector". */
+DO $migrasi0029$
+BEGIN
+  IF (SELECT udt_name FROM information_schema.columns
+      WHERE table_name = 'document_vectors' AND column_name = 'centroid'
+      LIMIT 1) <> 'vector' THEN
+    RETURN;   -- sudah halfvec: indeksnya milik migrasi 0035
+  END IF;
+
+  CREATE INDEX IF NOT EXISTS idx_docvec_384 ON document_vectors
+    USING hnsw ((subvector(centroid, 1, 384)::vector(384)) vector_cosine_ops)
+    WHERE embedding_dims = 384;
+  CREATE INDEX IF NOT EXISTS idx_docvec_768 ON document_vectors
+    USING hnsw ((subvector(centroid, 1, 768)::vector(768)) vector_cosine_ops)
+    WHERE embedding_dims = 768;
+  CREATE INDEX IF NOT EXISTS idx_docvec_1024 ON document_vectors
+    USING hnsw ((subvector(centroid, 1, 1024)::vector(1024)) vector_cosine_ops)
+    WHERE embedding_dims = 1024;
+  CREATE INDEX IF NOT EXISTS idx_docvec_1536 ON document_vectors
+    USING hnsw (centroid vector_cosine_ops)
+    WHERE embedding_dims = 1536 OR embedding_dims IS NULL;
+END
+$migrasi0029$;
 
 /* RLS — sama seperti seluruh tabel ber-tenant. */
 ALTER TABLE document_vectors ENABLE ROW LEVEL SECURITY;
