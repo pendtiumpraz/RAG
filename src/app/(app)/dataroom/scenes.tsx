@@ -508,6 +508,7 @@ import type { SceneId } from './scene-text';
 import { SceneTokens, SceneCosts } from './scenes-cost';
 import { ScenePlans, SceneCapacity, SceneVercel } from './scenes-limits';
 import { SceneStorage, SceneScale } from './scenes-storage';
+import { SceneDims, SceneHalfvec } from './scenes-vector';
 
 export const SCENES: Record<SceneId, () => React.ReactElement> = {
   ingest: SceneIngest,
@@ -525,4 +526,6 @@ export const SCENES: Record<SceneId, () => React.ReactElement> = {
   vercel: SceneVercel,
   storage: SceneStorage,
   scale: SceneScale,
+  dims: SceneDims,
+  halfvec: SceneHalfvec,
 };

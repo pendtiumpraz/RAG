@@ -622,6 +622,14 @@ const hla: Slide[] = [
     title: 'Dibayar sekali, dan dibayar tiap kali',
     note: 'Memisahkan keduanya penting saat menyusun anggaran: biaya sekali menentukan berapa lama pemasangan awal, sedangkan biaya berulang menentukan tagihan bulanan. Angka per 1.000 pertanyaan di slide ini diambil dari tabel harga yang sama dengan dek Technical — bukan diketik ulang, sehingga tak mungkin menyimpang.' },
 
+  { kind: 'anim', kicker: 'DASAR', scene: 'dims',
+    title: 'Vektor, dan arti angka 384 · 768 · 1024 · 1536',
+    note: 'Angka itu adalah berapa bilangan dipakai untuk menggambarkan satu potongan teks. Semakin banyak, semakin halus nuansa yang bisa dibedakan — dan semakin besar memori serta waktu yang dimakan. Untuk dokumen perkantoran, selisih ketepatan antara 384 dan 1536 sering tak terasa, sementara selisih biayanya empat kali lipat. Itulah sebabnya model 384 dipakai secara bawaan di sini.' },
+
+  { kind: 'anim', kicker: 'DASAR', scene: 'halfvec',
+    title: 'halfvec — separuh ukuran, peringkat tetap sama',
+    note: 'Keputusan ini diambil setelah diukur, bukan sebelum: 50 dari 50 posisi peringkat teratas identik antara presisi penuh dan presisi setengah, pada dokumen sungguhan. Yang menarik, penghematan terbesarnya justru bukan dari presisinya melainkan dari berhenti memberi padding — model 384 dimensi dulu dipaksa disimpan sebagai 1.536, dan tiga perempatnya nol yang tetap dibayar penuh di disk maupun memori.' },
+
   { kind: 'anim', kicker: 'PENYIMPANAN', scene: 'storage',
     title: '1 GB berkas Drive jadi berapa di basis data',
     note: 'Yang memenuhi basis data BUKAN teks dokumennya, melainkan vektornya — 6.148 byte melawan 680 byte, sembilan kali lipat. Itulah harga sebenarnya dari pencarian yang memahami makna, dan itu pula sebabnya optimasi dimensi vektor berdampak begitu besar. Semua angka di slide ini diukur dengan pg_column_size pada data produksi.' },

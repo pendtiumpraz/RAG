@@ -15,7 +15,7 @@
 
 export type SceneId =
   | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory'
-  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel' | 'storage' | 'scale';
+  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel' | 'storage' | 'scale' | 'dims' | 'halfvec';
 
 export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ingest: [
@@ -137,5 +137,21 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: '1 TB → ±288 GB basis data', d: '±29 juta potongan. RAM mode langsung 46–69 GB — melewati atap Neon.' },
     { t: 'Dua rasio, dua kegunaan', d: '2% untuk memperkirakan, 3% untuk MERENCANAKAN server. Merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan memori enam bulan kemudian.' },
     { t: 'Mode bertingkat memangkas sepersepuluh', d: 'Korpus 1 TB: dari 46–69 GB menjadi 4,6–6,9 GB. Korpusnya sama, memorinya sepersepuluh.' },
+  ],
+  dims: [
+    { t: 'Vektor itu deretan angka', d: 'Satu potongan teks diubah jadi deretan angka yang menyandikan MAKNANYA. Dua teks bermakna mirip menghasilkan deretan yang berdekatan — itulah dasar pencariannya.' },
+    { t: '384 — MiniLM', d: 'Model kecil yang berjalan di server sendiri, tanpa panggilan API. Yang dipakai secara bawaan di sini.' },
+    { t: '768 — kelas base', d: 'Dua kali lipat angkanya; menangkap nuansa lebih halus, dan memakan dua kali lipat memori.' },
+    { t: '1024 — kelas large', d: 'Lebih peka lagi, dengan biaya penyimpanan dan waktu yang ikut naik.' },
+    { t: '1536 — OpenAI', d: 'Lewat API dan berbayar per pemakaian. Empat kali lipat memori dibanding 384.' },
+    { t: 'Lebih banyak bukan selalu lebih baik', d: 'Dimensi besar memakan memori dan waktu lebih besar untuk selisih ketepatan yang sering tak terasa pada dokumen perkantoran.' },
+  ],
+  halfvec: [
+    { t: 'halfvec = 2 byte per angka', d: 'Sebelumnya 4 byte. Digit di belakang koma yang dibuang berada di bawah derau model embedding-nya sendiri.' },
+    { t: 'Peringkatnya IDENTIK', d: 'Diukur, bukan diklaim: 5 pertanyaan × 10 hasil teratas pada dokumen sungguhan — 50 dari 50 posisi sama persis.' },
+    { t: 'Kolom vektor 7,9× lebih kecil', d: '6.148 → 776 byte. Satu baris penuh 8.228 → 2.852 byte.' },
+    { t: 'Penghematan terbesar bukan dari presisi', d: 'Melainkan dari berhenti memberi PADDING: model 384 dimensi dulu dipaksa disimpan sebagai 1.536, dan tiga perempatnya nol yang tetap dibayar penuh.' },
+    { t: 'Kenapa dikerjakan sekarang', d: 'Mengubah tipe kolom setelah jutaan potongan masuk berarti menulis ulang seluruh tabel. Selagi datanya sedikit, biayanya nyaris nol.' },
+    { t: 'Yang tak berubah', d: 'Operator, indeks, dan cara kerjanya sama persis. Hanya angkanya disimpan lebih pendek.' },
   ],
 };
