@@ -416,7 +416,7 @@ const proposal: Slide[] = [
       ['Jaringan', '1 Gbps internal', '10 Gbps', 'egress keluar hanya bila menarik dari SharePoint Online'],
       ['OS', 'Ubuntu 22.04 LTS', 'Ubuntu 24.04 LTS', 'Docker + docker-compose'],
     ],
-    note: 'Rekomendasi ini SUDAH memperhitungkan optimasi dimensi vektor di slide sebelumnya. Tanpa optimasi itu, perkiraan atas (30 GB teks) menuntut 288 GB RAM — karena itu optimasinya kami jadikan syarat, bukan pilihan. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API.' },
+    note: 'Rekomendasi ini SUDAH memperhitungkan optimasi dimensi vektor di slide sebelumnya. Tanpa optimasi itu, perkiraan atas (30 GB teks) menuntut 288 GB RAM — karena itu optimasinya kami jadikan syarat, bukan pilihan. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API. Catatan yang disengaja: angka RAM di atas BELUM memperhitungkan mode bertingkat, walaupun mode itu sudah terpasang dan secara rancangan menurunkan indeks residen ke 1–3 GB. Kami menahannya sampai recall-nya terukur pada korpus sebesar milik Anda — menjual spesifikasi yang lebih murah di atas angka yang belum diukur bukan kebiasaan kami. Bila pengukuran itu sesuai harapan, kebutuhan RAM turun jauh dan selisihnya menjadi keuntungan Anda, bukan tagihan tambahan.' },
 
   { kind: 'table', kicker: 'ARSITEKTUR PENYIMPANAN', title: 'Tidak semua harus tinggal di memori',
     small: true,
@@ -424,9 +424,9 @@ const proposal: Slide[] = [
     rows: [
       ['Datar 1.536 dim — sebelum optimasi', 'seluruh 47 jt vektor', '282 GB', '901 GB', 'ditinggalkan'],
       ['Datar dimensi asli — TERPASANG', 'seluruh 47 jt vektor, 4× lebih kecil', '69 GB', '603 GB', 'berjalan hari ini'],
-      ['BERTINGKAT — indeks di level dokumen', 'hanya ±200 rb vektor dokumen', '1–3 GB', '603 GB', 'dirancang, belum dibangun'],
+      ['BERTINGKAT — indeks di level dokumen', 'hanya ±200 rb vektor dokumen', '1–3 GB', '603 GB', 'TERPASANG — menyala otomatis'],
     ],
-    note: 'Berkas asli SELALU tinggal di SharePoint — tak pernah disalin. Yang dibahas di sini hanya indeks pencariannya. Pada rancangan bertingkat, pencarian menyaring di tingkat DOKUMEN lebih dulu (indeks kecil, residen), lalu potongan dokumen terpilih dibaca dari disk sesuai kebutuhan — jadi RAM tak lagi tumbuh mengikuti besar korpus. Kejujuran yang perlu disampaikan: rancangan ini BELUM terpasang, dan ia menukar sedikit ketepatan (dokumen yang terlewat di tingkat pertama tak akan pernah dibaca di tingkat kedua) dengan penghematan yang sangat besar.' },
+    note: 'Berkas asli SELALU tinggal di SharePoint — tak pernah disalin. Yang dibahas di sini hanya indeks pencariannya. Pada mode bertingkat, pencarian menyaring di tingkat DOKUMEN lebih dulu (indeks kecil, residen), lalu potongan dokumen terpilih dibaca dari disk sesuai kebutuhan — jadi RAM tak lagi tumbuh mengikuti besar korpus. Modenya menyala SENDIRI begitu sebuah knowledge base melewati ±200 ribu potongan; tak ada yang perlu dipilih operator, karena memilih mode retrieval menuntut penilaian yang pemilik data tak punya dasar untuk membuatnya. Dua hal yang perlu dibaca apa adanya: (1) KEBENARANNYA sudah diuji pada basis data sungguhan — hasil mode bertingkat identik dengan mode datar; tapi korpus ujinya kecil, jadi yang terbukti adalah jalurnya benar, BUKAN berapa recall-nya di ratusan ribu dokumen. Pengukuran itu terjadwal sebelum go-live. (2) Tukar-tambahnya nyata: dokumen yang terlewat di tingkat pertama tak akan dibaca di tingkat kedua. Dua penahan sudah terpasang — kandidat diambil jauh lebih banyak dari yang dipakai, dan pencarian kata/nomor/nama persis TIDAK ikut disaring sama sekali, sehingga tetap menyapu seluruh korpus apa pun modenya.' },
 
   { kind: 'table', kicker: 'BIAYA AI — PIHAK KETIGA', title: `Biaya model bahasa lewat API — ${ENTERPRISE_CHATS.toLocaleString('id-ID')} pertanyaan/bulan`,
     small: true,

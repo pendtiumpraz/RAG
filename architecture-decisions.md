@@ -264,9 +264,65 @@ ber-RLS; webhook menulis lewat GUC platform_admin SETELAH signature lolos.
 
 **Status:** APPROVED user 2026-07-28.
 
+## ✅ D14 — Kebijakan jawaban per chatbot + retrieval bertingkat menyala otomatis (2026-07-30)
+
+**Keputusan.** Dua hal yang keduanya menyangkut apa yang pengguna akhir
+terima sebagai jawaban:
+
+1. **Kebijakan jawaban milik CHATBOT, bukan milik tenant.** Bahasa jawaban
+   (`auto`/`id`/`en`), nada, tingkat kepatuhan pada dokumen
+   (`strict`/`balanced`/`open`), `temperature`, dan `max_tokens` disimpan per
+   baris `chatbots` — sejalan dengan D11 yang sudah menjadikan chatbot sebagai
+   unit berkonteks divisi. Divisi legal dan divisi marketing tak pantas
+   dipaksa berbagi satu setelan kepatuhan.
+2. **Mode retrieval TIDAK dipilih siapa pun.** Ia menyala sendiri begitu
+   sebuah KB melewati `TIERED_MIN_CHUNKS` (200 ribu potongan).
+
+**Konteks.** Sebelum ini `streamChat()` tak pernah mengirim `temperature` ke
+penyedia mana pun, jadi semuanya berjalan pada default masing-masing — dan
+default OpenAI maupun Anthropic adalah **1,0**. Itu nilai yang dirancang
+untuk menulis prosa, dipakai oleh mesin yang tugasnya menyebut nomor pasal.
+Ini bukan pengaturan yang kurang; ini cacat perilaku yang tak kelihatan
+karena tak ada yang pernah menyebut angkanya.
+
+Tiga sub-keputusan yang layak dicatat karena alternatifnya masuk akal:
+
+- **Arahan kebijakan ditulis dalam bahasa Inggris**, walaupun produk ini
+  berbahasa Indonesia. Instruksi sistem berbahasa Indonesia menarik model
+  ikut menjawab dalam bahasa Indonesia walaupun penanyanya menulis Inggris —
+  persis kegagalan yang mau dicegah mode `auto`. Bahasa instruksi ≠ bahasa
+  jawaban.
+- **Aturan bebas pemilik chatbot berlabel "preferensi gaya"** dan ditaruh
+  setelah aturan kepatuhan. Tanpa pembatas itu, siapa pun yang bisa mengedit
+  chatbot cukup menulis "abaikan aturan di atas" untuk mematikan seluruh
+  anti-halusinasi dari kotak teks biasa di form.
+- **`temperature` dijepit maksimum 1,0**, bukan 2,0 yang diizinkan OpenAI.
+  Di atas 1 model mulai memilih token berpeluang rendah; pada mesin RAG itulah
+  mekanisme lahirnya nama, tanggal, dan nomor pasal yang tak ada di dokumen
+  mana pun. Ditegakkan di service DAN sebagai CHECK constraint (migrasi 0030).
+
+**Kenapa mode retrieval tak boleh jadi pilihan.** Menyuruh pemilik data
+memilih "mode retrieval" berarti meminta mereka menilai sesuatu yang tak
+punya dasar untuk dinilai, dan salah pilih berarti jawaban yang diam-diam
+kehilangan dokumen — kegagalan yang tak menimbulkan pesan galat apa pun.
+Ambangnya ditentukan saat ingest; retrieval hanya membaca jejaknya lewat satu
+`EXISTS` berindeks, bukan menghitung potongan di jalur panas.
+`tenant_settings.tiered_retrieval` tetap ada tapi berubah arti: dari mode yang
+dipilih pengguna menjadi **pemaksa untuk pengukuran awal saat pemasangan
+on-prem**.
+
+**Batas yang diakui.** Kebenaran jalur bertingkat sudah diuji pada basis data
+sungguhan (hasil identik dengan mode datar, dibandingkan per isi), tapi pada
+korpus kecil. Recall di ratusan ribu dokumen BELUM terukur — kartu backlog
+`a-tier1-recall-eval`. Kaki leksikal sengaja tidak ikut disaring; itulah
+jaring pengaman terhadap dokumen yang centroid-nya meleset.
+
+**Status:** dikerjakan atas permintaan user 2026-07-30.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-30 | D14 = kebijakan jawaban per chatbot (bahasa/nada/kepatuhan/temperature) + mode retrieval bertingkat menyala otomatis, bukan dipilih | User |
 | 2026-07-28 | D12 = pembayaran QRIS (Midtrans/Tripay/Xendit, satu aktif, config di DB) + mode deploy di DB (onprem=unlimited) + halaman bayar sendiri | User |
 | 2026-07-28 | D11 = KB mandiri + assignment N:M ke chatbot + konteks divisi per chatbot | User |
 | 2026-07-27 | D10 = mode akses Drive (`full`/`picker`) dipilih superadmin; SaaS→picker utk lepas dari scope restricted | User |
