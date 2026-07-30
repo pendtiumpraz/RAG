@@ -132,6 +132,24 @@
       '.nl-bch .tr{position:relative;height:10px;border-left:2px solid ' + line + '}' +
       '.nl-bch .b{display:block;height:100%;min-width:2px;background:' + T.signal + ';border-radius:0 3px 3px 0}' +
       '.nl-bch .v{font-family:ui-monospace,monospace;font-size:10px;color:' + ink + '}' +
+      /* multi-seri: batang berkelompok per label + legend wajib */
+      '.nl-bch .r{grid-template-columns:minmax(56px,32%) 1fr}' +
+      '.nl-bch .st{display:flex;flex-direction:column;gap:3px}' +
+      '.nl-bch .st .tr{display:flex;align-items:center;gap:6px}' +
+      '.nl-bch .st .b{flex:none}.nl-bch .st .v{flex:none}' +
+      '.nl-blg{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:2px}' +
+      '.nl-blg span{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;color:' + mut + '}' +
+      '.nl-blg i{width:8px;height:8px;border-radius:2px;flex:none}' +
+      /* blok tabel */
+      '.nl-bcap{display:block;font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:' + mut + ';margin-bottom:6px}' +
+      '.nl-btw{overflow-x:auto;border:1px solid ' + line + ';border-radius:' + rs + '}' +
+      '.nl-bta{width:100%;border-collapse:collapse;font-size:11.5px}' +
+      '.nl-bta th{text-align:left;font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:' + mut + ';background:' + panel + ';padding:6px 9px;border-bottom:1px solid ' + line + ';white-space:nowrap}' +
+      '.nl-bta th:not(:first-child){text-align:right}' +
+      '.nl-bta td{padding:6px 9px;border-bottom:1px solid ' + line + ';line-height:1.4;vertical-align:top}' +
+      '.nl-bta tr:last-child td{border-bottom:0}' +
+      '.nl-bta td.nm{font-weight:600}' +
+      '.nl-bta td.num{text-align:right;white-space:nowrap;font-family:ui-monospace,monospace}' +
       '.nl-inp{display:flex;gap:8px;padding:11px;border-top:1px solid ' + line + ';background:' + panel + '}' +
       '.nl-inp input{flex:1;background:' + bg + ';border:1px solid ' + line + ';color:' + ink + ';font-size:13.5px;padding:10px 12px;border-radius:' + rs + ';outline:none}' +
       '.nl-send{width:42px;border:none;border-radius:' + rs + ';background:' + T.signal + ';color:' + onSignal + ';cursor:pointer}' +
@@ -302,17 +320,56 @@
             '<b>' + fmt(c.value) + '</b>' +
             (c.desc ? '<p>' + fmt(c.desc) + '</p>' : '') + '</div>';
         }).join('') + '</div>';
-      } else if (b.type === 'chart' && b.labels && b.values) {
-        var max = 0; b.values.forEach(function (v) { max = Math.max(max, Math.abs(v)); }); max = max || 1;
+      } else if (b.type === 'table' && b.headers && b.rows) {
+        /* Tabel bergulir DI DALAM wadahnya — panel widget sempit, dan badan
+           panel tak boleh pernah bergulir mendatar. */
+        d.innerHTML = (b.title ? '<small class="nl-bcap">' + esc(b.title) + '</small>' : '') +
+          '<div class="nl-btw"><table class="nl-bta"><thead><tr>' +
+          b.headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+          '</tr></thead><tbody>' +
+          b.rows.map(function (r) {
+            return '<tr>' + r.map(function (c, j) {
+              return '<td class="' + (j === 0 ? 'nm' : 'num') + '">' + fmt(c) + '</td>';
+            }).join('') + '</tr>';
+          }).join('') + '</tbody></table></div>';
+      } else if (b.type === 'chart' && b.labels) {
+        /* Bentuk lama (satu `values`) tetap dirender: blok yang tersimpan
+           sebelum multi-seri harus tampil sama seperti dulu. */
+        var series = (b.series && b.series.length)
+          ? b.series
+          : (b.values ? [{ name: b.title || 'Nilai', values: b.values }] : []);
+        if (!series.length) { d.textContent = ''; return d; }
+
+        /* Urutan warna SAMA dengan SERIES_COLORS di answer-blocks.tsx —
+           sudah lolos validator keterbacaan buta warna. */
+        var COLORS = ['#3B82F6', '#D97706', '#8B5CF6', '#059669'];
+        var max = 0;
+        series.forEach(function (s) {
+          s.values.forEach(function (v) { max = Math.max(max, Math.abs(v)); });
+        });
+        max = max || 1;
         var unit = b.unit ? ' ' + esc(b.unit) : '';
+
+        /* Legend wajib begitu seri >1 — identitas tak boleh warna semata. */
+        var legend = series.length > 1
+          ? '<div class="nl-blg">' + series.map(function (s, si) {
+              return '<span><i style="background:' + COLORS[si % COLORS.length] + '"></i>' +
+                esc(s.name) + '</span>';
+            }).join('') + '</div>'
+          : '';
+
         d.innerHTML = '<div class="nl-bch">' +
-          (b.title ? '<small class="t">' + esc(b.title) + '</small>' : '') +
+          (b.title ? '<small class="t">' + esc(b.title) + '</small>' : '') + legend +
           b.labels.map(function (l, i) {
-            var v = b.values[i];
-            return '<div class="r" title="' + esc(l) + ': ' + v + unit + '">' +
-              '<span class="l">' + esc(l) + '</span>' +
-              '<span class="tr"><span class="b" style="width:' + (Math.abs(v) / max * 100) + '%"></span></span>' +
-              '<span class="v">' + v + unit + '</span></div>';
+            var bars = series.map(function (s, si) {
+              var v = s.values[i];
+              return '<span class="tr" title="' + esc(s.name) + ' · ' + esc(l) + ': ' + v + unit + '">' +
+                '<span class="b" style="width:' + (Math.abs(v) / max * 100) + '%;background:' +
+                COLORS[si % COLORS.length] + '"></span>' +
+                '<span class="v">' + v + unit + '</span></span>';
+            }).join('');
+            return '<div class="r"><span class="l">' + esc(l) + '</span>' +
+              '<span class="st">' + bars + '</span></div>';
           }).join('') + '</div>';
       } else {
         d.textContent = '';

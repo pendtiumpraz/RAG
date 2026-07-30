@@ -609,6 +609,20 @@ export const openApiSpec = {
         responses: { 200: err('model terdeteksi & tersimpan'), 422: err('koneksi/token gagal') } },
     },
 
+    '/api/connections/test': {
+      post: {
+        summary: 'Uji koneksi storage — mengetuk penyedia sungguhan',
+        description: 'Membuktikan token masih hidup, refresh berhasil, dan izinnya cukup — tiga hal ' +
+          'yang bisa gagal diam-diam dan baru terasa saat sync gagal berjam-jam kemudian. Mengetuk ' +
+          'Drive `about` / Graph `/me` (termurah, tak menyentuh dokumen pelanggan).',
+        security: [sessionAuth],
+        requestBody: json(obj({ id: uuid }, ['id'])),
+        responses: {
+          200: err('{ ok, account, name, quota, canPickFiles, canScanFolder } atau { ok:false, reason }'),
+          400: err('id wajib'), 404: err('koneksi tidak ditemukan'),
+        },
+      },
+    },
     '/api/connections': {
       get: { summary: 'Status koneksi storage user (tanpa token)', security: [sessionAuth],
         responses: { 200: err('provider, scope, expiresAt') } },

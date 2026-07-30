@@ -277,6 +277,35 @@ table.table tr:last-child td{ border-bottom:none; }
 .ab-line-x{ display:flex; justify-content:space-between; margin-top:4px;
   font-size:10.5px; color:var(--faint); font-family:var(--font-mono); }
 
+
+/* multi-seri: batang BERKELOMPOK per label (bukan bertumpuk) */
+.ab-bars .grp{ display:grid; grid-template-columns:minmax(70px,32%) 1fr; align-items:start; gap:10px; }
+.ab-bars .stack{ display:flex; flex-direction:column; gap:3px; }
+.ab-bars .stack .track{ display:flex; align-items:center; gap:8px; height:12px;
+  border-left:2px solid var(--line-strong); }
+.ab-bars .stack .bar{ flex:none; }
+.ab-bars .stack .val{ flex:none; }
+/* legend: WAJIB ada begitu seri >1 — identitas tak boleh warna semata */
+.ab-legend{ display:flex; flex-wrap:wrap; gap:12px; margin:0 0 10px; }
+.ab-legend .it{ display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); }
+.ab-legend i{ width:10px; height:10px; border-radius:2px; flex:none; }
+
+/* blok tabel — kolom pertama nama, sisanya angka mono rata kanan */
+.ab-tablewrap{ margin:2px 0 0; }
+.ab-tablewrap figcaption{ margin-bottom:8px; }
+/* tabel lebar bergulir DI DALAM wadahnya; badan halaman tak pernah mendatar */
+.ab-tscroll{ overflow-x:auto; border:1px solid var(--line); border-radius:var(--rad-md); }
+.ab-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.ab-table th{ text-align:left; font-family:var(--font-mono); font-size:10px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted); background:var(--card-2);
+  padding:8px 11px; border-bottom:1px solid var(--line); white-space:nowrap; }
+.ab-table td{ padding:8px 11px; border-bottom:1px solid var(--line); vertical-align:top;
+  line-height:1.45; }
+.ab-table tr:last-child td{ border-bottom:0; }
+.ab-table td.nm{ font-weight:600; }
+.ab-table td.num{ text-align:right; white-space:nowrap; font-size:12px; }
+.ab-table th:not(:first-child){ text-align:right; }
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important;
     transition-duration:.001ms !important; scroll-behavior:auto !important; }

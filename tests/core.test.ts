@@ -807,3 +807,64 @@ test('ekspor CSV: sel diloloskan & rumus dilucuti (CSV injection)', async () => 
   const both = csvCell('=CMD("a,b")');
   assert.ok(both.startsWith('"\'') && both.endsWith('"'), both);
 });
+
+test('blok: tabel & chart multi-seri divalidasi, bentuk lama tetap diterima', async () => {
+  const { sanitizeBlock, blocksToPlainText } = await import('../src/modules/chat/blocks');
+
+  /* ── TABEL ── */
+  const t = sanitizeBlock({
+    type: 'table', title: 'RAB **2024**',
+    headers: ['Item', '2024', '2025'],
+    // Baris pendek & panjang: keduanya harus DIPAKSA selebar header, kalau
+    // tidak layout tabelnya rusak di renderer.
+    rows: [['Sewa', '120', '135'], ['Listrik', '40'], ['Lain', '1', '2', '3', '4']],
+  });
+  assert.equal(t?.type, 'table');
+  if (t?.type !== 'table') throw new Error('bukan tabel');
+  assert.equal(t.title, 'RAB 2024', 'markdown dilucuti dari judul');
+  assert.ok(t.rows.every((r) => r.length === 3), 'setiap baris selebar header');
+  assert.deepEqual(t.rows[1], ['Listrik', '40', ''], 'sel kurang diisi kosong');
+  assert.deepEqual(t.rows[2], ['Lain', '1', '2'], 'sel berlebih dipangkas');
+
+  // Satu kolom itu daftar, bukan tabel.
+  assert.equal(sanitizeBlock({ type: 'table', headers: ['Item'], rows: [['a']] }), null);
+  // Tabel tanpa baris tak punya isi.
+  assert.equal(sanitizeBlock({ type: 'table', headers: ['a', 'b'], rows: [] }), null);
+
+  /* ── CHART MULTI-SERI ── */
+  const c = sanitizeBlock({
+    type: 'chart', kind: 'bar', labels: ['Q1', 'Q2', 'Q3'],
+    series: [
+      { name: '2024', values: [10, 20, 30] },
+      { name: '2025', values: [12, 18] },        // kurang satu titik → diisi 0
+      { name: 'kosong', values: [0, 0, 0] },     // semua nol → dibuang
+    ],
+  });
+  if (c?.type !== 'chart') throw new Error('bukan chart');
+  assert.equal(c.series.length, 2, 'seri yang seluruhnya nol dibuang');
+  assert.deepEqual(c.series[1].values, [12, 18, 0], 'titik kurang diisi nol');
+  assert.equal(c.values, undefined, 'multi-seri tak menulis bentuk lama');
+
+  // Lebih dari 4 seri dipangkas — hanya 4 warna yang lolos validator buta warna.
+  const many = sanitizeBlock({
+    type: 'chart', kind: 'line', labels: ['a', 'b'],
+    series: Array.from({ length: 7 }, (_, i) => ({ name: `s${i}`, values: [i + 1, i + 2] })),
+  });
+  if (many?.type !== 'chart') throw new Error('bukan chart');
+  assert.equal(many.series.length, 4);
+
+  /* ── BENTUK LAMA (satu `values`) ── */
+  const legacy = sanitizeBlock({
+    type: 'chart', kind: 'bar', title: 'Pendapatan',
+    labels: ['A', 'B'], values: [5, 7],
+  });
+  if (legacy?.type !== 'chart') throw new Error('bukan chart');
+  assert.equal(legacy.series.length, 1, 'values lama jadi satu seri');
+  assert.deepEqual(legacy.values, [5, 7],
+    'values TETAP ditulis untuk seri tunggal — blok yang sudah tersimpan harus tetap terbaca');
+
+  /* ── padanan teks: dipakai sebagai riwayat prompt, jadi harus bermakna ── */
+  const txt = blocksToPlainText([t, c]);
+  assert.match(txt, /Item \| 2024 \| 2025/, 'header ikut — angka tanpa nama kolom tak bisa ditafsirkan');
+  assert.match(txt, /2025 — Q1 12/, 'nama seri menempel pada angkanya');
+});

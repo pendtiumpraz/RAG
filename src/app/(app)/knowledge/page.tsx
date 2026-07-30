@@ -17,6 +17,12 @@ interface Conn {
   id: string; provider: string; accountEmail: string; accountLabel: string | null;
   canPickFiles?: boolean; canScanFolder?: boolean;
 }
+interface TestResult {
+  ok: boolean; reason?: string;
+  account?: string; name?: string | null; quota?: string | null;
+  canPickFiles?: boolean; canScanFolder?: boolean;
+}
+
 /** Jawaban /api/connections/providers — driveMode & picker mengikuti D10. */
 interface Providers {
   google: boolean; microsoft: boolean;
@@ -80,6 +86,31 @@ export default function KnowledgePage() {
   async function disconnect(id: string) {
     try { await api(`/api/connections?id=${id}`, { method: 'DELETE' }); toast('Akun diputus'); conns.refetch(); }
     catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  /**
+   * Uji koneksi — mengetuk penyedia sungguhan.
+   *
+   * Baris "tersambung" hanya membuktikan ada barisnya di database; ia tak
+   * membuktikan tokennya masih hidup, refresh-nya berhasil, atau izinnya
+   * cukup. Ketiganya bisa gagal diam-diam dan baru terasa saat sync gagal
+   * berjam-jam kemudian.
+   */
+  const [testing, setTesting] = useState<string | null>(null);
+  const [tested, setTested] = useState<Record<string, TestResult>>({});
+  async function testConn(id: string) {
+    setTesting(id);
+    try {
+      const r = await api<TestResult>('/api/connections/test', {
+        method: 'POST', body: JSON.stringify({ id }),
+      });
+      setTested((t) => ({ ...t, [id]: r }));
+      // Izin bisa berubah sejak halaman dimuat (mis. baru menambah izin) —
+      // segarkan daftarnya supaya penanda "bisa folder" ikut benar.
+      if (r.ok) conns.refetch();
+    } catch (e) {
+      setTested((t) => ({ ...t, [id]: { ok: false, reason: (e as Error).message } }));
+    } finally { setTesting(null); }
   }
 
   return (
@@ -163,10 +194,32 @@ export default function KnowledgePage() {
             : (
               <div className="stack" style={{ gap: 8 }}>
                 {conns.data.map((c) => (
-                  <div key={c.id} className="cluster" style={{ justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-                    <span className="badge badge-ok"><span className="led" />{c.provider === 'google' ? 'Google' : 'Microsoft'}</span>
-                    <span style={{ flex: 1, color: 'var(--muted)', fontSize: 13 }}>{c.accountEmail}</span>
-                    <button className="btn btn-sm btn-ghost" onClick={() => disconnect(c.id)}>Putus</button>
+                  <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                    <div className="cluster" style={{ justifyContent: 'space-between' }}>
+                      <span className="badge badge-ok"><span className="led" />{c.provider === 'google' ? 'Google' : 'Microsoft'}</span>
+                      <span style={{ flex: 1, color: 'var(--muted)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.accountEmail}</span>
+                      {/* Izin yang BENAR-BENAR dipunyai — bukan mode yang
+                          sedang aktif di pengaturan. Ini yang menentukan
+                          metode mana yang bisa dipakai. */}
+                      {c.provider === 'google' && (
+                        <span className="microlabel" style={{ color: c.canScanFolder ? 'var(--good)' : 'var(--source)' }}>
+                          {c.canScanFolder ? 'BISA FOLDER + PICKER' : 'PICKER SAJA'}
+                        </span>
+                      )}
+                      <button className={`btn btn-sm${testing === c.id ? ' is-loading' : ''}`}
+                        disabled={testing === c.id} onClick={() => testConn(c.id)}>Uji</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => disconnect(c.id)}>Putus</button>
+                    </div>
+                    {tested[c.id] && (
+                      <p style={{
+                        margin: '6px 0 0', fontSize: 12.5,
+                        color: tested[c.id].ok ? 'var(--good)' : 'var(--danger)',
+                      }}>
+                        {tested[c.id].ok
+                          ? `✓ Terhubung sebagai ${tested[c.id].account}${tested[c.id].name ? ` (${tested[c.id].name})` : ''}${tested[c.id].quota ? ` · ${tested[c.id].quota}` : ''}`
+                          : `✗ ${tested[c.id].reason}`}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -394,7 +447,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload';
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
   const providerAccounts = noAuth ? [] : accounts.filter((a) => a.provider === provider);
-  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); setUrl(''); setFiles([]); }, [kind]); // eslint-disable-line
+  useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); setUrl(''); setFiles([]); setDriveMethod('picker'); }, [kind]); // eslint-disable-line
 
   const conn = providerAccounts.find((a) => a.accountEmail === accountEmail) ?? null;
   /**
@@ -404,9 +457,23 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
    * izin yang dituntut Picker — dan satu-satunya jalan keluar adalah memutus
    * lalu menyambung ulang tanpa penjelasan apa pun.
    */
-  const canScan = kind === 'gdrive' ? conn?.canScanFolder !== false : true;
-  const canPick = kind === 'gdrive' ? conn?.canPickFiles !== false : false;
-  const pickerMode = kind === 'gdrive' && providers?.driveMode === 'picker' && !canScan;
+  const canScan = kind === 'gdrive' ? conn?.canScanFolder === true : true;
+
+  /**
+   * METODE untuk Google Drive — dipilih pengguna, bukan disimpulkan.
+   *
+   * Dua jalur ini melayani kebutuhan berbeda dan KEDUANYA sah:
+   *   picker — pilih berkas satu per satu lewat Google Picker (izin drive.file)
+   *   folder — seluruh Drive atau satu folder, rekursif (izin drive.readonly)
+   *
+   * Versi sebelumnya menyimpulkannya dari mode + izin, dan itu keliru: selama
+   * akun belum termuat, izinnya belum diketahui, sehingga Picker tersembunyi
+   * dan yang tampil justru isian Folder ID — yang mustahil jalan dengan
+   * drive.file. Sekarang pengguna melihat kedua pilihan, dan yang tak
+   * tersedia menjelaskan sebabnya alih-alih menghilang diam-diam.
+   */
+  const [driveMethod, setDriveMethod] = useState<'picker' | 'folder'>('picker');
+  const pickerMode = kind === 'gdrive' && driveMethod === 'picker';
   /** SharePoint memakai URL; OneDrive tetap path /me/drive. */
   const useUrl = kind === 'gdrive_public' || kind === 'sharepoint' || kind === 'url';
   const isUpload = kind === 'upload';
@@ -603,13 +670,34 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
               </p></div>
           )}
 
-          {/* Izin kurang: tawarkan MENAMBAH izin, bukan memutus koneksi. */}
-          {kind === 'gdrive' && conn && !canScan && (
+          {/* Pilihan METODE Drive — dua jalur, keduanya tetap terlihat. */}
+          {kind === 'gdrive' && (
+            <div className="field"><label>Cara memilih dokumen</label>
+              <div className="cluster gap-2">
+                <button type="button" className={`btn btn-sm${driveMethod === 'picker' ? ' btn-primary' : ''}`}
+                  onClick={() => setDriveMethod('picker')}>
+                  Pilih berkas (Picker)
+                </button>
+                <button type="button" className={`btn btn-sm${driveMethod === 'folder' ? ' btn-primary' : ''}`}
+                  onClick={() => setDriveMethod('folder')}>
+                  Folder / seluruh Drive
+                </button>
+              </div>
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                PICKER: PILIH BERKAS SATU PER SATU — BEKERJA TANPA IZIN TAMBAHAN.
+                FOLDER: SELURUH ISI FOLDER REKURSIF — BUTUH IZIN BACA FOLDER.
+              </p></div>
+          )}
+
+          {/* Izin kurang untuk metode yang dipilih: tawarkan MENAMBAH izin,
+              bukan memutus koneksi — dan hanya saat metodenya memang folder. */}
+          {kind === 'gdrive' && conn && driveMethod === 'folder' && !canScan && (
             <div className="field">
-              <p className="microlabel" style={{ margin: '0 0 8px' }}>
-                AKUN INI HANYA BERIZIN MEMBACA BERKAS YANG DIPILIH. UNTUK MENARIK
-                SATU FOLDER BESERTA SELURUH ISINYA, TAMBAHKAN IZIN BACA FOLDER —
-                KONEKSI YANG ADA TIDAK PERLU DIPUTUS.
+              <p className="microlabel" style={{ margin: '0 0 8px', color: 'var(--source)' }}>
+                AKUN INI HANYA BERIZIN MEMBACA BERKAS YANG DIPILIH, JADI MODE FOLDER
+                BELUM BISA DIPAKAI. TAMBAHKAN IZIN BACA FOLDER — KONEKSI YANG ADA
+                TIDAK PERLU DIPUTUS. ALTERNATIFNYA: PAKAI PICKER, ATAU JENIS SUMBER
+                &ldquo;URL FOLDER PUBLIK&rdquo; YANG TAK BUTUH IZIN APA PUN.
               </p>
               <a className="btn btn-sm"
                 href={`/api/connections/google/start?grant=folder&account=${encodeURIComponent(accountEmail)}`}>
@@ -620,7 +708,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
 
           {pickerMode ? (
             <div className="field"><label>Berkas Drive</label>
-              <button type="button" className="btn" onClick={openPicker} disabled={!canPick}>
+              <button type="button" className="btn" onClick={openPicker}>
                 <Icon name="plus" size={14} /> Pilih berkas dari Google Drive
               </button>
               {picked.length > 0 && (

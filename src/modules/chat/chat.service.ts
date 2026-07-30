@@ -85,7 +85,20 @@ function redactBlockStrings(b: AnswerBlock, onRedacted: () => void): AnswerBlock
   if (b.type === 'cards') {
     return { ...b, items: b.items.map((c) => ({ ...c, title: r(c.title), value: r(c.value), ...(c.desc ? { desc: r(c.desc) } : {}) })) };
   }
-  return { ...b, labels: b.labels.map(r), ...(b.title ? { title: r(b.title) } : {}) };
+  if (b.type === 'table') {
+    return {
+      ...b,
+      headers: b.headers.map(r),
+      rows: b.rows.map((row) => row.map(r)),
+      ...(b.title ? { title: r(b.title) } : {}),
+    };
+  }
+  return {
+    ...b,
+    labels: b.labels.map(r),
+    series: b.series.map((s) => ({ ...s, name: r(s.name) })),
+    ...(b.title ? { title: r(b.title) } : {}),
+  };
 }
 
 export interface ChatTurnCallbacks {

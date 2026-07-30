@@ -18,11 +18,26 @@ import { stripMarkdown } from './plaintext';
  * apa pun: finalize() memecah teks polosnya jadi blok text/list (fallback).
  */
 
+/** Satu seri angka dalam chart. `name` menamainya di legend & label langsung. */
+export interface ChartSeries { name: string; values: number[] }
+
 export type AnswerBlock =
   | { type: 'text'; text: string }
   | { type: 'list'; ordered: boolean; items: string[] }
   | { type: 'cards'; items: Array<{ title: string; value: string; desc?: string }> }
-  | { type: 'chart'; kind: 'bar' | 'line'; title?: string; unit?: string; labels: string[]; values: number[] };
+  | { type: 'table'; title?: string; headers: string[]; rows: string[][] }
+  | {
+      type: 'chart'; kind: 'bar' | 'line'; title?: string; unit?: string; labels: string[];
+      /** Bentuk KANONIK. Selalu terisi oleh sanitizeBlock. */
+      series: ChartSeries[];
+      /**
+       * Bentuk LAMA (satu seri). Masih ditulis untuk seri tunggal supaya blok
+       * yang sudah tersimpan di `messages.blocks` sebelum fitur multi-seri
+       * tetap terbaca oleh renderer yang mana pun — riwayat percakapan lama
+       * tak boleh berubah tampilannya hanya karena skema bertambah.
+       */
+      values?: number[];
+    };
 
 /** Instruksi format utk system prompt. Skema dijaga KECIL — makin sedikit
  *  pilihan, makin patuh model kecil. */
@@ -32,14 +47,19 @@ export const BLOCK_FORMAT_INSTRUCTIONS = [
   '  {"type":"text","text":"1-3 plain sentences. May contain citations like [1]."},',
   '  {"type":"list","ordered":true,"items":["item one [2]","item two"]},',
   '  {"type":"cards","items":[{"title":"Label","value":"9120206721876","desc":"optional short note [1]"}]},',
-  '  {"type":"chart","kind":"bar","title":"Chart title","unit":"optional","labels":["A","B"],"values":[10,20]}',
+  '  {"type":"table","title":"optional","headers":["Item","2024","2025"],"rows":[["Sewa","120","135"]]},',
+  '  {"type":"chart","kind":"bar","title":"Chart title","unit":"optional","labels":["A","B"],',
+  '   "series":[{"name":"2024","values":[10,20]},{"name":"2025","values":[12,18]}]}',
   ']}',
   'Rules: plain text inside strings — NO Markdown (**, #, `, links). Keep each',
   'text block short (1-3 sentences) so the answer reads as small steps. Use',
-  '"list" for enumerations, "cards" for key facts/figures (2-4 cards), and',
-  '"chart" ONLY when the context contains a numeric series worth comparing',
-  '(same unit, 2-12 points) — never invent numbers. Keep citations [1], [2]',
-  'inline in strings, matching the <doc id> numbers.',
+  '"list" for enumerations, "cards" for key facts/figures (2-4 cards),',
+  '"table" when comparing several items across several attributes (every row',
+  'MUST have exactly as many cells as there are headers), and "chart" ONLY when',
+  'the context contains numeric series worth comparing (same unit, 2-12 points,',
+  'at most 4 series) — never invent numbers. Prefer "table" over "chart" when',
+  'the values are not comparable magnitudes of the same unit. Keep citations',
+  '[1], [2] inline in strings, matching the <doc id> numbers.',
 ].join('\n');
 
 /* ── validasi & normalisasi ───────────────────────────────────────── */
@@ -48,6 +68,11 @@ const MAX_BLOCKS = 24;
 const MAX_ITEMS = 24;
 const MAX_TEXT = 2000;
 const MAX_POINTS = 12;
+/** Kolom tabel — lebih dari ini tak terbaca di lebar bubble jawaban. */
+const MAX_COLS = 6;
+/** Seri chart — dibatasi 4 karena hanya 4 warna kategorikal yang lolos
+ *  pemeriksaan keterbacaan buta warna (lihat SERIES_COLORS di renderer). */
+const MAX_SERIES = 4;
 
 const clean = (v: unknown, max = MAX_TEXT) =>
   stripMarkdown(String(v ?? '')).slice(0, max).trim();
@@ -77,19 +102,65 @@ export function sanitizeBlock(raw: unknown): AnswerBlock | null {
     });
     return items.length ? { type: 'cards', items } : null;
   }
-  if (b.type === 'chart' && Array.isArray(b.labels) && Array.isArray(b.values)) {
-    const n = Math.min(b.labels.length, b.values.length, MAX_POINTS);
-    const labels: string[] = []; const values: number[] = [];
-    for (let i = 0; i < n; i++) {
-      const v = Number(b.values[i]);
-      if (!Number.isFinite(v)) continue;
-      labels.push(clean(b.labels[i], 60) || `#${i + 1}`);
-      values.push(v);
+  if (b.type === 'table' && Array.isArray(b.headers) && Array.isArray(b.rows)) {
+    const headers = b.headers.slice(0, MAX_COLS).map((h) => clean(h, 80)).filter(Boolean);
+    if (headers.length < 2) return null; // satu kolom = itu daftar, bukan tabel
+    const rows = (b.rows as unknown[]).slice(0, MAX_ITEMS).flatMap((r) => {
+      if (!Array.isArray(r)) return [];
+      // Baris DIPAKSA selebar header: model kadang melewatkan sel kosong, dan
+      // tabel dengan baris pendek/panjang akan merusak layoutnya. Diisi/dipangkas
+      // di sini supaya renderer tak perlu menjaga apa pun.
+      const cells = Array.from({ length: headers.length }, (_, i) => clean(r[i], 300));
+      return cells.some(Boolean) ? [cells] : [];
+    });
+    if (!rows.length) return null;
+    const title = clean(b.title, 140);
+    return { type: 'table', ...(title ? { title } : {}), headers, rows };
+  }
+  if (b.type === 'chart' && Array.isArray(b.labels)) {
+    const labels = b.labels.slice(0, MAX_POINTS).map((l, i) => clean(l, 60) || `#${i + 1}`);
+    if (labels.length < 2) return null;
+
+    /** Angka mentah → deret sepanjang `labels`; titik tak valid jadi 0. */
+    const toValues = (arr: unknown): number[] | null => {
+      if (!Array.isArray(arr)) return null;
+      const out = labels.map((_, i) => {
+        const v = Number(arr[i]);
+        return Number.isFinite(v) ? v : 0;
+      });
+      // Deret yang seluruhnya nol hampir selalu berarti model gagal membaca
+      // angkanya, bukan bahwa nilainya benar-benar nol.
+      return out.some((v) => v !== 0) ? out : null;
+    };
+
+    const series: ChartSeries[] = [];
+    if (Array.isArray(b.series)) {
+      for (const s of (b.series as unknown[]).slice(0, MAX_SERIES)) {
+        if (!s || typeof s !== 'object') continue;
+        const sr = s as Record<string, unknown>;
+        const values = toValues(sr.values);
+        if (!values) continue;
+        series.push({ name: clean(sr.name, 60) || `Seri ${series.length + 1}`, values });
+      }
     }
-    if (values.length < 2) return null; // 1 angka = bukan chart; model diminta pakai cards
+    // Bentuk lama (satu `values`) tetap diterima: model yang dilatih pada
+    // instruksi sebelumnya masih mengirimkannya, dan menolaknya berarti
+    // kehilangan chart yang sebenarnya sah.
+    if (!series.length) {
+      const values = toValues(b.values);
+      if (!values) return null;
+      series.push({ name: clean(b.title, 60) || 'Nilai', values });
+    }
+
     const kind = b.kind === 'line' ? 'line' : 'bar';
     const title = clean(b.title, 140); const unit = clean(b.unit, 30);
-    return { type: 'chart', kind, ...(title ? { title } : {}), ...(unit ? { unit } : {}), labels, values };
+    return {
+      type: 'chart', kind,
+      ...(title ? { title } : {}), ...(unit ? { unit } : {}),
+      labels, series,
+      // Seri tunggal tetap menulis `values` — lihat catatan di tipe AnswerBlock.
+      ...(series.length === 1 ? { values: series[0].values } : {}),
+    };
   }
   return null;
 }
@@ -101,7 +172,18 @@ export function blocksToPlainText(blocks: AnswerBlock[]): string {
     if (b.type === 'text') return b.text;
     if (b.type === 'list') return b.items.map((it, i) => (b.ordered ? `${i + 1}. ${it}` : `• ${it}`)).join('\n');
     if (b.type === 'cards') return b.items.map((c) => `${c.title}: ${c.value}${c.desc ? ` — ${c.desc}` : ''}`).join('\n');
-    return `${b.title ?? 'Data'}: ${b.labels.map((l, i) => `${l} ${b.values[i]}${b.unit ? ` ${b.unit}` : ''}`).join(', ')}`;
+    if (b.type === 'table') {
+      // Header ikut disertakan: padanan teks ini juga dipakai sebagai riwayat
+      // prompt pada giliran berikutnya, dan angka tanpa nama kolomnya tak
+      // bisa ditafsirkan model mana pun.
+      const head = b.title ? `${b.title}\n` : '';
+      return head + [b.headers, ...b.rows].map((r) => r.join(' | ')).join('\n');
+    }
+    const u = b.unit ? ` ${b.unit}` : '';
+    const head = b.title ? `${b.title}: ` : '';
+    return head + b.series.map((s) =>
+      `${s.name} — ${b.labels.map((l, i) => `${l} ${s.values[i]}${u}`).join(', ')}`,
+    ).join('; ');
   }).join('\n\n');
 }
 

@@ -7,7 +7,7 @@ import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { EmptyState } from '../../_components/ui';
 import { AnswerBlocks } from '../../_components/answer-blocks';
-import type { AnswerBlock } from '@/modules/chat/blocks';
+import { blocksToPlainText, type AnswerBlock } from '@/modules/chat/blocks';
 
 interface Chatbot { id: string; name: string }
 interface Source { documentId: string; title: string | null; score: number; content: string }
@@ -50,10 +50,10 @@ export default function ChatPage() {
       if (b.type === 'text') return b.text;
       if (b.type === 'list') return b.items.map((it, i) => (b.ordered ? `${i + 1}. ${it}` : `- ${it}`)).join('\n');
       if (b.type === 'cards') return b.items.map((c) => `${c.title}: ${c.value}${c.desc ? ` (${c.desc})` : ''}`).join('\n');
-      if (b.type === 'chart') {
-        const head = b.title ? `${b.title}${b.unit ? ` (${b.unit})` : ''}\n` : '';
-        return head + b.labels.map((l, i) => `${l}: ${b.values[i]}`).join('\n');
-      }
+      // Blok tabel & chart memakai padanan teks yang SAMA dengan yang dikirim
+      // ke model sebagai riwayat — satu definisi, tak ada dua versi yang bisa
+      // menyimpang (blocksToPlainText di modules/chat/blocks.ts).
+      if (b.type === 'table' || b.type === 'chart') return blocksToPlainText([b]);
       return '';
     }).filter(Boolean).join('\n\n');
   }
