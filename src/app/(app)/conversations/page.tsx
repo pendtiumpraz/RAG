@@ -87,11 +87,22 @@ export default function ConversationsPage() {
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '13px 16px', border: 'none',
                   borderBottom: '1px solid var(--line)', cursor: 'pointer', borderLeft: `2px solid ${active === c.id ? 'var(--signal)' : 'transparent'}`,
                   background: active === c.id ? 'var(--card-2)' : 'transparent' }}>
-                <div className="mono" style={{ fontSize: 12, fontWeight: 600 }}>
-                  {c.chatbotName ? `${c.chatbotName} · ` : ''}{c.visitorId ?? 'visitor'}
+                {/* Nama chatbot yang utama. Id pengunjung (`v_m0mzrcwhewh`)
+                    dibuat sendiri oleh widget dan tak mengatakan apa pun
+                    tentang percakapannya — ia turun jadi keterangan kecil. */}
+                <div style={{ fontSize: 13, fontWeight: 650, letterSpacing: '-.005em' }}>
+                  {c.chatbotName ?? 'Chatbot'}
                 </div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>{c.preview ?? '(kosong)'}</div>
-                <div className="microlabel" style={{ marginTop: 4 }}>{new Date(c.startedAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })} · {c.count} pesan</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 }}>
+                  {c.preview ?? 'Belum ada pertanyaan'}
+                </div>
+                <div className="microlabel" style={{ marginTop: 5 }}>
+                  {new Date(c.startedAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                  {' · '}{c.count} pesan
+                  {c.visitorId && <> · <span className="mono" style={{ textTransform: 'none' }}>
+                    {c.visitorId.startsWith('user:') ? 'pengguna terdaftar' : c.visitorId}
+                  </span></>}
+                </div>
               </button>
             ))}
           {list.data && <Pager meta={list.data} onPage={(p) => { setPage(p); setActive(null); }} />}

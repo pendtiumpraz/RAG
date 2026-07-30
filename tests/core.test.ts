@@ -754,3 +754,24 @@ test('fusion: kembar dibuang tegas, MMR menata keragaman halus', async () => {
   assert.deepEqual(mmrSelect(items, 3, 1).map((p) => p.id), ['a', 'b', 'c']);
   assert.deepEqual(mmrSelect(items, 0, 0.7), []);
 });
+
+test('conversations: subquery terkorelasi memakai nama tabel penuh', async () => {
+  // REGRESI NYATA. Drizzle merender `${conversations.id}` di dalam template sql
+  // sebagai `"id"` TELANJANG — tanpa nama tabel. Di dalam subquery, nama itu
+  // tertangkap ke tabel subquery sendiri (`m.conversation_id = m.id`), sehingga
+  // SETIAP percakapan dilaporkan "0 pesan · (kosong)" padahal datanya utuh.
+  // Tak ada galat yang dilempar, jadi hanya pembacaan SQL-nya yang bisa
+  // menangkap ini. Tes menjaga agar bentuknya tak diam-diam kembali.
+  const src = await import('node:fs').then((fs) =>
+    fs.readFileSync('src/modules/chat/conversation.repository.ts', 'utf8'));
+
+  const subqueries = src.match(/\(select[\s\S]*?\)`/g) ?? [];
+  assert.ok(subqueries.length >= 3, 'subquery preview/count/chatbotName harus ada');
+
+  for (const q of subqueries) {
+    assert.ok(!/\$\{conversations\.\w+\}/.test(q),
+      `subquery memakai interpolasi kolom luar — akan tertangkap ke tabel dalam:\n${q}`);
+    assert.ok(/conversations\.(id|chatbot_id)/.test(q),
+      `subquery tak mengorelasi ke conversations secara literal:\n${q}`);
+  }
+});

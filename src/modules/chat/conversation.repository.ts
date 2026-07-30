@@ -2,15 +2,34 @@ import { and, eq, asc, desc, isNull, sql, count } from 'drizzle-orm';
 import { conversations, messages, type Db } from '@/modules/core/db';
 
 export const conversationRepository = {
-  /** Daftar percakapan (opsional filter chatbot) + preview pesan pertama. */
+  /**
+   * Daftar percakapan + nama chatbot, preview pesan pertama, dan jumlah pesan.
+   *
+   * REFERENSI KOLOM LUAR DITULIS LITERAL (`conversations.id`), bukan
+   * interpolasi `${conversations.id}`. Drizzle merender interpolasi itu sebagai
+   * `"id"` TELANJANG — tanpa nama tabel — sehingga di dalam subquery ia
+   * tertangkap ke tabel subquery sendiri: `m.conversation_id = m.id`. Tak
+   * pernah benar, tak pernah melempar galat, dan hasilnya SETIAP percakapan
+   * dilaporkan "0 pesan · (kosong)" padahal datanya utuh. Jebakan yang sama
+   * sudah tercatat di knowledge-base.service.ts; di sini terlewat.
+   *
+   * Nama chatbot ikut diambil karena itulah yang berarti bagi pembaca:
+   * `v_m0mzrcwhewh` hanya id pengunjung yang dibuat sendiri oleh widget dan
+   * tak mengatakan apa pun tentang percakapannya.
+   */
   list(tx: Db, tenantId: string, chatbotId: string | null, limit = 25, offset = 0) {
     const conds = [eq(conversations.tenantId, tenantId), isNull(conversations.deletedAt)];
     if (chatbotId) conds.push(eq(conversations.chatbotId, chatbotId));
     return tx.select({
       id: conversations.id, chatbotId: conversations.chatbotId, visitorId: conversations.visitorId,
       startedAt: conversations.startedAt,
-      preview: sql<string>`(select content from messages m where m.conversation_id = ${conversations.id} and m.role = 'user' and m.deleted_at is null order by m.created_at asc limit 1)`,
-      count: sql<number>`(select count(*)::int from messages m where m.conversation_id = ${conversations.id} and m.deleted_at is null)`,
+      chatbotName: sql<string>`(select coalesce(b.name, '(chatbot terhapus)') from chatbots b
+        where b.id = conversations.chatbot_id)`,
+      preview: sql<string>`(select m.content from messages m
+        where m.conversation_id = conversations.id and m.role = 'user' and m.deleted_at is null
+        order by m.created_at asc limit 1)`,
+      count: sql<number>`(select count(*)::int from messages m
+        where m.conversation_id = conversations.id and m.deleted_at is null)`,
     }).from(conversations).where(and(...conds))
       .orderBy(desc(conversations.startedAt)).limit(limit).offset(offset);
   },
