@@ -100,6 +100,22 @@ const costRows = (chats: number) =>
     both(monthly(p, chats)),
   ]);
 
+
+/* ── skenario enterprise utk proposal on-premise ──────────────────── */
+/** Pemakaian enterprise menengah: dipakai lintas divisi, tiap hari kerja. */
+const ENTERPRISE_CHATS = 20_000;
+const findPrice = (model: string) => PRICES.find((p) => p.model === model)!;
+const entCost = (model: string) => monthly(findPrice(model), ENTERPRISE_CHATS);
+const entPer1k = (model: string) => monthly(findPrice(model), 1000);
+/**
+ * Biaya listrik bulanan dari beban rata-rata (watt), tarif industri
+ * Rp1.500/kWh. Memakai beban RATA-RATA, bukan puncak: GPU inferensi
+ * menganggur sebagian besar waktu, dan menghitungnya pada TDP penuh 24 jam
+ * akan melebih-lebihkan biaya operasional dua sampai tiga kali lipat.
+ */
+const listrik = (wattRata: number) =>
+  `Rp${Math.round((wattRata * 24 * 30 / 1000) * 1500 / 1000).toLocaleString('id-ID')} rb`;
+
 /* ═══ DECK 1 · TECHNICAL ══════════════════════════════════════════════ */
 const technical: Slide[] = [
   { kind: 'cover', kicker: 'TECHNICAL DECK · CONFIDENTIAL', title: 'Nalar',
@@ -396,6 +412,49 @@ const proposal: Slide[] = [
       ['OS', 'Ubuntu 22.04 LTS', 'Ubuntu 24.04 LTS', 'Docker + docker-compose'],
     ],
     note: 'Rekomendasi ini SUDAH memperhitungkan optimasi dimensi vektor di slide sebelumnya. Tanpa optimasi itu, perkiraan atas (30 GB teks) menuntut 288 GB RAM — karena itu optimasinya kami jadikan syarat, bukan pilihan. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API.' },
+
+  { kind: 'table', kicker: 'ARSITEKTUR PENYIMPANAN', title: 'Tidak semua harus tinggal di memori',
+    small: true,
+    headers: ['Rancangan', 'Yang residen di RAM', 'RAM', 'Disk', 'Status'],
+    rows: [
+      ['Datar — semua potongan satu indeks', 'seluruh 47 jt vektor', '282 GB', '901 GB', 'berjalan hari ini'],
+      ['Dimensi asli (tanpa padding)', 'seluruh 47 jt vektor, 4× lebih kecil', '79 GB', '332 GB', 'siap dikerjakan'],
+      ['BERTINGKAT — indeks di level dokumen', 'hanya ±200 rb vektor dokumen', '1–3 GB', '221 GB', 'dirancang, belum dibangun'],
+    ],
+    note: 'Berkas asli SELALU tinggal di SharePoint — tak pernah disalin. Yang dibahas di sini hanya indeks pencariannya. Pada rancangan bertingkat, pencarian menyaring di tingkat DOKUMEN lebih dulu (indeks kecil, residen), lalu potongan dokumen terpilih dibaca dari disk sesuai kebutuhan — jadi RAM tak lagi tumbuh mengikuti besar korpus. Kejujuran yang perlu disampaikan: rancangan ini BELUM terpasang, dan ia menukar sedikit ketepatan (dokumen yang terlewat di tingkat pertama tak akan pernah dibaca di tingkat kedua) dengan penghematan yang sangat besar.' },
+
+  { kind: 'table', kicker: 'BIAYA AI — PIHAK KETIGA', title: `Biaya model bahasa lewat API — ${ENTERPRISE_CHATS.toLocaleString('id-ID')} pertanyaan/bulan`,
+    small: true,
+    headers: ['Model', 'Penyedia', 'Per bulan', 'Per 1.000 pertanyaan', 'Catatan'],
+    rows: [
+      ['DeepSeek V4 Flash', 'DeepSeek', both(entCost('DeepSeek V4 Flash')), both(entPer1k('DeepSeek V4 Flash')), 'termurah; kualitas memadai utk FAQ & pencarian dokumen'],
+      ['GPT-5.6 Terra', 'OpenAI', both(entCost('GPT-5.6 Terra')), both(entPer1k('GPT-5.6 Terra')), 'seimbang harga & kemampuan'],
+      ['Claude Haiku 4.5', 'Anthropic', both(entCost('Claude Haiku 4.5')), both(entPer1k('Claude Haiku 4.5')), 'cepat, patuh format, murah'],
+      ['Gemini 3 Pro', 'Google', both(entCost('Gemini 3 Pro')), both(entPer1k('Gemini 3 Pro')), 'konteks panjang'],
+      ['Claude Sonnet 5', 'Anthropic', both(entCost('Claude Sonnet 5')), both(entPer1k('Claude Sonnet 5')), 'kualitas penalaran tertinggi di kelasnya'],
+    ],
+    note: `Skenario: ±${TOK_IN.toLocaleString('id-ID')} token masuk + ${TOK_OUT} keluar per pertanyaan, sesuai batas produksi. Kunci API milik Anda sendiri — kami tidak menambah markup, dan tagihannya langsung dari penyedia. PERINGATAN KEDAULATAN DATA: memakai API pihak ketiga berarti potongan dokumen Anda dikirim ke server penyedia. Bila kebijakan melarangnya, gunakan model lokal di slide berikutnya.` },
+
+  { kind: 'table', kicker: 'BIAYA AI — ON-PREMISE', title: 'Model bahasa berjalan di server Anda — nol data keluar',
+    small: true,
+    headers: ['Konfigurasi', 'Perangkat', 'Sekali beli', 'Listrik / bulan', 'Kemampuan'],
+    rows: [
+      ['LLM 7–8B (Q4)', 'RTX 4060 Ti 16GB', bothRange(500, 800), listrik(200), 'FAQ, tanya-jawab dokumen sederhana'],
+      ['LLM 32B (Q4)', 'RTX 4090 24GB', bothRange(2_000, 3_000), listrik(350), 'setara API kelas menengah — pilihan utama kami'],
+      ['LLM 70B (Q4)', '2×RTX 4090 / A6000', bothRange(4_500, 9_000), listrik(700), 'kualitas tinggi, seluruhnya di dalam ruangan'],
+      ['Embedding saja', 'CPU server (tanpa GPU)', 'termasuk server', listrik(60), 'cukup; hanya ingest awal jadi lama'],
+    ],
+    note: 'Listrik dihitung pada tarif industri Rp1.500/kWh dengan beban rata-rata realistis (bukan beban puncak 24 jam). Titik impas terhadap API: pada 20.000 pertanyaan/bulan dengan model kelas menengah, GPU sekali beli setara ±10–14 bulan biaya API — dan sesudahnya nyaris gratis, sekaligus menghapus seluruh risiko kedaulatan data.' },
+
+  { kind: 'table', kicker: 'SERVER EMBEDDING', title: 'Yang mengubah dokumen jadi vektor — dan berapa lama ingest awalnya',
+    small: true,
+    headers: ['Jalur', 'Model', 'Biaya', 'Ingest awal 47 jt potongan', 'Data keluar?'],
+    rows: [
+      ['CPU server (bawaan)', 'MiniLM 384 dim', 'Rp 0 — termasuk', '±40–60 jam', 'TIDAK'],
+      ['GPU server', 'BGE-M3 1024 dim', 'pakai GPU yang sama', '±3–5 jam', 'TIDAK'],
+      ['API pihak ketiga', 'OpenAI / Cohere', bothRange(120, 200) + ' (sekali)', '±6–10 jam', 'YA — seluruh teks dikirim'],
+    ],
+    note: 'Untuk deployment yang WAJIB on-premise, jalur API otomatis gugur betapa pun murahnya: seluruh isi dokumen harus dikirim ke penyedia untuk di-embed. Rekomendasi kami: GPU di server — bukan demi model bahasa, melainkan demi memangkas ingest awal dari berhari-hari jadi beberapa jam. Sesudah ingest awal, embedding hanya berjalan untuk dokumen baru dan berubah.' },
 
   { kind: 'table', kicker: 'ANGGARAN PERANGKAT KERAS', title: 'Perkiraan biaya server — dibeli sekali, milik Anda',
     small: true,
