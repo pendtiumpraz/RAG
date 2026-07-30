@@ -117,9 +117,16 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
         '{"abstract": "...1-2 kalimat...", "keyPoints": ["...", "..."], "entities": ["Topik A", "Topik B"], ' +
         '"category": "salah satu kata berikut"} ' +
         'entities = 2-6 topik/entitas penting (nama pendek, Title Case). ' +
-        `category: pilih salah satu dari daftar ini bila cocok — ${daftarKategori}. ` +
-        'Bila dokumen ini sungguh tak masuk satu pun, tulis nama kategori BARU yang ' +
-        'singkat dan umum (2-3 kata) alih-alih memaksakan yang ada. ' +
+        // Kategori diturunkan dari pemahaman yang SAMA dengan yang melahirkan
+        // ringkasan — model membaca isi dokumennya, bukan membaca ringkasannya
+        // sendiri. Menyimpulkan kategori dari ringkasan akan menilai lewat
+        // tafsiran yang sudah kehilangan detail.
+        `category: WAJIB memilih salah satu slug berikut — ${daftarKategori}. ` +
+        'Pilih yang PALING mendekati; hampir setiap dokumen perusahaan masuk salah satunya. ' +
+        'Hanya bila dokumen ini sungguh-sungguh tak berhubungan dengan satu pun, ' +
+        'tulis nama kategori BARU yang singkat dan umum (2-3 kata). ' +
+        'JANGAN menulis "lain", "lainnya", "umum", atau "tidak diketahui" — ' +
+        'itu bukan kategori, dan jawaban semacam itu tak berguna bagi siapa pun. ' +
         'Bahasa mengikuti dokumen.' },
       { role: 'user', content: `Judul: ${doc.title}\n\n${excerpt}` },
     ], apiKey, 2000);
@@ -176,7 +183,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
       ].join('\n');
       // Note MOC adalah peta TOPIK, bukan dokumen — ia bisa menaungi beberapa
       // kategori sekaligus, jadi mewarnainya sebagai salah satu dari mereka
-      // justru menyesatkan. 'lain' di sini berarti 'bukan dokumen'.
+      // justru menyesatkan. Penampung di sini berarti "bukan dokumen".
       noteDrafts.push({ slug: eSlug, title: e, source: 'moc', body: mocBody, category: FALLBACK_SLUG });
     }
   }

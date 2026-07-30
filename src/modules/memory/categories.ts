@@ -55,20 +55,66 @@ export function markerForSlot(slot: number): Marker {
   };
 }
 
-/** Taksonomi awal tiap tenant. Titik berangkat, bukan daftar tertutup. */
+/**
+ * Taksonomi awal tiap tenant. Titik berangkat, bukan daftar tertutup —
+ * pengguna boleh menambah, mengganti nama, dan menghapus.
+ *
+ * Sengaja RINCI, bukan lima kategori luas. Daftar yang terlalu umum memaksa
+ * separuh korpus jatuh ke penampung, dan penampung yang penuh tak memberi
+ * tahu apa pun kepada pemilik data. Lebih baik dua belas kategori yang
+ * benar-benar menjawab "ini dokumen jenis apa" daripada lima yang semuanya
+ * hampir cocok.
+ */
 export const DEFAULT_CATEGORIES: Array<{ slug: string; label: string }> = [
   { slug: 'legal', label: 'Legal & Kontrak' },
-  { slug: 'keuangan', label: 'Keuangan' },
+  { slug: 'perizinan', label: 'Perizinan & Legalitas' },
+  { slug: 'keuangan', label: 'Keuangan & Akuntansi' },
+  { slug: 'pengadaan', label: 'Pengadaan & Vendor' },
   { slug: 'sop', label: 'SOP & Kebijakan' },
   { slug: 'hr', label: 'SDM & Kepegawaian' },
-  { slug: 'teknis', label: 'Teknis' },
-  { slug: 'proyek', label: 'Proyek' },
+  { slug: 'teknis', label: 'Teknis & Spesifikasi' },
+  { slug: 'proyek', label: 'Proyek & Pekerjaan' },
   { slug: 'komersial', label: 'Komersial & Penjualan' },
-  { slug: 'lain', label: 'Lain-lain' },
+  { slug: 'korespondensi', label: 'Surat & Korespondensi' },
+  { slug: 'notulen', label: 'Notulen & Laporan' },
+  { slug: 'audit', label: 'Audit & Kepatuhan' },
 ];
 
-/** Kategori penampung; tak pernah bisa dihapus. */
-export const FALLBACK_SLUG = 'lain';
+/**
+ * PENAMPUNG — sebuah KEADAAN, bukan kategori.
+ *
+ * Dulu berlabel "Lain-lain", dan itu keliru: label semacam itu terbaca
+ * sebagai jenis dokumen yang sah, sehingga pemilik data menyangka ada
+ * kelompok berkas bernama "lain-lain" padahal yang sebenarnya terjadi adalah
+ * sistem belum berhasil menilai. "Belum dikategorikan" menyebut keadaannya
+ * apa adanya, sekaligus memberi tahu bahwa ia bisa dibereskan.
+ *
+ * Tak bisa dihapus, karena ia tujuan pindah bagi tiga hal yang pasti terjadi:
+ * dokumen yang penilaiannya gagal, catatan milik kategori yang dihapus, dan
+ * usulan kategori yang belum disetujui.
+ */
+export const FALLBACK_SLUG = 'belum';
+export const FALLBACK_LABEL = 'Belum dikategorikan';
+
+/**
+ * Nama yang DITOLAK sebagai kategori baru.
+ *
+ * Model kadang tetap mengembalikan "lain" atau "umum" walau diinstruksikan
+ * jangan. Membuat kategori dari jawaban semacam itu akan mengembalikan persis
+ * masalah yang mau dihapus: kelompok bernama samar yang tak memberi tahu
+ * apa pun kepada pemilik data. Yang tertolak jatuh ke penampung — dan
+ * penampung sudah jujur menyebut dirinya "Belum dikategorikan".
+ */
+const NAMA_SAMAR = new Set([
+  'lain', 'lainnya', 'lain-lain', 'umum', 'general', 'other', 'others',
+  'misc', 'miscellaneous', 'tidak-diketahui', 'unknown', 'dokumen', 'document',
+  'file', 'berkas', 'belum', 'n-a', 'na', 'none', 'null',
+]);
+
+/** Apakah nama ini terlalu samar untuk jadi kategori? */
+export function namaTerlaluSamar(label: string): boolean {
+  return NAMA_SAMAR.has(categorySlug(label));
+}
 
 /** Nama bebas → slug yang aman dipakai sebagai kunci. */
 export function categorySlug(s: string): string {

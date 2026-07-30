@@ -68,9 +68,44 @@ test('slug: nama bebas jadi kunci yang aman', async () => {
   assert.ok(categorySlug('x'.repeat(200)).length <= 40);
 });
 
-test('taksonomi awal memuat penampung', async () => {
-  const { DEFAULT_CATEGORIES, FALLBACK_SLUG } = await load();
-  // Penampung tak boleh hilang: ia tujuan pindah bagi catatan milik kategori
-  // yang dihapus, dan tempat parkir dokumen dengan usulan yang belum disetujui.
-  assert.ok(DEFAULT_CATEGORIES.some((c) => c.slug === FALLBACK_SLUG));
+test('penampung BUKAN bagian dari daftar kategori', async () => {
+  const { DEFAULT_CATEGORIES, FALLBACK_SLUG, FALLBACK_LABEL } = await load();
+  // "Belum dikategorikan" adalah KEADAAN, bukan jenis dokumen. Menaruhnya di
+  // daftar kategori membuatnya terbaca sebagai kelompok berkas yang sah —
+  // persis salah paham yang dihapus migrasi 0034 (dulu berlabel "Lain-lain").
+  assert.ok(!DEFAULT_CATEGORIES.some((c) => c.slug === FALLBACK_SLUG),
+    'penampung ikut terdaftar sebagai kategori biasa');
+  assert.match(FALLBACK_LABEL, /belum/i, 'label penampung tak menyebut keadaannya');
+});
+
+test('penampung tetap WAJIB disemai oleh service', async () => {
+  // Ia tujuan pindah bagi tiga hal yang pasti terjadi: penilaian yang gagal,
+  // catatan milik kategori yang dihapus, dan usulan yang belum disetujui.
+  // Kalau ia tak ada, ketiganya jadi yatim tanpa pesan galat apa pun.
+  const { readFileSync } = await import('node:fs');
+  const svc = readFileSync('src/modules/memory/category.service.ts', 'utf8');
+  assert.match(svc, /const wajib = \[\.\.\.DEFAULT_CATEGORIES, \{ slug: FALLBACK_SLUG/,
+    'ensureSeeded tak menjamin penampung ada');
+});
+
+test('taksonomi cukup rinci agar penampung tak jadi tempat sampah', async () => {
+  const { DEFAULT_CATEGORIES } = await load();
+  // Daftar yang terlalu umum memaksa separuh korpus jatuh ke penampung, dan
+  // penampung yang penuh tak memberi tahu apa pun kepada pemilik data.
+  assert.ok(DEFAULT_CATEGORIES.length >= 10,
+    `hanya ${DEFAULT_CATEGORIES.length} kategori bawaan — terlalu kasar`);
+  const slug = new Set(DEFAULT_CATEGORIES.map((c) => c.slug));
+  assert.equal(slug.size, DEFAULT_CATEGORIES.length, 'ada slug bawaan yang kembar');
+});
+
+test('nama samar ditolak jadi kategori baru', async () => {
+  const { namaTerlaluSamar } = await load();
+  // Model kadang tetap menjawab "lain" walau diinstruksikan jangan. Menerimanya
+  // akan mengembalikan persis masalah yang dihapus migrasi 0034.
+  for (const n of ['lain', 'Lain-lain', 'UMUM', 'Other', 'dokumen', 'tidak diketahui']) {
+    assert.equal(namaTerlaluSamar(n), true, `"${n}" lolos sebagai kategori`);
+  }
+  for (const n of ['Perizinan', 'Audit Internal', 'Notulen Rapat', 'K3 & Lingkungan']) {
+    assert.equal(namaTerlaluSamar(n), false, `"${n}" salah ditolak`);
+  }
 });

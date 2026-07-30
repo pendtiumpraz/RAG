@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
-import { VISUAL_SLOTS } from '@/modules/memory/categories';
+import { VISUAL_SLOTS, FALLBACK_SLUG } from '@/modules/memory/categories';
 
 interface Cat {
   id: string; slug: string; label: string; slot: number;
@@ -64,7 +64,7 @@ export default function CategoriesPage() {
   }
 
   async function hapus(c: Cat) {
-    if (!confirm(`Hapus "${c.label}"?${c.notes ? ` ${c.notes} catatan akan dipindahkan ke Lain-lain.` : ''}`)) return;
+    if (!confirm(`Hapus "${c.label}"?${c.notes ? ` ${c.notes} catatan akan dipindah ke Belum dikategorikan.` : ''}`)) return;
     setBusy(c.id);
     try {
       await api(`/api/categories/${c.id}`, { method: 'DELETE' });
@@ -94,7 +94,7 @@ export default function CategoriesPage() {
             <p className="sub" style={{ margin: 0 }}>
               Memory Agent menemukan dokumen yang tak masuk kategori mana pun dan mengusulkan
               nama baru. Usulan belum dipakai sampai disetujui — sementara ini dokumennya
-              masuk <b>Lain-lain</b>. Kalau usulan langsung aktif, satu jenis dokumen bisa
+              masuk <b>Belum dikategorikan</b>. Kalau usulan langsung aktif, satu jenis dokumen bisa
               pecah jadi beberapa kategori berbeda dan taksonominya tak bisa dirapikan lagi.
             </p>
             {usulan.map((c) => (
@@ -161,8 +161,13 @@ export default function CategoriesPage() {
                       <td className="mono">{c.notes}</td>
                       <td>
                         <div className="cluster gap-2">
-                          <button className="btn btn-sm" disabled={busy === c.id} onClick={() => ganti(c)}>Ganti nama</button>
-                          {c.slug !== 'lain' && (
+                          {/* Penampung adalah KEADAAN sistem, bukan kategori: mengganti
+                              namanya atau menghapusnya akan membuat dokumen yang
+                              penilaiannya gagal tak punya tempat mendarat. */}
+                          {c.slug !== FALLBACK_SLUG
+                            ? <button className="btn btn-sm" disabled={busy === c.id} onClick={() => ganti(c)}>Ganti nama</button>
+                            : <span className="microlabel">TEMPAT DOKUMEN YANG BELUM TERNILAI</span>}
+                          {c.slug !== FALLBACK_SLUG && (
                             <button className="btn btn-sm btn-ghost" disabled={busy === c.id} onClick={() => hapus(c)}>Hapus</button>
                           )}
                         </div>

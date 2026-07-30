@@ -14,7 +14,8 @@
  */
 
 export type SceneId =
-  | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory';
+  | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory'
+  | 'tokens' | 'costs';
 
 export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ingest: [
@@ -80,5 +81,21 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Tinjauan opsional', d: 'Bila dinyalakan, hanya ringkasan yang disetujui yang masuk graf dan ikut menjawab.' },
     { t: 'Kegunaannya saat menjawab', d: 'Menjawab yang tak bisa dijawab potongan mana pun — "dokumen ini isinya apa", "aturan cuti tersebar di mana saja".' },
     { t: 'Batas pemakaiannya', d: 'Ditandai tegas sebagai tulisan AI. Angka, tanggal, nama, dan nomor pasal SELALU diambil dari teks asli.' },
+  ],
+  tokens: [
+    { t: 'Pencarian tidak memakai token model', d: 'Kaki vektor, leksikal, dan memory semuanya berjalan di basis data. Korpus 1 TB maupun 1 GB — biayanya sama: nol token.' },
+    { t: 'Enam potongan dokumen', d: 'Hanya potongan TERPILIH yang masuk ke model. Sekitar 1.800 token — bagian terbesar dari satu giliran.' },
+    { t: 'Riwayat percakapan', d: 'Beberapa giliran terakhir dibawa serta supaya jawaban nyambung. Sekitar 700 token.' },
+    { t: 'Aturan sistem & kebijakan chatbot', d: 'Bahasa, kepatuhan sumber, nada, dan aturan pemilik. Sekitar 450 token.' },
+    { t: 'Total masuk ±3.000, keluar ±500', d: 'Tarif token keluar biasanya beberapa kali lipat token masuk, jadi panjang jawaban ikut menentukan biaya.' },
+    { t: 'Yang perlu diingat', d: 'Besar korpus TIDAK menaikkan tagihan per pertanyaan. Yang naik hanya kebutuhan penyimpanan dan memori — dibayar sekali.' },
+  ],
+  costs: [
+    { t: 'Biaya sekali — saat dokumen masuk', d: 'Embedding potongan, ringkasan Memory (satu panggilan model per dokumen), dan ruang penyimpanan.' },
+    { t: 'Tidak berulang', d: 'Sync berikutnya hanya menyentuh berkas yang berubah; sisanya tak diunduh, tak di-embed, tak dibayar lagi.' },
+    { t: 'Biaya berulang — tiap pertanyaan', d: 'Hanya panggilan model bahasa untuk menyusun jawaban. Pencarian tidak menambah apa pun.' },
+    { t: 'Selisih antar model besar', d: 'Untuk 1.000 pertanyaan yang sama, model termurah dan termahal di tabel berbeda lebih dari dua puluh kali lipat.' },
+    { t: 'Model bisa diganti kapan saja', d: 'Tanpa mengulang ingest apa pun — dokumen dan vektornya tetap di tempatnya.' },
+    { t: 'Pada on-premise', d: 'Biaya berulang bisa ditekan hingga nol dengan model yang dijalankan sendiri; yang tersisa hanya listrik dan perawatan server.' },
   ],
 };

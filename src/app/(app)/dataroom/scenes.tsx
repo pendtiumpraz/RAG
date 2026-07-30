@@ -505,6 +505,7 @@ export function SceneMemory() {
 // export.ts, yang tak boleh menarik JSX ke jalur ekspornya.
 export type { SceneId } from './scene-text';
 import type { SceneId } from './scene-text';
+import { SceneTokens, SceneCosts } from './scenes-cost';
 
 export const SCENES: Record<SceneId, () => React.ReactElement> = {
   ingest: SceneIngest,
@@ -515,4 +516,6 @@ export const SCENES: Record<SceneId, () => React.ReactElement> = {
   guardrails: SceneGuardrails,
   rls: SceneRls,
   memory: SceneMemory,
+  tokens: SceneTokens,
+  costs: SceneCosts,
 };

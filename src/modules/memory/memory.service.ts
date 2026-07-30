@@ -2,6 +2,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { memoryNotes, memoryEdges } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
+import { FALLBACK_SLUG } from './categories';
 
 /**
  * MEMORY MODULE — Obsidian Memory Agent (fondasi).
@@ -30,7 +31,7 @@ export const memoryService = {
   async upsertNote(tenantId: string, input: {
     chatbotId: string; slug: string; title: string;
     contentMd: string; sourceDocumentId?: string; embedding?: number[];
-    /** Kategori (migrasi 0031). Note MOC/topik tak punya dokumen asal → 'lain'. */
+    /** Kategori (migrasi 0031). Note MOC/topik tak punya dokumen asal → penampung. */
     category?: string;
     /** 'active' | 'pending' | 'rejected' (migrasi 0032). */
     status?: string;
@@ -67,7 +68,7 @@ export const memoryService = {
         const created = await tx.insert(memoryNotes).values({
           tenantId, chatbotId: input.chatbotId, slug: input.slug, title: input.title,
           contentMd: input.contentMd, linksTo,
-          category: input.category ?? 'lain',
+          category: input.category ?? FALLBACK_SLUG,
           status: input.status ?? 'active',
           docRef: input.docRef,
           sourceDocumentId: input.sourceDocumentId, embedding: input.embedding,

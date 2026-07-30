@@ -32,8 +32,8 @@ export interface Deck { id: 'hla' | 'technical' | 'business' | 'proposal'; label
 /** Per giliran chat RAG: ±3.000 token masuk (konteks retrieval + riwayat +
  *  system prompt) + ±500 token keluar. Grounded pada EXEC_LIMITS produksi
  *  (cap prompt ±6k token, cap output ±2k token; tipikal jauh di bawah cap). */
-const TOK_IN = 3000;
-const TOK_OUT = 500;
+export const TOK_IN = 3000;
+export const TOK_OUT = 500;
 const CHATS = 10_000; // skenario utama: 10.000 chat/bulan
 
 interface PriceRow { model: string; provider: string; in: number; out: number; est?: boolean }
@@ -114,6 +114,11 @@ const ENTERPRISE_CHATS = 20_000;
 const findPrice = (model: string) => PRICES.find((p) => p.model === model)!;
 const entCost = (model: string) => monthly(findPrice(model), ENTERPRISE_CHATS);
 const entPer1k = (model: string) => monthly(findPrice(model), 1000);
+/** Biaya per 1.000 pertanyaan — DIEKSPOR agar adegan HLA memakai angka yang
+ *  sama persis dengan tabel biaya di dek lain. Satu sumber, tak ada dua versi. */
+export const per1kUsd = (model: string) => monthly(findPrice(model), 1000);
+export const per1kIdr = (model: string) => idr(per1kUsd(model));
+export const usdFmt = usd;
 /**
  * Biaya listrik bulanan dari beban rata-rata (watt), tarif industri
  * Rp1.500/kWh. Memakai beban RATA-RATA, bukan puncak: GPU inferensi
@@ -608,6 +613,14 @@ const hla: Slide[] = [
   { kind: 'anim', kicker: 'MEMORY', scene: 'memory',
     title: 'Ringkasan yang jadi peta pengetahuan',
     note: 'Ringkasannya ditandai tegas sebagai tulisan AI. Model boleh memakainya untuk gambaran umum, tapi angka, tanggal, nama, dan nomor pasal SELALU wajib diambil dari teks asli — sebab ringkasan adalah tafsiran, bukan kutipan.' },
+
+  { kind: 'anim', kicker: 'BIAYA', scene: 'tokens',
+    title: 'Ke mana token pergi dalam satu pertanyaan',
+    note: 'Ini kesalahpahaman yang paling mahal: banyak yang mengira seluruh korpus dibaca model tiap kali ditanya, lalu menyimpulkan korpus 1 TB berarti tagihan raksasa. Pencarian berjalan di basis data dan tidak memakai token model sama sekali — yang ditagih hanya potongan terpilih yang benar-benar masuk ke konteks.' },
+
+  { kind: 'anim', kicker: 'BIAYA', scene: 'costs',
+    title: 'Dibayar sekali, dan dibayar tiap kali',
+    note: 'Memisahkan keduanya penting saat menyusun anggaran: biaya sekali menentukan berapa lama pemasangan awal, sedangkan biaya berulang menentukan tagihan bulanan. Angka per 1.000 pertanyaan di slide ini diambil dari tabel harga yang sama dengan dek Technical — bukan diketik ulang, sehingga tak mungkin menyimpang.' },
 
   { kind: 'flow', kicker: 'RANGKUMAN', title: 'Satu pertanyaan, ujung ke ujung',
     steps: [

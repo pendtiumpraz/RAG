@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
-import { OVERFLOW_COLOR } from '@/modules/memory/categories';
+import { OVERFLOW_COLOR, FALLBACK_SLUG } from '@/modules/memory/categories';
 
 interface Chatbot { id: string; name: string }
 interface Node { id: string; slug: string; title: string; linksTo: string[]; category?: string }
@@ -35,7 +35,7 @@ interface Cat { id: string; slug: string; label: string; status: string; origin:
  */
 function filtered(g: Graph, only: Set<string>): Graph {
   if (only.size === 0) return g;
-  const nodes = g.nodes.filter((n) => only.has(n.category ?? 'lain'));
+  const nodes = g.nodes.filter((n) => only.has(n.category ?? FALLBACK_SLUG));
   const ids = new Set(nodes.map((n) => n.id));
   return { nodes, edges: g.edges.filter((e) => ids.has(e.from) && ids.has(e.to)) };
 }
@@ -69,7 +69,7 @@ function CategoryLegend({ graph, cats, only, onToggle }:
   { graph: Graph; cats: Cat[]; only: Set<string>; onToggle: (s: Set<string>) => void }) {
   const count = new Map<string, number>();
   for (const n of graph.nodes) {
-    const c = n.category ?? 'lain';
+    const c = n.category ?? FALLBACK_SLUG;
     count.set(c, (count.get(c) ?? 0) + 1);
   }
   const toggle = (c: string) => {
@@ -79,7 +79,11 @@ function CategoryLegend({ graph, cats, only, onToggle }:
   };
   return (
     <div className="cluster gap-2" style={{ flexWrap: 'wrap', marginTop: 12 }}>
-      {cats.filter((c) => c.status === 'active').map((c) => {
+      {/* Penampung selalu paling akhir: ia keadaan, bukan kategori sejajar,
+          dan menaruhnya di tengah membuatnya terbaca seperti jenis dokumen. */}
+      {cats.filter((c) => c.status === 'active')
+        .sort((a, b) => Number(a.slug === FALLBACK_SLUG) - Number(b.slug === FALLBACK_SLUG))
+        .map((c) => {
         const n = count.get(c.slug) ?? 0;
         const aktif = only.size === 0 || only.has(c.slug);
         return (
@@ -298,7 +302,7 @@ function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
        akan menggambar ulang semua kategori sesudahnya dengan penanda berbeda. */
     const markerBySlug = new Map(cats.map((c) => [c.slug, { color: c.color, shape: c.shape }]));
     const markerOf = (slug?: string) =>
-      markerBySlug.get(slug ?? 'lain') ?? { color: OVERFLOW_COLOR, shape: 'circle' };
+      markerBySlug.get(slug ?? FALLBACK_SLUG) ?? { color: OVERFLOW_COLOR, shape: 'circle' };
 
     /* — data — */
     const deg = new Map<string, number>();

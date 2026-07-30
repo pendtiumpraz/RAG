@@ -3,7 +3,8 @@ import { documentCategories, memoryNotes } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import {
-  DEFAULT_CATEGORIES, FALLBACK_SLUG, categorySlug, markerForSlot, VISUAL_SLOTS,
+  DEFAULT_CATEGORIES, FALLBACK_SLUG, FALLBACK_LABEL, categorySlug, markerForSlot,
+  namaTerlaluSamar, VISUAL_SLOTS,
 } from './categories';
 
 export interface CategoryRow {
@@ -24,18 +25,33 @@ async function nextSlot(tx: Parameters<Parameters<typeof withTenant>[1]>[0], ten
 
 export const categoryService = {
   /**
-   * Pastikan tenant punya taksonomi awal. Sengaja MENGABAIKAN `deleted_at`:
-   * kategori yang sudah sengaja dihapus tak boleh hidup lagi tiap halaman
-   * dibuka — pola yang sama dengan seeding backlog.
+   * Pastikan tenant punya taksonomi awal, dan tenant lama ikut kebagian
+   * kategori bawaan yang ditambahkan belakangan.
+   *
+   * Pemeriksaan sengaja MENGABAIKAN `deleted_at`: kategori yang sudah sengaja
+   * dihapus pengguna tak boleh hidup lagi tiap halaman dibuka — pola yang sama
+   * dengan seeding backlog. Yang disisipkan hanya slug yang BELUM PERNAH ada.
    */
   async ensureSeeded(tenantId: string): Promise<void> {
     await withTenant(tenantId, async (tx) => {
-      const ada = await tx.select({ slug: documentCategories.slug }).from(documentCategories)
-        .where(eq(documentCategories.tenantId, tenantId));
-      if (ada.length) return;
+      const ada = await tx.select({
+        slug: documentCategories.slug, slot: documentCategories.slot,
+      }).from(documentCategories).where(eq(documentCategories.tenantId, tenantId));
+
+      const dikenal = new Set(ada.map((r) => r.slug));
+      const terpakai = new Set(ada.map((r) => r.slot));
+      // Penampung selalu ikut disemai — ia tujuan pindah bagi dokumen yang
+      // penilaiannya gagal, jadi ketiadaannya bukan pilihan pengguna.
+      const wajib = [...DEFAULT_CATEGORIES, { slug: FALLBACK_SLUG, label: FALLBACK_LABEL }];
+      const kurang = wajib.filter((c) => !dikenal.has(c.slug));
+      if (!kurang.length) return;
+
+      let slot = 0;
+      const slotBerikut = () => { while (terpakai.has(slot)) slot++; terpakai.add(slot); return slot; };
+
       await tx.insert(documentCategories).values(
-        DEFAULT_CATEGORIES.map((c, i) => ({
-          tenantId, slug: c.slug, label: c.label, slot: i,
+        kurang.map((c) => ({
+          tenantId, slug: c.slug, label: c.label, slot: slotBerikut(),
           status: 'active' as const, origin: 'seed' as const,
         })),
       ).onConflictDoNothing();
@@ -101,6 +117,10 @@ export const categoryService = {
    */
   async propose(tenantId: string, label: string): Promise<string> {
     try {
+      // Nama samar ("lain", "umum", "dokumen") ditolak sebelum menyentuh DB.
+      // Menerimanya akan mengembalikan persis masalah yang dihapus migrasi
+      // 0034: kelompok bernama samar yang tak memberi tahu apa pun.
+      if (namaTerlaluSamar(label)) return FALLBACK_SLUG;
       const slug = categorySlug(label);
       const ada = await withTenant(tenantId, (tx) => tx.select({
         slug: documentCategories.slug, status: documentCategories.status,
