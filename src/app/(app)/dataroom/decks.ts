@@ -397,6 +397,22 @@ const proposal: Slide[] = [
     ],
     note: 'Rekomendasi ini SUDAH memperhitungkan optimasi dimensi vektor di slide sebelumnya. Tanpa optimasi itu, perkiraan atas (30 GB teks) menuntut 288 GB RAM — karena itu optimasinya kami jadikan syarat, bukan pilihan. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API.' },
 
+  { kind: 'table', kicker: 'ANGGARAN PERANGKAT KERAS', title: 'Perkiraan biaya server — dibeli sekali, milik Anda',
+    small: true,
+    headers: ['Jalur', 'Isi', 'Perkiraan harga', 'Pertimbangan'],
+    rows: [
+      ['Baru bermerek', 'Dell PowerEdge / HPE ProLiant · 2×Xeon Gold 32c · 256 GB · 2 TB NVMe · dual PSU · garansi pabrik 3 thn',
+        bothRange(12_000, 18_000), 'paling aman utk pengadaan & audit; suku cadang terjamin'],
+      ['Refurbished enterprise', 'Dell R740/R750 rekondisi · spesifikasi sama · garansi reseller 1 thn',
+        bothRange(4_000, 7_500), 'sepertiga harga; perlu vendor rekondisi yang jelas'],
+      ['Rakitan', 'AMD EPYC / Threadripper · 256 GB ECC · NVMe konsumen',
+        bothRange(4_500, 8_000), 'termurah per-performa; garansi terpisah per komponen'],
+      ['GPU (opsional)', 'RTX 4090 24GB — hanya bila LLM ikut lokal',
+        bothRange(2_000, 3_000), 'tak perlu bila model bahasa lewat API'],
+      ['Pendukung', 'UPS, rack, jaringan, instalasi fisik', bothRange(1_500, 4_000), 'sering terlewat saat menyusun anggaran'],
+    ],
+    note: `PERKIRAAN PASAR ${RATE_AT}, kurs Rp${USD_IDR.toLocaleString('id-ID')}/USD — WAJIB diverifikasi dengan penawaran resmi vendor sebelum masuk anggaran. Catatan penting: harga RAM server 2026 sedang tinggi, dan 256 GB adalah komponen termahal di konfigurasi ini. Setelah optimasi dimensi vektor, 128 GB sudah memadai untuk perkiraan atas — selisihnya besar, jadi tetapkan kapasitas setelah ukuran korpus nyata terukur pada minggu pertama.` },
+
   { kind: 'twocol', kicker: 'RUANG LINGKUP', title: 'Yang termasuk — dan yang tidak',
     cols: [
       { h: 'Termasuk', bullets: [
