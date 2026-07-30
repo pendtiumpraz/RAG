@@ -64,6 +64,8 @@ export default function DocumentsPage() {
     + (kbId ? `&knowledgeBaseId=${kbId}` : '')
     + (cat ? `&category=${cat}` : '');
   const docs = useApi<Page>(url);
+  const dups = useApi<Array<Record<string, unknown>>>(
+    `/api/documents/duplicates${kbId ? `?knowledgeBaseId=${kbId}` : ''}`);
 
   const catBySlug = new Map((cats.data ?? []).map((c) => [c.slug, c]));
 
@@ -75,6 +77,46 @@ export default function DocumentsPage() {
           <p className="sub">Cari berkas yang sudah masuk knowledge base, lihat ringkasannya.</p>
         </div>
       </div>
+
+      {/* Berkas kembar DITAMPILKAN, bukan disembunyikan: kalau sebuah berkas
+          hilang begitu saja, pemiliknya akan mengira sync-nya gagal — dan tak
+          ada cara mengetahui bedanya. */}
+      {(dups.data?.length ?? 0) > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <span className="t">berkas kembar dilewati</span>
+            <span className="badge">{dups.data!.length}</span>
+          </div>
+          <div className="card-pad stack gap-3">
+            <p className="sub" style={{ margin: 0 }}>
+              Berkas berikut isinya sama persis dengan berkas yang sudah lebih dulu masuk,
+              jadi tidak di-ingest ulang — menghemat biaya embedding dan penyimpanan,
+              sekaligus mencegah jawaban mengutip kalimat yang sama berkali-kali.
+              Isinya tetap bisa ditemukan lewat berkas aslinya.
+            </p>
+            <div className="table-wrap"><table className="table">
+              <thead><tr><th>Berkas dilewati</th><th>Sama dengan</th><th>Terdeteksi lewat</th><th>Ukuran</th></tr></thead>
+              <tbody>
+                {dups.data!.slice(0, 50).map((d) => (
+                  <tr key={String(d.id)}>
+                    <td style={{ wordBreak: 'break-word' }}>{String(d.title ?? d.externalId ?? '—')}</td>
+                    <td style={{ wordBreak: 'break-word', color: 'var(--muted)' }}>{String(d.canonicalDocRef)}</td>
+                    <td>
+                      <span className="badge">
+                        {d.reason === 'name-size' ? 'nama + ukuran' : 'isi identik'}
+                      </span>
+                    </td>
+                    <td className="mono">{d.sizeBytes ? `${Math.round(Number(d.sizeBytes) / 1024)} KB` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+            {dups.data!.length > 50 && (
+              <p className="microlabel">MENAMPILKAN 50 DARI {dups.data!.length}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-pad stack gap-4">

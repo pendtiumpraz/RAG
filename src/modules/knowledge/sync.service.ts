@@ -83,6 +83,9 @@ export interface RemoteFile {
   /** Penanda versi upstream; string kosong = upstream tak memberi versi. */
   version: string;
   mimeType?: string;
+  /** Ukuran byte bila upstream melaporkannya — kaki murah pencocokan kembar
+   *  yang bisa melewati berkas SEBELUM diunduh. */
+  size?: number;
 }
 
 export interface SyncPlan {
@@ -175,9 +178,29 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
     const pending = work.length - batch.length;
     const isUpdate = new Set(plan.update.map((f) => f.externalId));
 
-    let ingested = 0, updated = 0, failed = 0;
+    let ingested = 0, updated = 0, failed = 0, duplicates = 0;
     for (const f of batch) {
       try {
+        /* LAPIS 1 — nama + ukuran, SEBELUM mengunduh apa pun.
+           Ini satu-satunya lapisan yang bisa menghemat unduhan; sidik jari isi
+           (lapis 2, di knowledgeService.ingest) baru bisa dihitung setelah
+           berkasnya ada di tangan. Berkas yang sudah diketahui sebagai versi
+           lebih baru dari dirinya sendiri TIDAK dilewati — itu update, bukan
+           kembar. */
+        if (!isUpdate.has(f.externalId) && f.size) {
+          const kembar = await knowledgeService.findByNameSize(
+            tenantId, source.knowledgeBaseId, f.name, f.size);
+          if (kembar && kembar !== f.externalId) {
+            await knowledgeService.recordDuplicate(tenantId, {
+              knowledgeBaseId: source.knowledgeBaseId, sourceId,
+              externalId: f.externalId, title: f.name, sizeBytes: f.size,
+              canonicalDocRef: kembar, reason: 'name-size',
+            });
+            duplicates++;
+            continue;
+          }
+        }
+
         const { content, mime } = await conn.fetch(f);
         const text = await extractText(f.name, content, mime);
         if (text === null) { skipped++; continue; }
@@ -188,16 +211,21 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
           await knowledgeService.removeExternal(tenantId, sourceId, [f.externalId]);
         }
 
-        await knowledgeService.ingest(tenantId, {
+        const n = await knowledgeService.ingest(tenantId, {
           knowledgeBaseId: source.knowledgeBaseId,
           title: f.name,
+          sizeBytes: f.size,
           text: text.slice(0, MAX_FILE_CHARS),
           sourceId,
           externalId: f.externalId,
           externalVersion: f.version,
           metadata: { syncedFrom: source.kind },
         });
-        if (isUpdate.has(f.externalId)) updated++; else ingested++;
+        // ingest() mengembalikan 0 bila LAPIS 2 (sidik jari isi) menemukan
+        // kembar — berkasnya terunduh tapi tak di-embed dan tak disimpan.
+        if (n === 0) duplicates++;
+        else if (isUpdate.has(f.externalId)) updated++;
+        else ingested++;
       } catch (err) {
         // 1 file gagal TIDAK boleh mematikan seluruh sync.
         console.error(`[sync] gagal memproses ${f.name}:`, err);
@@ -207,6 +235,10 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
 
     const stats = {
       ingested, updated, removed, unchanged: plan.unchanged,
+      // Dilaporkan TERPISAH dari `skipped`: "dilewati karena formatnya tak
+      // didukung" dan "dilewati karena kembar" menuntut tindakan yang berbeda
+      // dari pemilik data, dan menggabungkannya menyembunyikan keduanya.
+      duplicates,
       skipped, failed, pending, at: new Date().toISOString(),
     };
     await setStatus(pending > 0 ? 'partial' : 'synced', stats);
@@ -267,6 +299,9 @@ async function connect(
       files: raw.map((f) => ({
         externalId: f.id, name: f.name, mimeType: f.mimeType,
         version: f.modifiedTime ?? '',
+        // Drive mengirim int64 sebagai STRING; Number('') = 0, dan 0 memang
+        // arti yang benar di sini ("tak diketahui") — lihat nameSizeKey().
+        size: Number(f.size ?? 0) || undefined,
       })),
       // Picker: daftar id-nya eksplisit & lengkap (kecuali dipangkas), jadi
       // berkas yang tak muncul memang boleh dihapus dari KB.

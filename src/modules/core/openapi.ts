@@ -219,6 +219,21 @@ export const openApiSpec = {
         responses: { 200: err('{ rows[], more, page }') },
       },
     },
+    '/api/documents/duplicates': {
+      get: {
+        summary: 'Berkas kembar yang dilewati saat ingest',
+        description: 'Dedup berjalan dua lapis: NAMA+UKURAN dari listing (melewati berkas '
+          + 'SEBELUM diunduh) dan SIDIK JARI ISI sha256 atas teks hasil ekstraksi (menangkap '
+          + 'salinan yang di-rename, dan menolak false positive lapis pertama). Lingkupnya SATU '
+          + 'knowledge base — men-dedup lintas KB akan mencabut dokumen dari KB milik chatbot '
+          + 'divisi lain yang membutuhkannya. Baris di sini ada supaya berkas kembar tak lenyap '
+          + 'diam-diam: tanpa catatan ini, "dilewati karena kembar" tak bisa dibedakan dari '
+          + '"sync gagal".',
+        security: [sessionAuth],
+        parameters: [{ name: 'knowledgeBaseId', in: 'query', schema: uuid }],
+        responses: { 200: err('daftar berkas kembar + doc_ref aslinya + alasannya') },
+      },
+    },
     '/api/memory/review': {
       get: { summary: 'Antrean ringkasan yang menunggu persetujuan', security: [sessionAuth],
         parameters: [{ name: 'chatbotId', in: 'query', schema: uuid }],

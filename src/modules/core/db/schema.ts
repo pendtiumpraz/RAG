@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer, smallint,
+  pgTable, uuid, text, timestamp, jsonb, vector, index, uniqueIndex, boolean, real, integer, smallint, bigint,
   customType,
 } from 'drizzle-orm/pg-core';
 
@@ -343,6 +343,15 @@ export const documents = pgTable('documents', {
   /** Versi upstream (Drive modifiedTime / Graph eTag) — pembanding delta sync. */
   externalVersion: text('external_version'),
   /**
+   * Sidik jari isi (sha256 teks hasil ekstraksi, migrasi 0033) — kunci
+   * pencarian berkas kembar. Menangkap salinan yang DI-RENAME dan berkas
+   * sama berformat berbeda, yang luput dari pencocokan nama+ukuran.
+   */
+  contentHash: text('content_hash'),
+  /** Ukuran berkas asal (byte) — kaki murah pencocokan kembar, tersedia dari
+   *  listing sehingga berkas kembar bisa dilewati SEBELUM diunduh. */
+  sizeBytes: bigint('size_bytes', { mode: 'number' }),
+  /**
    * Kaki LEKSIKAL hybrid search (migrasi 0027) — judul + isi, konfigurasi
    * `simple`. Kolom TERGENERASI: tak ada jalur tulis yang bisa lupa
    * memperbaruinya, dan aplikasi tak pernah mengisinya sendiri.
@@ -378,6 +387,43 @@ export const documents = pgTable('documents', {
      satu-satunya alasan baris ini ada. Definisi sebenarnya di migrasi. */
   dimsIdx: index('idx_documents_dims').on(t.embeddingDims),
   docRefIdx: index('idx_documents_doc_ref').on(t.knowledgeBaseId, t.docRef).where(sql`deleted_at IS NULL`),
+  hashIdx: index('idx_documents_content_hash').on(t.knowledgeBaseId, t.contentHash)
+    .where(sql`deleted_at IS NULL AND content_hash IS NOT NULL`),
+  nameSizeIdx: index('idx_documents_name_size').on(t.knowledgeBaseId, t.title, t.sizeBytes)
+    .where(sql`deleted_at IS NULL AND size_bytes IS NOT NULL`),
+})).enableRLS();
+
+/**
+ * BERKAS KEMBAR yang DILEWATI saat ingest (migrasi 0033).
+ *
+ * Dicatat, tidak dibuang diam-diam: kalau sebuah berkas hilang begitu saja
+ * dari knowledge base, pemiliknya akan mengira sync-nya gagal — dan tak ada
+ * cara mengetahui bedanya. Baris di sini adalah jawabannya.
+ *
+ * Lingkup dedup SATU KB, bukan lintas KB: D11 menjadikan KB entitas mandiri
+ * yang di-assign N:M ke chatbot, jadi men-dedup lintas KB akan mencabut
+ * dokumen dari KB milik chatbot divisi lain yang justru membutuhkannya.
+ */
+export const documentDuplicates = pgTable('document_duplicates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  knowledgeBaseId: uuid('knowledge_base_id').notNull(),
+  sourceId: uuid('source_id'),
+  /** Identitas berkas yang dilewati. */
+  externalId: text('external_id'),
+  title: text('title'),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }),
+  contentHash: text('content_hash'),
+  /** doc_ref dokumen yang sudah lebih dulu ada. */
+  canonicalDocRef: text('canonical_doc_ref').notNull(),
+  /** 'name-size' (dilewati sebelum unduh) | 'content-hash' (setelah ekstraksi) */
+  reason: text('reason').notNull(),
+  ...stamps,
+}, (t) => ({
+  kbIdx: index('idx_document_duplicates_kb').on(t.knowledgeBaseId).where(sql`deleted_at IS NULL`),
+  uqFile: uniqueIndex('uq_document_duplicates_file')
+    .on(t.knowledgeBaseId, t.externalId, t.canonicalDocRef)
+    .where(sql`deleted_at IS NULL AND external_id IS NOT NULL`),
 })).enableRLS();
 
 /**
