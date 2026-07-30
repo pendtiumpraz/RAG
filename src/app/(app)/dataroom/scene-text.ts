@@ -15,7 +15,7 @@
 
 export type SceneId =
   | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory'
-  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel';
+  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel' | 'storage' | 'scale';
 
 export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ingest: [
@@ -121,5 +121,21 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Tak ada proses latar yang hidup terus', d: 'Sync panjang dipecah — maksimum 150 berkas per jalannya, sisanya dilanjut jalan berikutnya. Sudah berjalan begitu hari ini.' },
     { t: 'Keempatnya sudah punya jalan keluar', d: 'Bukan risiko terbuka; semuanya sudah ditangani di produk ini hari ini.' },
     { t: 'Yang belum punya jalan keluar', d: 'Atap Neon: di atas 16 CU tidak ada paket berikutnya. Melewatinya berarti pindah ke server sendiri atau ke AWS.' },
+  ],
+  storage: [
+    { t: 'Satu potongan = 8.228 byte', d: 'Diukur dengan pg_column_size pada data produksi, bukan diperkirakan.' },
+    { t: 'Vektornya 6.148 byte — 74,7%', d: '1.536 angka × 4 byte. Inilah yang memenuhi basis data, bukan teks dokumennya.' },
+    { t: 'Teksnya hanya 680 byte — 8,3%', d: 'Vektor sembilan kali lebih besar dari teks yang diwakilinya. Itulah biaya sebenarnya dari pencarian makna.' },
+    { t: '1 GB Drive → ±20 MB teks', d: 'Sekitar 2% dari berkas kantoran yang benar-benar jadi teks; sisanya gambar dan format.' },
+    { t: '→ ±29 ribu potongan → ±288 MB', d: 'Basis datanya justru LEBIH KECIL dari berkas sumbernya, tapi 14× lebih besar dari teksnya.' },
+    { t: 'Rasionya sangat bergantung jenis berkas', d: 'PDF hasil pindai mendekati 0%; CSV dan teks polos mendekati 100%. Rasio 2% adalah nilai tengah perkantoran.' },
+  ],
+  scale: [
+    { t: '1 GB → ±288 MB basis data', d: '±29 ribu potongan. RAM mode langsung ±46 MB.' },
+    { t: '100 GB → ±29 GB basis data', d: '±2,9 juta potongan. RAM mode langsung ±4,6 GB — masih nyaman di mana pun.' },
+    { t: '700 GB → ±202 GB basis data', d: '±20,6 juta potongan. RAM mode langsung ±32 GB. Ini korpus klien on-premise.' },
+    { t: '1 TB → ±288 GB basis data', d: '±29 juta potongan. RAM mode langsung 46–69 GB — melewati atap Neon.' },
+    { t: 'Dua rasio, dua kegunaan', d: '2% untuk memperkirakan, 3% untuk MERENCANAKAN server. Merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan memori enam bulan kemudian.' },
+    { t: 'Mode bertingkat memangkas sepersepuluh', d: 'Korpus 1 TB: dari 46–69 GB menjadi 4,6–6,9 GB. Korpusnya sama, memorinya sepersepuluh.' },
   ],
 };

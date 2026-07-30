@@ -38,32 +38,46 @@ export function ScenePlans() {
     { t: 'Dokumen & ukuran', f: () => 'tanpa batas' },
   ];
 
+  /* Geometri ditulis sebagai konstanta, bukan angka yang bertebaran. Versi
+     sebelumnya menaruh enam baris tabel yang berakhir di y=242 di atas kotak
+     catatan yang mulai di y=200 — keduanya bertumpuk dan tak terbaca. Dengan
+     tinggi baris dan titik akhir yang dihitung, tabrakan semacam itu tak bisa
+     terjadi diam-diam lagi. */
+  const Y_TABEL = 66;
+  const H_BARIS = 26;
+  const Y_AKHIR = Y_TABEL + kolom.length * H_BARIS;   // 66 + 6×26 = 222
+  const Y_CATATAN = Y_AKHIR + 12;                      // 234
+
   return (
-    <svg viewBox="0 0 760 250" role="img"
+    <svg viewBox={`0 0 760 ${Y_CATATAN + 48}`} role="img"
       aria-label="Batas tiap paket langganan: pesan per bulan, chatbot, anggota tim, laju, dan yang belum dibatasi">
-      <text x="0" y="14" className="sc-k">yang benar-benar ditegakkan kode · bukan janji brosur</text>
+      <text x="0" y="12" className="sc-k">yang benar-benar ditegakkan kode · bukan janji brosur</text>
 
       {/* kepala kolom */}
       {plans.map((p, i) => (
         <g key={p} className="an-in" style={{ ['--d' as string]: `${0.1 + i * 0.1}s` }}>
-          <rect x={208 + i * 140} y={26} width={132} height={26} rx="5"
+          <rect x={216 + i * 138} y={24} width={130} height={24} rx="5"
             fill={p === 'onprem' ? '#0F172A' : '#F8FAFC'}
             stroke={p === 'onprem' ? '#0F172A' : '#D8E0EA'} strokeWidth="1.5" />
-          <text x={274 + i * 140} y={43} textAnchor="middle"
+          <text x={281 + i * 138} y={40} textAnchor="middle"
             className={`sc-t ${p === 'onprem' ? 'sc-w' : ''}`}>{PLAN_LABEL[p]}</text>
         </g>
       ))}
 
       {kolom.map((k, r) => {
-        const y = 62 + r * 30;
+        const y = Y_TABEL + r * H_BARIS;
         const belum = k.t === 'Knowledge base' || k.t === 'Dokumen & ukuran';
         return (
-          <g key={k.t} className="an-in" style={{ ['--d' as string]: `${0.5 + r * 0.12}s` }}>
-            <line x1="0" y1={y + 20} x2="760" y2={y + 20} stroke="#EEF2F7" strokeWidth="1" />
-            <text x="0" y={y + 14} className={belum ? 'sc-s' : 'sc-t'}>{k.t}</text>
-            {belum && <text x="0" y={y + 25} className="sc-k">belum dibatasi</text>}
+          <g key={k.t} className="an-in" style={{ ['--d' as string]: `${0.5 + r * 0.1}s` }}>
+            <line x1="0" y1={y + 8} x2="760" y2={y + 8} stroke="#EEF2F7" strokeWidth="1" />
+            {/* Label & keterangannya SEBARIS, bukan bertumpuk — dua baris teks
+                dalam satu baris tabel setinggi 26px pasti bersinggungan. */}
+            <text x="0" y={y} className={belum ? 'sc-s' : 'sc-t'}>{k.t}</text>
+            {belum && (
+              <text x={k.t.length * 6.2 + 10} y={y} className="sc-k" fill={AMBER}>belum dibatasi</text>
+            )}
             {plans.map((p, i) => (
-              <text key={p} x={274 + i * 140} y={y + 14} textAnchor="middle"
+              <text key={p} x={281 + i * 138} y={y} textAnchor="middle"
                 className={belum ? 'sc-s' : 'sc-t'}
                 fill={belum ? ABU : undefined}>{k.f(p)}</text>
             ))}
@@ -72,13 +86,14 @@ export function ScenePlans() {
       })}
 
       {/* Celah yang harus disebut, bukan disembunyikan. */}
-      <g className="an-in" style={{ ['--d' as string]: '1.6s' }}>
-        <rect x="0" y="200" width="760" height="44" rx="6" fill="#FFFBEB" stroke={AMBER} strokeWidth="1.5" />
-        <text x="14" y="220" className="sc-t">
-          Jumlah knowledge base, jumlah dokumen, dan besar penyimpanan BELUM punya kuota.
+      <g className="an-in" style={{ ['--d' as string]: '1.4s' }}>
+        <rect x="0" y={Y_CATATAN} width="760" height="42" rx="6"
+          fill="#FFFBEB" stroke={AMBER} strokeWidth="1.5" />
+        <text x="14" y={Y_CATATAN + 19} className="sc-t">
+          Knowledge base, jumlah dokumen, dan besar penyimpanan BELUM punya kuota.
         </text>
-        <text x="14" y="235" className="sc-s">
-          Untuk on-premise itu memang benar — batasnya server pelanggan sendiri. Untuk SaaS ia perlu ditambahkan sebelum pelanggan berbayar pertama masuk.
+        <text x="14" y={Y_CATATAN + 33} className="sc-s">
+          Untuk on-premise itu benar — batasnya server pelanggan. Untuk SaaS ia perlu ada sebelum pelanggan berbayar pertama masuk.
         </text>
       </g>
     </svg>
@@ -107,73 +122,84 @@ export function SceneCapacity() {
     {
       t: 'Vercel Pro + Neon', s: 'maksimum 16 CU · 64 GB RAM',
       ram: 64, disk: 2_000, c: BIRU,
-      n: 'Atap tertinggi Neon. Di atas ini tak ada paket yang lebih besar — harus pindah.',
+      n: 'atap tertinggi Neon — di atasnya harus pindah',
     },
     {
       t: 'On-premise', s: 'server 128 GB RAM · 2 TB NVMe',
       ram: 128, disk: 2_000, c: HIJAU,
-      n: 'Batasnya perangkat yang dibeli, bukan paket. Bisa ditambah kapan saja.',
+      n: 'batasnya perangkat, bukan paket — bisa ditambah',
     },
     {
       t: 'AWS RDS / Aurora', s: 'instans memori besar · 768 GB RAM',
       ram: 768, disk: 16_000, c: ABU,
-      n: 'Atap tertinggi dari ketiganya, dengan biaya bulanan yang juga tertinggi.',
+      n: 'atap tertinggi, biaya bulanan tertinggi',
     },
   ];
 
   return (
-    <svg viewBox="0 0 760 258" role="img"
+    <svg viewBox="0 0 760 278" role="img"
       aria-label="Kapasitas Vercel dengan Neon, on-premise, dan AWS dalam jumlah potongan dan dokumen">
       <text x="0" y="14" className="sc-k">
         diturunkan dari 8.189 byte/potongan terukur · mode bertingkat mengubah atapnya sama sekali
       </text>
 
       {baris.map((b, i) => {
-        const y = 30 + i * 62;
+        /* Tinggi baris 66 dengan dua batang di dalamnya: batang pertama di
+           y+16, kedua di y+44, label terakhir di y+57. Versi sebelumnya
+           memakai 62 dan keterangan kiri sepanjang 62 karakter yang meluber
+           melewati x=286 tempat batangnya mulai. Sekarang kolom kiri dibatasi
+           lebarnya dan keterangannya dipendekkan pada sumbernya. */
+        const y = 26 + i * 66;
         const datar = potonganDatar(b.ram);
         const bertingkat = potonganDisk(b.disk);
-        const wDatar = Math.max(8, (datar / potonganDatar(768)) * 190);
-        const wTingkat = Math.max(8, (bertingkat / potonganDisk(16_000)) * 190);
+        const X_BAR = 268;
+        const W_MAX = 150;
+        const wDatar = Math.max(8, (datar / potonganDatar(768)) * W_MAX);
+        const wTingkat = Math.max(8, (bertingkat / potonganDisk(16_000)) * W_MAX);
         return (
           <g key={b.t}>
             <g className="an-in" style={{ ['--d' as string]: `${0.1 + i * 0.25}s` }}>
-              <text x="0" y={y + 14} className="sc-t">{b.t}</text>
-              <text x="0" y={y + 27} className="sc-s">{b.s}</text>
-              <text x="0" y={y + 42} className="sc-m">{b.n.slice(0, 62)}</text>
+              <text x="0" y={y + 16} className="sc-t">{b.t}</text>
+              <text x="0" y={y + 30} className="sc-s">{b.s}</text>
+              <text x="0" y={y + 44} className="sc-m" style={{ fontSize: 7.5 }}>{b.n}</text>
             </g>
 
             {/* mode datar — dibatasi RAM */}
             <g className="an-in" style={{ ['--d' as string]: `${0.4 + i * 0.25}s` }}>
-              <text x={286} y={y + 10} className="sc-k">mode langsung</text>
+              <text x={X_BAR} y={y + 10} className="sc-k">mode langsung</text>
             </g>
-            <rect x={286} y={y + 14} width={wDatar} height={13} rx="3" fill={b.c} opacity="0.45"
+            <rect x={X_BAR} y={y + 14} width={wDatar} height={12} rx="3" fill={b.c} opacity="0.45"
               className="an-bar" style={{ ['--d' as string]: `${0.5 + i * 0.25}s` }} />
-            <text x={286 + wDatar + 8} y={y + 25} className="sc-t an-in"
+            <text x={X_BAR + W_MAX + 12} y={y + 24} className="sc-t an-in"
               style={{ ['--d' as string]: `${0.9 + i * 0.25}s` }}>
               {juta(datar)} potongan
             </text>
 
             {/* mode bertingkat — dibatasi disk */}
             <g className="an-in" style={{ ['--d' as string]: `${0.6 + i * 0.25}s` }}>
-              <text x={286} y={y + 40} className="sc-k">mode bertingkat</text>
+              <text x={X_BAR} y={y + 42} className="sc-k">mode bertingkat</text>
             </g>
-            <rect x={286} y={y + 44} width={wTingkat} height={13} rx="3" fill={b.c}
+            <rect x={X_BAR} y={y + 46} width={wTingkat} height={12} rx="3" fill={b.c}
               className="an-bar" style={{ ['--d' as string]: `${0.7 + i * 0.25}s` }} />
-            <text x={286 + wTingkat + 8} y={y + 55} className="sc-t an-in"
+            <text x={X_BAR + W_MAX + 12} y={y + 56} className="sc-t an-in"
               style={{ ['--d' as string]: `${1.1 + i * 0.25}s` }}>
-              {juta(bertingkat)} potongan · ±{ribu(bertingkat / POTONGAN_PER_DOK)} dokumen
+              {juta(bertingkat)} potongan
+            </text>
+            <text x={X_BAR + W_MAX + 12} y={y + 66} className="sc-m an-in"
+              style={{ ['--d' as string]: `${1.2 + i * 0.25}s`, fontSize: 8 }}>
+              ±{ribu(bertingkat / POTONGAN_PER_DOK)} dokumen
             </text>
           </g>
         );
       })}
 
       <g className="an-in" style={{ ['--d' as string]: '1.7s' }}>
-        <rect x="0" y="218" width="760" height="40" rx="6" fill="#F8FAFC" stroke="#D8E0EA" />
-        <text x="14" y="236" className="sc-t">
+        <rect x="0" y="230" width="760" height="42" rx="6" fill="#F8FAFC" stroke="#D8E0EA" />
+        <text x="14" y="248" className="sc-t">
           Mode langsung dibatasi RAM; mode bertingkat dibatasi DISK — dan disk jauh lebih murah dinaikkan.
         </text>
-        <text x="14" y="250" className="sc-s">
-          Asumsi: ±10 potongan per dokumen, indeks berdimensi asli. Angka Neon &amp; AWS adalah atap paket tertinggi masing-masing, bukan yang dipakai hari ini.
+        <text x="14" y="262" className="sc-s">
+          Asumsi ±10 potongan per dokumen, indeks berdimensi asli. Angka Neon &amp; AWS adalah atap paket tertinggi, bukan yang dipakai hari ini.
         </text>
       </g>
     </svg>

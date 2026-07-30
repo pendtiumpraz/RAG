@@ -5,6 +5,10 @@ import {
   PLAN_LIMITS, BYTES_PER_CHUNK, INDEX_BYTES_PER_CHUNK, CHUNKS_PER_DOC,
 } from '@/modules/core/limits';
 
+/** Potongan maju ±680 karakter (800 dikurangi tumpang tindih 120) — angka yang
+ *  sama dengan slide penyimpanan di dek HLA. */
+const CHAR_PER_CHUNK = 680;
+
 /**
  * KALKULATOR KAPASITAS — simulasi "berapa penyewa yang muat".
  *
@@ -47,6 +51,9 @@ export default function Calculator() {
   /** Berapa persen jatah yang benar-benar dipakai penyewa rata-rata. */
   const [isi, setIsi] = useState(35);
   const [target, setTarget] = useState<string>('neon');
+  /** Bagian berkas sumber yang benar-benar jadi teks — sangat bergantung jenis
+   *  berkas, jadi ia asumsi yang HARUS bisa disentuh, bukan angka tetap. */
+  const [rasio, setRasio] = useState(2);
 
   const atap = ATAP.find((a) => a.id === target)!;
 
@@ -191,6 +198,60 @@ export default function Calculator() {
                   bauran yang sama.</>
               : <>Komposisi ini <b>melebihi</b> atap {atap.t}. Turunkan jumlah penyewa, aktifkan
                   mode bertingkat, atau pilih infrastruktur yang lebih besar.</>}
+        </p>
+      </section>
+
+      {/* penerjemah GB sumber → kuota potongan */}
+      <section className="as-sec">
+        <header>
+          <h2>Dari GB berkas ke kuota potongan</h2>
+          <span className="microlabel">UNTUK MENENTUKAN KUOTA TIAP PAKET</span>
+        </header>
+        <p className="desc">
+          Kuota dibatasi per POTONGAN karena itulah satuan biaya yang nyata. Tabel ini
+          menerjemahkannya ke satuan yang dimengerti calon pelanggan — &ldquo;berapa GB
+          berkas Drive yang muat&rdquo;. Rasio teks bisa disetel: <b>2%</b> nilai tengah
+          korpus perkantoran, <b>3%</b> untuk merencanakan, mendekati <b>100%</b> bila
+          isinya CSV atau teks polos.
+        </p>
+        <div className="calc-row" style={{ maxWidth: 620, marginBottom: 12 }}>
+          <span className="calc-lab">
+            <b>Rasio teks</b>
+            <span className="microlabel">BAGIAN BERKAS YANG BENAR-BENAR JADI TEKS</span>
+          </span>
+          <input type="range" min={1} max={20} step={1} value={rasio}
+            onChange={(e) => setRasio(Number(e.target.value))} />
+          <span className="calc-num mono" style={{ textAlign: 'center', lineHeight: '38px' }}>{rasio}%</span>
+        </div>
+        <div className="table-wrap"><table className="table">
+          <thead><tr>
+            <th>Paket</th><th>Kuota potongan</th><th>±Dokumen</th>
+            <th>±Teks</th><th>±Berkas sumber</th><th>±Basis data</th>
+          </tr></thead>
+          <tbody>
+            {PLANS.map((p) => {
+              const kuota = PLAN_LIMITS[p].maxChunks;
+              const teks = kuota * CHAR_PER_CHUNK;
+              return (
+                <tr key={p}>
+                  <td><b>{LABEL[p]}</b></td>
+                  <td className="mono">{fmt(kuota)}</td>
+                  <td className="mono">±{fmt(kuota / CHUNKS_PER_DOC)}</td>
+                  <td className="mono">{gb(teks)}</td>
+                  <td className="mono"><b>{gb(teks / (rasio / 100))}</b></td>
+                  <td className="mono">{gb(kuota * (BYTES_PER_CHUNK + INDEX_BYTES_PER_CHUNK))}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table></div>
+        <p className="desc">
+          Kolom <b>±Berkas sumber</b> adalah yang paling berguna saat menyusun paket: itulah
+          yang calon pelanggan tanyakan. Perhatikan betapa besar pengaruh rasio teks —
+          menggeser slider dari 2% ke 10% mengubah &ldquo;berapa GB Drive yang muat&rdquo;
+          lima kali lipat, tanpa mengubah kuotanya sama sekali. Itu sebabnya kuota
+          <b> tidak</b> dinyatakan dalam GB berkas: dua pelanggan dengan 10 GB Drive bisa
+          menghabiskan jatah yang berbeda jauh, tergantung isinya PDF pindaian atau CSV.
         </p>
       </section>
 

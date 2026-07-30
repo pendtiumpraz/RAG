@@ -622,6 +622,14 @@ const hla: Slide[] = [
     title: 'Dibayar sekali, dan dibayar tiap kali',
     note: 'Memisahkan keduanya penting saat menyusun anggaran: biaya sekali menentukan berapa lama pemasangan awal, sedangkan biaya berulang menentukan tagihan bulanan. Angka per 1.000 pertanyaan di slide ini diambil dari tabel harga yang sama dengan dek Technical — bukan diketik ulang, sehingga tak mungkin menyimpang.' },
 
+  { kind: 'anim', kicker: 'PENYIMPANAN', scene: 'storage',
+    title: '1 GB berkas Drive jadi berapa di basis data',
+    note: 'Yang memenuhi basis data BUKAN teks dokumennya, melainkan vektornya — 6.148 byte melawan 680 byte, sembilan kali lipat. Itulah harga sebenarnya dari pencarian yang memahami makna, dan itu pula sebabnya optimasi dimensi vektor berdampak begitu besar. Semua angka di slide ini diukur dengan pg_column_size pada data produksi.' },
+
+  { kind: 'anim', kicker: 'PENYIMPANAN', scene: 'scale',
+    title: 'Dari 1 GB sampai 1 TB',
+    note: 'Dua rasio ditampilkan dengan sengaja: 2% untuk MEMPERKIRAKAN, 3% untuk MERENCANAKAN server. Merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan memori enam bulan setelah pemasangan. Angka 3% inilah yang dipakai proposal on-premise, jadi kedua dek tak pernah berselisih. Spesifikasi server memang ditentukan oleh berapa banyak yang diambil — dan tabel inilah penerjemahnya.' },
+
   { kind: 'anim', kicker: 'BATAS LANGGANAN', scene: 'plans',
     title: 'Apa yang dibatasi tiap paket — dan apa yang belum',
     note: 'Angka di slide ini diambil langsung dari core/limits.ts, tempat kuotanya benar-benar ditegakkan. Yang belum punya kuota disebut apa adanya: jumlah knowledge base, jumlah dokumen, dan besar penyimpanan. Untuk on-premise itu memang benar — batasnya server pelanggan. Untuk SaaS ia perlu ditambahkan sebelum pelanggan berbayar pertama masuk, karena satu tenant Free bisa mengunggah puluhan gigabyte tanpa tertahan apa pun.' },
