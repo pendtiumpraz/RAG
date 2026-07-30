@@ -19,7 +19,7 @@ export type Slide =
   | { kind: 'table'; kicker: string; title: string; headers: string[]; rows: string[][]; note?: string; small?: boolean }
   | { kind: 'closing'; title: string; subtitle: string; foot: string };
 
-export interface Deck { id: 'technical' | 'business'; label: string; slides: Slide[] }
+export interface Deck { id: 'technical' | 'business' | 'proposal'; label: string; slides: Slide[] }
 
 /* ── skenario biaya (dipakai SEMUA provider — apples to apples) ─────── */
 /** Per giliran chat RAG: ±3.000 token masuk (konteks retrieval + riwayat +
@@ -311,7 +311,163 @@ const business: Slide[] = [
     foot: 'rag.sainskerta.net · demo tersedia' },
 ];
 
+
+/* ═══ DECK 3 · PROPOSAL ON-PREMISE ════════════════════════════════════
+   Untuk calon pelanggan dengan korpus SharePoint besar (±1 TB) yang WAJIB
+   on-premise. Angka teknis di sini DITURUNKAN dari pengukuran nyata pada
+   basis data produksi (8.189 byte/potongan terukur lewat pg_column_size),
+   bukan taksiran — lihat catatan kaki tiap slide.                       */
+
+/** Ukuran satu potongan di tabel `documents`, TERUKUR di produksi. */
+const BYTES_ROW = 8_189;
+/** Indeks HNSW menyimpan salinan vektornya lagi + tautan graf. */
+const BYTES_IDX = 6_400;
+/** Cadangan WAL, bloat, autovacuum — 40% adalah angka konservatif. */
+const OVERHEAD = 1.4;
+/** Karakter efektif per potongan (800 − overlap 120), terukur 676. */
+const CHARS_PER_CHUNK = 680;
+
+/** GB teks → jumlah potongan. */
+const chunksFor = (gbText: number) => (gbText * 1024 ** 3) / CHARS_PER_CHUNK;
+/** GB teks → disk Postgres (tabel + indeks + cadangan), dalam GB. */
+const diskFor = (gbText: number) =>
+  (chunksFor(gbText) * (BYTES_ROW + BYTES_IDX) * OVERHEAD) / 1024 ** 3;
+/** GB teks → RAM yang dibutuhkan indeks HNSW agar tetap residen, dalam GB. */
+const ramFor = (gbText: number) => (chunksFor(gbText) * BYTES_IDX) / 1024 ** 3;
+
+const gb = (n: number) => `${Math.round(n).toLocaleString('id-ID')} GB`;
+const jt = (n: number) => `Rp ${n.toLocaleString('id-ID')} jt`;
+
+const proposal: Slide[] = [
+  { kind: 'cover', kicker: 'PROPOSAL ON-PREMISE · CONFIDENTIAL', title: 'Nalar',
+    subtitle: 'Mesin RAG untuk korpus SharePoint ±1 TB — terpasang penuh di server Anda. Tak ada dokumen yang keluar.',
+    foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
+
+  { kind: 'bullets', kicker: 'KEBUTUHAN', title: 'Yang kami pahami dari kebutuhan Anda',
+    bullets: [
+      '±1 TB dokumen di SharePoint — kontrak, SOP, laporan, arsip perizinan',
+      'WAJIB on-premise: dokumen tidak boleh meninggalkan infrastruktur perusahaan',
+      'Dicari jawaban yang bisa DITELUSURI ke dokumen sumbernya, bukan ringkasan yang mengarang',
+      'Dipakai lintas divisi — tiap divisi punya cakupan dokumen sendiri',
+      'Perlu kepastian biaya: satu kali di depan, atau berlangganan — bukan tagihan yang mengambang',
+    ],
+    note: 'Proposal ini menyebut angka teknisnya apa adanya, termasuk yang membatasi. Tak ada yang disembunyikan untuk dipersoalkan setelah kontrak.' },
+
+  { kind: 'flow', kicker: 'YANG TERJADI PADA 1 TB', title: 'Dari 1 TB berkas menjadi pengetahuan yang bisa ditanya',
+    steps: [
+      { t: '1 TB di SharePoint', d: 'PDF, DOCX, XLSX, gambar pindaian' },
+      { t: '10–30 GB teks', d: 'hanya teks terekstrak; gambar & pindaian tanpa OCR dilewati' },
+      { t: '15–45 juta potongan', d: '±680 karakter per potongan' },
+      { t: 'Indeks vektor', d: 'pencarian makna + kata kunci (hybrid)' },
+      { t: '6 potongan / pertanyaan', d: 'itulah yang benar-benar dibaca AI' },
+    ],
+    note: 'BERKAS ASLINYA TIDAK DISALIN. Yang disimpan hanya teks terekstrak beserta vektornya — 1 TB SharePoint Anda tetap tinggal di tempatnya.' },
+
+  { kind: 'table', kicker: 'KAPASITAS', title: 'Kebutuhan penyimpanan & memori — dihitung, bukan ditaksir',
+    small: true,
+    headers: ['Teks terekstrak', 'Potongan', 'Disk Postgres', 'RAM utk indeks', 'Skenario'],
+    rows: [
+      ['10 GB', `${Math.round(chunksFor(10) / 1e6)} juta`, gb(diskFor(10)), gb(ramFor(10)), 'korpus dokumen teks (perkiraan bawah)'],
+      ['20 GB', `${Math.round(chunksFor(20) / 1e6)} juta`, gb(diskFor(20)), gb(ramFor(20)), 'campuran dokumen Office + PDF teks'],
+      ['30 GB', `${Math.round(chunksFor(30) / 1e6)} juta`, gb(diskFor(30)), gb(ramFor(30)), 'perkiraan atas 1 TB SharePoint'],
+    ],
+    note: 'Dasar hitungan: 8.189 byte/potongan TERUKUR di basis data produksi (pg_column_size), + indeks HNSW 6,4 kB, + cadangan 40% utk WAL & autovacuum. Indeks harus residen di RAM agar pencarian tetap di bawah satu detik.' },
+
+  { kind: 'table', kicker: 'OPTIMASI WAJIB', title: 'Satu penyetelan yang memangkas kebutuhan hampir tiga kali',
+    small: true,
+    headers: ['Teks', 'Disk — apa adanya', 'Disk — teroptimasi', 'RAM — apa adanya', 'RAM — teroptimasi'],
+    rows: [
+      ['10 GB', gb(diskFor(10)), gb(diskFor(10) / 2.7), gb(ramFor(10)), gb(ramFor(10) / 3.6)],
+      ['20 GB', gb(diskFor(20)), gb(diskFor(20) / 2.7), gb(ramFor(20)), gb(ramFor(20) / 3.6)],
+      ['30 GB', gb(diskFor(30)), gb(diskFor(30) / 2.7), gb(ramFor(30)), gb(ramFor(30) / 3.6)],
+    ],
+    note: 'Kolom vektor saat ini berukuran tetap 1.536 dimensi, sementara model embedding yang dipakai menghasilkan 384 dimensi — sisanya diisi NOL. Menyesuaikan kolom ke dimensi asli memangkas disk ±2,7× dan RAM ±3,6×. WAJIB dikerjakan SEBELUM ingest pertama: mengubahnya setelah jutaan potongan masuk berarti menghitung ulang seluruh embedding dari nol. Sudah masuk rencana kerja kami dan TIDAK ditagihkan terpisah.' },
+
+  { kind: 'table', kicker: 'SPESIFIKASI SERVER', title: 'Server yang kami rekomendasikan',
+    small: true,
+    headers: ['Komponen', 'Minimum', 'Direkomendasikan', 'Catatan'],
+    rows: [
+      ['CPU', '16 core', '32 core', 'ingest awal & embedding memakai seluruh core'],
+      ['RAM', '128 GB', '256 GB', 'indeks vektor WAJIB residen — batas yang paling menentukan; 128 GB cukup SETELAH optimasi dimensi'],
+      ['Disk data', '1 TB NVMe', '2 TB NVMe', 'bukan HDD: pencarian vektor sensitif pada IOPS acak'],
+      ['Disk backup', '2 TB', '4 TB (terpisah)', 'snapshot Postgres + WAL archive'],
+      ['GPU (opsional)', 'tidak perlu', 'RTX 4090 24GB', 'hanya bila LLM ikut dijalankan lokal'],
+      ['Jaringan', '1 Gbps internal', '10 Gbps', 'egress keluar hanya bila menarik dari SharePoint Online'],
+      ['OS', 'Ubuntu 22.04 LTS', 'Ubuntu 24.04 LTS', 'Docker + docker-compose'],
+    ],
+    note: 'Rekomendasi ini SUDAH memperhitungkan optimasi dimensi vektor di slide sebelumnya. Tanpa optimasi itu, perkiraan atas (30 GB teks) menuntut 288 GB RAM — karena itu optimasinya kami jadikan syarat, bukan pilihan. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API.' },
+
+  { kind: 'twocol', kicker: 'RUANG LINGKUP', title: 'Yang termasuk — dan yang tidak',
+    cols: [
+      { h: 'Termasuk', bullets: [
+        'Instalasi & konfigurasi di server Anda',
+        'Koneksi SharePoint + ingest awal seluruh korpus',
+        'Penyetelan model embedding & LLM sesuai kebijakan Anda',
+        'Pembuatan chatbot per divisi + pembagian knowledge base',
+        'Pelatihan admin (2 sesi) + dokumentasi operasional',
+        'Uji terima: akurasi diukur pada pertanyaan nyata Anda',
+      ] },
+      { h: 'Tidak termasuk', bullets: [
+        'Perangkat keras server (dibeli/disediakan Anda)',
+        'Biaya API model bahasa bila memakai penyedia cloud',
+        'OCR dokumen hasil pindaian (bisa ditambahkan)',
+        'Migrasi data di luar SharePoint',
+        'Integrasi ke sistem internal lain (dikerjakan terpisah)',
+      ] },
+    ],
+    note: 'Ingest awal 1 TB memakan waktu BERHARI-HARI, bukan berjam-jam. Ini disampaikan di muka, bukan ditemukan saat pemasangan.' },
+
+  { kind: 'table', kicker: 'TIGA OPSI', title: 'Pilih struktur yang paling sesuai kebijakan Anda',
+    small: true,
+    headers: ['', 'A · Berlangganan', 'B · Lisensi Perpetual', 'C · Lisensi Kode Sumber'],
+    rows: [
+      ['Biaya di muka', jt(75) + ' (instalasi)', jt(550), jt(1200)],
+      ['Biaya berjalan', jt(15) + ' / bulan', 'maintenance opsional', 'maintenance opsional'],
+      ['Masa pakai', 'selama berlangganan', 'selamanya', 'selamanya'],
+      ['Pembaruan versi', 'termasuk', '1 tahun, lalu opsional', '1 tahun, lalu opsional'],
+      ['Akses kode sumber', 'tidak', 'escrow (bila kami berhenti)', 'PENUH — bebas dimodifikasi'],
+      ['Modifikasi sendiri', 'tidak', 'tidak', 'ya, tanpa batas'],
+      ['Lisensi berlaku', '1 badan hukum', '1 badan hukum', '1 badan hukum, tak boleh dijual ulang'],
+      ['Cocok bila', 'ingin mulai cepat, belanja modal terbatas', 'ingin biaya berhenti setelah setahun', 'punya tim IT sendiri & ingin kendali penuh'],
+    ],
+    note: 'Semua opsi WAJIB on-premise sesuai kebutuhan Anda. Harga belum termasuk PPN. Opsi C mencakup penyerahan repositori, dokumentasi arsitektur, dan alih pengetahuan 3 sesi.' },
+
+  { kind: 'table', kicker: 'MAINTENANCE', title: 'Dukungan bulanan — terpisah, bisa dihentikan kapan saja',
+    headers: ['Tingkat', 'Isi', 'Respons', 'Biaya / bulan'],
+    rows: [
+      ['Dasar', 'Pembaruan keamanan, perbaikan bug, pemantauan dasar', '2 hari kerja', jt(8)],
+      ['Standar', '+ pembaruan fitur, penyetelan akurasi triwulanan, backup terkelola', '1 hari kerja', jt(15)],
+      ['Prioritas', '+ SLA tertulis, kanal khusus, pendampingan saat perubahan besar', '4 jam kerja', jt(25)],
+    ],
+    note: 'Tanpa maintenance, sistem TETAP BERJALAN — tak ada yang dimatikan dari jarak jauh. Yang berhenti hanyalah pembaruan dan dukungan kami.' },
+
+  { kind: 'flow', kicker: 'IMPLEMENTASI', title: 'Dari kontrak sampai dipakai',
+    steps: [
+      { t: 'Minggu 1', d: 'penyiapan server, instalasi, koneksi SharePoint' },
+      { t: 'Minggu 2–3', d: 'ingest awal korpus (berjalan latar)' },
+      { t: 'Minggu 4', d: 'chatbot per divisi + penyetelan akurasi' },
+      { t: 'Minggu 5', d: 'pelatihan admin & uji terima' },
+      { t: 'Minggu 6', d: 'serah terima + masa pendampingan' },
+    ],
+    note: 'Durasi ingest bergantung jumlah berkas nyata dan kecepatan jaringan ke SharePoint; angka di atas untuk ±1 TB dengan koneksi 1 Gbps.' },
+
+  { kind: 'bullets', kicker: 'KENAPA ON-PREMISE', title: 'Yang Anda dapatkan dengan memasang sendiri',
+    bullets: [
+      'Dokumen tidak pernah meninggalkan jaringan Anda — termasuk saat AI membacanya',
+      'Tidak ada tagihan yang mengambang: biaya diketahui sejak awal',
+      'Isolasi antar-divisi ditegakkan DATABASE (Row-Level Security), bukan sekadar filter aplikasi',
+      'Model bahasa bisa ikut lokal — nol ketergantungan pada penyedia mana pun',
+      'Audit lengkap: setiap pertanyaan, jawaban, dan dokumen yang dipakai tercatat',
+    ],
+    note: 'Kedaulatan data bukan fitur tambahan di sini — mode on-premise dan SaaS berbagi satu basis kode yang sama, jadi tak ada versi "yang dikurangi".' },
+
+  { kind: 'closing', title: 'Dokumen Anda. Jawaban Anda. Server Anda.',
+    subtitle: 'Kami siap memulai dengan sesi teknis bersama tim IT Anda untuk memastikan spesifikasi server dan jalur akses SharePoint sebelum kontrak.',
+    foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
+];
+
 export const DECKS: Deck[] = [
   { id: 'technical', label: 'Pitch Deck — Technical', slides: technical },
   { id: 'business', label: 'Pitch Deck — Business', slides: business },
+  { id: 'proposal', label: 'Proposal — On-Premise 1 TB', slides: proposal },
 ];
