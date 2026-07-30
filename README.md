@@ -1,130 +1,235 @@
-# RAG Engine
+<div align="center">
 
-Multi-tenant Retrieval-Augmented-Generation platform built on **Next.js
-(App Router)**. Pluggable embedding & LLM models, per-user Google Drive /
-SharePoint sources, full chat history, and a chatbot you can embed on any
-website. Ships as **SaaS** (multi-tenant) or **on-prem** (one org, one
-container).
+# Nalar
 
-> Model catalog current as of **2026-07-23** — see `src/lib/models/registry.ts`.
+**Mesin RAG multi-tenant — jawaban yang selalu bisa ditelusuri ke sumbernya.**
 
----
+SaaS dan on-premise dari satu basis kode. Isolasi tenant ditegakkan database,
+bukan `WHERE` clause.
 
-## Jawaban langsung untuk pertanyaanmu
+[![Lisensi](https://img.shields.io/badge/lisensi-BSL%201.1-0F172A)](LICENSE)
+[![Status](https://img.shields.io/badge/status-produksi-047857)](https://rag.sainskerta.net)
+[![Next.js](https://img.shields.io/badge/Next.js-15-2563EB)](https://nextjs.org)
+[![Postgres](https://img.shields.io/badge/Postgres-17%20%2B%20pgvector-2563EB)](https://github.com/pgvector/pgvector)
 
-**"Embeddings pakai Google Drive superadmin, bisa gak?"** → **Bisa.** Yang
-disimpan di Drive superadmin adalah **file MODEL embedding** (ONNX 80MB /
-2GB). File itu diunduh sekali, di-cache, lalu dipakai bersama oleh semua
-tenant (`src/lib/storage/model-host.ts`). Ini infrastruktur bersama.
-**Yang TIDAK dibagi** adalah hasil embedding (vektor) tiap tenant — vektor
-disimpan per-tenant di tabel `documents` dan tidak pernah bercampur.
-
-**"1 user = 1 ID chatbot yang bisa di-embed ke website lain, beda ID beda
-knowledge base, bisa gak?"** → **Bisa.** Satu user bisa punya banyak
-chatbot; tiap chatbot punya `publicKey` sendiri (`cb_live_…`). Retrieval
-selalu difilter `chatbot_id`, jadi **beda ID = beda knowledge base yang
-terisolasi** (`src/lib/rag/retrieve.ts`).
-
-**"Setiap user konek Google Drive masing-masing"** → **Ya.** Sumber data
-per-user pakai OAuth Drive/SharePoint milik user itu
-(`src/lib/storage/gdrive.ts`, `sharepoint.ts`).
-
-**"Antar tenant harus isolated, tidak boleh saling connect knowledge
-base"** → **Dipaksa di level database.** Postgres **Row-Level Security**
-+ `tenant_id` + `withTenant()` membuat query bocor antar tenant *mustahil*
-walau ada bug di kode app (`migrations/0001_rls.sql`,
-`src/lib/db/tenant.ts`).
+</div>
 
 ---
 
-## Fitur → di mana kodenya
+## Apa ini
 
-| Yang kamu minta | Implementasi |
+Nalar menjawab pertanyaan dari **dokumen milikmu sendiri** — kontrak, SOP,
+kebijakan, laporan — dan setiap jawaban membawa rujukan ke potongan dokumen
+yang dipakainya. Bukan chatbot yang mengarang lalu terdengar meyakinkan.
+
+Ia dibangun untuk dijual ke perusahaan, jadi tiga hal yang biasanya diurus
+belakangan justru jadi fondasi:
+
+- **Isolasi tenant yang tak bisa dilanggar kode yang buggy.** Row-Level
+  Security Postgres, `FORCE`, di setiap tabel ber-`tenant_id`. Query yang
+  salah tulis mengembalikan nol baris, bukan data tenant lain.
+- **Kedaulatan data.** Mode on-premise menjalankan aplikasi, embedding, dan
+  LLM sepenuhnya di servermu. Tak ada byte yang keluar.
+- **Jawaban yang bisa diperiksa.** Sitasi wajib, jejak retrieval terbuka, dan
+  setiap giliran chat tercatat di audit log.
+
+Produksi: **[rag.sainskerta.net](https://rag.sainskerta.net)**
+
+---
+
+## Kemampuan
+
+| | |
 |---|---|
-| Pilih embedding model (80MB / 2GB / API OpenAI) | `src/lib/models/registry.ts` (bucket small/large/api), `src/app/settings` |
-| Host bobot model embedding (Vercel Blob / Drive / SharePoint) | `src/modules/knowledge/storage/blob-host.ts` + `model-host.ts` (+ `gdrive.ts`, `sharepoint.ts`) |
-| Semua provider & model terbaru (Jul 2026), pilih 1 aktif | `registry.ts` (`LLM_MODELS`), `tenant_settings.activeLlmModel` |
-| Simpan API key | `provider_credentials` (AES-256-GCM, `src/lib/crypto.ts`) |
-| History semua chat | tabel `conversations` + `messages` |
-| Chatbot embed ke website apa pun + kirim response | `public/embed.js` + `POST /api/chat/[chatbotId]` (SSE stream) |
-| SaaS + on-prem | `DEPLOYMENT_MODE`, `docker-compose.yml`, `Dockerfile` |
-| Isolasi tenant | RLS + `tenant_id` (`migrations/0001_rls.sql`) |
+| **Knowledge base mandiri** | Satu KB dipakai banyak chatbot lewat assignment N:M. Di-ingest sekali, dipakai semua. |
+| **Sumber pengetahuan** | Google Drive (OAuth atau **URL folder publik tanpa login**), OneDrive, SharePoint (situs, document library, tautan berbagi), unggah berkas, halaman web. |
+| **Sync inkremental** | Hanya berkas baru/berubah yang diunduh dan di-embed. Listing yang terpotong tak pernah memicu penghapusan. |
+| **Hybrid search** | Vektor (pgvector/HNSW) + full-text Postgres, digabung Reciprocal Rank Fusion, potongan kembar disingkirkan. |
+| **Jawaban terstruktur** | Model membalas blok — paragraf, daftar, kartu fakta, chart — dirender komponen demi komponen. Nol Markdown, dijamin di server. |
+| **Guardrails 5 lapis** | Sanitasi input, anti prompt-injection pada konteks, budget eksekusi, redaksi rahasia + penegakan sitasi, audit log. |
+| **Chatbot per divisi** | Tiap chatbot punya persona, konteks, branding, dan logo sendiri. |
+| **Memory agent** | Catatan ala Obsidian dengan `[[wikilink]]`, graph force-directed, vault yang bisa ditulis balik ke Drive pengguna. |
+| **API publik** | `/api/v1/*` ber-API key: chatbot, knowledge base, dokumen, dan **pencarian semantik murni tanpa LLM**. |
+| **Webhook keluar** | Ditandatangani HMAC-SHA256, dikirim lewat job runner, dijaga terhadap SSRF. |
+| **Multi-model** | 8 provider LLM + embedding lokal (ONNX), API, atau server sendiri. Tanpa vendor lock-in. |
+| **Pembayaran** | QRIS lewat Midtrans / Tripay / Xendit — halaman bayar di situs sendiri, konfigurasi di database. |
 
 ---
 
-## Model catalog (2026-07-23)
+## Arsitektur sekilas
 
-**LLM** — Anthropic (Fable 5, Opus 4.8, Sonnet 5, Haiku 4.5), OpenAI
-(GPT-5.6 Sol/Terra/Luna, 5.5, 5.4), Google (Gemini 3.5 Flash, 3 Pro),
-Mistral, DeepSeek, xAI Grok 4, Groq/Llama, Cohere. Tambah model baru =
-tambah satu baris di `LLM_MODELS`.
+**Modular monolith.** Satu deploy, batas modul tegas. Modul tidak saling impor
+untuk side-effect; mereka menerbitkan event bertipe di bus in-process.
 
-**Embedding** (ukuran berkas yang benar-benar dimuat, diverifikasi 2026-07-26)
-- **kecil**: `all-MiniLM-L6-v2` (21,9 MB), `nomic-embed-text-v1.5` (130,9 MB)
-- **besar**: `bge-m3` multilingual (543 MB terkuantisasi — varian presisi
-  penuh 2,16 GB memakai bobot eksternal dan **tidak bisa dimuat**
-  transformers.js v2, lihat `docs/MODEL-HOSTING.md`)
-- **API**: OpenAI `text-embedding-3-small/large`, Cohere `embed-v4.0`
+```
+src/
+├─ app/                     Next.js App Router
+│  ├─ (app)/                halaman dashboard (di balik middleware sesi)
+│  ├─ api/                  rute API — pembungkus tipis di atas service
+│  │  └─ v1/                API publik pelanggan (auth: API key)
+│  └─ _components/          komponen UI bersama
+├─ modules/                 ← logika bisnis hidup di sini
+│  ├─ core/                 db · auth · guardrails · jobs · limits · registry
+│  ├─ auth/                 NextAuth, gerbang persetujuan, kredensial OAuth
+│  ├─ chatbot/ chat/        chatbot, retrieval, pipeline jawaban
+│  ├─ knowledge/            KB, sync, ekstraksi, embedding, adapter storage
+│  ├─ connections/          akun storage per pengguna (multi-akun)
+│  ├─ memory/ settings/     agen memory, pengaturan tenant
+│  ├─ usage/ payments/      kuota, penagihan, gateway QRIS
+│  ├─ integrations/         API key masuk, webhook keluar
+│  └─ mail/                 SMTP dari database (bukan env)
+└─ middleware.ts            gerbang rute ber-sesi
+```
 
-Bobot di-host di **Vercel Blob** publik; unggah dengan
-`npm run models:push -- --all`. Rincian: [`docs/MODEL-HOSTING.md`](docs/MODEL-HOSTING.md).
+### Alur satu pertanyaan
+
+```
+embed.js / API
+   └─ publicKey + cek origin ─────────────────────────► resolve tenant
+        └─ withTenant(tenantId)   ← batas isolasi; semua akses DB lewat sini
+             ├─ guardrails L1–L2   sanitasi input & konteks
+             ├─ hybrid retrieval   vektor + leksikal → RRF → dedup
+             ├─ LLM streaming      blok terstruktur + sitasi [n]
+             └─ guardrails L4–L5   redaksi rahasia · audit log
+```
+
+### Isolasi tenant — invarian yang menanggung segalanya
+
+Setiap akses data ber-tenant melewati `withTenant(tenantId, fn)`, yang menyemat
+`app.current_tenant` **di dalam transaksi**. Policy RLS membandingkan
+`tenant_id` dengan nilai itu. Konsekuensinya: kebocoran lintas-tenant mustahil
+secara konstruksi — bukan karena setiap query diingat-ingat menulis filternya.
+
+Aplikasi **wajib** terhubung sebagai role `nalar_app` (`NOBYPASSRLS`).
+Terhubung sebagai pemilik database akan melewati RLS diam-diam; itu pernah jadi
+bug nyata, dan `npm run db:setup-role` ada untuk mencegahnya terulang.
 
 ---
 
 ## Menjalankan
 
-### On-prem (paling gampang)
+### On-premise (docker-compose)
+
 ```bash
-cp .env.example .env      # isi secret + OAuth
-docker compose up -d      # Postgres+pgvector + app
-docker compose exec app npm run db:push
-docker compose exec app npm run db:migrate   # pgvector + RLS
+cp .env.example .env          # isi CREDENTIALS_ENCRYPTION_KEY & DATABASE_URL
+docker compose up -d
 ```
 
-### Dev lokal
+Aplikasi, Postgres+pgvector, dan server embedding berjalan bersama. Untuk LLM
+sepenuhnya lokal, arahkan ke Ollama / vLLM / LM Studio — semuanya berprotokol
+OpenAI-compatible, cukup didaftarkan URL-nya di **Models & Keys**.
+
+### Pengembangan lokal
+
 ```bash
 npm install
-# jalankan Postgres pgvector (docker run pgvector/pgvector:pg17 ...)
-npm run db:push && npm run db:migrate
+npm run db:setup-role        # role nalar_app (NOBYPASSRLS) — RLS hanya jalan lewat role ini
+npm run db:push              # skema — HANYA untuk database baru/dev (lihat peringatan)
+npm run db:migrate           # pgvector, RLS, policy — WAJIB setelah db:push
 npm run dev
 ```
 
-### Embed di website mana pun
+### Menyematkan widget di situs mana pun
+
 ```html
-<script src="https://your-rag-host/embed.js"
-        data-chatbot="cb_live_xxxxx"
-        data-color="#4f46e5"></script>
+<script src="https://rag.sainskerta.net/embed.js"
+        data-chatbot="cb_live_xxxxxxxxxxxx"></script>
 ```
+
+Daftar origin yang diizinkan ditegakkan per chatbot di sisi server.
 
 ---
 
-## Arsitektur (alur satu pertanyaan)
+## API publik
 
+Terbitkan kunci di **Settings → API key** (izin `read` / `write` / `chat`).
+
+```bash
+curl -H "Authorization: Bearer nk_live_..." \
+     https://rag.sainskerta.net/api/v1/me
 ```
-website pelanggan
-  └─ embed.js  ──POST /api/chat/<publicKey>──►  resolve publicKey → tenant+chatbot
-                                                 │  (cek allowedOrigins per-chatbot)
-                                                 ▼
-                                   withTenant(tenantId)  ← RLS aktif
-                                                 │
-                    ┌────────────────────────────┼───────────────────────────┐
-                    ▼                            ▼                            ▼
-             retrieve() vector search    load history (messages)      streamChat() LLM
-             (filter chatbot_id +         per conversation            (provider dari registry,
-              embedding_model)                                         API key tenant didecrypt)
-                    └───────────────► build prompt ──► SSE deltas ──► widget ──► simpan history
+
+```bash
+# Pencarian semantik murni — tanpa LLM, tanpa memotong kuota pesan.
+curl -X POST https://rag.sainskerta.net/api/v1/search \
+  -H "Authorization: Bearer nk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"chatbotId":"...","query":"berapa lama masa garansi?","k":5}'
 ```
+
+Endpoint: `/v1/me` · `/v1/chatbots` · `/v1/knowledge-bases` · `/v1/documents` ·
+`/v1/search`. Spesifikasi lengkap: **`GET /api/openapi`** (OpenAPI 3.1).
+
+Webhook keluar dikonfigurasi di **Settings → webhook**; tiap kiriman membawa
+`X-Nalar-Signature` (HMAC-SHA256 atas body mentah) — **verifikasi selalu**,
+karena tanpa itu siapa pun yang tahu URL-mu bisa mengirim kejadian palsu.
 
 ---
 
-## Yang masih perlu diselesaikan (roadmap)
+## Perintah
 
-Scaffold ini sudah punya "engine"-nya. Untuk produksi tinggal melengkapi:
-
-- [ ] NextAuth/Auth.js nyata (stub di `src/lib/auth.ts`) + signup → buat tenant
-- [ ] Worker sync Drive/SharePoint (ekstraksi teks PDF/DOCX → `ingestDocument`)
-- [ ] UI dashboard: kelola chatbot, koneksi data source, lihat history
-- [ ] Per-model pgvector index terpisah / partial index per dimensi
-- [ ] Rate limiting + kuota per plan (SaaS billing)
-- [ ] Halaman superadmin untuk kelola folder model embedding
+```bash
+npm run dev            # server pengembangan
+npm run build          # build produksi — sekaligus gerbang typecheck
+npm run lint           # eslint
+npm test               # tes unit (tanpa database)
+npm run smoke          # tes end-to-end terhadap database nyata (butuh .env)
+npm run db:migrate     # SQL mentah di migrations/ (pgvector, RLS, policy)
+npm run db:setup-role  # buat role nalar_app
+npm run demo:account   # buat/atur ulang akun superadmin
+npm run models:push    # unggah bobot model embedding ke blob storage
 ```
+
+> ### ⚠️ Jangan pernah menjalankan `db:push` terhadap database produksi
+>
+> `drizzle-kit push` menyamakan database dengan `schema.ts` dan **menghapus
+> diam-diam apa pun yang tidak dideklarasikan di sana**. Ia sudah membakar
+> produksi tiga kali dalam dua hari: menghapus seluruh partial unique index,
+> lalu **mematikan RLS di setiap tabel tenant**, lalu menghapus seluruh policy.
+>
+> Perubahan skema produksi hanya lewat `migrations/*.sql`. Pemulihan dari
+> kecelakaan push: `npm run db:migrate` (idempotent).
+
+---
+
+## Keamanan
+
+| Lapis | Yang dilakukan |
+|---|---|
+| **Isolasi** | RLS Postgres `FORCE` pada setiap tabel ber-`tenant_id`; role aplikasi `NOBYPASSRLS`. |
+| **Rahasia** | API key provider dienkripsi AES-256-GCM; tak pernah dikirim ke browser. |
+| **API key Nalar** | Hanya SHA-256-nya yang disimpan. Kunci mentah tampil sekali lalu hilang. |
+| **Prompt injection** | Dokumen diperlakukan sebagai **data, bukan instruksi**; pola injeksi dinetralkan sebelum masuk konteks. |
+| **Keluaran** | Rahasia diredaksi; jawaban tanpa sitasi ditandai. |
+| **SSRF** | Setiap URL yang diketuk server (webhook, sumber URL) wajib https publik; alamat internal & metadata cloud ditolak. |
+| **Jejak** | Setiap giliran chat, perubahan kredensial, dan aksi admin masuk audit log. |
+
+Menemukan celah keamanan? Jangan buka issue publik — hubungi Licensor
+langsung.
+
+---
+
+## Lisensi
+
+**Business Source License 1.1** — lihat [`LICENSE`](LICENSE).
+
+Ringkasnya, dan ini bukan pengganti membaca lisensinya:
+
+- ✅ **Boleh** menjalankan Nalar di infrastrukturmu sendiri untuk organisasimu
+  sendiri, termasuk untuk beban produksi internal — dan memodifikasinya.
+- ✅ **Boleh** dipakai untuk evaluasi, riset, dan pendidikan.
+- ❌ **Tidak boleh** menawarkan Nalar (atau turunannya) kepada pihak ketiga
+  sebagai layanan terkelola, atau mendistribusikannya sebagai bagian dari
+  produk komersial — itu menuntut lisensi komersial.
+
+Pada **Change Date** (2030-07-30), versi yang bersangkutan otomatis beralih ke
+**Apache License 2.0**.
+
+Untuk lisensi komersial, on-premise berbayar, atau pengaturan lain: hubungi
+**PT Sainskerta Solusi Nusantara**.
+
+---
+
+<div align="center">
+<sub>Dokumenmu. Jawabanmu. Servermu — kalau mau.</sub>
+</div>

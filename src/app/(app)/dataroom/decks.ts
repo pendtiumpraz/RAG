@@ -52,6 +52,41 @@ const PRICES: PriceRow[] = [
 const usd = (n: number) =>
   n >= 100 ? `$${Math.round(n).toLocaleString('en-US')}` : `$${n.toFixed(n >= 10 ? 1 : 2)}`;
 
+/* ── kurs ────────────────────────────────────────────────────────────
+   SATU tempat, dipakai seluruh deck. Angka dolar dipertahankan karena
+   itulah satuan tagihan penyedia LLM & GPU yang sebenarnya; Rupiah
+   ditambahkan karena calon pelanggan menyusun anggaran dalam Rupiah dan
+   memaksa mereka mengalikan sendiri di tengah presentasi bukan cara
+   menjual.
+
+   ASUMSI, bukan kurs hidup: deck ini dirender statis dan dicetak ke PDF,
+   jadi menariknya dari API justru membuat dua salinan dokumen yang sama
+   menampilkan angka berbeda. Perbarui satu baris ini sebelum penawaran —
+   tanggalnya ikut tercetak di catatan kaki slide harga.               */
+const USD_IDR = 16_500;
+const RATE_AT = 'Jan 2026';
+
+/** Rupiah ringkas: "Rp1,2 jt" / "Rp165 rb" — deck dibaca dari jauh, deret
+ *  digit penuh tak terbaca dan tak menambah informasi apa pun. */
+const idr = (usdAmount: number): string => {
+  const v = usdAmount * USD_IDR;
+  if (v >= 1_000_000_000) return `Rp${(v / 1_000_000_000).toFixed(1).replace('.', ',')} M`;
+  if (v >= 1_000_000) return `Rp${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1).replace('.', ',')} jt`;
+  if (v >= 1_000) return `Rp${Math.round(v / 1_000).toLocaleString('id-ID')} rb`;
+  return `Rp${Math.round(v).toLocaleString('id-ID')}`;
+};
+
+/** Dua satuan berdampingan — dolar tetap yang utama, Rupiah pendamping. */
+const both = (usdAmount: number) => `${usd(usdAmount)} · ${idr(usdAmount)}`;
+
+/** Bilangan bulat tak perlu desimal — "$20", bukan "$20.0". */
+const usdShort = (n: number) =>
+  Number.isInteger(n) ? `$${n.toLocaleString('en-US')}` : usd(n);
+
+/** Rentang "$60–150" → "$60–150 · Rp990 rb–2,5 jt". */
+const bothRange = (lo: number, hi: number) =>
+  `${usdShort(lo)}–${usdShort(hi).replace('$', '')} · ${idr(lo)}–${idr(hi).replace('Rp', '')}`;
+
 /** Biaya bulanan utk `chats` giliran: chats × (in×3k + out×0.5k) / 1jt. */
 const monthly = (p: PriceRow, chats: number) =>
   (chats * (p.in * TOK_IN + p.out * TOK_OUT)) / 1_000_000;
@@ -62,7 +97,7 @@ const costRows = (chats: number) =>
     p.provider,
     `$${p.in}/${p.out}`,
     usd(monthly(p, chats) / chats * 1000),
-    usd(monthly(p, chats)),
+    both(monthly(p, chats)),
   ]);
 
 /* ═══ DECK 1 · TECHNICAL ══════════════════════════════════════════════ */
@@ -145,16 +180,17 @@ const technical: Slide[] = [
     ] },
 
   { kind: 'table', kicker: 'SPESIFIKASI · ON-PREMISE', title: 'Kebutuhan server on-premise (docker-compose)',
-    headers: ['Komponen', 'Minimal', 'Direkomendasikan'],
+    small: true,
+    headers: ['Komponen', 'Minimal', 'Direkomendasikan', 'Estimasi harga perangkat'],
     rows: [
-      ['App + Postgres', '2 vCPU · 4GB RAM · 20GB SSD', '4 vCPU · 8–16GB RAM · NVMe'],
-      ['Embedding lokal (MiniLM/BGE-M3)', 'CPU 4 vCPU · 8GB', '8 vCPU · 16GB (atau GPU kecil)'],
-      ['LLM lokal 7–8B (Q4)', 'GPU 8GB VRAM (RTX 3060/4060)', 'RTX 4060 Ti 16GB'],
-      ['LLM lokal 32B (Q4)', 'GPU 24GB (RTX 4090/A5000)', 'RTX 4090'],
-      ['LLM lokal 70B (Q4)', '48GB VRAM (2×4090 / A6000)', 'A100 80GB'],
-      ['Server LLM', 'Ollama / vLLM / LM Studio / LocalAI', 'protokol OpenAI-compatible — tinggal daftar URL'],
+      ['App + Postgres', '2 vCPU · 4GB RAM · 20GB SSD', '4 vCPU · 8–16GB RAM · NVMe', bothRange(600, 1200)],
+      ['Embedding lokal (MiniLM/BGE-M3)', 'CPU 4 vCPU · 8GB', '8 vCPU · 16GB (atau GPU kecil)', 'menumpang server app'],
+      ['LLM lokal 7–8B (Q4)', 'GPU 8GB VRAM (RTX 3060/4060)', 'RTX 4060 Ti 16GB', bothRange(300, 550)],
+      ['LLM lokal 32B (Q4)', 'GPU 24GB (RTX 4090/A5000)', 'RTX 4090', bothRange(1800, 2200)],
+      ['LLM lokal 70B (Q4)', '48GB VRAM (2×4090 / A6000)', 'A100 80GB', bothRange(4000, 15000)],
+      ['Server LLM', 'Ollama / vLLM / LM Studio / LocalAI', 'protokol OpenAI-compatible — tinggal daftar URL', 'gratis (sumber terbuka)'],
     ],
-    note: 'Tanpa GPU pun jalan penuh: LLM via API + embedding CPU lokal. GPU hanya utk LLM yang sepenuhnya on-prem.' },
+    note: `Tanpa GPU pun jalan penuh: LLM via API + embedding CPU lokal. GPU hanya utk LLM yang sepenuhnya on-prem. Harga perangkat = ESTIMASI pasar ${RATE_AT}, kurs asumsi Rp${USD_IDR.toLocaleString('id-ID')}/USD — verifikasi sebelum penawaran.` },
 
   { kind: 'bullets', kicker: 'KEAMANAN DATA', title: 'Data tenant tidak pernah telanjang',
     bullets: [
@@ -221,27 +257,27 @@ const business: Slide[] = [
     small: true,
     headers: ['Model', 'Provider', '$/1M tok (in/out)', 'Per 1.000 chat', 'Per bulan'],
     rows: costRows(CHATS),
-    note: `Skenario sama utk semua: ±${TOK_IN.toLocaleString('id-ID')} token masuk + ${TOK_OUT} keluar per giliran. * = estimasi harga publik per Jan 2026 — verifikasi sebelum penawaran. Embedding MiniLM lokal = $0.` },
+    note: `Skenario sama utk semua: ±${TOK_IN.toLocaleString('id-ID')} token masuk + ${TOK_OUT} keluar per giliran. * = estimasi harga publik per Jan 2026 — verifikasi sebelum penawaran. Embedding MiniLM lokal = $0. Kurs asumsi Rp${USD_IDR.toLocaleString('id-ID')}/USD (${RATE_AT}).` },
 
   { kind: 'stats', kicker: 'BIAYA AI / BULAN', title: 'Rentang praktisnya — 10.000 chat per bulan',
     stats: [
-      { v: usd(monthly(PRICES.find((p) => p.model.includes('Luna'))!, CHATS)), l: 'paling hemat', n: 'GPT-5.6 Luna — chatbot FAQ volume tinggi' },
-      { v: usd(monthly(PRICES.find((p) => p.model.includes('V4 Flash'))!, CHATS)), l: 'hemat & mampu', n: 'DeepSeek V4 Flash' },
-      { v: usd(monthly(PRICES.find((p) => p.model.includes('Sonnet'))!, CHATS)), l: 'kualitas tinggi', n: 'Claude Sonnet 5' },
-      { v: usd(monthly(PRICES.find((p) => p.model.includes('Opus'))!, CHATS)), l: 'flagship', n: 'Claude Opus 4.8' },
+      { v: both(monthly(PRICES.find((p) => p.model.includes('Luna'))!, CHATS)), l: 'paling hemat', n: 'GPT-5.6 Luna — chatbot FAQ volume tinggi' },
+      { v: both(monthly(PRICES.find((p) => p.model.includes('V4 Flash'))!, CHATS)), l: 'hemat & mampu', n: 'DeepSeek V4 Flash' },
+      { v: both(monthly(PRICES.find((p) => p.model.includes('Sonnet'))!, CHATS)), l: 'kualitas tinggi', n: 'Claude Sonnet 5' },
+      { v: both(monthly(PRICES.find((p) => p.model.includes('Opus'))!, CHATS)), l: 'flagship', n: 'Claude Opus 4.8' },
     ],
     note: 'Tenant memakai API key-nya sendiri (BYO key) — biaya LLM transparan di tangan mereka, bukan markup tersembunyi.' },
 
   { kind: 'table', kicker: 'BIAYA ON-PREMISE', title: 'On-prem: biaya tetap/bulan — bukan per token',
     headers: ['Skenario', 'Perangkat', 'Estimasi biaya/bulan', 'Kapasitas'],
     rows: [
-      ['Hemat (LLM via API)', 'VPS 4 vCPU/8GB (app+DB+embedding CPU)', '$20–40 + biaya API', 'ratusan ribu chat'],
-      ['LLM lokal kecil (7–8B)', 'VPS GPU 8–16GB VRAM', '$60–150', 'FAQ & dokumen internal'],
-      ['LLM lokal menengah (32B)', 'RTX 4090 24GB (sewa)', '$250–400', 'kualitas mendekati API kelas menengah'],
-      ['LLM lokal besar (70B)', '2×4090 / A100 80GB (sewa)', '$700–1.500', 'kualitas tinggi, data 100% lokal'],
-      ['Beli sendiri (capex)', 'Server + RTX 4090: ±$4.000 sekali', 'listrik ±$30–60', 'balik modal < 1 thn vs sewa'],
+      ['Hemat (LLM via API)', 'VPS 4 vCPU/8GB (app+DB+embedding CPU)', `${bothRange(20, 40)} + biaya API`, 'ratusan ribu chat'],
+      ['LLM lokal kecil (7–8B)', 'VPS GPU 8–16GB VRAM', bothRange(60, 150), 'FAQ & dokumen internal'],
+      ['LLM lokal menengah (32B)', 'RTX 4090 24GB (sewa)', bothRange(250, 400), 'kualitas mendekati API kelas menengah'],
+      ['LLM lokal besar (70B)', '2×4090 / A100 80GB (sewa)', bothRange(700, 1500), 'kualitas tinggi, data 100% lokal'],
+      ['Beli sendiri (capex)', `Server + RTX 4090: ±${both(4000)} sekali`, `listrik ±${bothRange(30, 60)}`, 'balik modal < 1 thn vs sewa'],
     ],
-    note: 'Estimasi harga sewa GPU cloud per Jan 2026. Di atas ±50rb chat/bulan dgn model menengah, on-prem mulai lebih murah daripada API — plus kedaulatan data penuh.' },
+    note: `Estimasi harga sewa GPU cloud per Jan 2026. Kurs asumsi Rp${USD_IDR.toLocaleString('id-ID')}/USD (${RATE_AT}) — perbarui sebelum penawaran. Di atas ±50rb chat/bulan dgn model menengah, on-prem mulai lebih murah daripada API — plus kedaulatan data penuh.` },
 
   { kind: 'table', kicker: 'MODEL BISNIS', title: 'Harga sederhana, kuota ditegakkan sistem',
     headers: ['Plan', 'Chat/bulan', 'Chatbot', 'Anggota', 'Untuk siapa'],

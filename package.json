@@ -52,5 +52,6 @@
     "eslint-config-next": "^15.5.22",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0"
-  }
+  },
+  "license": "BUSL-1.1"
 }
