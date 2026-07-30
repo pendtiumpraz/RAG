@@ -32,6 +32,10 @@ export const memoryService = {
     contentMd: string; sourceDocumentId?: string; embedding?: number[];
     /** Kategori (migrasi 0031). Note MOC/topik tak punya dokumen asal → 'lain'. */
     category?: string;
+    /** 'active' | 'pending' | 'rejected' (migrasi 0032). */
+    status?: string;
+    /** Identitas dokumen logis — sama dengan documents.doc_ref. */
+    docRef?: string;
   }) {
     const linksTo = extractWikilinks(input.contentMd);
 
@@ -51,6 +55,9 @@ export const memoryService = {
           title: input.title, contentMd: input.contentMd, linksTo,
           sourceDocumentId: input.sourceDocumentId, embedding: input.embedding,
           ...(input.category ? { category: input.category } : {}),
+          ...(input.docRef ? { docRef: input.docRef } : {}),
+          // `status` SENGAJA tak ikut di-update: keputusan manusia (setujui/
+          // tolak) tak boleh dibatalkan hanya karena agen berjalan lagi.
           updatedAt: new Date(),
         }).where(eq(memoryNotes.id, noteId));
         // rebuild wikilink edges dari note ini
@@ -61,6 +68,8 @@ export const memoryService = {
           tenantId, chatbotId: input.chatbotId, slug: input.slug, title: input.title,
           contentMd: input.contentMd, linksTo,
           category: input.category ?? 'lain',
+          status: input.status ?? 'active',
+          docRef: input.docRef,
           sourceDocumentId: input.sourceDocumentId, embedding: input.embedding,
         }).returning({ id: memoryNotes.id });
         noteId = created[0].id;
@@ -98,6 +107,10 @@ export const memoryService = {
         .where(and(
           eq(memoryNotes.tenantId, tenantId),
           eq(memoryNotes.chatbotId, chatbotId),
+          // Hanya catatan AKTIF yang jadi graf. Yang menunggu tinjauan atau
+          // ditolak tak boleh muncul — graf adalah pengetahuan yang DIAKUI,
+          // bukan antrean kerja. Antreannya punya panel sendiri.
+          eq(memoryNotes.status, 'active'),
           isNull(memoryNotes.deletedAt),
         ));
       const edges = await tx.select({
@@ -120,6 +133,10 @@ export const memoryService = {
         .where(and(
           eq(memoryNotes.tenantId, tenantId),
           eq(memoryNotes.chatbotId, chatbotId),
+          // Vault yang ditulis balik ke Drive pelanggan HANYA berisi catatan
+          // yang diakui — ringkasan yang belum ditinjau tak boleh mendarat di
+          // Drive mereka sebagai kalau-kalau sudah sah.
+          eq(memoryNotes.status, 'active'),
           isNull(memoryNotes.deletedAt),
         ));
       return notes.map((n) => ({ path: `_nalar-memory/${n.slug}.md`, content: n.contentMd }));

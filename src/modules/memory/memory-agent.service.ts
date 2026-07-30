@@ -74,18 +74,24 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
      D11: sumber pengetahuan chatbot = union dokumen semua KB yang
      di-assign padanya (chatbot_knowledge_bases). */
   const docs = await withTenant(tenantId, async (tx) => {
+    // Dikelompokkan per DOC_REF, bukan per judul: doc_ref adalah identitas
+    // dokumen logis yang sama dengan yang dipakai retrieval bertingkat dan
+    // /api/v1/documents. Mengelompokkan per judul membuat dua berkas berbeda
+    // yang kebetulan sejudul menyatu jadi satu catatan, dan membuat catatan
+    // tak bisa di-JOIN pasti ke dokumennya (dulu hanya dicocokkan lewat slug).
     const rows = await tx.execute(sql`
-      select title,
+      select doc_ref,
+             max(title) as title,
              string_agg(content, E'\n' order by (metadata->>'chunk')::int) as full_text
       from documents
       where knowledge_base_id in (
           select knowledge_base_id from chatbot_knowledge_bases
           where chatbot_id = ${chatbotId} and deleted_at is null)
         and deleted_at is null and title is not null
-      group by title
+      group by doc_ref
       limit ${MAX_DOCS_PER_RUN}
     `);
-    return rows as unknown as Array<{ title: string; full_text: string }>;
+    return rows as unknown as Array<{ doc_ref: string; title: string; full_text: string }>;
   });
 
   /* Taksonomi milik TENANT, bukan daftar bawaan kode — tiap perusahaan punya
@@ -94,7 +100,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   const kategoriAktif = await categoryService.activeSlugs(tenantId);
   const daftarKategori = kategoriAktif.map((k) => `${k.slug} (${k.label})`).join(', ');
 
-  const noteDrafts: Array<{ slug: string; title: string; source: string; body: string; category: string }> = [];
+  const noteDrafts: Array<{ slug: string; title: string; source: string; body: string; category: string; docRef?: string }> = [];
 
   for (const doc of docs) {
     const slug = slugify(doc.title);
@@ -159,7 +165,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
       ...(entities.length ? [`Topik: ${entityLinks}`, ''] : []),
     ].join('\n');
 
-    noteDrafts.push({ slug, title: doc.title, source: doc.title, body, category });
+    noteDrafts.push({ slug, title: doc.title, source: doc.title, body, category, docRef: doc.doc_ref });
 
     // note topik (MOC) — dibuat/di-update agar wikilink tidak dangling
     for (const e of entities) {
@@ -176,6 +182,12 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   }
 
   /* ── L4 · GRAPH — upsert notes (+edges wikilink) + edges similarity ─ */
+  /* Mode tinjau: catatan BARU lahir menunggu persetujuan. Catatan MOC (peta
+     topik) dikecualikan — ia bukan ringkasan dokumen melainkan simpul
+     penghubung, dan menahannya akan memutus wikilink antar catatan yang
+     sudah disetujui. Catatan LAMA tak terpengaruh: status hanya diisi saat
+     baris dibuat, tak pernah ditimpa saat agen berjalan lagi. */
+  const statusBaru = settings?.memoryReview ? 'pending' : 'active';
   // Embed ringkasan tiap note utk edges similarity.
   const uniqueDrafts = dedupBySlug(noteDrafts);
   const texts = uniqueDrafts.map((n) => n.body.slice(0, 1500));
@@ -186,7 +198,8 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     const n = uniqueDrafts[i];
     const noteId = await memoryService.upsertNote(tenantId, {
       chatbotId, slug: n.slug, title: n.title, contentMd: n.body, embedding: vectors[i],
-      category: n.category,
+      category: n.category, docRef: n.docRef,
+      status: n.source === 'moc' ? 'active' : statusBaru,
     });
     idBySlug.set(n.slug, noteId);
   }
@@ -194,7 +207,8 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   for (const n of uniqueDrafts) {
     await memoryService.upsertNote(tenantId, {
       chatbotId, slug: n.slug, title: n.title, contentMd: n.body,
-      embedding: vectors[uniqueDrafts.indexOf(n)], category: n.category,
+      embedding: vectors[uniqueDrafts.indexOf(n)], category: n.category, docRef: n.docRef,
+      status: n.source === 'moc' ? 'active' : statusBaru,
     });
   }
 

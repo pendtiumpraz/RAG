@@ -200,6 +200,43 @@ export const openApiSpec = {
     },
 
     /* ── knowledge (D11: KB entitas mandiri, 1 KB ↔ N chatbot) ── */
+    '/api/documents/summaries': {
+      get: {
+        summary: 'Cari dokumen di knowledge base + ringkasannya',
+        description: 'Diagregasi per `doc_ref` (identitas dokumen logis yang sama dengan '
+          + '/api/v1/documents dan retrieval bertingkat), lalu di-JOIN ke catatan Memory lewat '
+          + '`doc_ref`. Pencarian menyentuh JUDUL, ISI (indeks full-text), dan RINGKASAN sekaligus. '
+          + 'Dokumen yang belum diringkas tetap muncul dengan `summary: null` — bukan disembunyikan. '
+          + 'Satu baris lebih diambil untuk menentukan `more`, jauh lebih murah daripada COUNT(*) '
+          + 'atas seluruh korpus pada tiap ketikan.',
+        security: [sessionAuth],
+        parameters: [
+          { name: 'q', in: 'query', schema: str },
+          { name: 'knowledgeBaseId', in: 'query', schema: uuid },
+          { name: 'category', in: 'query', schema: str },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 0 } },
+        ],
+        responses: { 200: err('{ rows[], more, page }') },
+      },
+    },
+    '/api/memory/review': {
+      get: { summary: 'Antrean ringkasan yang menunggu persetujuan', security: [sessionAuth],
+        parameters: [{ name: 'chatbotId', in: 'query', schema: uuid }],
+        responses: { 200: err('daftar ringkasan berstatus pending') } },
+      post: {
+        summary: 'Setujui / tolak ringkasan (satu atau seluruh antrean)',
+        description: 'Hanya ringkasan berstatus `active` yang masuk graf, ikut kaki Memory saat '
+          + 'menjawab, dan ikut ter-export ke vault Drive. Mode tinjau sendiri dinyalakan lewat '
+          + '`tenant_settings.memory_review` dan MATI secara default: catatan lahir satu per '
+          + 'dokumen, jadi korpus ribuan berkas berarti ribuan persetujuan.',
+        security: [sessionAuth],
+        requestBody: json(obj({
+          noteId: uuid, status: { type: 'string', enum: ['active', 'rejected'] },
+          all: { type: 'boolean' }, chatbotId: uuid,
+        })),
+        responses: { 200: err('{ id, status } atau { ok, approved }'), 400: err('argumen kurang'), 404: err('tak ditemukan') },
+      },
+    },
     '/api/categories': {
       get: { summary: 'Master data kategori dokumen + jumlah catatan pemakainya', security: [sessionAuth],
         description: 'Termasuk usulan agen (status `proposed`) yang belum disetujui. ' +

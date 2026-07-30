@@ -19,6 +19,7 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/dashboard', label: 'Dashboard', icon: 'dash' },
     { href: '/chatbots', label: 'Chatbots', icon: 'bot' },
     { href: '/knowledge', label: 'Knowledge Base', icon: 'book' },
+    { href: '/documents', label: 'Dokumen', icon: 'search' },
     { href: '/conversations', label: 'Conversations', icon: 'chat' },
     { href: '/analytics', label: 'Analitik', icon: 'pulse', feature: 'analytics' },
     { href: '/memory', label: 'Memory', icon: 'graph', feature: 'memory' },

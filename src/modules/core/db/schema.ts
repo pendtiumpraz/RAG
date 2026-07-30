@@ -133,6 +133,15 @@ export const tenantSettings = pgTable('tenant_settings', {
    * dan pilihan yang salah baru terasa berbulan-bulan kemudian.
    */
   tieredRetrieval: boolean('tiered_retrieval').default(false).notNull(),
+  /**
+   * Ringkasan agen Memory harus DISETUJUI dulu sebelum masuk graf & dipakai
+   * menjawab (migrasi 0032). MATI secara default, dan itu disengaja: catatan
+   * lahir satu per DOKUMEN, jadi korpus ribuan berkas berarti ribuan
+   * persetujuan — dan sampai semuanya disetujui, kaki Memory tak menyumbang
+   * apa pun. Bandingkan kategori yang jumlahnya belasan: di sana tinjau-dulu
+   * murah, di sini ia bisa mematikan fiturnya sendiri.
+   */
+  memoryReview: boolean('memory_review').default(false).notNull(),
   /** White-label theme for the tenant dashboard (brand, colors, radius, font…). */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   ...stamps,
@@ -786,6 +795,17 @@ export const memoryNotes = pgTable('memory_notes', {
    * LLM tambahan. Menentukan warna node di graf & penyaringan per jenis.
    */
   category: text('category').default('lain').notNull(),
+  /**
+   * 'active' | 'pending' | 'rejected' (migrasi 0032). Hanya 'active' yang
+   * masuk graf dan dipakai kaki Memory saat menjawab. Mode tinjau dinyalakan
+   * per tenant (tenant_settings.memoryReview) dan MATI secara default:
+   * catatan itu satu per dokumen, jadi korpus ribuan berkas berarti ribuan
+   * persetujuan — dan sampai disetujui, kaki Memory tak menyumbang apa pun.
+   */
+  status: text('status').default('active').notNull(),
+  /** Identitas dokumen logis — definisi yang SAMA dengan documents.doc_ref
+   *  dan /api/v1/documents, supaya tautannya bisa di-JOIN dengan pasti. */
+  docRef: text('doc_ref'),
   sourceDocumentId: uuid('source_document_id'),
   embedding: vector('embedding', { dimensions: 1536 }),
   ...stamps,
@@ -795,6 +815,8 @@ export const memoryNotes = pgTable('memory_notes', {
   /* Migrasi 0031 — dideklarasikan di sini semata agar drizzle-kit push tak
      menghapusnya (indeks yang hanya lahir dari SQL dibuang diam-diam). */
   catIdx: index('idx_memory_notes_category').on(t.chatbotId, t.category).where(sql`deleted_at IS NULL`),
+  statusIdx: index('idx_memory_notes_status').on(t.chatbotId, t.status).where(sql`deleted_at IS NULL`),
+  docRefIdx: index('idx_memory_notes_doc_ref').on(t.docRef).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 /**

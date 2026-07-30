@@ -12,6 +12,20 @@ interface Chatbot { id: string; name: string }
 interface Node { id: string; slug: string; title: string; linksTo: string[]; category?: string }
 interface Edge { from: string; to: string; kind: string; weight: number }
 interface Graph { nodes: Node[]; edges: Edge[] }
+/** Ringkasan yang menunggu keputusan manusia (mode tinjau, migrasi 0032). */
+interface PendingNote { id: string; title: string; slug: string; contentMd: string }
+
+/**
+ * Ambil abstraknya saja untuk pratinjau antrean. Catatan disimpan sebagai
+ * markdown ber-frontmatter (format vault Obsidian); menampilkannya mentah
+ * membuat antrean tinjauan tak terbaca.
+ */
+function ringkas(md: string): string {
+  const baris = md.replace(/^---[\s\S]*?---\n/, '').split('\n')
+    .filter((l) => l.trim() && !l.startsWith('#') && !l.startsWith('Topik:'));
+  return (baris[0] ?? '').slice(0, 240);
+}
+
 /** Baris master data kategori — penanda visualnya dihitung di server. */
 interface Cat { id: string; slug: string; label: string; status: string; origin: string; color: string; shape: string; notes: number }
 
@@ -100,8 +114,28 @@ function MemoryPageInner() {
   /** Kategori yang sedang ditampilkan; kosong = semua. */
   const [only, setOnly] = useState<Set<string>>(new Set());
   const cats = useApi<Cat[]>('/api/categories');
+  const pending = useApi<PendingNote[]>(chatbotId ? `/api/memory/review?chatbotId=${chatbotId}` : null);
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
+
+  async function tinjau(noteId: string, status: 'active' | 'rejected') {
+    setBusy(noteId);
+    try {
+      await api('/api/memory/review', { method: 'POST', body: JSON.stringify({ noteId, status }) });
+      toast(status === 'active' ? 'Ringkasan disetujui' : 'Ringkasan ditolak');
+      pending.refetch(); graph.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(null); }
+  }
+
+  async function setujuiSemua() {
+    setBusy('all');
+    try {
+      const r = await api<{ approved: number }>('/api/memory/review',
+        { method: 'POST', body: JSON.stringify({ all: true, chatbotId }) });
+      toast(`${r.approved} ringkasan disetujui`);
+      pending.refetch(); graph.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(null); }
+  }
 
   async function run() {
     setBusy('run');
@@ -128,6 +162,45 @@ function MemoryPageInner() {
           <button className={`btn btn-primary${busy === 'vault' ? ' is-loading' : ''}`} disabled={!chatbotId || !!busy} onClick={syncVault}>Sync ke Drive</button>
         </div>
       </div>
+
+      {/* Antrean tinjauan didahulukan: ia menunggu keputusan, graf tidak. */}
+      {(pending.data?.length ?? 0) > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <span className="t">ringkasan menunggu tinjauan</span>
+            <div className="cluster gap-2">
+              <span className="badge badge-source">{pending.data!.length} menunggu</span>
+              <button className="btn btn-sm" disabled={!!busy} onClick={setujuiSemua}>Setujui semua</button>
+            </div>
+          </div>
+          <div className="card-pad stack gap-3">
+            <p className="sub" style={{ margin: 0 }}>
+              Mode tinjau aktif: ringkasan baru belum masuk graf dan belum dipakai menjawab
+              sampai disetujui. Catatan yang sudah pernah ditinjau tidak kembali ke antrean
+              walaupun agen dijalankan lagi.
+            </p>
+            {pending.data!.slice(0, 20).map((n) => (
+              <div key={n.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                <div className="cluster" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 650, wordBreak: 'break-word' }}>{n.title}</div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4, lineHeight: 1.6 }}>
+                      {ringkas(n.contentMd)}
+                    </div>
+                  </div>
+                  <div className="cluster gap-2" style={{ flex: '0 0 auto', marginLeft: 12 }}>
+                    <button className="btn btn-sm btn-primary" disabled={!!busy} onClick={() => tinjau(n.id, 'active')}>Setujui</button>
+                    <button className="btn btn-sm btn-ghost" disabled={!!busy} onClick={() => tinjau(n.id, 'rejected')}>Tolak</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {pending.data!.length > 20 && (
+              <p className="microlabel">MENAMPILKAN 20 DARI {pending.data!.length} — SETUJUI SEMUA UNTUK MEMPROSES SISANYA</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid g2">
         <div className="card">

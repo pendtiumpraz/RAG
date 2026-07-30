@@ -246,6 +246,9 @@ export const retrievalService = {
           where m.chatbot_id = ${chatbotId}
             and m.deleted_at is null
             and m.embedding is not null
+            -- Hanya ringkasan yang DIAKUI boleh ikut menjawab. Yang menunggu
+            -- tinjauan atau ditolak tak pernah menyentuh jawaban pelanggan.
+            and m.status = 'active'
           order by m.embedding <=> ${vecLiteral}::vector
           limit ${MEM_POOL}
         )
