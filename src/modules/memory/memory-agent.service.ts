@@ -6,6 +6,8 @@ import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/
 import { audit } from '@/modules/core/guardrails';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { completeChat } from '@/modules/chat/llm';
+import { FALLBACK_SLUG, categorySlug } from './categories';
+import { categoryService } from './category.service';
 import { embed } from '@/modules/knowledge/embeddings';
 import { memoryService, slugify } from './memory.service';
 
@@ -86,7 +88,13 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     return rows as unknown as Array<{ title: string; full_text: string }>;
   });
 
-  const noteDrafts: Array<{ slug: string; title: string; source: string; body: string }> = [];
+  /* Taksonomi milik TENANT, bukan daftar bawaan kode — tiap perusahaan punya
+     jenis dokumennya sendiri. Diambil SEKALI di luar loop: memuatnya ulang
+     tiap dokumen berarti satu kueri per berkas pada korpus ribuan berkas. */
+  const kategoriAktif = await categoryService.activeSlugs(tenantId);
+  const daftarKategori = kategoriAktif.map((k) => `${k.slug} (${k.label})`).join(', ');
+
+  const noteDrafts: Array<{ slug: string; title: string; source: string; body: string; category: string }> = [];
 
   for (const doc of docs) {
     const slug = slugify(doc.title);
@@ -94,19 +102,41 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
 
     /* ── L2 · DISTILL — ringkasan LLM ─────────────────────────────── */
     const distilled = await completeChat(llmModel, [
+      // `category` MENUMPANG panggilan ini, bukan panggilan baru: distill
+      // sudah berjalan sekali per dokumen, jadi tambahan biayanya hanya
+      // beberapa token keluaran. Untuk korpus ribuan berkas, selisih antara
+      // "menumpang" dan "satu panggilan lagi per dokumen" itu besar sekali.
       { role: 'system', content:
         'Kamu meringkas dokumen untuk basis pengetahuan. Balas HANYA JSON valid: ' +
-        '{"abstract": "...1-2 kalimat...", "keyPoints": ["...", "..."], "entities": ["Topik A", "Topik B"]} ' +
-        'entities = 2-6 topik/entitas penting (nama pendek, Title Case). Bahasa mengikuti dokumen.' },
+        '{"abstract": "...1-2 kalimat...", "keyPoints": ["...", "..."], "entities": ["Topik A", "Topik B"], ' +
+        '"category": "salah satu kata berikut"} ' +
+        'entities = 2-6 topik/entitas penting (nama pendek, Title Case). ' +
+        `category: pilih salah satu dari daftar ini bila cocok — ${daftarKategori}. ` +
+        'Bila dokumen ini sungguh tak masuk satu pun, tulis nama kategori BARU yang ' +
+        'singkat dan umum (2-3 kata) alih-alih memaksakan yang ada. ' +
+        'Bahasa mengikuti dokumen.' },
       { role: 'user', content: `Judul: ${doc.title}\n\n${excerpt}` },
     ], apiKey, 2000);
 
     let abstract = '', keyPoints: string[] = [], entities: string[] = [];
+    // Penampung berlaku juga saat JSON gagal diurai: dokumen tetap masuk graf,
+    // bukan hilang karena satu jawaban LLM cacat.
+    let category: string = FALLBACK_SLUG;
     try {
       const parsed = JSON.parse(distilled.slice(distilled.indexOf('{'), distilled.lastIndexOf('}') + 1));
       abstract = String(parsed.abstract ?? '');
       keyPoints = Array.isArray(parsed.keyPoints) ? parsed.keyPoints.map(String).slice(0, 8) : [];
       entities = Array.isArray(parsed.entities) ? parsed.entities.map(String).slice(0, 6) : [];
+
+      const usul = String(parsed.category ?? '').trim();
+      const cocok = kategoriAktif.find(
+        (k) => k.slug === categorySlug(usul) || k.label.toLowerCase() === usul.toLowerCase(),
+      );
+      // Kategori yang dikenal dipakai langsung; yang tak dikenal DICATAT
+      // sebagai usulan dan dokumennya sementara masuk penampung. Kalau usulan
+      // langsung dipakai, menolaknya nanti berarti ribuan note menunjuk
+      // kategori yang tak ada.
+      category = cocok ? cocok.slug : usul ? await categoryService.propose(tenantId, usul) : FALLBACK_SLUG;
     } catch {
       abstract = distilled.slice(0, 300); // fallback: pakai teks mentah
     }
@@ -129,7 +159,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
       ...(entities.length ? [`Topik: ${entityLinks}`, ''] : []),
     ].join('\n');
 
-    noteDrafts.push({ slug, title: doc.title, source: doc.title, body });
+    noteDrafts.push({ slug, title: doc.title, source: doc.title, body, category });
 
     // note topik (MOC) — dibuat/di-update agar wikilink tidak dangling
     for (const e of entities) {
@@ -138,7 +168,10 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
         '---', `title: "${e.replace(/"/g, '')}"`, 'type: moc', 'generated: nalar-memory-agent', '---', '',
         `# ${e}`, '', `Peta konten topik **${e}**. Terkait: [[${slug}]]`, '',
       ].join('\n');
-      noteDrafts.push({ slug: eSlug, title: e, source: 'moc', body: mocBody });
+      // Note MOC adalah peta TOPIK, bukan dokumen — ia bisa menaungi beberapa
+      // kategori sekaligus, jadi mewarnainya sebagai salah satu dari mereka
+      // justru menyesatkan. 'lain' di sini berarti 'bukan dokumen'.
+      noteDrafts.push({ slug: eSlug, title: e, source: 'moc', body: mocBody, category: FALLBACK_SLUG });
     }
   }
 
@@ -153,6 +186,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     const n = uniqueDrafts[i];
     const noteId = await memoryService.upsertNote(tenantId, {
       chatbotId, slug: n.slug, title: n.title, contentMd: n.body, embedding: vectors[i],
+      category: n.category,
     });
     idBySlug.set(n.slug, noteId);
   }
@@ -160,7 +194,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   for (const n of uniqueDrafts) {
     await memoryService.upsertNote(tenantId, {
       chatbotId, slug: n.slug, title: n.title, contentMd: n.body,
-      embedding: vectors[uniqueDrafts.indexOf(n)],
+      embedding: vectors[uniqueDrafts.indexOf(n)], category: n.category,
     });
   }
 

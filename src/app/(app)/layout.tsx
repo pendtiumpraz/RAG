@@ -22,6 +22,7 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/conversations', label: 'Conversations', icon: 'chat' },
     { href: '/analytics', label: 'Analitik', icon: 'pulse', feature: 'analytics' },
     { href: '/memory', label: 'Memory', icon: 'graph', feature: 'memory' },
+    { href: '/categories', label: 'Kategori Dokumen', icon: 'tag', feature: 'memory' },
     { href: '/models', label: 'Models & Keys', icon: 'cpu' },
     { href: '/branding', label: 'Branding', icon: 'edit', feature: 'branding' },
   ] },

@@ -5,7 +5,7 @@
 export type IconName =
   | 'dash' | 'bot' | 'book' | 'chat' | 'graph' | 'cpu' | 'users' | 'gear'
   | 'plus' | 'search' | 'edit' | 'trash' | 'restore' | 'close' | 'menu'
-  | 'sun' | 'moon' | 'plug' | 'sync' | 'logout' | 'card' | 'pulse';
+  | 'sun' | 'moon' | 'plug' | 'sync' | 'logout' | 'card' | 'pulse' | 'tag';
 
 const P: Record<IconName, React.ReactNode> = {
   dash: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="4.5" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="11.5" width="7" height="9.5" rx="1.5" /></>,
@@ -17,6 +17,7 @@ const P: Record<IconName, React.ReactNode> = {
   users: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3 2.7-5 6-5s6 2 6 5" /><path d="M16 4.5a3 3 0 0 1 0 6M18 20c0-2.2-.8-3.7-2-4.6" /></>,
   gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2.5v2.6M12 18.9v2.6M4.2 6.4l1.8 1.1M18 16.5l1.8 1.1M2.5 12h2.6M18.9 12h2.6M4.2 17.6l1.8-1.1M18 7.5l1.8-1.1" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  tag: <><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z" /><circle cx="7.5" cy="7.5" r="1.3" /></>,
   search: <><circle cx="11" cy="11" r="6" /><path d="m20 20-3.5-3.5" /></>,
   edit: <><path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4Z" /><path d="M13.5 6.5 17.5 10.5" /></>,
   trash: <><path d="M4 6h16M9 6V4h6v2M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14" /><path d="M10 11v6M14 11v6" /></>,

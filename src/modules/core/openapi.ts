@@ -200,6 +200,27 @@ export const openApiSpec = {
     },
 
     /* ── knowledge (D11: KB entitas mandiri, 1 KB ↔ N chatbot) ── */
+    '/api/categories': {
+      get: { summary: 'Master data kategori dokumen + jumlah catatan pemakainya', security: [sessionAuth],
+        description: 'Termasuk usulan agen (status `proposed`) yang belum disetujui. ' +
+          '`color` & `shape` adalah penanda visual yang diturunkan dari `slot` tersimpan — ' +
+          'bukan dari urutan daftar, supaya menghapus satu kategori tak mengecat ulang sisanya.',
+        responses: { 200: err('daftar kategori') } },
+      post: { summary: 'Tambah kategori (langsung aktif)', security: [sessionAuth],
+        requestBody: json(obj({ label: str }, ['label'])),
+        responses: { 201: err('kategori terbuat'), 422: err('nama kosong / sudah ada') } },
+    },
+    '/api/categories/{id}': {
+      patch: { summary: 'Ganti nama dan/atau setujui usulan agen', security: [sessionAuth],
+        description: 'Ganti nama TIDAK mengubah `slug` — slug adalah kunci yang sudah tertulis ' +
+          'di catatan Memory, dan mengubahnya akan memutus semuanya sekaligus.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ label: str, approve: { type: 'boolean' } })),
+        responses: { 200: err('kategori diperbarui'), 422: err('validasi') } },
+      delete: { summary: 'Soft delete kategori; catatannya pindah ke penampung', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok, softDeleted }'), 422: err('penampung tak bisa dihapus') } },
+    },
     '/api/knowledge-bases': {
       get: { summary: 'Daftar KB + ringkasan (sumber, chunk, chatbot ter-assign)', security: [sessionAuth],
         responses: { 200: err('daftar KB') } },

@@ -30,6 +30,8 @@ export const memoryService = {
   async upsertNote(tenantId: string, input: {
     chatbotId: string; slug: string; title: string;
     contentMd: string; sourceDocumentId?: string; embedding?: number[];
+    /** Kategori (migrasi 0031). Note MOC/topik tak punya dokumen asal → 'lain'. */
+    category?: string;
   }) {
     const linksTo = extractWikilinks(input.contentMd);
 
@@ -48,6 +50,7 @@ export const memoryService = {
         await tx.update(memoryNotes).set({
           title: input.title, contentMd: input.contentMd, linksTo,
           sourceDocumentId: input.sourceDocumentId, embedding: input.embedding,
+          ...(input.category ? { category: input.category } : {}),
           updatedAt: new Date(),
         }).where(eq(memoryNotes.id, noteId));
         // rebuild wikilink edges dari note ini
@@ -57,6 +60,7 @@ export const memoryService = {
         const created = await tx.insert(memoryNotes).values({
           tenantId, chatbotId: input.chatbotId, slug: input.slug, title: input.title,
           contentMd: input.contentMd, linksTo,
+          category: input.category ?? 'lain',
           sourceDocumentId: input.sourceDocumentId, embedding: input.embedding,
         }).returning({ id: memoryNotes.id });
         noteId = created[0].id;
@@ -89,6 +93,7 @@ export const memoryService = {
     return withTenant(tenantId, async (tx) => {
       const nodes = await tx.select({
         id: memoryNotes.id, slug: memoryNotes.slug, title: memoryNotes.title, linksTo: memoryNotes.linksTo,
+        category: memoryNotes.category,
       }).from(memoryNotes)
         .where(and(
           eq(memoryNotes.tenantId, tenantId),

@@ -779,12 +779,49 @@ export const memoryNotes = pgTable('memory_notes', {
   title: text('title').notNull(),
   contentMd: text('content_md').notNull(),// markdown incl. frontmatter + [[wikilinks]]
   linksTo: jsonb('links_to').$type<string[]>().default([]).notNull(),
+  /**
+   * Kategori dokumen (migrasi 0031) — taksonomi TERTUTUP, lihat
+   * modules/memory/categories.ts. Ditulis tahap distill agen Memory yang
+   * memang sudah memanggil LLM sekali per dokumen, jadi tak ada permintaan
+   * LLM tambahan. Menentukan warna node di graf & penyaringan per jenis.
+   */
+  category: text('category').default('lain').notNull(),
   sourceDocumentId: uuid('source_document_id'),
   embedding: vector('embedding', { dimensions: 1536 }),
   ...stamps,
 }, (t) => ({
   scopeIdx: index('idx_memory_notes_scope').on(t.tenantId, t.chatbotId, t.slug),
   delIdx: index('idx_memory_notes_deleted_at').on(t.deletedAt),
+  /* Migrasi 0031 — dideklarasikan di sini semata agar drizzle-kit push tak
+     menghapusnya (indeks yang hanya lahir dari SQL dibuang diam-diam). */
+  catIdx: index('idx_memory_notes_category').on(t.chatbotId, t.category).where(sql`deleted_at IS NULL`),
+})).enableRLS();
+
+/**
+ * MASTER DATA kategori dokumen (migrasi 0031) — per tenant, bukan hardcode.
+ *
+ * Taksonomi tiap perusahaan berbeda, jadi ia bisa disunting. Agen Memory
+ * boleh MENGUSULKAN kategori baru (`status: 'proposed'`, `origin: 'agent'`)
+ * tapi tak boleh mengaktifkannya sendiri: LLM yang bebas membuat kategori
+ * melahirkan "Kontrak"/"Perjanjian"/"Dokumen Kontraktual" sebagai tiga
+ * kategori berbeda untuk hal yang sama.
+ */
+export const documentCategories = pgTable('document_categories', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  slug: text('slug').notNull(),
+  label: text('label').notNull(),
+  /** Slot penanda visual (warna × bentuk). DISIMPAN, bukan diturunkan dari
+   *  urutan — kalau tidak, menghapus satu kategori mengecat ulang sisanya. */
+  slot: integer('slot').default(0).notNull(),
+  /** 'active' | 'proposed' */
+  status: text('status').default('active').notNull(),
+  /** 'seed' | 'user' | 'agent' */
+  origin: text('origin').default('user').notNull(),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_document_categories_tenant').on(t.tenantId, t.status).where(sql`deleted_at IS NULL`),
+  uqSlug: uniqueIndex('uq_document_categories_slug').on(t.tenantId, t.slug).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 export const memoryEdges = pgTable('memory_edges', {

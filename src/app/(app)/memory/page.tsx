@@ -6,11 +6,90 @@ import { useEffect, useRef, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { OVERFLOW_COLOR } from '@/modules/memory/categories';
 
 interface Chatbot { id: string; name: string }
-interface Node { id: string; slug: string; title: string; linksTo: string[] }
+interface Node { id: string; slug: string; title: string; linksTo: string[]; category?: string }
 interface Edge { from: string; to: string; kind: string; weight: number }
 interface Graph { nodes: Node[]; edges: Edge[] }
+/** Baris master data kategori — penanda visualnya dihitung di server. */
+interface Cat { id: string; slug: string; label: string; status: string; origin: string; color: string; shape: string; notes: number }
+
+/**
+ * Saring graf ke kategori terpilih. Sisi ikut dibuang bila salah satu
+ * ujungnya hilang — kalau tidak, canvas menggambar garis ke node yang tak ada.
+ */
+function filtered(g: Graph, only: Set<string>): Graph {
+  if (only.size === 0) return g;
+  const nodes = g.nodes.filter((n) => only.has(n.category ?? 'lain'));
+  const ids = new Set(nodes.map((n) => n.id));
+  return { nodes, edges: g.edges.filter((e) => ids.has(e.from) && ids.has(e.to)) };
+}
+
+/** Swatch legenda — bentuknya SAMA dengan node di kanvas, bukan kotak semua. */
+function Swatch({ color, shape }: { color: string; shape: string }) {
+  const s = 11;
+  return (
+    <svg width={s} height={s} viewBox="0 0 12 12" aria-hidden style={{ flex: '0 0 auto' }}>
+      {shape === 'square' ? <rect x="1.5" y="1.5" width="9" height="9" fill={color} />
+        : shape === 'triangle' ? <polygon points="6,1 11,10.5 1,10.5" fill={color} />
+        : shape === 'diamond' ? <polygon points="6,0.5 11.5,6 6,11.5 0.5,6" fill={color} />
+        : <circle cx="6" cy="6" r="5" fill={color} />}
+    </svg>
+  );
+}
+
+/**
+ * Legenda kategori — sekaligus penyaring.
+ *
+ * WAJIB ada, bukan hiasan: warna tak boleh jadi satu-satunya pembawa
+ * identitas. Di atas 16 kategori penanda visual habis dan legendalah yang
+ * jadi alat baca utamanya — penyaring di sini tetap bekerja untuk berapa pun
+ * jumlah kategorinya.
+ *
+ * Kategori dengan nol note tetap ditampilkan (diredupkan) supaya posisi tiap
+ * penanda tak bergeser antar chatbot: penanda melekat pada kategori, bukan
+ * pada peringkat kemunculannya.
+ */
+function CategoryLegend({ graph, cats, only, onToggle }:
+  { graph: Graph; cats: Cat[]; only: Set<string>; onToggle: (s: Set<string>) => void }) {
+  const count = new Map<string, number>();
+  for (const n of graph.nodes) {
+    const c = n.category ?? 'lain';
+    count.set(c, (count.get(c) ?? 0) + 1);
+  }
+  const toggle = (c: string) => {
+    const next = new Set(only);
+    if (next.has(c)) next.delete(c); else next.add(c);
+    onToggle(next);
+  };
+  return (
+    <div className="cluster gap-2" style={{ flexWrap: 'wrap', marginTop: 12 }}>
+      {cats.filter((c) => c.status === 'active').map((c) => {
+        const n = count.get(c.slug) ?? 0;
+        const aktif = only.size === 0 || only.has(c.slug);
+        return (
+          <button
+            key={c.slug}
+            onClick={() => toggle(c.slug)}
+            disabled={n === 0}
+            aria-pressed={only.has(c.slug)}
+            title={n === 0 ? `Belum ada dokumen ${c.label}` : `${n} note · klik untuk menyaring`}
+            className="btn btn-sm"
+            style={{ opacity: n === 0 ? 0.35 : aktif ? 1 : 0.4, gap: 6 }}
+          >
+            <Swatch color={c.color} shape={c.shape} />
+            {c.label}
+            <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>{n}</span>
+          </button>
+        );
+      })}
+      {only.size > 0 && (
+        <button className="btn btn-sm btn-ghost" onClick={() => onToggle(new Set())}>Tampilkan semua</button>
+      )}
+    </div>
+  );
+}
 
 function MemoryPageInner() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
@@ -18,6 +97,9 @@ function MemoryPageInner() {
   useEffect(() => { if (bots.data?.[0] && !chatbotId) setChatbotId(bots.data[0].id); }, [bots.data, chatbotId]);
 
   const graph = useApi<Graph>(chatbotId ? `/api/memory/graph?chatbotId=${chatbotId}` : null);
+  /** Kategori yang sedang ditampilkan; kosong = semua. */
+  const [only, setOnly] = useState<Set<string>>(new Set());
+  const cats = useApi<Cat[]>('/api/categories');
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
 
@@ -57,7 +139,10 @@ function MemoryPageInner() {
               : graph.loading || !graph.data ? <Skeleton rows={4} />
               : graph.data.nodes.length === 0
                 ? <EmptyState title="Graph masih kosong" hint="Ingest dokumen lalu jalankan Memory Agent." />
-                : <GraphView graph={graph.data} />}
+                : <>
+                    <GraphView graph={filtered(graph.data, only)} cats={cats.data ?? []} />
+                    <CategoryLegend graph={graph.data} cats={cats.data ?? []} only={only} onToggle={setOnly} />
+                  </>}
           </div>
         </div>
 
@@ -92,12 +177,41 @@ function MemoryPageInner() {
    meredup), drag node (fisika ikut bereaksi), pan latar, scroll = zoom ke
    kursor, label muncul saat zoom dekat / node besar / disorot.
    Canvas tanpa dependensi — ratusan node tetap 60fps. */
+/**
+ * Gambar penanda kategori. Jalur di-BEGIN di sini supaya pemanggil cukup
+ * `fill()`/`stroke()` — halo sorotan memakai jalur yang sama persis, jadi
+ * cincinnya mengikuti bentuk node, bukan selalu lingkaran.
+ */
+function drawMarker(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, shape: string) {
+  ctx.beginPath();
+  if (shape === 'square') {
+    // Sisi disetarakan LUASNYA dengan lingkaran ber-jari-jari r; kalau tidak,
+    // kotak tampak jauh lebih besar dan ukuran node berhenti berarti "derajat".
+    const s = r * 1.77;
+    ctx.rect(x - s / 2, y - s / 2, s, s);
+  } else if (shape === 'triangle') {
+    const s = r * 1.35;
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s * 0.87, y + s * 0.5);
+    ctx.lineTo(x - s * 0.87, y + s * 0.5);
+    ctx.closePath();
+  } else if (shape === 'diamond') {
+    const s = r * 1.25;
+    ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y);
+    ctx.closePath();
+  } else {
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+  }
+}
+
 interface SimNode {
   id: string; title: string; slug: string;
   x: number; y: number; vx: number; vy: number; r: number; deg: number; seed: number;
+  /** Slug kategori — menentukan warna & bentuk penanda. */
+  category?: string;
 }
 
-function GraphView({ graph }: { graph: Graph }) {
+function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -105,6 +219,13 @@ function GraphView({ graph }: { graph: Graph }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    /* Penanda dihitung SERVER (slot tersimpan → warna × bentuk), bukan di sini:
+       kalau frontend menurunkannya dari urutan daftar, menghapus satu kategori
+       akan menggambar ulang semua kategori sesudahnya dengan penanda berbeda. */
+    const markerBySlug = new Map(cats.map((c) => [c.slug, { color: c.color, shape: c.shape }]));
+    const markerOf = (slug?: string) =>
+      markerBySlug.get(slug ?? 'lain') ?? { color: OVERFLOW_COLOR, shape: 'circle' };
 
     /* — data — */
     const deg = new Map<string, number>();
@@ -117,7 +238,7 @@ function GraphView({ graph }: { graph: Graph }) {
       const a = (i / Math.max(1, graph.nodes.length)) * Math.PI * 2;
       const rr = 60 + (i % 5) * 28; // sebar awal spiral — hindari ledakan awal
       return {
-        id: n.id, title: n.title, slug: n.slug,
+        id: n.id, title: n.title, slug: n.slug, category: n.category,
         x: Math.cos(a) * rr, y: Math.sin(a) * rr, vx: 0, vy: 0,
         deg: d, r: Math.min(4 + Math.sqrt(d) * 2.4, 14),
         seed: (i * 2.399963) % (Math.PI * 2), // sudut emas → fase tersebar rata
@@ -290,8 +411,14 @@ function GraphView({ graph }: { graph: Graph }) {
       for (const n of nodes) {
         const dim = dimmed(n.id);
         ctx!.globalAlpha = dim ? 0.12 : 1;
-        ctx!.beginPath(); ctx!.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        ctx!.fillStyle = n.deg >= 4 ? C.hub : C.node;
+        // Warna DAN BENTUK = kategori; ukuran = derajat tautan. Dua sumbu
+        // untuk kategori bukan hiasan: diuji dengan validator OKLab, warna
+        // saja hanya sanggup membawa 4 kategori yang tiap pasangannya bisa
+        // dibedakan mata buta warna. Bentuk kebal buta warna sepenuhnya,
+        // jadi 4 warna x 4 bentuk memberi 16 kategori yang aman dibaca.
+        const m = markerOf(n.category);
+        drawMarker(ctx!, n.x, n.y, n.r, m.shape);
+        ctx!.fillStyle = m.color;
         ctx!.fill();
         if (focus && (focus.id === n.id || hood!.has(n.id))) {
           ctx!.lineWidth = 2 / scale; ctx!.strokeStyle = C.halo; ctx!.stroke();
@@ -317,7 +444,7 @@ function GraphView({ graph }: { graph: Graph }) {
     raf = requestAnimationFrame(loop);
 
     return () => { cancelAnimationFrame(raf); ro.disconnect(); themeObs.disconnect(); };
-  }, [graph]);
+  }, [graph, cats]);
 
   return (
     <div style={{ position: 'relative' }}>
