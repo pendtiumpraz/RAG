@@ -8,6 +8,7 @@ import { SCENES } from './scenes';
 import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment';
 import { SHIPPED, SHIPPED_AT } from './updates';
 import Kanban from './Kanban';
+import Calculator from './Calculator';
 import { EmptyState, useToast } from '../../_components/ui';
 
 /**
@@ -22,7 +23,7 @@ import { EmptyState, useToast } from '../../_components/ui';
 export default function DataroomPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const [deckId, setDeckId] = useState<Deck['id'] | 'assessment' | 'updates'>('technical');
+  const [deckId, setDeckId] = useState<Deck['id'] | 'assessment' | 'updates' | 'calculator'>('technical');
   const [i, setI] = useState(0);
   const [exporting, setExporting] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -30,7 +31,8 @@ export default function DataroomPage() {
 
   const isAssess = deckId === 'assessment';
   const isUpdates = deckId === 'updates';
-  const isDoc = isAssess || isUpdates;   // tab dokumen (bukan deck slide)
+  const isCalc = deckId === 'calculator';
+  const isDoc = isAssess || isUpdates || isCalc;   // tab dokumen (bukan deck slide)
   const deck = DECKS.find((d) => d.id === deckId) ?? DECKS[0];
   const total = deck.slides.length;
 
@@ -98,6 +100,11 @@ export default function DataroomPage() {
           onClick={() => setDeckId('assessment')}>
           Assessment
         </button>
+        <button role="tab" aria-selected={isCalc}
+          className={`dr-tab${isCalc ? ' on' : ''}`}
+          onClick={() => setDeckId('calculator')}>
+          Kalkulator Kapasitas
+        </button>
         <button role="tab" aria-selected={isUpdates}
           className={`dr-tab${isUpdates ? ' on' : ''}`}
           onClick={() => setDeckId('updates')}>
@@ -105,6 +112,7 @@ export default function DataroomPage() {
         </button>
       </div>
 
+      {isCalc && <Calculator />}
       {isAssess && <AssessmentView />}
       {isUpdates && <UpdatesView />}
 

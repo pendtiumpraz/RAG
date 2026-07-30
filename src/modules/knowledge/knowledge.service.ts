@@ -8,6 +8,7 @@ import { documentRepository as docs } from './document.repository';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { documentVectorsService } from './document-vectors.service';
 import { contentFingerprint, fingerprintable, nameSizeKey } from './dedupe';
+import { limitsForPlan, BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
 
 /** Chunker naif tapi solid: ~800 char, overlap ~120, pecah di batas kalimat. */
 export function chunkText(text: string, size = 800, overlap = 120): string[] {
@@ -111,7 +112,95 @@ async function recordDuplicate(tenantId: string, d: {
   }
 }
 
+/**
+ * Kuota penyimpanan terlampaui.
+ *
+ * Kelas SENDIRI, bukan ValidationError: rute perlu membedakan "permintaanmu
+ * salah" (422) dari "jatahmu habis" (402 — perlu upgrade). Menyamakan
+ * keduanya membuat pemilik data mengira berkasnya rusak, padahal yang perlu
+ * mereka lakukan adalah menaikkan paket.
+ */
+export class QuotaError extends Error {
+  constructor(message: string, readonly used: number, readonly limit: number) {
+    super(message);
+    this.name = 'QuotaError';
+  }
+}
+
+/** Berapa potongan hidup yang sudah dipakai tenant ini. */
+async function chunkUsage(tenantId: string): Promise<number> {
+  return withTenant(tenantId, async (tx) => {
+    const r = await tx.execute(sql`
+      select count(*)::int n from documents where deleted_at is null`);
+    return Number((r as unknown as Array<{ n: number }>)[0]?.n ?? 0);
+  });
+}
+
+/**
+ * Tolak ingest yang akan melampaui kuota potongan.
+ *
+ * Dijalankan per berkas, bukan sekali per sync: sync memproses sampai 150
+ * berkas dalam satu jalan, dan memeriksa di awal saja akan membiarkan
+ * seluruh sisanya menembus batas.
+ */
+async function assertChunkQuota(tenantId: string, tambahan: number): Promise<void> {
+  const { plan, isPlatform } = await withTenant(tenantId, async (tx) => {
+    const r = await tx.execute(sql`
+      select plan, is_platform from tenants where id = ${tenantId} limit 1`);
+    const row = (r as unknown as Array<{ plan: string; is_platform: boolean }>)[0];
+    return { plan: row?.plan ?? 'free', isPlatform: row?.is_platform === true };
+  });
+
+  // Operator platform tak pernah dibatasi, sejalan dengan kuota lain.
+  if (isPlatform) return;
+  const batas = limitsForPlan(plan).maxChunks;
+  if (batas === Infinity) return;
+
+  const dipakai = await chunkUsage(tenantId);
+  if (dipakai + tambahan <= batas) return;
+
+  const dok = Math.round(batas / CHUNKS_PER_DOC).toLocaleString('id-ID');
+  throw new QuotaError(
+    `Kuota penyimpanan paket ${plan} terlampaui: ${dipakai.toLocaleString('id-ID')} dari `
+    + `${batas.toLocaleString('id-ID')} potongan terpakai (setara ±${dok} dokumen). `
+    + 'Hapus dokumen yang tak terpakai atau naikkan paket.',
+    dipakai, batas,
+  );
+}
+
 export const knowledgeService = {
+  /**
+   * Pemakaian penyimpanan tenant ini terhadap kuotanya — dipakai UI dan
+   * halaman Usage supaya batasnya terlihat SEBELUM tertabrak.
+   */
+  async storageUsage(tenantId: string) {
+    const { plan, isPlatform } = await withTenant(tenantId, async (tx) => {
+      const r = await tx.execute(sql`
+        select plan, is_platform from tenants where id = ${tenantId} limit 1`);
+      const row = (r as unknown as Array<{ plan: string; is_platform: boolean }>)[0];
+      return { plan: row?.plan ?? 'free', isPlatform: row?.is_platform === true };
+    });
+    const l = limitsForPlan(plan);
+    const chunks = await chunkUsage(tenantId);
+    const kbs = await withTenant(tenantId, async (tx) => {
+      const r = await tx.execute(sql`
+        select count(*)::int n from knowledge_bases where deleted_at is null`);
+      return Number((r as unknown as Array<{ n: number }>)[0]?.n ?? 0);
+    });
+    const batasChunks = isPlatform ? Infinity : l.maxChunks;
+    const batasKbs = isPlatform ? Infinity : l.maxKnowledgeBases;
+    return {
+      plan, isPlatform,
+      chunks, maxChunks: batasChunks,
+      knowledgeBases: kbs, maxKnowledgeBases: batasKbs,
+      /* Diterjemahkan ke satuan yang dimengerti manusia. Angka potongan
+         adalah kuota yang SEBENARNYA; ini hanya cara membacanya. */
+      approxDocuments: Math.round(chunks / CHUNKS_PER_DOC),
+      approxBytes: chunks * BYTES_PER_CHUNK,
+      percent: batasChunks === Infinity ? 0 : Math.min(100, Math.round((chunks / batasChunks) * 100)),
+    };
+  },
+
   /**
    * Apakah berkas ini kembar berdasarkan NAMA + UKURAN?
    *
@@ -230,6 +319,12 @@ export const knowledgeService = {
 
     const chunks = chunkText(input.text);
     if (chunks.length === 0) return 0;
+
+    /* ── KUOTA PENYIMPANAN ───────────────────────────────────────────
+       Diperiksa SETELAH dedup (kembar tak boleh ikut menghabiskan jatah)
+       dan SEBELUM embed (yang mahal). Dilempar sebagai QuotaError, bukan
+       dicatat diam-diam: pemilik data harus tahu berkasnya tak masuk. */
+    await assertChunkQuota(tenantId, chunks.length);
 
     const getApiKey = apiKeyResolver(tenantId);
     // JUDUL ikut di-embed (konten tersimpan tetap bersih). Tanpa ini, chunk

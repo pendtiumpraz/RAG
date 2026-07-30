@@ -432,3 +432,26 @@
   .an-bar{ transform:none; animation:none; }
   .an-pkt{ display:none; }
 }
+
+/* ── Kalkulator kapasitas ───────────────────────────────────────────
+   Penggaris yang bisa digeser + batang posisi terhadap atap. Angkanya
+   dihitung di komponen dari kuota yang ditegakkan kode; CSS di sini
+   hanya menatanya. */
+.calc-grid{ display:flex; flex-direction:column; gap:14px; margin-top:6px; }
+.calc-row{ display:grid; grid-template-columns:260px 1fr 92px; gap:14px; align-items:center; }
+.calc-lab{ display:flex; flex-direction:column; gap:2px; }
+.calc-num{ width:92px; text-align:center; font-family:var(--font-mono); }
+.calc-row input[type=range]{ width:100%; accent-color:var(--signal); }
+
+.calc-bars{ display:flex; flex-direction:column; gap:16px; margin-top:4px; }
+.calc-bar .cb-head{ display:flex; justify-content:space-between; align-items:baseline;
+  font-size:13px; color:var(--muted); margin-bottom:6px; gap:12px; }
+.calc-bar .cb-head span:first-child{ color:var(--ink); font-weight:600; }
+.cb-track{ height:12px; border-radius:6px; background:var(--card-2);
+  border:1px solid var(--line); overflow:hidden; }
+.cb-fill{ height:100%; border-radius:5px; transition:width .28s cubic-bezier(.2,.7,.3,1); }
+
+@media (max-width: 820px){
+  .calc-row{ grid-template-columns:1fr; gap:6px; }
+  .calc-num{ width:100%; }
+}

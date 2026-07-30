@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { QuotaError } from '@/modules/knowledge/knowledge.service';
 
 export const runtime = 'nodejs';
 
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
     const kb = await knowledgeBaseService.create(user.tenantId, user.id, parsed.data);
     return NextResponse.json(kb, { status: 201 });
   } catch (e) {
+    // 402 memisahkan "jatahmu habis" dari "permintaanmu salah" (422).
+    // Menyamakannya membuat pemilik data mengira ada yang rusak, padahal
+    // yang perlu mereka lakukan adalah menaikkan paket.
+    if (e instanceof QuotaError) return NextResponse.json({ error: e.message, quota: { used: e.used, limit: e.limit } }, { status: 402 });
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
     throw e;
   }

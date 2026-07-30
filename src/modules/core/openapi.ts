@@ -219,6 +219,19 @@ export const openApiSpec = {
         responses: { 200: err('{ rows[], more, page }') },
       },
     },
+    '/api/usage/storage': {
+      get: {
+        summary: 'Pemakaian penyimpanan terhadap kuota paket',
+        description: 'Kuota dibatasi per POTONGAN, bukan per megabyte teks: potonganlah satuan '
+          + 'biaya yang nyata (8.189 byte baris + ±1.570 byte indeks vektor yang harus residen '
+          + 'di RAM pada mode langsung). Membatasi "MB teks" akan menyesatkan — teks yang sama '
+          + 'bisa jadi dua kali lipat potongan bila pemenggalannya berubah. `approxDocuments` '
+          + 'dan `approxBytes` hanya cara membacanya, bukan kuotanya. Paket on-premise dan '
+          + 'workspace operator platform mengembalikan batas tak hingga.',
+        security: [sessionAuth],
+        responses: { 200: err('{ plan, chunks, maxChunks, knowledgeBases, maxKnowledgeBases, approxDocuments, approxBytes, percent }') },
+      },
+    },
     '/api/documents/duplicates': {
       get: {
         summary: 'Berkas kembar yang dilewati saat ingest',

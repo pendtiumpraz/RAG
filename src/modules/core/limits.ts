@@ -17,13 +17,75 @@ export interface PlanLimits {
   maxChatbots: number;
   /** kursi anggota per tenant — anggota aktif + undangan yang masih berlaku */
   maxMembers: number;
+  /** jumlah knowledge base maksimum */
+  maxKnowledgeBases: number;
+  /**
+   * Jumlah POTONGAN maksimum di seluruh tenant — kuota penyimpanan yang
+   * sebenarnya.
+   *
+   * Dibatasi per potongan, bukan per megabyte teks, karena potonganlah
+   * satuan biaya yang nyata: tiap potongan menempati 8.189 byte baris
+   * (terukur dengan pg_column_size di produksi) plus ±1.570 byte indeks
+   * vektor yang HARUS residen di RAM pada mode langsung. Membatasi "MB teks"
+   * akan menyesatkan — teks yang sama bisa jadi dua kali lipat potongan bila
+   * pemenggalannya berubah.
+   */
+  maxChunks: number;
 }
 
+/**
+ * Ukuran nyata satu potongan di basis data — diukur dengan pg_column_size
+ * pada data produksi, bukan diperkirakan. Dipakai untuk MENERJEMAHKAN kuota
+ * potongan jadi angka yang dimengerti manusia ("±160 MB teks").
+ */
+export const BYTES_PER_CHUNK = 8_189;
+/** Indeks vektor berdimensi asli, per potongan. Residen di RAM (mode datar). */
+export const INDEX_BYTES_PER_CHUNK = 1_572;
+/** Rata-rata potongan per dokumen perkantoran (±800 karakter per potongan). */
+export const CHUNKS_PER_DOC = 10;
+
+/**
+ * Kuota per plan.
+ *
+ * Angka penyimpanan diturunkan dari atap infrastrukturnya, bukan dikarang:
+ * Neon berhenti di 16 CU / 64 GB RAM, yang pada indeks berdimensi asli
+ * memuat ±40 juta potongan. Kuota Pro 200 ribu potongan berarti 200 penyewa
+ * Pro masih muat di satu Neon terbesar — ruang tumbuh yang masuk akal
+ * sebelum harus pindah, dan itulah pertimbangan yang menentukan angkanya.
+ *
+ * `onprem` sengaja TANPA BATAS pada semuanya: di sana batasnya server milik
+ * pelanggan, dan memaksakan kuota buatan di atas perangkat yang sudah mereka
+ * bayar hanya akan terasa mengada-ada.
+ */
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free:       { messagesPerMonth: 1_000,    chatBurst: 10,  chatRefillPerSec: 0.5, maxChatbots: 1,        maxMembers: 2 },
-  pro:        { messagesPerMonth: 50_000,   chatBurst: 40,  chatRefillPerSec: 5,   maxChatbots: 10,       maxMembers: 15 },
-  enterprise: { messagesPerMonth: Infinity, chatBurst: 120, chatRefillPerSec: 20,  maxChatbots: Infinity, maxMembers: Infinity },
-  onprem:     { messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40,  maxChatbots: Infinity, maxMembers: Infinity },
+  free: {
+    messagesPerMonth: 1_000, chatBurst: 10, chatRefillPerSec: 0.5,
+    maxChatbots: 1, maxMembers: 2,
+    // ±500 dokumen · ±4 MB teks · ±49 MB di basis data. Cukup untuk
+    // membuktikan produknya bekerja pada dokumen sungguhan, jauh dari cukup
+    // untuk memindahkan seluruh arsip perusahaan tanpa membayar.
+    maxKnowledgeBases: 2, maxChunks: 5_000,
+  },
+  pro: {
+    messagesPerMonth: 50_000, chatBurst: 40, chatRefillPerSec: 5,
+    maxChatbots: 10, maxMembers: 15,
+    // ±20 ribu dokumen · ±160 MB teks · ±2 GB di basis data.
+    maxKnowledgeBases: 20, maxChunks: 200_000,
+  },
+  enterprise: {
+    messagesPerMonth: Infinity, chatBurst: 120, chatRefillPerSec: 20,
+    maxChatbots: Infinity, maxMembers: Infinity,
+    // ±200 ribu dokumen · ±1,6 GB teks · ±20 GB di basis data. BERHINGGA
+    // dengan sengaja: pada SaaS, penyimpanan tanpa batas berarti platform
+    // menanggung biaya yang tak bisa diperkirakan. Angkanya bisa dinaikkan
+    // per pelanggan lewat negosiasi — yang tak boleh adalah tak ada angkanya.
+    maxKnowledgeBases: 200, maxChunks: 2_000_000,
+  },
+  onprem: {
+    messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40,
+    maxChatbots: Infinity, maxMembers: Infinity,
+    maxKnowledgeBases: Infinity, maxChunks: Infinity,
+  },
 };
 
 export function limitsForPlan(plan: string | null | undefined): PlanLimits {

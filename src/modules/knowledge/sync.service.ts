@@ -6,7 +6,7 @@ import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/
 import { audit } from '@/modules/core/guardrails';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
-import { knowledgeService } from './knowledge.service';
+import { knowledgeService, QuotaError } from './knowledge.service';
 import { knowledgeBaseService } from './knowledge-base.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { crawlUserDrive, getUserDriveFilesMeta, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
@@ -179,6 +179,8 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
     const isUpdate = new Set(plan.update.map((f) => f.externalId));
 
     let ingested = 0, updated = 0, failed = 0, duplicates = 0;
+    /** Pesan kuota bila sync berhenti karena jatah habis; null = tak terjadi. */
+    let quotaStop: string | null = null;
     for (const f of batch) {
       try {
         /* LAPIS 1 — nama + ukuran, SEBELUM mengunduh apa pun.
@@ -227,6 +229,16 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
         else if (isUpdate.has(f.externalId)) updated++;
         else ingested++;
       } catch (err) {
+        /* Kuota habis BUKAN kegagalan satu berkas — berkas berikutnya pasti
+           gagal juga. Meneruskan loop hanya membuang unduhan dan menghasilkan
+           laporan berisi ratusan "gagal" yang menyembunyikan sebab tunggalnya.
+           Sisanya dilaporkan sebagai `pending`, jadi sync bisa dilanjutkan
+           begitu paket dinaikkan atau dokumen lama dibuang. */
+        if (err instanceof QuotaError) {
+          quotaStop = err.message;
+          console.warn(`[sync] berhenti — kuota penyimpanan habis: ${err.message}`);
+          break;
+        }
         // 1 file gagal TIDAK boleh mematikan seluruh sync.
         console.error(`[sync] gagal memproses ${f.name}:`, err);
         failed++;
@@ -240,8 +252,11 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
       // dari pemilik data, dan menggabungkannya menyembunyikan keduanya.
       duplicates,
       skipped, failed, pending, at: new Date().toISOString(),
+      // Disebut TERPISAH: kuota habis menuntut tindakan yang sama sekali
+      // berbeda dari berkas yang gagal diproses.
+      ...(quotaStop ? { quotaExceeded: quotaStop } : {}),
     };
-    await setStatus(pending > 0 ? 'partial' : 'synced', stats);
+    await setStatus(quotaStop ? 'quota' : pending > 0 ? 'partial' : 'synced', stats);
     await audit(tenantId, 'system', 'source.sync', sourceId, {
       kind: source.kind, knowledgeBaseId: source.knowledgeBaseId, ...stats,
     });

@@ -1,4 +1,5 @@
 import { and, eq, isNull, isNotNull, desc, inArray, sql } from 'drizzle-orm';
+import { knowledgeService, QuotaError } from './knowledge.service';
 import { knowledgeBases, chatbotKnowledgeBases, chatbots, dataSources, documents } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { audit } from '@/modules/core/guardrails';
@@ -50,6 +51,18 @@ export const knowledgeBaseService = {
   async create(tenantId: string, actorId: string, input: { name: string; description?: string }) {
     const name = input.name?.trim();
     if (!name) throw new ValidationError('Nama knowledge base wajib diisi');
+
+    /* Kuota jumlah KB. Diperiksa DI SINI, bukan di rute: KB juga bisa lahir
+       dari jalur lain (API publik), dan kuota yang hanya dijaga satu rute
+       adalah kuota yang punya pintu belakang. */
+    const u = await knowledgeService.storageUsage(tenantId);
+    if (u.knowledgeBases >= u.maxKnowledgeBases) {
+      throw new QuotaError(
+        `Paket ${u.plan} dibatasi ${u.maxKnowledgeBases} knowledge base `
+        + `(sekarang ${u.knowledgeBases}). Hapus yang tak terpakai atau naikkan paket.`,
+        u.knowledgeBases, u.maxKnowledgeBases,
+      );
+    }
     const row = await withTenant(tenantId, async (tx) =>
       (await tx.insert(knowledgeBases).values({
         tenantId, name, description: input.description?.trim() || null,
