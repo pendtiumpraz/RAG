@@ -15,7 +15,7 @@
 
 export type SceneId =
   | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory'
-  | 'tokens' | 'costs';
+  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel';
 
 export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ingest: [
@@ -97,5 +97,29 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Selisih antar model besar', d: 'Untuk 1.000 pertanyaan yang sama, model termurah dan termahal di tabel berbeda lebih dari dua puluh kali lipat.' },
     { t: 'Model bisa diganti kapan saja', d: 'Tanpa mengulang ingest apa pun — dokumen dan vektornya tetap di tempatnya.' },
     { t: 'Pada on-premise', d: 'Biaya berulang bisa ditekan hingga nol dengan model yang dijalankan sendiri; yang tersisa hanya listrik dan perawatan server.' },
+  ],
+  plans: [
+    { t: 'Free — 1.000 pesan/bulan', d: '1 chatbot, 2 anggota. Sengaja tetap fungsional penuh: orang tak membayar produk yang belum pernah dilihatnya bekerja.' },
+    { t: 'Pro — 50.000 pesan/bulan', d: '10 chatbot, 15 anggota, laju 40/detik. Membuka analitik, memory, branding, dan tim.' },
+    { t: 'Enterprise — tanpa batas', d: 'Chatbot dan anggota tanpa batas, laju 120/detik, plus laporan pemakaian.' },
+    { t: 'On-Premise — tanpa batas', d: 'Laju 240/detik. Kuota tak berlaku sama sekali karena batasnya server pelanggan sendiri.' },
+    { t: 'Yang BELUM dibatasi', d: 'Jumlah knowledge base, jumlah dokumen, dan besar penyimpanan. Untuk on-premise itu benar; untuk SaaS ia perlu ditambahkan sebelum pelanggan berbayar pertama masuk.' },
+    { t: 'Semua angka di atas ditegakkan kode', d: 'Diambil langsung dari core/limits.ts, bukan diketik ulang di slide — presentasi tak bisa menjanjikan yang produknya tak lakukan.' },
+  ],
+  capacity: [
+    { t: 'Dasar perhitungan', d: '8.189 byte per potongan di tabel (diukur dengan pg_column_size pada data produksi) + ±1.570 byte indeks berdimensi asli. Sisanya aritmetika.' },
+    { t: 'Vercel Pro + Neon', d: 'Atap tertinggi Neon adalah 16 CU / 64 GB RAM. Mode langsung: ±40 juta potongan. Di atas itu tak ada paket yang lebih besar — harus pindah.' },
+    { t: 'On-premise 128 GB', d: 'Mode langsung ±80 juta potongan; mode bertingkat dibatasi disk, bukan RAM. Batasnya perangkat yang dibeli, dan bisa ditambah kapan saja.' },
+    { t: 'AWS RDS / Aurora', d: 'Instans memori besar mencapai 768 GB RAM — atap tertinggi dari ketiganya, dengan biaya bulanan yang juga tertinggi.' },
+    { t: 'Mode bertingkat mengubah atapnya', d: 'Mode langsung dibatasi RAM; mode bertingkat dibatasi DISK. Dan disk jauh lebih murah dinaikkan daripada RAM.' },
+    { t: 'Yang tidak berubah', d: 'Berapa pun besar korpusnya, biaya per pertanyaan tetap sama — pencarian tak memakai token model.' },
+  ],
+  vercel: [
+    { t: 'Unggahan ±4,5 MB per permintaan', d: 'Batas badan permintaan Vercel. Berkas besar masuk lewat konektor Drive/SharePoint, bukan lewat tombol unggah.' },
+    { t: 'Penyimpanan sementara ±512 MB', d: 'Model embedding 22 MB berjalan mulus — terukur 3,8 detik dingin, 0,5 detik hangat. Model 543 MB+ tak muat dan butuh server embedding terpisah.' },
+    { t: 'Pembatas laju tak berbagi antar instans', d: 'Hitungannya ada di memori tiap instans. Saat lalu lintas naik dan instans bertambah, batas efektifnya jadi lebih longgar dari angka yang tertulis.' },
+    { t: 'Tak ada proses latar yang hidup terus', d: 'Sync panjang dipecah — maksimum 150 berkas per jalannya, sisanya dilanjut jalan berikutnya. Sudah berjalan begitu hari ini.' },
+    { t: 'Keempatnya sudah punya jalan keluar', d: 'Bukan risiko terbuka; semuanya sudah ditangani di produk ini hari ini.' },
+    { t: 'Yang belum punya jalan keluar', d: 'Atap Neon: di atas 16 CU tidak ada paket berikutnya. Melewatinya berarti pindah ke server sendiri atau ke AWS.' },
   ],
 };

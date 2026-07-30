@@ -622,6 +622,18 @@ const hla: Slide[] = [
     title: 'Dibayar sekali, dan dibayar tiap kali',
     note: 'Memisahkan keduanya penting saat menyusun anggaran: biaya sekali menentukan berapa lama pemasangan awal, sedangkan biaya berulang menentukan tagihan bulanan. Angka per 1.000 pertanyaan di slide ini diambil dari tabel harga yang sama dengan dek Technical — bukan diketik ulang, sehingga tak mungkin menyimpang.' },
 
+  { kind: 'anim', kicker: 'BATAS LANGGANAN', scene: 'plans',
+    title: 'Apa yang dibatasi tiap paket — dan apa yang belum',
+    note: 'Angka di slide ini diambil langsung dari core/limits.ts, tempat kuotanya benar-benar ditegakkan. Yang belum punya kuota disebut apa adanya: jumlah knowledge base, jumlah dokumen, dan besar penyimpanan. Untuk on-premise itu memang benar — batasnya server pelanggan. Untuk SaaS ia perlu ditambahkan sebelum pelanggan berbayar pertama masuk, karena satu tenant Free bisa mengunggah puluhan gigabyte tanpa tertahan apa pun.' },
+
+  { kind: 'anim', kicker: 'KAPASITAS', scene: 'capacity',
+    title: 'Berapa banyak yang muat — Vercel, on-premise, AWS',
+    note: 'Semua angka diturunkan dari satu pengukuran nyata: 8.189 byte per potongan di tabel, diukur dengan pg_column_size pada data produksi. Yang perlu dibaca: mode langsung dibatasi RAM, mode bertingkat dibatasi disk — dan menaikkan disk jauh lebih murah daripada menaikkan RAM. Angka Neon dan AWS adalah atap paket tertinggi masing-masing, bukan yang dipakai hari ini.' },
+
+  { kind: 'anim', kicker: 'BATAS PLATFORM', scene: 'vercel',
+    title: 'Batas Vercel yang benar-benar terasa',
+    note: 'Bukan daftar spesifikasi — hanya empat batas yang benar-benar menyentuh produk ini, dan semuanya sudah punya jalan keluar hari ini. Satu yang belum: atap Neon di 16 CU. Melewatinya bukan soal membayar lebih, melainkan harus pindah ke server sendiri atau ke AWS.' },
+
   { kind: 'flow', kicker: 'RANGKUMAN', title: 'Satu pertanyaan, ujung ke ujung',
     steps: [
       { t: 'Pertanyaan masuk', d: 'widget, API, atau dashboard' },
