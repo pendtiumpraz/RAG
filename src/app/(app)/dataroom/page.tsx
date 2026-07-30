@@ -9,6 +9,7 @@ import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment
 import { SHIPPED, SHIPPED_AT } from './updates';
 import Kanban from './Kanban';
 import Calculator from './Calculator';
+import { buildZip, standaloneSvg, svgToWebp, slideFileName } from './slide-export';
 import { EmptyState, useToast } from '../../_components/ui';
 
 /**
@@ -57,6 +58,47 @@ export default function DataroomPage() {
     return <EmptyState title="Khusus superadmin" hint="Dataroom berisi materi pitch internal." />;
   }
 
+  /**
+   * Ekspor tiap slide ILUSTRASI jadi SVG + WebP dalam satu ZIP.
+   *
+   * SVG-nya mandiri (gaya disalin masuk) sehingga tetap tajam di segala
+   * ukuran dan animasinya masih hidup bila dibuka di peramban; WebP-nya
+   * statis pada keadaan akhir, untuk ditempel ke dokumen atau dikirim.
+   *
+   * Merender dari DOM yang sedang tampil, bukan dari data: yang diekspor
+   * persis yang dilihat, termasuk angka yang dihitung saat render.
+   */
+  async function toImages() {
+    setExporting(true);
+    try {
+      // Panggung hanya memuat SATU slide; versi cetak memuat SEMUANYA, dan
+      // itulah yang dipakai supaya tak perlu berpindah slide satu per satu.
+      const nodes = Array.from(document.querySelectorAll<SVGSVGElement>('.dr-print-all .sl-anim svg'));
+      if (!nodes.length) { toast('Dek ini tak punya slide ilustrasi', 'error'); return; }
+
+      const files: Array<{ name: string; data: Uint8Array<ArrayBuffer> }> = [];
+      const enc = new TextEncoder();
+      let n = 0;
+      for (const svg of nodes) {
+        const label = svg.getAttribute('aria-label') ?? `slide-${n + 1}`;
+        const base = slideFileName(n, label);
+        const text = standaloneSvg(svg);
+        const b = svg.viewBox.baseVal;
+        files.push({ name: `svg/${base}.svg`, data: enc.encode(text) as Uint8Array<ArrayBuffer> });
+        files.push({ name: `webp/${base}.webp`, data: await svgToWebp(text, b.width || 760, b.height || 250) });
+        n++;
+      }
+
+      const url = URL.createObjectURL(buildZip(files));
+      const a = document.createElement('a');
+      a.href = url; a.download = `nalar-${deck.id}-slides.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`${n} slide diekspor — SVG + WebP`);
+    } catch (e) { toast((e as Error).message, 'error'); }
+    finally { setExporting(false); }
+  }
+
   async function toPptx() {
     setExporting(true);
     try {
@@ -76,6 +118,11 @@ export default function DataroomPage() {
           {!isDoc && (
             <button className={`btn btn-sm${exporting ? ' is-loading' : ''}`} disabled={exporting} onClick={toPptx}>
               Export PPTX
+            </button>
+          )}
+          {!isDoc && deck.slides.some((s) => s.kind === 'anim') && (
+            <button className={`btn btn-sm${exporting ? ' is-loading' : ''}`} disabled={exporting} onClick={toImages}>
+              Export SVG + WebP
             </button>
           )}
           {!isDoc && (
