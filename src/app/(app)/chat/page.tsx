@@ -26,6 +26,47 @@ export default function ChatPage() {
    *  jadi SATU conversation; null = giliran berikutnya membuka sesi baru. */
   const [convId, setConvId] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  /** Pengendali giliran berjalan — dipakai tombol Hentikan. */
+  const abortRef = useRef<AbortController | null>(null);
+  /** Indeks pesan yang baru disalin, untuk umpan balik sesaat. */
+  const [copied, setCopied] = useState<number | null>(null);
+
+  /**
+   * Menghentikan jawaban yang sedang mengalir.
+   *
+   * Yang sudah tiba TIDAK dibuang: pengguna menekan Hentikan justru karena
+   * sudah mendapat yang dicarinya, dan mengosongkan bubble akan membuang hal
+   * itu. Giliran ditandai selesai, sisanya tak pernah datang.
+   */
+  function stop() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }
+
+  /** Blok terstruktur → teks datar yang bisa ditempel ke mana pun. */
+  function plainTextOf(m: Msg): string {
+    if (m.text) return m.text;
+    return (m.blocks ?? []).map((b) => {
+      if (b.type === 'text') return b.text;
+      if (b.type === 'list') return b.items.map((it, i) => (b.ordered ? `${i + 1}. ${it}` : `- ${it}`)).join('\n');
+      if (b.type === 'cards') return b.items.map((c) => `${c.title}: ${c.value}${c.desc ? ` (${c.desc})` : ''}`).join('\n');
+      if (b.type === 'chart') {
+        const head = b.title ? `${b.title}${b.unit ? ` (${b.unit})` : ''}\n` : '';
+        return head + b.labels.map((l, i) => `${l}: ${b.values[i]}`).join('\n');
+      }
+      return '';
+    }).filter(Boolean).join('\n\n');
+  }
+
+  async function copyMsg(m: Msg, i: number) {
+    const text = plainTextOf(m);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(i);
+      setTimeout(() => setCopied((c) => (c === i ? null : c)), 1600);
+    } catch { /* clipboard ditolak browser — diam saja, bukan kegagalan yang perlu dilaporkan */ }
+  }
 
   function newSession() {
     setConvId(null); setMsgs([]);
@@ -40,10 +81,13 @@ export default function ChatPage() {
     setInput(''); setBusy(true);
     setMsgs((m) => [...m, { role: 'user', text: q }, { role: 'assistant', blocks: [], streaming: true }]);
 
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       const res = await fetch('/api/chat/internal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatbotId, message: q, ...(convId ? { conversationId: convId } : {}) }),
+        signal: ctrl.signal,
       });
       if (!res.ok || !res.body) throw new Error('Gagal memulai chat');
       const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
@@ -72,8 +116,20 @@ export default function ChatPage() {
         }
       }
     } catch (e) {
-      setMsgs((m) => { const c = [...m]; c[c.length - 1] = { role: 'assistant', text: '⚠ ' + (e as Error).message }; return c; });
-    } finally { setBusy(false); }
+      // Dihentikan pengguna BUKAN galat: pertahankan yang sudah tiba dan
+      // tandai giliran ini selesai. Menampilkan "⚠ aborted" di sini akan
+      // terbaca seperti produk yang rusak padahal ia menuruti perintah.
+      if ((e as Error).name === 'AbortError') {
+        setMsgs((m) => {
+          const c = [...m]; const last = { ...c[c.length - 1] };
+          last.streaming = false;
+          if (!last.blocks?.length && !last.text) last.text = '(dihentikan)';
+          c[c.length - 1] = last; return c;
+        });
+      } else {
+        setMsgs((m) => { const c = [...m]; c[c.length - 1] = { role: 'assistant', text: '⚠ ' + (e as Error).message }; return c; });
+      }
+    } finally { setBusy(false); abortRef.current = null; }
   }
 
   return (
@@ -103,7 +159,19 @@ export default function ChatPage() {
             ? <div key={i} className="m-user">{m.text}</div>
             : (
               <div key={i} className="answer">
-                <div className="ans-head"><span className="mk"><Nmark /></span><b>Nalar</b></div>
+                <div className="ans-head">
+                  <span className="mk"><Nmark /></span><b>Nalar</b>
+                  {/* Hentikan hanya saat giliran ini yang mengalir; Salin baru
+                      berguna setelah ada isinya. Keduanya di kepala jawaban,
+                      bukan melayang, supaya tak menutupi teks saat dibaca. */}
+                  {m.streaming ? (
+                    <button className="btn btn-sm btn-ghost ans-act" onClick={stop}>Hentikan</button>
+                  ) : (m.blocks?.length || m.text) ? (
+                    <button className="btn btn-sm btn-ghost ans-act" onClick={() => void copyMsg(m, i)}>
+                      {copied === i ? 'Tersalin' : 'Salin'}
+                    </button>
+                  ) : null}
+                </div>
                 <div className="card card-pad">
                   {m.blocks && m.blocks.length > 0
                     ? <AnswerBlocks blocks={m.blocks} />

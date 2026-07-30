@@ -173,6 +173,21 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('{ ok }') } },
     },
+    '/api/chat/{publicKey}/history': {
+      get: {
+        summary: 'PUBLIK: transkrip percakapan berjalan (widget memulihkannya saat halaman dimuat ulang)',
+        description: 'Menuntut conversationId DAN visitorId yang cocok, serta origin yang diizinkan. ' +
+          'Yang tak cocok dijawab daftar kosong — sama dengan yang tak ada — supaya endpoint ini tak ' +
+          'bisa dipakai memastikan sebuah id percakapan itu nyata.',
+        parameters: [
+          { name: 'publicKey', in: 'path', required: true, schema: str },
+          { name: 'conversationId', in: 'query', schema: uuid },
+          { name: 'visitorId', in: 'query', schema: str },
+        ],
+        responses: { 200: err('{ messages: [{ role, content, blocks, citations }] }'),
+          403: err('Origin tidak diizinkan'), 404: err('Chatbot tidak ditemukan') },
+      },
+    },
     '/api/chat/{publicKey}/logo': {
       get: { summary: 'Byte logo chatbot utk widget (publik, cache 1 jam)',
         parameters: [{ name: 'publicKey', in: 'path', required: true, schema: str }],

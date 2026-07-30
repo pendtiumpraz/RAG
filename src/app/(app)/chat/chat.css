@@ -37,3 +37,8 @@
 .cite-card .fn .ic{ width:22px; height:22px; border-radius:6px; background:var(--tint-signal); color:var(--signal); display:grid; place-items:center; flex:none; }
 .cite-card .fn .sc{ margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--source); }
 .cite-card .ex{ font-size:12.5px; color:var(--muted); line-height:1.55; border-left:2px solid var(--source-mark); padding-left:10px; }
+
+/* Aksi per-jawaban (Hentikan / Salin) — didorong ke kanan kepala jawaban.
+   Sengaja TIDAK melayang di atas teks: jawaban di sini panjang dan sering
+   dibaca sambil digulir, dan tombol melayang akan menutupi isinya. */
+.ans-head .ans-act{ margin-left:auto; font-size:11.5px; padding:3px 9px; min-height:26px; }

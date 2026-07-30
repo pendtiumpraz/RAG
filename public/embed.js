@@ -15,7 +15,31 @@
 
   var visitorId = localStorage.getItem('nalar_visitor') ||
     (function () { var v = 'v_' + Math.random().toString(36).slice(2); localStorage.setItem('nalar_visitor', v); return v; })();
-  var conversationId = null;
+  /* Sesi disimpan PER CHATBOT: satu situs bisa memasang dua widget, dan
+     memakai satu kunci bersama akan membuat keduanya saling menimpa
+     percakapan. Umur dibatasi supaya percakapan basi tak dibangkitkan
+     berbulan-bulan kemudian saat konteksnya sudah tak relevan. */
+  var SESSION_KEY = 'nalar_convo_' + key;
+  var SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  var conversationId = (function () {
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      var v = JSON.parse(raw);
+      if (!v || !v.id || Date.now() - (v.at || 0) > SESSION_TTL_MS) {
+        localStorage.removeItem(SESSION_KEY); return null;
+      }
+      return v.id;
+    } catch (e) { return null; }
+  })();
+  function rememberSession(id) {
+    conversationId = id;
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ id: id, at: Date.now() })); } catch (e) {}
+  }
+  function forgetSession() {
+    conversationId = null;
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+  }
 
   // default brand resmi; ditimpa themeConfig dari server.
   // logoUrl default = favicon N (mark konstelasi) — bukan huruf "N" polos.
@@ -72,7 +96,9 @@
       '.nl-logo.im{background:#fff;border:1px solid ' + line + '}' +
       '.nl-logo img{width:20px;height:20px;display:block}' +
       '.nl-title{font-weight:700;font-size:14px}.nl-title small{display:block;font-size:9.5px;color:' + mut + ';font-family:ui-monospace,monospace;letter-spacing:.1em}' +
-      '.nl-x{margin-left:auto;background:none;border:1px solid ' + line + ';color:' + mut + ';width:28px;height:28px;border-radius:6px;cursor:pointer}' +
+      '.nl-new{margin-left:auto;background:none;border:1px solid ' + line + ';color:' + mut + ';width:28px;height:28px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center}' +
+      '.nl-new:hover{color:' + T.signal + ';border-color:' + T.signal + '}' +
+      '.nl-x{margin-left:6px;background:none;border:1px solid ' + line + ';color:' + mut + ';width:28px;height:28px;border-radius:6px;cursor:pointer}' +
       '.nl-msgs{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:11px}' +
       '.nl-m{font-size:13.5px;line-height:1.55}' +
       '.nl-u{align-self:flex-end;max-width:85%;background:' + T.signal + ';color:' + onSignal + ';padding:9px 12px;border-radius:' + rs + ';border-bottom-right-radius:3px}' +
@@ -120,6 +146,8 @@
       '<div class="nl-head"><div class="nl-logo' + (T.logoUrl ? ' im' : '') + '">' +
         (T.logoUrl ? '<img src="' + esc(T.logoUrl) + '" alt=""/>' : esc(T.logo)) + '</div>' +
         '<div class="nl-title">' + esc(T.name) + '<small>REASONING · SOURCED</small></div>' +
+        '<button class="nl-new" aria-label="Mulai percakapan baru" title="Percakapan baru" style="display:none">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>' +
         '<button class="nl-x" aria-label="Tutup">&times;</button></div>' +
       '<div class="nl-msgs" id="nl-msgs"></div>' +
       '<div class="nl-inp"><input id="nl-input" placeholder="Tulis pertanyaan…" aria-label="Pesan"/>' +
@@ -129,13 +157,63 @@
     wrap.appendChild(launch); wrap.appendChild(panelEl); document.body.appendChild(wrap);
     var msgs = panelEl.querySelector('#nl-msgs');
     var input = panelEl.querySelector('#nl-input');
+    var newBtn = panelEl.querySelector('.nl-new');
     // gambar logo gagal dimuat → jatuh mulus ke mode huruf, jangan kotak pecah
     var lg = panelEl.querySelector('.nl-logo img');
     if (lg) lg.onerror = function () {
       var box = lg.parentNode; box.className = 'nl-logo'; box.textContent = T.logo;
     };
 
-    if (T.greeting) bubble('a', T.greeting);
+    /* Riwayat dipulihkan dari SERVER, bukan dari localStorage.
+       localStorage hanya menyimpan ID percakapannya. Menyimpan transkripnya
+       sendiri akan menyimpang begitu ada tab kedua, dan menaruh isi
+       percakapan pelanggan di penyimpanan browser situs pihak ketiga bukan
+       tempat yang tepat untuk itu. */
+    var restored = false;
+    function restore(done) {
+      if (!conversationId) { done(false); return; }
+      fetch(host + '/api/chat/' + encodeURIComponent(key) + '/history'
+        + '?conversationId=' + encodeURIComponent(conversationId)
+        + '&visitorId=' + encodeURIComponent(visitorId))
+        .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
+        .then(function (j) {
+          var list = (j && j.messages) || [];
+          if (!list.length) { forgetSession(); done(false); return; }
+          list.forEach(function (m) {
+            if (m.role === 'user') { bubble('u', m.content); return; }
+            var el = bubble('a', '');
+            /* Jawaban lama disimpan sebagai blok terstruktur — dirender ulang
+               dengan renderer yang sama persis, jadi percakapan yang dipulihkan
+               tak pernah tampak berbeda dari yang baru. Pesan pra-fitur yang
+               hanya punya teks polos jatuh ke teks biasa. */
+            if (Array.isArray(m.blocks) && m.blocks.length) {
+              m.blocks.forEach(function (b) { el.appendChild(renderBlock(b)); });
+            } else { el.textContent = m.content || ''; }
+          });
+          restored = true;
+          msgs.scrollTop = msgs.scrollHeight;
+          done(true);
+        })
+        .catch(function () { done(false); });
+    }
+
+    restore(function (ok) {
+      if (!ok && T.greeting) bubble('a', T.greeting);
+      if (ok) newBtn.style.display = '';
+    });
+
+    /* Percakapan yang bertahan butuh jalan keluar: tanpa ini pengunjung
+       terjebak selamanya di satu utas yang makin panjang dan makin mahal
+       konteksnya. */
+    function startNew() {
+      forgetSession();
+      msgs.innerHTML = '';
+      newBtn.style.display = 'none';
+      if (T.greeting) bubble('a', T.greeting);
+      input.focus();
+    }
+    newBtn.onclick = startNew;
+
     launch.onclick = function () { panelEl.classList.toggle('open'); if (panelEl.classList.contains('open')) input.focus(); };
     panelEl.querySelector('.nl-x').onclick = function () { panelEl.classList.remove('open'); };
     panelEl.querySelector('.nl-send').onclick = send;
@@ -189,7 +267,7 @@
               /* `meta` datang lebih dulu: simpan conversationId supaya seluruh
                  sesi widget jadi SATU riwayat percakapan (sebelumnya variabel
                  ini null selamanya dan tiap pesan jadi conversation baru). */
-              if (ev === 'meta' && data.conversationId) { conversationId = data.conversationId; }
+              if (ev === 'meta' && data.conversationId) { rememberSession(data.conversationId); }
               else if (ev === 'sources') { sources = data || []; }
               /* jawaban tiba BLOK demi BLOK (text/list/cards/chart) — sudah
                  tervalidasi & bebas Markdown dari server; di sini murni render.
