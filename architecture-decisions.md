@@ -319,9 +319,95 @@ jaring pengaman terhadap dokumen yang centroid-nya meleset.
 
 **Status:** dikerjakan atas permintaan user 2026-07-30.
 
+## ✅ D15 — Basis data tidak terikat penyedia; pemindahan bertingkat (2026-07-30)
+
+**Keputusan.** Nalar tidak terikat Neon. Basis datanya boleh Postgres mana pun
+— Neon, Hostinger, AWS RDS, atau VPS sendiri — asalkan memenuhi syarat yang
+diperiksa alat, dan pemindahannya dilakukan bertingkat:
+
+| Tingkat | Untuk siapa | Keadaan |
+|---|---|---|
+| 1 · DB bersama + RLS + kuota | Free, Pro | berjalan |
+| 2 · Basis data platform di mana pun | operator (kita) | **alatnya siap** |
+| 3 · Basis data per tenant (BYODB) | Enterprise, saat diminta | belum dibangun |
+| 4 · On-premise penuh | klien yang membeli server | berjalan |
+
+**Konteks — kenapa ini penting sekarang.** Ekonominya, bukan idealismenya.
+Neon berhenti di 16 CU / 64 GB RAM; itu tembok, bukan soal membayar lebih.
+Dan jauh sebelum tembok itu, biayanya sudah timpang: langganan Neon bulanan
+menyamai sewa VPS setahun yang memberi Postgres penuh. Untuk produk yang
+biaya terbesarnya adalah penyimpanan vektor, selisih itu menentukan.
+
+**Yang ternyata sudah benar.** Lapisan basis datanya cuma `postgres.js` +
+`DATABASE_URL`. Tak ada satu pun API khas Neon. Pemindahan platform secara
+teknis hanya mengganti satu variabel lingkungan.
+
+**Cacat yang ditemukan justru saat memeriksa itu, dan sudah diperbaiki.**
+Keputusan TLS DITEBAK dari nama host (`neon.tech`, `.aws.`, `sslmode=require`).
+Host seperti `srv123.hostinger.com` tak cocok pola mana pun, sehingga TLS akan
+**mati diam-diam tepat pada saat pindah** — seluruh isi dokumen pelanggan dan
+kredensial terenkripsi menyeberang internet sebagai teks polos, tanpa satu pun
+galat. Logikanya kini dibalik (`core/db/ssl.ts`): TLS menyala untuk host publik
+apa pun, mati hanya untuk host lokal/privat atau bila dinyatakan
+`sslmode=disable`. Jalur baca-tulis dan jalur migrasi memakai keputusan yang
+sama; ada uji yang menjaga keduanya tak menyimpang.
+
+**Alat yang dibangun.** `npm run db:probe -- "<url>"` memeriksa kelayakan
+sebuah Postgres SEBELUM dipakai: versi ≥ 15, pgvector, hak akses, dan — yang
+paling menentukan — apakah perannya bisa **melewati RLS**. Sambungan sebagai
+pemilik basis data mematikan isolasi antar pelanggan tanpa pesan apa pun; itu
+pernah terjadi sungguhan di proyek ini. Pemeriksaannya memakai
+`has_*_privilege`, tidak membuat tabel apa pun, jadi aman dijalankan terhadap
+produksi. `npm run db:target -- "<url>"` menjalankan seluruh migrasi ke tujuan.
+
+Alat itu menilai peran sesuai PERUNTUKANNYA: pada koneksi aplikasi, "bisa
+melewati RLS" adalah **kegagalan**; pada koneksi migrasi ia justru **yang
+diharapkan**. Menilai keduanya dengan satu ukuran akan melaporkan gagal untuk
+koneksi admin yang sepenuhnya benar — dan orang berhenti mempercayai alatnya.
+
+**Alat ini TIDAK memindahkan lalu lintas.** Ia menyiapkan tujuannya. Mengubah
+`DATABASE_URL` tetap tindakan manusia yang sadar.
+
+**Tingkat 3 (BYODB per tenant) SENGAJA ditunda**, dan alasannya perlu dicatat
+supaya tidak dianggap kelalaian:
+
+- **Migrasi × N.** Hari ini satu `db:migrate`. Dengan 100 basis data tenant,
+  tiap perubahan skema jadi 100 kali jalan yang bisa gagal sendiri-sendiri →
+  schema drift. Ini biaya yang tak pernah hilang, dan yang paling mahal.
+- **Kueri lintas tenant pecah.** Antrean persetujuan pengguna, billing, dan
+  papan backlog membaca lintas tenant di SATU basis data lewat GUC
+  `app.admin_context`. Dengan N basis data, semuanya butuh control-plane
+  terpisah.
+- **Kolam koneksi di serverless.** Vercel sudah memaksa `max: 1`; N basis data
+  berarti N kolam per instans.
+- **Neon free per tenant bukan jalan keluar** — proyek free tidur (cold start
+  tiap tenant), berkuota jam komputasi, dan membuatnya massal secara program
+  hampir pasti melanggar ketentuan Neon.
+
+**Yang TIDAK diselesaikan pemisahan basis data, dan sering dikira begitu:**
+keamanan. Isolasi antar pelanggan sudah dijaga RLS dan sudah tuntas. Yang
+diselesaikan pemisahan adalah tetangga berisik, atap kapasitas, data
+residency, dan biaya yang terhitung per pelanggan — empat hal yang RLS memang
+tak menyentuhnya.
+
+**Catatan tentang RAM platform** (pertanyaan yang wajar dan jawabannya bukan
+"tidak"): pada BYODB, RAM indeks vektor — satu-satunya yang tumbuh mengikuti
+korpus — pindah ke basis data pelanggan. RAM aplikasi tetap terpakai, tapi ia
+per-PERMINTAAN, bukan per-korpus. Jadi batasnya tetap ada; sifatnya berubah
+dari batas penyimpanan menjadi batas laju, dan itu sudah dijaga kuota pesan
+serta pembatas laju yang berjalan hari ini.
+
+**Blob:** tidak menyimpan data tenant sama sekali — isinya hanya bobot model.
+Karena itu "bawa kunci blob sendiri" belum punya arti, dan baru relevan bila
+kelak berkas asli atau hasil ekspor ikut disimpan di sana.
+
+**Status:** tingkat 1, 2, 4 berjalan. Tingkat 3 menunggu permintaan pelanggan
+nyata — dikerjakan saat ada yang meminta, bukan dipajang sebagai fitur.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-07-30 | D15 = basis data tak terikat penyedia + pemindahan bertingkat; TLS tak lagi ditebak dari nama host; BYODB per tenant ditunda sampai diminta | User |
 | 2026-07-30 | D14 = kebijakan jawaban per chatbot (bahasa/nada/kepatuhan/temperature) + mode retrieval bertingkat menyala otomatis, bukan dipilih | User |
 | 2026-07-28 | D12 = pembayaran QRIS (Midtrans/Tripay/Xendit, satu aktif, config di DB) + mode deploy di DB (onprem=unlimited) + halaman bayar sendiri | User |
 | 2026-07-28 | D11 = KB mandiri + assignment N:M ke chatbot + konteks divisi per chatbot | User |

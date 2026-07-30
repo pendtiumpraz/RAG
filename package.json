@@ -18,7 +18,9 @@
     "db:migrate": "node --env-file=.env --import tsx src/modules/core/db/migrate.ts",
     "db:ext": "node --env-file=.env scripts/ensure-extensions.mjs",
     "db:push": "node --env-file=.env scripts/ensure-extensions.mjs && drizzle-kit push",
-    "db:setup-role": "node --env-file=.env scripts/create-app-role.mjs"
+    "db:setup-role": "node --env-file=.env scripts/create-app-role.mjs",
+    "db:probe": "node --env-file=.env --import tsx scripts/db-target.ts",
+    "db:target": "node --env-file=.env --import tsx scripts/db-target.ts --migrate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.66.0",

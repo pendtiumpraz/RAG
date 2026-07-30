@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs';
+import { decideSsl } from './ssl';
 import path from 'node:path';
 import postgres from 'postgres';
 
@@ -11,8 +12,12 @@ async function main() {
   // DDL (CREATE EXTENSION/INDEX) → pakai endpoint UNPOOLED bila ada (hindari
   // kuirk pgbouncer). TLS untuk Neon/cloud.
   const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL!;
-  const needSsl = /sslmode=require|neon\.tech|\.aws\./.test(url);
-  const sql = postgres(url, { max: 1, prepare: false, ssl: needSsl ? 'require' : undefined });
+  // Keputusan TLS yang SAMA dengan jalur baca-tulis (db/ssl.ts). Kalau
+  // keduanya berbeda, migrasi bisa berjalan tanpa enkripsi pada basis data
+  // yang aplikasinya sendiri menyambung terenkripsi — dan yang menyeberang
+  // tanpa perlindungan justru skema beserta datanya.
+  const { ssl } = decideSsl(url);
+  const sql = postgres(url, { max: 1, prepare: false, ssl });
   const dir = path.join(process.cwd(), 'migrations');
   const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
   for (const f of files) {
