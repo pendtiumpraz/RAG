@@ -10,12 +10,19 @@
 | Item | Status |
 |------|--------|
 | **Project** | `Nalar — Multi-tenant RAG Engine` |
-| **Fase Aktif** | `07-IMPROVEMENT` — Fase 03/04/06 SELESAI, Fase 05 tersisa uji beban |
+| **Fase Aktif** | `07-IMPROVEMENT` — Fase 01–06 SELESAI; siklus Deploy → Monitor → Improve |
 | **Status Loop** | `active` |
 | **Dimulai** | `2026-07-23` |
 | **Live sejak** | `2026-07-24` di `rag.sainskerta.net` (Vercel + Neon PG17/pgvector 0.8) |
-| **Terakhir diperbarui** | `2026-07-27` |
-| **Progress** | `~90% — semua fitur roadmap tayang & terverifikasi di produksi; sisa: uji beban, optimasi storage vektor, integrasi pembayaran (menunggu pilihan penyedia)` |
+| **Terakhir diperbarui** | `2026-07-31` |
+| **Antrean kerja** | **Papan backlog** (Dataroom ▸ Update & Backlog) — 12 selesai · 53 tersisa (P0=3 · P1=15 · P2=25 · P3=13) |
+| **Progress** | `~93% — produk tayang & terverifikasi; ketiga P0 yang tersisa SEMUANYA menunggu kredensial pihak ketiga (SMTP, gateway, Drive API key), bukan menunggu kode` |
+
+> **Pembagian sumber kebenaran** (ditegaskan 2026-07-31 setelah `.claude/loop.md`
+> tertinggal delapan hari): berkas ini = STATUS proyek · papan backlog di basis
+> data = ANTREAN KERJA · `.claude/loop.md` = FASE. Daftar yang berubah tiap jam
+> tak bisa hidup di berkas yang diperbarui manual — itu sebabnya papan backlog
+> disimpan di DB dan diperbarui saat kartunya benar-benar dipindah.
 
 ---
 
@@ -28,13 +35,13 @@
 - [x] Environment setup final (`.env` + `.env.example`; Vercel Blob utk model host)
 - [x] Git initialized + remote `pendtiumpraz/RAG`
 
-### ➡️ Fase 01: Planning — `In Progress`
+### ✅ Fase 01: Planning — `SELESAI (2026-07-23)`
 - [x] Analisa requirement
 - [x] Tanya jawab arsitektur dengan user — **D1/D2/D3 APPROVED** (lihat `architecture-decisions.md`)
 - [x] Project structure awal dibuat (restrukturisasi Modular Monolith = task berikutnya)
-- [ ] Roadmap final disepakati
+- [x] Roadmap final disepakati — kini hidup sebagai **papan backlog** di basis data, bukan sebagai daftar statis
 
-### ➡️ Fase 02: Wireframe & Audit — `In Progress`
+### ✅ Fase 02: Wireframe & Audit — `SELESAI (2026-07-23)`
 - [x] Wireframe low fidelity → `wireframes/dashboard-wireframe.html` (7 screen + mobile)
 - [x] User approve wireframe (2026-07-23)
 - [x] Mockup high fidelity dashboard → `wireframes/dashboard-mockup.html` (7 halaman, revisi elegan dark-first)
@@ -76,7 +83,7 @@
 
 <!-- Fase 04 dimulai 2026-07-23; detail di atas -->
 
-### ➡️ Fase 04: Frontend — `In Progress (inti selesai)`
+### ✅ Fase 04: Frontend — `SELESAI (2026-07-26)`
 - [x] **DS v4 Official Brand** (`src/app/nalar-ds.css`): light-first, Deep Navy+Royal Blue+Emerald+Amber, Manrope/Inter/JetBrains Mono via **next/font**; token diremap, kontras diverifikasi
 - [x] Providers (SessionProvider + tema) + layout + **next/font** self-host + metadata/logo resmi
 - [x] API client (`_lib/api.ts`: fetch wrapper + useApi hook loading/error/refetch) + UI atoms (Icon outline-2px, Logo PNG resmi, Toast, Skeleton, Empty/Error states)
@@ -90,7 +97,7 @@
       sapaan, jejak retrieval) + **pratinjau langsung** yang meniru embed.js, plus snippet
       pasang & tautan ke demo.
 
-### ➡️ Fase 05: Audit — `In Progress`
+### ✅ Fase 05: Audit — `SELESAI (2026-07-27) — kecuali uji beban`
 - [x] **Build + typecheck LULUS** (`next build` exit 0, 28 rute) — fix: tipe pdf-parse
 - [x] **Smoke test runtime** (no-DB): /api/openapi, /embed.js, /auth → 200
 - [x] **2 bug pgvector ditemukan & fixed**: dimensi vektor (kolom→vector(1536)+zero-pad), HNSW ≤2000 (registry di-cap, Qwen-8B dihapus, OpenAI-large@1536)
@@ -425,8 +432,78 @@
       Tanpa vendor pihak ketiga: stdout sudah ditangkap Vercel/journalctl.
       Terverifikasi dgn data nyata + 2 unit test yang mengunci redaksi rahasia.
 
-### ⬜ Fase 06: Deployment — `Belum`
-### ⬜ Fase 07: Improvement — `Belum`
+### ➡️ Fase 07: Improvement — `AKTIF sejak 2026-07-28`
+
+Siklusnya Deploy → Monitor → Improve; tak ada checklist yang bisa "selesai".
+Antrean kerjanya ada di **papan backlog**, bukan di sini — daftar yang berubah
+tiap jam tak bisa hidup di berkas yang diperbarui manual.
+
+Yang sudah tayang sepanjang fase ini (semuanya terverifikasi jalan, bukan
+sekadar ditulis — angka di bawah hasil ukur, bukan perkiraan):
+
+**Ketepatan jawaban**
+- [x] **Hybrid search 3 kaki** — vektor + leksikal + Memory, digabung lewat
+      PERINGKAT (RRF), bukan penjumlahan skor. Skor dari mesin pencari berbeda
+      tak sebanding; menjumlahkannya berarti didominasi yang kebetulan
+      berangka besar. Ditambah pembuangan potongan kembar (ambang Jaccard 0,6,
+      diukur: pasangan kembar nyata 0,699, semua pasangan lain di bawah 0,30)
+      lalu penataan keragaman MMR.
+- [x] **Memory jadi kaki KETIGA, bukan gerbang** — catatan Memory sebelumnya
+      ditulis, di-embed, lalu tak pernah dibaca saat menjawab. Kini ikut
+      menjawab, tapi sebagai kaki: gerbang bisa menyembunyikan dokumen (catatan
+      Memory adalah tafsiran LLM, bisa luput), kaki hanya bisa menambah.
+      Ringkasan DITANDAI `type="summary"` dan dilarang jadi sumber angka.
+- [x] **Kebijakan jawaban per chatbot (D14)** — bahasa (ikut penanya / id / en,
+      dinilai per pesan), nada, tingkat kepatuhan pada dokumen, dan temperature.
+      Sebelumnya TAK SATU PUN penyedia dikirimi temperature, jadi semua
+      berjalan pada bawaannya: **1,0** — nilai untuk menulis prosa, dipakai
+      mesin yang tugasnya menyebut nomor pasal. Kini 0,2, dijepit di dua lapis.
+
+**Biaya & kapasitas** — semua terukur dengan `pg_column_size` di produksi
+- [x] **Indeks vektor berdimensi asli** — 4,07× lebih kecil, hasil byte-identik
+- [x] **Retrieval bertingkat** — menyala SENDIRI di atas 200 rb potongan; tak
+      ada mode yang perlu dipilih siapa pun, karena memilihnya menuntut
+      penilaian yang pemilik data tak punya dasar untuk membuatnya. Terbukti
+      4/4 identik dengan mode langsung pada basis data nyata.
+- [x] **halfvec tanpa batas dimensi (0035)** — 6.148 → **776 byte** per vektor
+      (7,9×), baris 8.228 → 2.852 (2,9×). Ketelitiannya diukur, bukan
+      diasumsikan: **50/50 posisi peringkat identik**.
+- [x] **Dedup dua lapis** — nama+ukuran sebelum unduh, sidik jari isi setelah
+      ekstraksi. Lapis kedua menangkap salinan yang di-rename, yang justru
+      bentuk redundansi paling lazim di Drive/SharePoint.
+- [x] **Kuota penyimpanan & pesan per paket, bisa disetel superadmin** —
+      sebelumnya satu tenant Free bisa meng-ingest puluhan gigabyte tanpa
+      tertahan apa pun, dengan biaya ditanggung platform.
+
+**Kedaulatan data**
+- [x] **Basis data tak terikat penyedia (D15)** — `db:probe` menguji kelayakan
+      Postgres mana pun sebelum dipakai; `db:target` memigrasikan skemanya;
+      `tenant:export`/`import` memindahkan SATU tenant antar basis data.
+- [x] 🔴 **Cacat TLS ditemukan & diperbaiki** — keputusan TLS DITEBAK dari nama
+      host, jadi ia akan mati diam-diam tepat saat pindah dari Neon ke VPS,
+      dan seluruh isi dokumen pelanggan menyeberang internet tanpa enkripsi
+      tanpa satu pun galat. Logikanya dibalik: TLS menyala untuk host publik
+      apa pun.
+
+**Pengetahuan yang bisa dibaca manusia**
+- [x] **Kategori dokumen jadi master data** — taksonomi per tenant yang bisa
+      disunting; agen boleh MENGUSULKAN kategori baru tapi tak mengaktifkannya
+      sendiri. Penanda visualnya **warna × bentuk**, karena uji OKLab
+      semua-pasangan menolak palet 8 warna (ungu vs biru ΔE 0,4 pada deutan).
+- [x] **Persetujuan ringkasan + dashboard Dokumen** — cari berkas di KB lewat
+      judul, isi, DAN ringkasan sekaligus.
+- [x] **Dataroom**: dek HLA beranimasi (SVG+CSS murni, 20 slide), kalkulator
+      kapasitas, ekspor SVG+WebP dalam ZIP tanpa pustaka.
+
+Yang TERSISA dan diakui belum ada:
+- [ ] **Uji beban** — satu-satunya bagian Fase 05 yang belum dijalankan
+- [ ] **Recall mode bertingkat pada korpus besar** — kebenarannya terbukti,
+      tapi pada korpus kecil. Angka "1–3 GB RAM" masih hasil RANCANGAN, bukan
+      hasil ukur (kartu `a-tier1-recall-eval`)
+- [ ] **Eval jawaban ber-golden-set** — tanpa itu, perbaikan retrieval tak bisa
+      dibuktikan, hanya bisa diyakini (kartu `a-eval`)
+- [ ] **Reranker lintas-encoder** — dipisah jujur dari kartu hybrid search
+      yang sudah selesai (kartu `a-reranker`)
 
 ---
 
@@ -448,7 +525,12 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 | 2 | Tabel belum punya `deleted_at` + endpoint restore | high | ✅ selesai — /trashed + /restore ada di chatbots, documents, invitations, embedding-servers |
 | 3 | Struktur `src/lib/*` belum Modular Monolith — Rule #1 | medium | ✅ selesai (Fase 03) — semua di `src/modules/*` |
 | 4 | Arah UI dashboard vs standar Sainskerta | high | ✅ resolved (D3=Hybrid) |
-| 5 | DB credentials belum diberikan user (Rule #8) | medium | open |
+| 5 | DB credentials belum diberikan user (Rule #8) | medium | ✅ selesai 2026-07-24 — Neon PG17; dan sejak D15 basis datanya tak lagi terikat penyedia mana pun |
+| 8 | **Uji beban belum pernah dijalankan** — satu-satunya bagian Fase 05 yang tersisa | medium | open |
+| 9 | **Recall mode bertingkat belum terukur pada korpus besar** — kebenarannya terbukti tapi pada 34 potongan; angka "1–3 GB RAM" masih hasil RANCANGAN. Sampai terukur, ia disebut begitu di dek proposal | medium | open (`a-tier1-recall-eval`) |
+| 10 | **Belum ada golden set untuk eval jawaban** — tanpa itu, perbaikan retrieval hanya bisa diyakini, tak bisa dibuktikan. Ini yang menghalangi keputusan reranker | high | open (`a-eval`) |
+| 11 | **Sisa kuota tak terlihat sebelum tertabrak** — endpoint `/api/usage/storage` sudah ada tapi belum dipakai UI mana pun. Dengan kuota Free yang sengaja ketat, ini pembeda antara pesan "paketmu penuh" dan kesan "aplikasinya rusak" | medium | open (`a-quota-ui-hint`) |
+| 12 | **Rate limit tak berbagi antar instans** — hitungannya di memori tiap lambda, jadi batas efektifnya melonggar saat lalu lintas naik. Kodenya siap begitu ada URL Redis | medium | open (`h-redis`) |
 | 6 | White-label (theme_config per chatbot) | high | ✅ selesai 2026-07-26 — halaman /branding + pratinjau langsung; tipe ThemeConfig diselaraskan dgn embed.js |
 | 7 | Server-to-server API key per client (key tak pernah ke browser) | high | ✅ arsitektur ada (providerCredentials + apiKeyResolver); didokumentasi di docs/idea.md |
 
@@ -458,7 +540,7 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 
 - **Scaffold engine dibangun SEBELUM mengadopsi Loop Engineering.** Sekarang proyek dis/selaraskan dengan RULES-OF-THE-GAME. File engine (`src/lib/*`, `docs/*`) tetap dipertahankan sebagai referensi, tapi backend akan direstrukturisasi agar compliant.
 - Brand identity **Nalar** sudah jadi (`docs/brand-identity.html`, `docs/idea.html`).
-- Model catalog di `src/lib/models/registry.ts` (per 2026-07-23) lebih baru dari `loop/standards/AI-PROVIDERS.md` (Juni 2026) — pakai yang lebih baru.
+- Model catalog kini di `src/modules/core/registry.ts` (bukan lagi `src/lib/` — dipindah saat restrukturisasi modular monolith). Ia lebih baru dari `loop/standards/AI-PROVIDERS.md` (Juni 2026) — pakai yang lebih baru.
 
 ---
 
@@ -466,6 +548,17 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 
 | Tanggal | Fase | Perubahan |
 |---------|------|-----------|
+| 2026-07-31 | 07 | **Papan backlog jadi sumber kebenaran antrean kerja.** `.claude/loop.md` ternyata tertinggal DELAPAN HARI — masih menyebut Fase 04 "pending" sementara D11–D15 sudah diambil dan produknya tayang. Sebabnya struktural: daftar yang berubah tiap jam tak bisa hidup di berkas yang diperbarui manual. Loop.md menyusut jadi pencatat fase & konteks; antreannya pindah ke papan yang tersimpan di DB. Papan sendiri dirapikan — kartu `a-hybrid` berjudul "Hybrid search + reranker" dan ditandai selesai padahal reranker-nya belum ada, jadi judulnya diperbaiki dan reranker dipisah jadi kartu sendiri |
+| 2026-07-31 | 07 | **halfvec tanpa batas dimensi** (migrasi 0035): kolom vektor 6.148 → **776 byte** (7,9×), baris 8.228 → 2.852 (2,9×). Ketelitiannya DIUKUR sebelum diputuskan — 50/50 posisi peringkat identik antara fp32 & fp16; sesudah migrasi, uji retrieval kembali 4/4 identik. Tiga cacat ketahuan lewat menjalankan sungguhan: HNSW menuntut dimensi diketahui sehingga kolom tanpa batas tetap perlu cast; nama indeks 0028 ternyata `emb_` bukan `dims_`; `memory_notes` tak punya `embedding_dims` sehingga catatan lama 1.536-dim menabrak literal 384-dim dan MEMATIKAN seluruh pencarian. Migrasi 0028/0029 diberi penjaga tipe agar tak melawan 0035 |
+| 2026-07-31 | 07 | **Kuota per paket bisa disetel superadmin** (0036) — angka kuota keputusan BISNIS, dan penyesuaian yang menuntut deploy tak akan pernah dilakukan. Default baru sengaja ketat: Free 10 potongan & 10 pesan/bulan = ruang COBA, bukan paket pemakaian. `onprem` tak bisa ditimpa jadi berhingga. Cacat build ketahuan: impor `db` di `limits.ts` menyeret driver Postgres ke bundle browser karena kalkulator Dataroom mengimpor konstantanya — dipisah ke `limits-server.ts` |
+| 2026-07-30 | 07 | **Kedaulatan basis data (D15)** — `db:probe` menguji kelayakan Postgres mana pun (versi, pgvector, hak akses, dan yang paling menentukan: apakah perannya bisa MELEWATI RLS), `db:target` memigrasikan skema, `tenant:export/import` memindahkan satu tenant. 🔴 **Cacat TLS ditemukan**: keputusannya DITEBAK dari nama host, jadi akan mati diam-diam tepat saat pindah dari Neon — dokumen pelanggan menyeberang internet tanpa enkripsi, tanpa galat. Logikanya dibalik. Dua cacat lain ketahuan saat ekspor dijalankan sungguhan: tanpa `app.current_tenant` ekspor membaca NOL baris sambil melapor sukses, dan `oauth_apps` sempat masuk daftar tabel tenant karena namanya memuat `ms_tenant_id` |
+| 2026-07-30 | 07 | **Kuota penyimpanan & dedup dua lapis.** Sebelumnya PLAN_LIMITS tak membatasi penyimpanan sama sekali — satu tenant Free bisa meng-ingest puluhan gigabyte, biayanya ditanggung platform. Dedup: nama+ukuran sebelum unduh, sidik jari isi sesudah ekstraksi; lapis kedua menangkap salinan yang di-rename, bentuk redundansi paling lazim di Drive/SharePoint. Berkas kembar DICATAT & ditampilkan, tak dibuang diam-diam |
+| 2026-07-30 | 07 | **Dek HLA beranimasi di Dataroom** — 20 slide SVG+CSS murni tanpa pustaka, plus kalkulator kapasitas dan ekspor SVG+WebP dalam ZIP yang ditulis sendiri. Yang menuntut kehati-hatian: SVG lewat `<img>` terisolasi dari CSS halaman, jadi gayanya harus disalin masuk; dan animasi harus dibekukan pada keadaan akhir, kalau tidak separuh gambar terekspor kosong dengan rapi |
+| 2026-07-30 | 07 | **Kategori dokumen jadi master data** — taksonomi per tenant yang bisa disunting; agen boleh mengusulkan tapi tak mengaktifkan sendiri (LLM bebas melahirkan "Kontrak"/"Perjanjian"/"Dokumen Kontraktual" sebagai tiga kategori untuk hal yang sama). Penanda visualnya **warna × bentuk**: uji OKLab semua-pasangan menolak palet 8 warna — ungu vs biru ΔE 0,4 pada deutan, praktis warna yang sama bagi mata buta warna merah-hijau |
+| 2026-07-29 | 07 | **Memory jadi kaki KETIGA retrieval** — catatan Memory selama ini ditulis, di-embed, lalu tak pernah dibaca saat menjawab. Kaki, BUKAN gerbang: catatan Memory adalah tafsiran LLM, dan menjadikannya penyaring berarti dokumen yang luput dicatat jadi tak terjangkau sama sekali tanpa pesan apa pun. Ringkasan ditandai `type="summary"` dan dilarang jadi sumber angka/tanggal/nomor pasal |
+| 2026-07-29 | 07 | **Persetujuan ringkasan + dashboard Dokumen** (0032). Mode tinjau MATI secara default dan itu keputusan sadar: catatan lahir satu per dokumen, jadi korpus ribuan berkas berarti ribuan persetujuan. Migrasi mem-backfill `doc_ref` catatan lama — tanpa itu kolom ringkasan tampak kosong sampai agen dijalankan ulang (terbukti 0/6 → 6/6) |
+| 2026-07-28 | 07 | **Kebijakan jawaban per chatbot (D14)** — ditemukan bahwa TAK SATU PUN penyedia LLM dikirimi `temperature`, jadi semua berjalan pada bawaannya: **1,0**, nilai untuk menulis prosa dipakai mesin yang tugasnya menyebut nomor pasal. Kini 0,2 dijepit di dua lapis, plus bahasa/nada/kepatuhan sumber. Arahan ditulis dalam bahasa Inggris dengan alasan teknis: instruksi berbahasa Indonesia menarik model menjawab Indonesia walau penanyanya menulis Inggris |
+| 2026-07-28 | 07 | **Retrieval bertingkat menyala otomatis** (0029) — menyuruh pemilik data memilih mode berarti meminta penilaian yang mereka tak punya dasar untuk membuatnya, dan salah pilih berarti jawaban yang diam-diam kehilangan dokumen. Terbukti 4/4 identik dengan mode langsung pada DB nyata; perbandingannya per ISI, karena korpus uji memuat potongan kembar yang urutannya ditentukan rencana kueri |
 | 2026-07-23 | 00→01 | Adopsi Sainskerta Loop Workflow; instantiate file-as-interface; identifikasi 5 gap kepatuhan; angkat 3 keputusan arsitektur ke user |
 | 2026-07-23 | 01 | D1/D2/D3 di-approve user; refactor `schema.ts` compliant (No-FK + soft-delete + index) |
 | 2026-07-23 | 02 | Wireframe low-fi dashboard dibuat (7 screen: dashboard, chatbots CRUD, right-drawer, KB, conversations, models&keys, sampah+mobile); menunggu approval |
