@@ -53,42 +53,14 @@ export const AMBANG_BAHASA_SALAH = 0.20;
 import { deteksiPenolakan } from '@/modules/chat/confidence';
 export { deteksiPenolakan };
 
-/* ── 2 · BAHASA ─────────────────────────────────────────────────────── */
-
-/**
- * Kata fungsi — penanda bahasa yang jauh lebih andal daripada kata isi.
- *
- * Kata isi sering sama di kedua bahasa (nama perusahaan, istilah teknis,
- * nomor pasal), sedangkan kata fungsi hampir tak pernah menyeberang. Itulah
- * sebabnya "PT SAINSKERTA SOLUSI NUSANTARA" tak mengacaukan penilaian.
- */
-const KATA_ID = ['yang', 'dan', 'dari', 'untuk', 'dengan', 'pada', 'adalah',
-  'tidak', 'ini', 'itu', 'atau', 'dalam', 'akan', 'sudah', 'juga', 'oleh', 'ke'];
-const KATA_EN = ['the', 'and', 'of', 'for', 'with', 'is', 'are', 'not',
-  'this', 'that', 'or', 'in', 'will', 'has', 'have', 'by', 'to', 'a'];
-
-const hitung = (kata: string[], daftar: string[]) =>
-  kata.filter((k) => daftar.includes(k)).length;
-
-/**
- * Terka bahasa jawaban: 'id' | 'en' | null bila tak cukup bukti.
- *
- * `null` BUKAN kegagalan pendeteksi — ia jawaban yang jujur untuk teks yang
- * memang tak punya cukup kata fungsi (jawaban satu angka, satu nama).
- * Pemanggilnya yang memutuskan apa artinya, dan di pelari eval ia dihitung
- * TIDAK COCOK — sisi pesimis, sesuai aturan berkas ini.
- */
-export function deteksiBahasa(teks: string): 'id' | 'en' | null {
-  const kata = teks.toLowerCase().match(/[a-z']+/g) ?? [];
-  if (kata.length < 6) return null;
-  const id = hitung(kata, KATA_ID);
-  const en = hitung(kata, KATA_EN);
-  // Menuntut selisih, bukan sekadar unggul: campuran istilah Inggris di
-  // kalimat Indonesia lazim, dan menang tipis bukan bukti.
-  if (id >= en + 2) return 'id';
-  if (en >= id + 2) return 'en';
-  return null;
-}
+/* ── 2 · BAHASA ─────────────────────────────────────────────────────
+   Pendeteksinya tinggal di `modules/chat/bahasa.ts` — milik PRODUK, bukan
+   milik eval. Begitu jalur chat ikut memakainya (penolakan tanpa konteks
+   mengikuti bahasa penanya), ia berhenti jadi alat ukur dan jadi perilaku:
+   alat ukur boleh diperbaiki agar lebih tajam, perilaku tak boleh berubah
+   diam-diam karena seseorang menyetel evalnya. */
+export { deteksiBahasa } from '@/modules/chat/bahasa';
+import { deteksiBahasa } from '@/modules/chat/bahasa';
 
 /* ── 3 · SITASI ─────────────────────────────────────────────────────── */
 

@@ -10,7 +10,7 @@ import { streamChat, type ChatMessage } from './llm';
 import {
   normalizePolicy, policyDirectives, policyReminder, samplingFor, type AnswerPolicy,
 } from './answer-policy';
-import { nilaiKeyakinan, type Keyakinan } from './confidence';
+import { nilaiKeyakinan, penolakanTanpaKonteks, type Keyakinan } from './confidence';
 import { estimateTokens } from '@/modules/core/limits';
 import { usageService } from '@/modules/usage/usage.service';
 import {
@@ -235,17 +235,36 @@ export async function chatTurn(
   };
   const parser = createBlockStreamParser(emit);
 
-  // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
-  // kredensialnya dari pendaftaran server — bukan dari argumen ini.
-  for await (const delta of streamChat(llmModel, prompt, apiKey ?? '', samplingFor(policy))) {
-    parser.push(delta);
-    // Budget dihitung dari delta MENTAH — model tetap menghasilkan token
-    // walau parser masih menahan blok yang belum lengkap.
-    if (!budgetAllows(budget, delta.length)) { truncated = true; break; }
+  /* PINTAS — grounding KETAT dengan NOL potongan.
+     Pada mode `strict` model diperintahkan hanya menjawab dari dokumen, jadi
+     tanpa satu pun potongan keluarannya sudah pasti penolakan. Memanggilnya
+     tetap membakar satu giliran penuh demi kalimat yang sudah diketahui
+     sebelum panggilan dimulai — dan pertanyaan di luar korpus (puisi, kode,
+     terjemahan) justru selalu jatuh ke jalur ini.
+
+     HANYA `strict`. Mode `balanced` dan `open` MEMANG boleh menjawab tanpa
+     dokumen — memintas keduanya akan mematikan fitur, bukan menghemat biaya.
+     Dan hanya pada NOL potongan: "skor rendah" bukan alasan yang sah, karena
+     skor kemiripan terbukti tidak memisahkan pertanyaan berjawab dari yang
+     tidak (0,420–0,581 melawan 0,382–0,546, bertindih penuh). */
+  const pintasTanpaKonteks = policy.grounding === 'strict' && context.length === 0;
+  let fallback = false;
+
+  if (pintasTanpaKonteks) {
+    emit({ type: 'text', text: penolakanTanpaKonteks(input.question) });
+  } else {
+    // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
+    // kredensialnya dari pendaftaran server — bukan dari argumen ini.
+    for await (const delta of streamChat(llmModel, prompt, apiKey ?? '', samplingFor(policy))) {
+      parser.push(delta);
+      // Budget dihitung dari delta MENTAH — model tetap menghasilkan token
+      // walau parser masih menahan blok yang belum lengkap.
+      if (!budgetAllows(budget, delta.length)) { truncated = true; break; }
+    }
+    // Model yang mengabaikan format JSON jatuh ke fallback: prosa dipecah jadi
+    // blok text/list — pengguna tetap menerima jawaban terstruktur.
+    fallback = parser.finalize().fallback;
   }
-  // Model yang mengabaikan format JSON jatuh ke fallback: prosa dipecah jadi
-  // blok text/list — pengguna tetap menerima jawaban terstruktur.
-  const { fallback } = parser.finalize();
 
   // Guardrail L4 (teks penuh) + enforcement sitasi pada padanan teks polos.
   let full = blocksToPlainText(blocks);
@@ -273,7 +292,10 @@ export async function chatTurn(
       citations: context.map((c) => ({ documentId: c.documentId, score: c.score, title: c.title })),
     }));
 
-  const tokensIn = estimateTokens(prompt.map((m) => m.content).join('\n'));
+  /* Nol saat dipintas: prompt-nya dibangun tapi TAK PERNAH dikirim.
+     Mencatatnya seolah terkirim membuat laporan biaya menagih token yang tak
+     pernah ada — dan justru menyembunyikan penghematan yang baru dibuat. */
+  const tokensIn = pintasTanpaKonteks ? 0 : estimateTokens(prompt.map((m) => m.content).join('\n'));
   const tokensOut = estimateTokens(full);
   await usageService.recordTurn(input.tenantId, tokensIn, tokensOut);
 

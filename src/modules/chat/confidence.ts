@@ -1,3 +1,4 @@
+import { bahasaBalasan } from './bahasa';
 /**
  * KEYAKINAN JAWABAN — dan kenapa ia BUKAN angka persen.
  *
@@ -114,3 +115,37 @@ export const LABEL_STATUS: Record<StatusJawaban, string> = {
   'tak-ditemukan': 'Tidak ditemukan di dokumen',
   'tanpa-rujukan': 'Tanpa rujukan dokumen',
 };
+
+/* ── penolakan tanpa konteks ────────────────────────────────────────── */
+
+/**
+ * Kalimat penolakan saat retrieval mengembalikan NOL potongan pada mode
+ * grounding ketat.
+ *
+ * Ditulis di sini, bukan diminta ke model. Pada `strict` + nol potongan,
+ * jawabannya sudah pasti penolakan — tak ada satu pun kalimat yang boleh
+ * disusun model, karena tak ada apa pun untuk disandarkan. Memanggil model
+ * hanya untuk mendengarkannya berkata "tidak ada di dokumen" membakar satu
+ * giliran penuh demi keluaran yang sudah diketahui sebelum panggilan dimulai.
+ *
+ * Bahasanya mengikuti penanya. Kalimat tetap berbahasa Indonesia akan
+ * merusak kepatuhan bahasa yang justru baru diperbaiki — dan penolakan
+ * berbahasa asing terasa seperti kerusakan, bukan seperti jawaban.
+ */
+export function penolakanTanpaKonteks(pertanyaan: string): string {
+  return bahasaBalasan(pertanyaan) === 'en'
+    ? 'I could not find anything about this in the available documents, '
+      + 'so I cannot answer it. Try rephrasing the question, or ask about a topic '
+      + 'covered by this knowledge base.'
+    /* Kalimatnya sengaja memakai bentuk "tidak ditemukan … dokumen".
+       deteksiPenolakan() menuntut DUA sinyal dalam satu kalimat — pengingkaran
+       ketersediaan DAN rujukan sumber — dan bentuk itulah yang dikenalinya.
+       Kalimat pertama yang saya tulis ("tidak menemukan apa pun") lolos dari
+       pendeteksi, sehingga penolakan ini akan dinilai sebagai jawaban biasa
+       tanpa sitasi. Yang disesuaikan wordingnya, BUKAN pendeteksinya:
+       pendeteksi itu sudah diukur pada korpus produksi, dan melonggarkannya
+       demi satu kalimat berarti mengubah penilaian seluruh jawaban. */
+    : 'Informasi ini tidak ditemukan di dalam dokumen yang tersedia, jadi saya '
+      + 'tidak bisa menjawabnya. Coba ubah kalimat pertanyaannya, atau tanyakan '
+      + 'hal yang memang dibahas di basis pengetahuan ini.';
+}
