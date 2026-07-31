@@ -34,15 +34,15 @@
   /* 3 ── SEMANTIC · LIGHT (default) ──────────────────────────────────── */
   --bg:#F1F5F9; --bg-2:#E9EEF4;
   --panel:#FFFFFF; --card:#FFFFFF; --card-2:#F8FAFC; --card-3:#EEF2F7;
-  --line:#D8E0EA; --line-strong:#B6C2D2;
+  --line:#D8E0EA; --line-strong:#7E8FA6;   /* batas kontrol: 3,3:1 (WCAG 1.4.11) */
   --ink:#0F172A;               /* Deep Navy · 16.9:1 AAA */
   --muted:#475569;             /* Slate 600 · 7.5:1 AAA */
-  --faint:#8494A8;             /* Slate 400 · 3.2:1 deco/icon */
+  --faint:#5B6B80;             /* .microlabel adalah TEKS 10px, bukan hiasan → 5,4:1 */
   --signal:var(--wl-signal); --signal-strong:var(--wl-signal-strong);
   --on-signal:#FFFFFF;
   --source:var(--wl-source);           /* #B45309 · 4.9:1 AA (teks) */
-  --source-mark:#F59E0B;               /* Amber fills */
-  --good:#047857; --good-mark:#10B981;
+  --source-mark:#D97706;               /* Amber: isian & .led-warn → 3,2:1 */
+  --good:#047857; --good-mark:#059669;   /* penanda status .led → 3,8:1 */
   --warn:#B45309; --danger:#DC2626; --info:#2563EB;
   --overlay:rgba(15,23,42,.42);
   --pop:0 10px 30px rgba(15,23,42,.10), 0 2px 6px rgba(15,23,42,.06);
@@ -56,11 +56,11 @@
 [data-theme="dark"]{
   --bg:#0F172A; --bg-2:#0B1220;
   --panel:#1E293B; --card:#1E293B; --card-2:#243348; --card-3:#2C3D55;
-  --line:#334155; --line-strong:#475569;
+  --line:#334155; --line-strong:#64748B;   /* 3,1:1 */
   --ink:#F1F5F9;               /* 15.8:1 AAA */
   --muted:#94A3B8;             /* 6.9:1 AAA */
-  --faint:#64748B;             /* 3.4:1 deco */
-  --wl-signal:#3B82F6; --wl-signal-strong:#60A5FA; --wl-focus:59,130,246;
+  --faint:#8494A8;             /* teks microlabel → 4,7:1 */
+  --wl-signal:#5C9BF8; --wl-signal-strong:#93C5FD; --wl-focus:92,155,248;
   --signal:var(--wl-signal); --signal-strong:var(--wl-signal-strong);
   --on-signal:#0B1220;
   --wl-source:#FBBF24; --source:#FBBF24; --source-mark:#FBBF24;
