@@ -573,7 +573,8 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const toast = useToast();
 
   // Tiga jenis sumber tak butuh akun sama sekali.
-  const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload';
+  const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload' || kind === 's3';
+  const [s3, setS3] = useState({ bucket: '', region: '', prefix: '', accessKeyId: '', secretAccessKey: '', endpoint: '', gayaPath: false });
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
   const providerAccounts = noAuth ? [] : accounts.filter((a) => a.provider === provider);
   useEffect(() => { setAccountEmail(providerAccounts[0]?.accountEmail ?? ''); setPicked([]); setUrl(''); setFiles([]); setDriveMethod('picker'); }, [kind]); // eslint-disable-line
@@ -683,7 +684,20 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
     setBusy(true); setErr(null);
 
     let config: Record<string, unknown>;
-    if (kind === 'gdrive_public') {
+    if (kind === 's3') {
+      if (!s3.bucket.trim() || !s3.accessKeyId.trim() || !s3.secretAccessKey) {
+        setErr('Bucket, access key id, dan secret access key wajib diisi.'); setBusy(false); return;
+      }
+      config = {
+        bucket: s3.bucket.trim(), region: s3.region.trim() || 'us-east-1',
+        prefix: s3.prefix.trim(), accessKeyId: s3.accessKeyId.trim(),
+        /* Dikirim polos SEKALI lewat HTTPS lalu dienkripsi di server
+           (api/sources amankanRahasia). Tak ada jalan lain: kunci yang
+           dienkripsi di peramban berarti kuncinya juga ada di peramban. */
+        secretAccessKey: s3.secretAccessKey,
+        endpoint: s3.endpoint.trim(), gayaPath: s3.gayaPath,
+      };
+    } else if (kind === 'gdrive_public') {
       config = { folderUrl: url.trim() };
     } else if (kind === 'url') {
       config = { url: url.trim() };
@@ -716,7 +730,55 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
               <option value="sharepoint">SharePoint (situs / tautan berbagi)</option>
               <option value="upload">Unggah berkas dari komputer</option>
               <option value="url">Halaman web (URL)</option>
+              <option value="s3">S3 / penyimpanan objek (MinIO, R2, Wasabi)</option>
             </Select></Field>
+
+          {/* S3 tak memakai OAuth: pelanggan memasok kuncinya sendiri, persis
+              seperti kunci API penyedia LLM. Secret-nya dienkripsi di server
+              (AES-256-GCM) dan tak pernah dikirim balik ke peramban. */}
+          {kind === 's3' && (
+            <>
+              <Field label="Bucket">
+                <input className="input" value={s3.bucket} placeholder="dokumen-perusahaan"
+                  onChange={(e) => setS3({ ...s3, bucket: e.target.value })} />
+              </Field>
+              <Field label="Wilayah (region)">
+                <input className="input" value={s3.region} placeholder="ap-southeast-1"
+                  onChange={(e) => setS3({ ...s3, region: e.target.value })} />
+              </Field>
+              <Field label="Awalan / folder (opsional)">
+                <input className="input" value={s3.prefix} placeholder="kebijakan/2026/"
+                  onChange={(e) => setS3({ ...s3, prefix: e.target.value })} />
+                <p className="microlabel" style={{ marginTop: 6 }}>
+                  KOSONGKAN UNTUK MENGAMBIL SELURUH ISI BUCKET
+                </p>
+              </Field>
+              <Field label="Access key ID">
+                <input className="input" value={s3.accessKeyId} autoComplete="off"
+                  onChange={(e) => setS3({ ...s3, accessKeyId: e.target.value })} />
+              </Field>
+              <Field label="Secret access key">
+                <input className="input" type="password" value={s3.secretAccessKey} autoComplete="off"
+                  onChange={(e) => setS3({ ...s3, secretAccessKey: e.target.value })} />
+                <p className="microlabel" style={{ marginTop: 6 }}>
+                  DISIMPAN TERENKRIPSI DI SERVER — TAK PERNAH DIKIRIM BALIK KE PERAMBAN.
+                  BERIKAN KUNCI DENGAN IZIN BACA SAJA (s3:ListBucket + s3:GetObject).
+                </p>
+              </Field>
+              <Field label="Endpoint (kosongkan untuk AWS)">
+                <input className="input" value={s3.endpoint} placeholder="https://minio.perusahaan.co.id"
+                  onChange={(e) => setS3({ ...s3, endpoint: e.target.value })} />
+                <p className="microlabel" style={{ marginTop: 6 }}>
+                  WAJIB HTTPS KECUALI LOOPBACK — KUNCI AKSES DAN ISI DOKUMEN MENYEBERANGI KABEL INI
+                </p>
+              </Field>
+              <label className="cluster gap-2" style={{ cursor: 'pointer' }}>
+                <input type="checkbox" checked={s3.gayaPath}
+                  onChange={(e) => setS3({ ...s3, gayaPath: e.target.checked })} />
+                <span>Gaya alamat path (wajib untuk MinIO &amp; sebagian besar penyimpanan swakelola)</span>
+              </label>
+            </>
+          )}
 
           {/* Folder publik tak butuh akun sama sekali — jangan tampilkan
               tombol Connect yang justru membingungkan. */}

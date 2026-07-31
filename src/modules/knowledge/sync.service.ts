@@ -23,6 +23,9 @@ import {
 } from './storage/gdrive-public';
 import { oauthAppService } from '@/modules/auth/oauth-app.service';
 import { assertPublicHttpUrl } from '@/modules/core/net';
+import { decryptSecret } from '@/modules/core/crypto';
+import type { KredensialS3 } from '@/modules/connections/s3';
+import { ambilObjek, daftarObjek } from './storage/s3';
 
 /**
  * SYNC WORKER — crawl storage user → ekstrak teks → ingest KB →
@@ -532,6 +535,50 @@ async function connect(
       files: [{ externalId: url, name: `${name}`, mimeType: mime || 'text/html', version }],
       truncated: false,
       async fetch() { return { content: buf, mime: mime || 'text/html' }; },
+    };
+  }
+
+  /**
+   * Penyimpanan objek kompatibel-S3 (AWS S3, MinIO, Cloudflare R2, Wasabi).
+   *
+   * Tanpa OAuth: pelanggan memasok kunci aksesnya sendiri, persis seperti
+   * mereka memasok kunci API penyedia LLM. Secret-nya TERENKRIPSI di config
+   * (`secretAccessKeyEnc`) — menyimpannya polos di jsonb berarti satu kunci
+   * yang bisa membaca seluruh bucket pelanggan tergeletak di basis data.
+   *
+   * ETag dipakai sebagai penanda versi. Untuk unggahan biasa ia MD5 isi
+   * berkas, jadi berkas yang tak berubah tak pernah diunduh ulang; untuk
+   * unggahan multipart bentuknya "<hash>-<n>" — tetap berubah begitu isinya
+   * berubah, yang memang satu-satunya sifat yang dibutuhkan planDelta().
+   */
+  if (kind === 's3') {
+    const secretEnc = String(config.secretAccessKeyEnc ?? '');
+    if (!secretEnc) throw new Error('Sumber S3 tanpa secret access key — pasang ulang sumbernya.');
+    const kred: KredensialS3 = {
+      accessKeyId: String(config.accessKeyId ?? ''),
+      secretAccessKey: decryptSecret(secretEnc),
+      region: String(config.region ?? 'us-east-1'),
+      bucket: String(config.bucket ?? ''),
+      endpoint: config.endpoint ? String(config.endpoint) : undefined,
+      gayaPath: config.gayaPath === true,
+    };
+    if (!kred.accessKeyId || !kred.bucket) throw new Error('Sumber S3 tanpa access key id atau bucket.');
+
+    const prefix = String(config.prefix ?? '').replace(/^\/+/, '');
+    const { objek, terpotong } = await daftarObjek(kred, prefix);
+
+    return {
+      files: objek.map((o) => ({
+        externalId: o.key,
+        /* Nama berkasnya saja untuk judul; kunci penuh tetap jadi externalId
+           supaya dua berkas bernama sama di folder berbeda tak saling
+           menimpa di manifest. */
+        name: o.key.split('/').pop() || o.key,
+        version: o.etag,
+        size: o.size,
+      })),
+      truncated: terpotong,
+      async fetch(f) { return ambilObjek(kred, f.externalId); },
     };
   }
 

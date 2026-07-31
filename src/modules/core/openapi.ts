@@ -671,8 +671,15 @@ export const openApiSpec = {
       get: { summary: 'Daftar sumber data + status sync', security: [sessionAuth],
         parameters: [{ name: 'knowledgeBaseId', in: 'query', required: true, schema: uuid }],
         responses: { 200: err('daftar + jobStatus') } },
-      post: { summary: 'Hubungkan sumber (gdrive/onedrive/sharepoint/upload/url) → auto-sync',
+      post: { summary: 'Hubungkan sumber (gdrive/onedrive/sharepoint/upload/url/s3) → auto-sync',
         security: [sessionAuth],
+        description: '`config` berbeda per `kind`. Untuk `s3`: '
+          + '{ bucket, region, prefix?, accessKeyId, secretAccessKey, endpoint?, gayaPath? }. '
+          + '`secretAccessKey` dikirim POLOS sekali lewat HTTPS lalu disimpan TERENKRIPSI '
+          + '(AES-256-GCM) sebagai `secretAccessKeyEnc`; yang polos tak pernah menyentuh basis '
+          + 'data dan tak pernah dikirim balik. `endpoint` wajib https kecuali loopback — kunci '
+          + 'akses dan isi dokumen menyeberangi kabel itu. `gayaPath: true` untuk MinIO dan '
+          + 'sebagian besar penyimpanan swakelola, yang tak melayani gaya host virtual.',
         requestBody: json(obj({ knowledgeBaseId: uuid, kind: str, config: { type: 'object' } },
           ['knowledgeBaseId', 'kind'])),
         responses: { 201: err('source + jobStatus') } },
