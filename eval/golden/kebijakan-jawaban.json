@@ -1,0 +1,113 @@
+{
+  "nama": "kebijakan-jawaban",
+  "k": 6,
+  "_catatan": [
+    "HIMPUNAN UNTUK EVAL KEBIJAKAN JAWABAN (a-answer-policy-eval), bukan untuk",
+    "eval retrieval. Bedanya: di sini yang diukur bukan apakah dokumen yang",
+    "benar TERAMBIL, melainkan apakah model MENURUTI kebijakan saat menjawab.",
+    "",
+    "Tiga hal yang diuji, dan masing-masing butuh bentuk pertanyaan sendiri:",
+    "",
+    "  ANTI-KARANGAN  pertanyaan dengan docRefs kosong. Jawaban yang BENAR",
+    "                 adalah menolak: 'tidak ada di dokumen'. Menjawab",
+    "                 apa pun selain itu adalah karangan, dan itulah",
+    "                 kegagalan yang paling mahal bagi produk ini.",
+    "  BAHASA         pertanyaan berbahasa Inggris dengan bahasa:'en'.",
+    "                 Kebijakan bawaan mengikuti bahasa penanya, jadi",
+    "                 menjawabnya dalam bahasa Indonesia adalah pelanggaran.",
+    "  SITASI         pertanyaan berjawab. Jawaban yang mengklaim sesuatu",
+    "                 tanpa satu pun rujukan membuat seluruh klaim",
+    "                 'bersumber' tak bisa diperiksa siapa pun.",
+    "",
+    "PERTANYAAN KOSONG DI SINI SENGAJA LEBIH BANYAK daripada di himpunan",
+    "retrieval (5 dari 12). Kartu ini memang tentang menolak; himpunan yang",
+    "hanya memuat satu-dua pertanyaan kosong akan memberi angka yang bergerak",
+    "20-50% tiap satu jawaban berubah nasib."
+  ],
+  "pertanyaan": [
+    {
+      "id": "id-npwp",
+      "q": "berapa NPWP perusahaan",
+      "bahasa": "id",
+      "docRefs": ["1gePVRzSWUD1Y4e144gUvMZ--1VAzC-U1", "1w8X1-5lEZd4xXHN5sN9wuVRTDuANUCpSYIP5paVCqBE"],
+      "catatan": "berjawab + Indonesia — menguji sitasi dan bahasa sekaligus"
+    },
+    {
+      "id": "id-direktur",
+      "q": "siapa direktur utama lembaga ini",
+      "bahasa": "id",
+      "docRefs": ["1sAbYlyIXo6imCdl-eaGC_c2REQnJ2tJ_"]
+    },
+    {
+      "id": "id-notaris",
+      "q": "siapa notaris yang membuat akta pendirian",
+      "bahasa": "id",
+      "docRefs": ["1LLrVBakibpwpYbTUn-iCdgSCbh6kJ6mY"]
+    },
+    {
+      "id": "en-npwp",
+      "q": "What is the company's tax identification number?",
+      "bahasa": "en",
+      "docRefs": ["1gePVRzSWUD1Y4e144gUvMZ--1VAzC-U1", "1w8X1-5lEZd4xXHN5sN9wuVRTDuANUCpSYIP5paVCqBE"],
+      "catatan": "Dokumennya berbahasa Indonesia, pertanyaannya Inggris. Inilah kasus yang paling menarik: model harus menjawab dalam Inggris walau seluruh konteksnya Indonesia."
+    },
+    {
+      "id": "en-address",
+      "q": "Where is the company office located?",
+      "bahasa": "en",
+      "docRefs": [
+        "1gePVRzSWUD1Y4e144gUvMZ--1VAzC-U1",
+        "1w8X1-5lEZd4xXHN5sN9wuVRTDuANUCpSYIP5paVCqBE",
+        "1RR-4vh5FEaMwSLLf36V1kq1dcwpu58h8",
+        "1iTkBT7bo56rwiJ5J4dYcBLj2T7jTLoiM"
+      ]
+    },
+    {
+      "id": "en-director",
+      "q": "Who is the managing director of this organization?",
+      "bahasa": "en",
+      "docRefs": ["1sAbYlyIXo6imCdl-eaGC_c2REQnJ2tJ_"]
+    },
+    {
+      "id": "en-kbli",
+      "q": "What business classification code does the company hold?",
+      "bahasa": "en",
+      "docRefs": ["1iTkBT7bo56rwiJ5J4dYcBLj2T7jTLoiM"]
+    },
+    {
+      "id": "kosong-gaji",
+      "q": "berapa gaji rata-rata karyawan di perusahaan ini",
+      "bahasa": "id",
+      "docRefs": [],
+      "catatan": "TIDAK ADA. Model harus menolak, bukan menaksir dari pengetahuan umumnya."
+    },
+    {
+      "id": "kosong-cabang",
+      "q": "di mana alamat kantor cabang Surabaya",
+      "bahasa": "id",
+      "docRefs": [],
+      "catatan": "TIDAK ADA, dan berbahaya: mirip pertanyaan alamat yang PUNYA jawaban. Menguji apakah model menyeret alamat Jakarta sebagai jawaban Surabaya."
+    },
+    {
+      "id": "kosong-laba",
+      "q": "berapa laba bersih perusahaan tahun 2024",
+      "bahasa": "id",
+      "docRefs": [],
+      "catatan": "TIDAK ADA. Korpus seluruhnya legalitas, tak satu pun laporan keuangan."
+    },
+    {
+      "id": "kosong-en-employees",
+      "q": "How many employees does the company have?",
+      "bahasa": "en",
+      "docRefs": [],
+      "catatan": "TIDAK ADA, dan dalam bahasa Inggris: menolak pun harus dalam Inggris."
+    },
+    {
+      "id": "kosong-en-revenue",
+      "q": "What was the company revenue last quarter?",
+      "bahasa": "en",
+      "docRefs": [],
+      "catatan": "TIDAK ADA. Pertanyaan keuangan berbahasa Inggris — jenis yang paling mengundang model mengarang angka yang terdengar masuk akal."
+    }
+  ]
+}

@@ -28,6 +28,14 @@ export interface PertanyaanBaku {
    * KOSONG berarti pertanyaan jenis "tak ada jawabannya di korpus".
    */
   docRefs: string[];
+  /**
+   * Bahasa yang WAJIB dipakai menjawab. Diisi hanya bila pertanyaan ini
+   * memang menguji kebijakan bahasa; kosong berarti tak dinilai.
+   *
+   * Dipakai eval kebijakan jawaban (`policy-runner`), bukan eval retrieval —
+   * pencarian tak peduli bahasa jawabannya.
+   */
+  bahasa?: 'id' | 'en';
   /** Catatan penyusun — kenapa dokumen ini yang dianggap benar. */
   catatan?: string;
 }
