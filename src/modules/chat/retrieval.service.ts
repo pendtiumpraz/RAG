@@ -17,12 +17,7 @@ const MMR_LAMBDA = 0.75;
  * jumlah potongan yang akhirnya dipakai: rerata dokumen tebal itu kabur, dan
  * dokumen yang terlewat di sini tak akan pernah dibaca di lapisan kedua.
  *
- * TETAP 40 — angka di bawah ini USULAN, bukan keputusan yang sudah diambil.
- *
- * Sempat dinaikkan ke 120 pada 31 Jul 2026 lalu DIKEMBALIKAN: menaikkannya
- * melipattigakan potongan yang dipindai lapisan kedua pada tiap pertanyaan,
- * dan itu perubahan perilaku produksi di lambda Vercel — keputusan pemilik
- * produk, bukan kesimpulan otomatis dari satu korpus sintetis.
+ * 40 → 120 pada 31 Jul 2026, disetujui pemilik produk setelah diukur.
  *
  * Yang diukur (`npm run eval:tier1`, 400 dokumen × 60 potongan, MiniLM):
  *
@@ -37,13 +32,19 @@ const MMR_LAMBDA = 0.75;
  * satu bagian adalah avg() atas 50 potongan, jadi potongan yang membawa
  * jawaban hanya menyumbang seperlima puluh arahnya.
  *
- * Kenapa belum dinaikkan meski ukurannya jelas: korpus produksi hari ini 6
- * dokumen, jadi 40 maupun 120 sama-sama mengambil semuanya — tak ada yang
- * diperbaiki sekarang, sementara biayanya baru muncul justru saat korpus
- * membesar. Naikkan bersamaan dengan korpus yang benar-benar besar, dan ukur
- * lagi latensinya di lambda saat itu.
+ * Kenapa 120, bukan 95 yang persis terukur: 95 adalah titik di mana recall
+ * PAS 95% pada korpus 400 dokumen, dan angkanya memburuk saat korpus tumbuh
+ * karena pengganggu bertambah sementara ambangnya tetap. 120 memberi ruang
+ * untuk pertumbuhan itu tanpa melompat ke ambang yang biayanya terasa.
+ *
+ * Biayanya, dan kapan ia terasa: yang tumbuh hanya jumlah potongan yang
+ * dipindai lapisan kedua — 120 dokumen alih-alih 40. Lapisan pertamanya
+ * sendiri tetap satu kueri berindeks. Di korpus produksi hari ini (6
+ * dokumen) keduanya mengambil semuanya, jadi tak ada beda sama sekali; beda
+ * itu baru muncul setelah korpus melewati TIERED_MIN_CHUNKS. UKUR LAGI
+ * latensi lambda pada saat itu — pool-nya max:1 dan waktunya berbatas.
  */
-const TIER1_DOCS = 40;
+const TIER1_DOCS = 120;
 
 /** Kandidat catatan Memory yang diadu di RRF. Kecil: tabelnya satu baris per
  *  dokumen, dan gunanya memberi gambaran luas — bukan menyapu korpus. */
