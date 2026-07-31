@@ -34,6 +34,10 @@ interface Kandidat { siap: number; tanpaRingkasan: number }
 interface HasilKategori {
   diperbarui: number; tetapBelum: number; tanpaRingkasan: number; tersisa: number;
   usulanBaru: string[]; perKategori: Array<{ slug: string; jumlah: number }>;
+  /** Hanya ada pada mode "kerjakan semua". */
+  putaran?: number;
+  /** Berhenti karena satu putaran tak memindahkan apa pun — bukan karena tuntas. */
+  mandek?: boolean;
 }
 
 /**
@@ -135,11 +139,16 @@ function MemoryPageInner() {
   const kandidat = useApi<Kandidat>('/api/memory/recategorize');
   const [hasilKat, setHasilKat] = useState<HasilKategori | null>(null);
 
+  /* Satu tombol, dan ia mengerjakan SEMUANYA — bukan satu bundel 200 lalu
+     menyuruh menekan lagi. Batas per panggilan itu nyata di sisi server, tapi
+     membocorkannya ke antarmuka berarti menyuruh orang menghitung sendiri
+     berapa kali harus menekan. */
   async function kategorikanDariRingkasan() {
     setBusy('kategori');
     setHasilKat(null);
     try {
-      const r = await api<HasilKategori>('/api/memory/recategorize', { method: 'POST', body: '{}' });
+      const r = await api<HasilKategori>('/api/memory/recategorize',
+        { method: 'POST', body: JSON.stringify({ semua: true }) });
       setHasilKat(r);
       toast(r.diperbarui > 0
         ? `${r.diperbarui} dokumen dikategorikan dari ringkasannya`
@@ -243,10 +252,20 @@ function MemoryPageInner() {
               <span className="badge">
                 {(kandidat.data!.siap + kandidat.data!.tanpaRingkasan).toLocaleString('id-ID')} dokumen
               </span>
-              <button className={`btn btn-sm${busy === 'kategori' ? ' is-loading' : ''}`}
+              {/* MENYALA hanya bila ada yang benar-benar bisa dinilai.
+                  `siap === 0` berarti sisanya belum punya ringkasan sama
+                  sekali — menekan tombol tak akan memindahkan apa pun, dan
+                  tombol yang bisa ditekan tapi tak melakukan apa-apa terbaca
+                  sebagai produk yang rusak, bukan sebagai keadaan yang
+                  memang begitu. Sebabnya disebut di kalimat bawahnya. */}
+              <button className={`btn btn-sm btn-primary${busy === 'kategori' ? ' is-loading' : ''}`}
                 disabled={!!busy || kandidat.data!.siap === 0}
+                title={kandidat.data!.siap === 0
+                  ? 'Tak ada dokumen berkategori "belum" yang sudah punya ringkasan'
+                  : `Kategorikan ${kandidat.data!.siap.toLocaleString('id-ID')} dokumen sekaligus`}
                 onClick={kategorikanDariRingkasan}>
-                <Icon name="sync" size={15} /> Kategorikan dari ringkasan
+                <Icon name="sync" size={15} /> Kategorikan semua
+                {kandidat.data!.siap > 0 && ` (${kandidat.data!.siap.toLocaleString('id-ID')})`}
               </button>
             </div>
           </div>
@@ -290,11 +309,23 @@ function MemoryPageInner() {
                     diam-diam, padahal masing-masing punya sebab dan jalan
                     keluarnya sendiri. */}
                 <p className="sub" style={{ marginTop: 8, marginBottom: 0 }}>
+                  {typeof hasilKat.putaran === 'number' && hasilKat.putaran > 1 && (
+                    <>Dikerjakan dalam {hasilKat.putaran} putaran. </>
+                  )}
+                  {hasilKat.mandek && (
+                    /* Dibedakan tegas dari "tuntas": berhenti karena satu
+                       putaran penuh tak memindahkan apa pun, bukan karena
+                       tak ada lagi yang tersisa. Menyamakannya akan membuat
+                       penampung yang macet terbaca sebagai pekerjaan selesai. */
+                    <><b>Berhenti karena mandek</b> — satu putaran penuh tak memindahkan satu dokumen pun,
+                    jadi memutar lagi hanya membakar kuota untuk hasil yang sama. Biasanya karena model
+                    terus mengusulkan kategori yang belum disetujui. </>
+                  )}
                   {hasilKat.tetapBelum > 0 && (
                     <>{hasilKat.tetapBelum} tetap di penampung — model tak bisa memutuskan dari ringkasannya. </>
                   )}
                   {hasilKat.tersisa > 0 && (
-                    <>{hasilKat.tersisa} belum tersentuh (batas 200 per sekali jalan) — tekan lagi untuk melanjutkan. </>
+                    <>{hasilKat.tersisa} belum tersentuh — melewati batas satu permintaan; tekan lagi untuk melanjutkan. </>
                   )}
                   {hasilKat.usulanBaru.length > 0 && (
                     <>

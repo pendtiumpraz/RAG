@@ -1,0 +1,106 @@
+{
+  "nama": "sainskerta-legal",
+  "k": 10,
+  "_catatan": [
+    "HIMPUNAN BAKU TERIKAT KORPUS. Label di bawah menunjuk doc_ref nyata di",
+    "knowledge base tenant platform (berkas legalitas PT Sainskerta). Ia tidak",
+    "bisa dipindah ke tenant lain apa adanya — itu sifat golden set, bukan",
+    "cacatnya: pertanyaan berjawab-diketahui hanya bermakna terhadap dokumen",
+    "yang jawabannya memang ada di sana.",
+    "",
+    "doc_ref = id berkas Drive, yang bertahan melintasi re-ingest. JANGAN",
+    "menggantinya dengan id baris potongan (documents.id): id itu berubah tiap",
+    "sync, dan himpunannya akan membusuk diam-diam — angkanya anjlok tanpa satu",
+    "pun hal benar-benar memburuk.",
+    "",
+    "Tiga pertanyaan terakhir SENGAJA tak punya jawaban di korpus. Tanpa",
+    "pertanyaan jenis itu, sistem yang MENGARANG jawaban untuk apa pun akan",
+    "mendapat nilai sempurna — dan itu persis kegagalan yang paling mahal bagi",
+    "produk yang menjual jawaban bersumber."
+  ],
+  "pertanyaan": [
+    {
+      "id": "npwp",
+      "q": "berapa NPWP perusahaan",
+      "docRefs": ["1gePVRzSWUD1Y4e144gUvMZ--1VAzC-U1", "1w8X1-5lEZd4xXHN5sN9wuVRTDuANUCpSYIP5paVCqBE"],
+      "catatan": "91.616.020.3-061.000 — hanya tercantum di dokumen NIB (dua salinan: PDF & Google Doc)"
+    },
+    {
+      "id": "direktur-utama",
+      "q": "siapa direktur utama lembaga",
+      "docRefs": ["1sAbYlyIXo6imCdl-eaGC_c2REQnJ2tJ_"],
+      "catatan": "M. Rizal Karunia Haris, S.Kom — hanya di Profil Lembaga Edmuku"
+    },
+    {
+      "id": "sk-nomor",
+      "q": "nomor SK pengesahan pendirian badan hukum",
+      "docRefs": ["1LLrVBakibpwpYbTUn-iCdgSCbh6kJ6mY"],
+      "catatan": "AHU-0026160.AH.01.01.TAHUN 2019 — hanya di SK Pendirian"
+    },
+    {
+      "id": "notaris",
+      "q": "siapa notaris yang membuat akta pendirian perusahaan",
+      "docRefs": ["1LLrVBakibpwpYbTUn-iCdgSCbh6kJ6mY"],
+      "catatan": "GILANG AULIA S.H., M.KN. — nama orang, kaki leksikal yang harus menangkapnya"
+    },
+    {
+      "id": "kbli",
+      "q": "apa kode dan nama KBLI perusahaan",
+      "docRefs": ["1iTkBT7bo56rwiJ5J4dYcBLj2T7jTLoiM"],
+      "catatan": "58200 PENERBITAN PIRANTI LUNAK — hanya dirinci di Izin Usaha; NIB menulis 'Lihat Lampiran'"
+    },
+    {
+      "id": "tanggal-akta",
+      "q": "kapan akta pendirian perusahaan dibuat",
+      "docRefs": ["1LLrVBakibpwpYbTUn-iCdgSCbh6kJ6mY"],
+      "catatan": "22 Mei 2019 — tanggal, jenis nilai yang dilarang diambil dari ringkasan Memory"
+    },
+    {
+      "id": "izin-lokasi-pasal",
+      "q": "izin lokasi diterbitkan berdasarkan pasal berapa",
+      "docRefs": ["1RR-4vh5FEaMwSLLf36V1kq1dcwpu58h8"],
+      "catatan": "Pasal 32 ayat (2) PP 24/2018 — Izin Usaha memakai ayat (1), jadi ini menguji ketelitian"
+    },
+    {
+      "id": "pelatihan",
+      "q": "pelatihan apa saja yang ditawarkan lembaga",
+      "docRefs": ["1sAbYlyIXo6imCdl-eaGC_c2REQnJ2tJ_"],
+      "catatan": "daftar pelatihan + instruktur — hanya di Profil Lembaga"
+    },
+    {
+      "id": "telepon",
+      "q": "nomor telepon perusahaan",
+      "docRefs": ["1gePVRzSWUD1Y4e144gUvMZ--1VAzC-U1", "1w8X1-5lEZd4xXHN5sN9wuVRTDuANUCpSYIP5paVCqBE"],
+      "catatan": "087701490206 — hanya di NIB"
+    },
+    {
+      "id": "alamat-kantor",
+      "q": "di mana alamat kantor perusahaan",
+      "docRefs": [
+        "1gePVRzSWUD1Y4e144gUvMZ--1VAzC-U1",
+        "1w8X1-5lEZd4xXHN5sN9wuVRTDuANUCpSYIP5paVCqBE",
+        "1RR-4vh5FEaMwSLLf36V1kq1dcwpu58h8",
+        "1iTkBT7bo56rwiJ5J4dYcBLj2T7jTLoiM"
+      ],
+      "catatan": "Graha Mampang Lt.3 Suite 305 — tercantum di empat dokumen; sengaja dimasukkan sebagai pertanyaan berjawab-lebar"
+    },
+    {
+      "id": "kosong-gaji",
+      "q": "berapa gaji rata-rata karyawan perusahaan",
+      "docRefs": [],
+      "catatan": "TIDAK ADA di korpus. Jawaban benar: menyatakan tak ada di dokumen."
+    },
+    {
+      "id": "kosong-cabang",
+      "q": "di mana alamat kantor cabang Surabaya",
+      "docRefs": [],
+      "catatan": "TIDAK ADA. Berbahaya karena mirip pertanyaan alamat yang PUNYA jawaban — menguji apakah sistem menyeret dokumen alamat Jakarta sebagai jawaban."
+    },
+    {
+      "id": "kosong-laba",
+      "q": "berapa laba bersih perusahaan tahun 2024",
+      "docRefs": [],
+      "catatan": "TIDAK ADA. Korpus ini seluruhnya legalitas, tak satu pun laporan keuangan."
+    }
+  ]
+}

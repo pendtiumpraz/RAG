@@ -89,3 +89,61 @@ test('endpoint butuh admin dan menyebut angkanya sebelum ditekan', () => {
   assert.ok(/API key/i.test(RUTE),
     'kunci API yang belum diisi jatuh jadi 500 — pengguna disuruh menebak sebabnya');
 });
+
+/* ══ TOMBOL "KERJAKAN SEMUA" ═══════════════════════════════════════════ */
+
+test('mode semua BERHENTI saat mandek, bukan memutar sampai batas', async () => {
+  /* Kalau model terus mengusulkan kategori yang belum disetujui, tiap
+     putaran akan sibuk tanpa memindahkan satu dokumen pun. Tanpa penjaga
+     ini, tombol "kerjakan semua" memutar sepuluh kali, membakar kuota model,
+     lalu melaporkan nol — dan tak seorang pun tahu kenapa. */
+  const blok = SVC.slice(SVC.indexOf('async semuanya('));
+  assert.ok(/if \(r\.diperbarui === 0\) \{ gabungan\.mandek = true; break; \}/.test(blok),
+    'putaran yang tak memindahkan apa pun tidak menghentikan pengulangan');
+  assert.ok(/MAX_PUTARAN/.test(blok), 'tak ada atap jumlah putaran');
+  assert.ok(/if \(r\.tersisa === 0 && r\.tetapBelum === 0\) break;/.test(blok),
+    'pengulangan tak berhenti saat benar-benar tuntas');
+});
+
+test('mandek DIBEDAKAN dari tuntas di UI', () => {
+  // Menyamakannya membuat penampung yang macet terbaca sebagai pekerjaan
+  // selesai — kegagalan yang tak menimbulkan galat apa pun.
+  assert.ok(/hasilKat\.mandek/.test(UI), 'UI tak membedakan mandek dari tuntas');
+  assert.ok(/Berhenti karena mandek/.test(UI), 'sebab berhentinya tak disebutkan');
+});
+
+test('tombol MATI saat tak ada yang bisa dinilai, dan sebabnya disebut', () => {
+  /* `siap === 0` berarti sisanya belum punya ringkasan sama sekali; menekan
+     tombol tak akan memindahkan apa pun. Tombol yang bisa ditekan tapi tak
+     melakukan apa-apa terbaca sebagai produk rusak, bukan sebagai keadaan
+     yang memang begitu. */
+  assert.ok(/disabled=\{!!busy \|\| kandidat\.data!\.siap === 0\}/.test(UI),
+    'tombol tetap menyala walau tak ada yang bisa dinilai');
+  assert.ok(/title=\{kandidat\.data!\.siap === 0/.test(UI),
+    'tombol mati tanpa menyebutkan sebabnya');
+  // Panelnya sendiri hanya muncul bila penampungnya berisi.
+  assert.ok(/\(kandidat\.data\?\.siap \?\? 0\) > 0 \|\| \(kandidat\.data\?\.tanpaRingkasan \?\? 0\) > 0/.test(UI),
+    'panel muncul walau tak ada dokumen yang belum dikategorikan');
+});
+
+test('UI meminta mode semua, bukan satu bundel', () => {
+  assert.ok(/JSON\.stringify\(\{ semua: true \}\)/.test(UI),
+    'tombol masih mengirim satu bundel — pengguna disuruh menekan berkali-kali');
+});
+
+test('UPDATE massal tidak memakai cast larik yang ditolak Postgres', () => {
+  /* Drizzle memperluas larik JavaScript jadi TUPLE ($1,$2,…), dan Postgres
+     menolak cast record → uuid[] dengan 42846. Cacat ini tak terlihat saat
+     menulis maupun saat typecheck — hanya muncul ketika kuerinya
+     benar-benar dijalankan, yaitu ketika ADA dokumen yang berhasil dinilai.
+     Jadi jalur bahagianya justru yang meledak. */
+  /* Diperiksa pada TEMPLATE SQL-nya saja, bukan seluruh berkas: komentar di
+     atasnya menyebut pola yang salah justru untuk menjelaskan kenapa ia
+     ditinggalkan, dan penjaring yang membaca seluruh berkas akan tertipu
+     oleh penjelasannya sendiri. */
+  const kueri = SVC.slice(SVC.indexOf('update memory_notes n'), SVC.indexOf('const slugs ='));
+  assert.ok(!/unnest\(/.test(kueri),
+    'kembali memakai unnest(${larik}::uuid[]) — akan gagal 42846 saat benar-benar dipakai');
+  assert.ok(/from \(values \$\{nilai\}\) as v\(id, slug\)/.test(SVC),
+    'pasangan (id, slug) tak dirakit sebagai VALUES berparameter');
+});

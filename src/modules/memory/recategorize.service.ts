@@ -64,6 +64,17 @@ export interface RecategorizeResult {
 
 interface Baris { id: string; title: string | null; content_md: string | null }
 
+/**
+ * Berapa kali `dariRingkasan` boleh diulang dalam satu permintaan.
+ *
+ * Ada batasnya, dan batas itu bukan kepengecutan: tanpa atap, satu tombol
+ * bisa memanggil model ratusan kali dalam satu permintaan HTTP yang lambat
+ * laun kehabisan waktu — dan pekerjaan yang sudah selesai tetap tersimpan
+ * sementara pemanggilnya tak pernah tahu sampai mana. 10 × 200 = 2.000
+ * catatan per tekan, cukup untuk hampir semua korpus SaaS sekali jalan.
+ */
+const MAX_PUTARAN = 10;
+
 export const recategorizeService = {
   /**
    * Berapa yang bisa dibereskan — dipakai UI untuk memutuskan apakah
@@ -226,14 +237,25 @@ export const recategorizeService = {
 
     /* Satu UPDATE untuk semuanya, bukan satu per catatan: pada 200 dokumen
        selisihnya 1 perjalanan basis data melawan 200. */
-    const ids = [...hasil.keys()];
-    const slugs = ids.map((id) => hasil.get(id)!);
+    /* Pasangan (id, slug) dirakit sebagai VALUES berparameter, BUKAN
+       `unnest(${ids}::uuid[])`. Drizzle memperluas larik JavaScript jadi
+       TUPLE `($1,$2,…)` dan Postgres menolak cast record → uuid[] dengan
+       42846. Cacat itu tak terlihat saat menulis maupun saat typecheck —
+       hanya muncul ketika kuerinya benar-benar dijalankan, yaitu ketika ada
+       dokumen yang berhasil dinilai. Ketahuan saat menulis harness eval,
+       yang kebetulan memakai pola yang sama. */
+    const pasangan = [...hasil.entries()];
+    const nilai = sql.join(
+      pasangan.map(([id, slug]) => sql`(${id}::uuid, ${slug}::text)`),
+      sql`, `,
+    );
     await withTenant(tenantId, (tx) => tx.execute(sql`
       update memory_notes n
          set category = v.slug, updated_at = now()
-        from (select unnest(${ids}::uuid[]) as id, unnest(${slugs}::text[]) as slug) v
+        from (values ${nilai}) as v(id, slug)
        where n.id = v.id and n.deleted_at is null
     `));
+    const slugs = pasangan.map(([, s]) => s);
 
     const perKategori = [...new Set(slugs)].map((slug) => ({
       slug, jumlah: slugs.filter((s) => s === slug).length,
@@ -250,5 +272,64 @@ export const recategorizeService = {
       usulanBaru: [...usulanBaru],
       perKategori,
     };
+  },
+
+  /**
+   * SATU TEKAN, SELESAI SEMUA — mengulang `dariRingkasan` sampai habis.
+   *
+   * Kenapa perlu ada di samping `dariRingkasan`: batas 200 per panggilan itu
+   * nyata dan tak bisa dihapus (satu permintaan HTTP punya tenggat), tetapi
+   * membebankan pengulangannya kepada pengguna adalah membocorkan batas
+   * teknis ke antarmuka. Orang yang melihat "1.400 belum dikategorikan" tak
+   * ingin menekan tombol tujuh kali sambil menghitung; ia ingin menekannya
+   * sekali.
+   *
+   * BERHENTI pada tiga keadaan, dan ketiganya dilaporkan apa adanya:
+   *   • tak ada lagi yang bisa dinilai        → tuntas
+   *   • satu putaran tak memindahkan apa pun  → mandek, bukan tuntas
+   *   • MAX_PUTARAN tercapai                  → masih ada sisa
+   *
+   * Keadaan kedua yang paling penting ditangkap: kalau model terus-menerus
+   * mengusulkan kategori yang belum disetujui, tiap putaran akan sibuk tanpa
+   * memindahkan satu dokumen pun. Tanpa penjaga ini, tombol "kerjakan semua"
+   * akan memutar sepuluh kali, membakar kuota model, lalu melaporkan nol —
+   * dan tak seorang pun tahu kenapa.
+   */
+  async semuanya(
+    tenantId: string,
+    opts: { knowledgeBaseId?: string } = {},
+  ): Promise<RecategorizeResult & { putaran: number; mandek: boolean }> {
+    const gabungan: RecategorizeResult & { putaran: number; mandek: boolean } = {
+      diperbarui: 0, tetapBelum: 0, tanpaRingkasan: 0, tersisa: 0,
+      usulanBaru: [], perKategori: [], putaran: 0, mandek: false,
+    };
+    const usul = new Set<string>();
+    const kategori = new Map<string, number>();
+
+    for (let i = 0; i < MAX_PUTARAN; i++) {
+      const r = await recategorizeService.dariRingkasan(tenantId, opts);
+      gabungan.putaran = i + 1;
+      gabungan.diperbarui += r.diperbarui;
+      /* Ketiga angka ini diambil dari putaran TERAKHIR, bukan dijumlahkan:
+         ia menggambarkan keadaan yang tersisa sekarang, dan menjumlahkan
+         keadaan akan menghitung dokumen yang sama berkali-kali. */
+      gabungan.tetapBelum = r.tetapBelum;
+      gabungan.tanpaRingkasan = r.tanpaRingkasan;
+      gabungan.tersisa = r.tersisa;
+      for (const u of r.usulanBaru) usul.add(u);
+      for (const k of r.perKategori) kategori.set(k.slug, (kategori.get(k.slug) ?? 0) + k.jumlah);
+
+      // Tak ada lagi yang bisa dinilai → benar-benar tuntas.
+      if (r.tersisa === 0 && r.tetapBelum === 0) break;
+      // Sibuk tapi tak memindahkan apa pun → mandek. Memutar lagi hanya
+      // membakar kuota untuk hasil yang sudah terbukti sama.
+      if (r.diperbarui === 0) { gabungan.mandek = true; break; }
+    }
+
+    gabungan.usulanBaru = [...usul];
+    gabungan.perKategori = [...kategori.entries()]
+      .map(([slug, jumlah]) => ({ slug, jumlah }))
+      .sort((a, b) => b.jumlah - a.jumlah);
+    return gabungan;
   },
 };

@@ -25,6 +25,15 @@ export async function GET(req: NextRequest) {
 
 const Body = z.object({
   knowledgeBaseId: z.string().uuid().optional(),
+  /**
+   * Ulangi sampai habis, bukan satu bundel 200 lalu berhenti.
+   *
+   * Batas 200 per panggilan itu nyata (satu permintaan HTTP punya tenggat),
+   * tapi membebankan pengulangannya kepada pengguna berarti membocorkan
+   * batas teknis ke antarmuka: orang yang melihat "1.400 belum
+   * dikategorikan" tak ingin menekan tombol tujuh kali sambil menghitung.
+   */
+  semua: z.boolean().optional(),
 });
 
 /**
@@ -39,9 +48,12 @@ export async function POST(req: NextRequest) {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 
+  const { semua, ...opts } = parsed.data;
   try {
     return NextResponse.json(
-      await recategorizeService.dariRingkasan(user.tenantId, parsed.data),
+      semua
+        ? await recategorizeService.semuanya(user.tenantId, opts)
+        : await recategorizeService.dariRingkasan(user.tenantId, opts),
     );
   } catch (e) {
     /* Kunci API yang belum diisi adalah sebab paling lazim, dan itu keadaan
