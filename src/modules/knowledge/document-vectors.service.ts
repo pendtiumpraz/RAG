@@ -16,6 +16,36 @@ import { withTenant } from '@/modules/core/db/tenant-context';
  * jarak kosinus yang sudah menormalkan kedua sisi, jadi panjang vektornya tak
  * berpengaruh pada peringkat.
  */
+/**
+ * Berapa potongan diwakili SATU vektor lapisan pertama.
+ *
+ * 50 dipilih supaya dokumen perkantoran biasa (±10 potongan) tetap menghasilkan
+ * TEPAT SATU baris — tak ada biaya tambahan sama sekali untuk korpus yang tak
+ * membutuhkannya. Yang berubah hanya dokumen tebal: kontrak 500 potongan kini
+ * punya 10 wakil alih-alih satu rerata yang mewakili tema umumnya saja.
+ *
+ * Angkanya juga menjaga sifat yang jadi ALASAN lapisan ini ada: jumlah baris
+ * tetap sepersekian jumlah potongan. Menurunkannya ke, katakanlah, 5 akan
+ * membuat lapisan pertama tumbuh mendekati tabel potongan itu sendiri — dan
+ * indeks yang sama besar dengan yang ia gantikan tak menghemat apa pun.
+ */
+export const POTONGAN_PER_BAGIAN = 50;
+
+/**
+ * Ekspresi nomor bagian — SATU definisi, dipakai di SELECT dan di GROUP BY.
+ *
+ * Harus IDENTIK secara teks di kedua tempat: Postgres mencocokkan ekspresi
+ * GROUP BY dengan kolom SELECT secara sintaksis, dan versi pertama gagal
+ * (42803 "column d.metadata must appear in the GROUP BY clause") hanya karena
+ * yang satu dibungkus `::smallint` dan yang lain tidak. Pembagi ditulis
+ * lewat sql.raw, bukan parameter: dua `$N` di tempat berbeda pun tak dijamin
+ * dianggap ekspresi yang sama.
+ *
+ * Cast ke smallint sengaja TAK ada di sini — kolomnya sudah smallint, dan
+ * Postgres melakukan konversinya sendiri saat INSERT.
+ */
+const bagianExpr = sql`(coalesce((d.metadata->>'chunk')::int, 0) / ${sql.raw(String(POTONGAN_PER_BAGIAN))})`;
+
 export const documentVectorsService = {
   /**
    * Bangun ulang centroid untuk dokumen tertentu di sebuah knowledge base.
@@ -35,18 +65,27 @@ export const documentVectorsService = {
 
     const rows = await withTenant(tenantId, (tx) => tx.execute(sql`
       insert into document_vectors
-        (tenant_id, knowledge_base_id, doc_ref, title, embedding_model, embedding_dims, centroid, chunks)
+        (tenant_id, knowledge_base_id, doc_ref, title, embedding_model, embedding_dims,
+         centroid, chunks, segment)
       select d.tenant_id, d.knowledge_base_id, d.doc_ref,
              max(d.title), d.embedding_model, max(d.embedding_dims),
-             avg(d.embedding), count(*)::int
+             avg(d.embedding), count(*)::int,
+             /* BAGIAN = nomor potongan dibagi ${sql.raw(String(POTONGAN_PER_BAGIAN))}.
+                coalesce ke 0 penting: potongan lama yang metadata-nya tak
+                memuat nomor akan menghasilkan NULL, dan NULL memecah
+                pengelompokan jadi satu baris per potongan — lapisan pertama
+                berubah jadi salinan tabel potongan, persis hal yang ia ada
+                untuk hindari. */
+             ${bagianExpr}
       from documents d
       where d.knowledge_base_id = ${knowledgeBaseId}
         and d.embedding_model = ${embeddingModel}
         and d.deleted_at is null
         and d.embedding is not null
         ${scope}
-      group by d.tenant_id, d.knowledge_base_id, d.doc_ref, d.embedding_model
-      on conflict (knowledge_base_id, doc_ref, embedding_model) where deleted_at is null
+      group by d.tenant_id, d.knowledge_base_id, d.doc_ref, d.embedding_model,
+               ${bagianExpr}
+      on conflict (knowledge_base_id, doc_ref, embedding_model, segment) where deleted_at is null
       do update set
         centroid = excluded.centroid,
         chunks = excluded.chunks,

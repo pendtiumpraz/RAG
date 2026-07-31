@@ -201,6 +201,20 @@ export const retrievalService = {
      * pertama — pencarian kode, nomor, atau nama yang persis tetap menjangkau
      * dokumen yang centroid-nya meleset.
      */
+    const jarakTier1 = useSub
+      ? sql`subvector(v.centroid, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
+      : sql`v.centroid <=> ${vecLiteral}::halfvec`;
+
+    /* Dokumen diperingkat lewat BAGIAN TERBAIKNYA (min), bukan lewat satu
+       rerata (migrasi 0037). Bedanya menentukan untuk dokumen tebal: rerata
+       kontrak 300 halaman mewakili tema umumnya, sementara pertanyaan
+       biasanya menyasar satu pasal — dan dokumen yang terlewat di lapisan
+       pertama tak akan pernah dibaca di lapisan kedua.
+
+       `group by doc_ref` lalu `limit`, BUKAN limit atas baris bagian:
+       membatasi bagian akan membiarkan satu dokumen tebal memakan seluruh
+       40 slot lewat sepuluh bagiannya, dan sembilan dokumen lain yang
+       relevan justru tersingkir. Yang dibatasi harus jumlah DOKUMEN. */
     const tierFilter = tiered
       ? sql`and d.doc_ref in (
           select v.doc_ref from document_vectors v
@@ -208,9 +222,8 @@ export const retrievalService = {
             and v.deleted_at is null
             and v.knowledge_base_id in (select id from kb)
             ${useSub ? sql`and v.embedding_dims = ${dims}` : sql``}
-          order by ${tiered && useSub
-            ? sql`subvector(v.centroid, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
-            : sql`v.centroid <=> ${vecLiteral}::halfvec`}
+          group by v.doc_ref
+          order by min(${jarakTier1})
           limit ${TIER1_DOCS})`
       : sql``;
 

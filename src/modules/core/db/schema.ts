@@ -462,12 +462,27 @@ export const documentVectors = pgTable('document_vectors', {
   embeddingDims: smallint('embedding_dims'),
   centroid: halfvec('centroid'),
   chunks: integer('chunks').default(0).notNull(),
+  /**
+   * BAGIAN dokumen yang diwakili vektor ini (migrasi 0037).
+   *
+   * Satu rerata per dokumen mewakili tema umumnya, bukan satu pasal spesifik
+   * di dalamnya — dan dokumen yang terlewat di lapisan pertama tak akan
+   * pernah dibaca di lapisan kedua. Dokumen tebal kini punya beberapa wakil:
+   * satu per 50 potongan. Dokumen perkantoran biasa (±10 potongan) tetap
+   * satu baris, jadi tak ada biaya tambahan untuk korpus yang tak
+   * membutuhkannya.
+   */
+  segment: smallint('segment').default(0).notNull(),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_document_vectors_tenant').on(t.tenantId),
   delIdx: index('idx_document_vectors_deleted_at').on(t.deletedAt),
+  /* NAMA SAMA dengan migrasi 0037 — kalau berbeda, db:push akan membuat
+     indeks kedua yang isinya sama sambil membiarkan yang lama. */
   uqDoc: uniqueIndex('uq_document_vectors_doc')
-    .on(t.knowledgeBaseId, t.docRef, t.embeddingModel).where(sql`deleted_at IS NULL`),
+    .on(t.knowledgeBaseId, t.docRef, t.embeddingModel, t.segment).where(sql`deleted_at IS NULL`),
+  kbModelIdx: index('idx_document_vectors_kb_model')
+    .on(t.knowledgeBaseId, t.embeddingModel).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 /* ── chat ──────────────────────────────────────────────────────────── */
