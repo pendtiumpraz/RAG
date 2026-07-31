@@ -93,6 +93,23 @@ export const openApiSpec = {
         parameters: [{ name: 'ref', in: 'query', required: true, schema: str }],
         responses: { 200: err('{ ok, removedChunks }'), 404: err('tidak ditemukan') } },
     },
+    '/api/v1/mcp': {
+      post: {
+        summary: 'Server MCP (Model Context Protocol) — JSON-RPC 2.0 di atas satu endpoint',
+        description: 'Basis pengetahuan tenant bisa dipanggil langsung dari Claude/IDE pelanggan. '
+          + 'Metode: initialize, ping, tools/list, tools/call. Alat: daftar_chatbot, cari_dokumen. '
+          + 'Notifikasi (tanpa "id") dijawab 202 tanpa badan. Batch JSON-RPC TIDAK didukung '
+          + '(dibuang di MCP 2025-06-18). Kegagalan ALAT dikembalikan sebagai result.isError, '
+          + 'bukan sebagai error JSON-RPC — agar agen pemanggil tidak mencoba ulang selamanya. '
+          + 'Cakupan "chat", sama seperti /api/v1/search, karena pencarian memuat embedding kueri.',
+        security: [apiKeyAuth],
+        requestBody: json(obj({ jsonrpc: str, id: str, method: str }, ['jsonrpc', 'method'])),
+        responses: {
+          200: err('balasan JSON-RPC { jsonrpc, id, result } atau { jsonrpc, id, error }'),
+          202: err('notifikasi diterima — tanpa badan, sesuai JSON-RPC'),
+        },
+      },
+    },
     '/api/v1/search': {
       post: {
         summary: 'Pencarian semantik MURNI — potongan + skor, tanpa LLM',
