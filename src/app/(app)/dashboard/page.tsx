@@ -12,6 +12,7 @@ interface Usage {
   maxChatbots: number | null;
 }
 interface Chatbot { id: string; enabled: boolean }
+interface Kb { id: string; chunks: number; chatbots: Array<{ id: string }> }
 interface Breakdown {
   days: number;
   perChatbot: Array<{ chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }>;
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const usage = useApi<Usage>('/api/usage');
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const bd = useApi<Breakdown>(`/api/usage/breakdown?days=${HARI_TREN}`);
+  const kbs = useApi<Kb[]>('/api/knowledge-bases');
 
   return (
     <>
@@ -49,6 +51,8 @@ export default function DashboardPage() {
             <Stat label="Token keluar" value={fmt(usage.data.tokens.out)} unit="≈ output" />
           </div>
         )}
+
+      <LangkahPertama bots={bots.data} kbs={kbs.data} bd={bd.data} />
 
       <TrenPemakaian bd={bd} />
 
@@ -75,6 +79,75 @@ export default function DashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * LANGKAH PERTAMA — daftar yang MEMBACA KEADAAN, bukan mengingat klik.
+ *
+ * Daftar onboarding biasanya menyimpan kemajuannya di localStorage: dicentang
+ * saat tombolnya diklik, lalu dianggap selesai selamanya. Daftar seperti itu
+ * berbohong dalam dua arah — ia tetap tercentang setelah chatbotnya dihapus,
+ * dan ia kosong lagi begitu orangnya berganti peramban. Yang lebih buruk, ia
+ * mengaku tahu sesuatu yang tak pernah diperiksanya.
+ *
+ * Keempat langkah di sini diturunkan dari data yang memang sudah diambil
+ * halaman ini. Konsekuensinya: daftar ini HILANG SENDIRI begitu semuanya
+ * benar-benar selesai, dan MUNCUL LAGI kalau salah satunya rusak — yang justru
+ * berguna, karena "KB tak lagi terhubung ke chatbot mana pun" adalah kerusakan
+ * yang tak menimbulkan gejala lain.
+ */
+function LangkahPertama({ bots, kbs, bd }: {
+  bots: Chatbot[] | null; kbs: Kb[] | null; bd: Breakdown | null;
+}) {
+  // Selama datanya belum lengkap, JANGAN menebak. Daftar yang berkedip dari
+  // "belum" ke "sudah" saat data menyusul lebih membingungkan daripada diam.
+  if (!bots || !kbs || !bd) return null;
+
+  const adaChatbot = bots.length > 0;
+  const adaIsi = kbs.some((k) => k.chunks > 0);
+  /* Langkah yang paling sering terlewat, dan gejalanya menyesatkan: dokumen
+     sudah masuk, tapi KB-nya belum dipasang ke chatbot mana pun — jadi
+     chatbotnya menolak menjawab seolah dokumennya tak pernah ada. */
+  const adaTersambung = kbs.some((k) => k.chunks > 0 && k.chatbots.length > 0);
+  const sudahDiuji = bd.perChatbot.some((c) => c.messages > 0);
+
+  const langkah = [
+    { selesai: adaChatbot, teks: 'Buat chatbot pertama', href: '/chatbots', aksi: 'Buka Chatbots' },
+    { selesai: adaIsi, teks: 'Isi knowledge base dengan dokumen', href: '/knowledge', aksi: 'Buka Knowledge Base' },
+    { selesai: adaTersambung, teks: 'Hubungkan knowledge base itu ke chatbotnya', href: '/knowledge', aksi: 'Atur sambungan' },
+    { selesai: sudahDiuji, teks: 'Uji jawabannya sebelum dipasang ke situs', href: '/chat', aksi: 'Buka Chat' },
+  ];
+  const sisa = langkah.filter((l) => !l.selesai);
+  if (sisa.length === 0) return null;
+
+  return (
+    <div className="card" style={{ marginBottom: 'var(--sp-4)' }}>
+      <div className="panel-head">
+        <span className="t">Langkah pertama</span>
+        <span className="badge">{langkah.length - sisa.length}/{langkah.length} selesai</span>
+      </div>
+      <div className="card-pad stack gap-3">
+        <ol style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }} className="stack gap-2">
+          {langkah.map((l) => (
+            <li key={l.teks} className="cluster" style={{ justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+              <span style={{ color: l.selesai ? 'var(--muted)' : 'var(--ink)' }}>
+                <span aria-hidden style={{ color: l.selesai ? 'var(--good)' : 'var(--faint)', marginRight: 8 }}>
+                  {l.selesai ? '✓' : '○'}
+                </span>
+                <span className="sr-only">{l.selesai ? 'Selesai: ' : 'Belum: '}</span>
+                {l.teks}
+              </span>
+              {!l.selesai && <a className="btn btn-sm" href={l.href}>{l.aksi}</a>}
+            </li>
+          ))}
+        </ol>
+        <p className="microlabel" style={{ margin: 0 }}>
+          DAFTAR INI MEMBACA KEADAAN WORKSPACE-MU, BUKAN MENGINGAT KLIK — IA HILANG SENDIRI SAAT SEMUANYA SELESAI.
+          BUTUH PENJELASAN LEBIH PANJANG? LIHAT <a href="/bantuan">PANDUAN</a>.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -119,7 +192,7 @@ function TrenPemakaian({ bd }: { bd: ReturnType<typeof useApi<Breakdown>> }) {
         <div className="card-pad">
           {ringkas.total === 0 ? (
             <EmptyState title="Belum ada percakapan"
-              hint={`Grafik terisi setelah chatbot menerima pertanyaan. Jendelanya ${HARI_TREN} hari terakhir.`} />
+              hint={`Grafik terisi setelah chatbot menerima pertanyaan. Jendelanya ${HARI_TREN} hari terakhir.`} action={<a className="btn" href="/chat">Uji di Chat</a>} />
           ) : (
             <>
               <div className="cluster" style={{ alignItems: 'flex-end', gap: 2, height: 120 }}

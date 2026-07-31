@@ -89,7 +89,7 @@ function UsagePageInner() {
         <div className="card-pad">
           {br.error ? <ErrorState message={br.error} onRetry={br.refetch} />
             : !br.data ? <Skeleton rows={2} />
-            : br.data.daily.length === 0 ? <EmptyState title="Belum ada percakapan di rentang ini" />
+            : br.data.daily.length === 0 ? <EmptyState title="Belum ada percakapan di rentang ini" action={<a className="btn" href="/chat">Uji di Chat</a>} />
             : (
               <div className="us-trend" role="img" aria-label="Grafik pesan per hari">
                 {br.data.daily.map((d) => (

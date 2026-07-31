@@ -139,7 +139,7 @@ export default function ConversationsPage() {
         <div style={{ borderRight: '1px solid var(--line)', maxHeight: 600, overflowY: 'auto' }}>
           {list.error ? <ErrorState message={list.error} onRetry={list.refetch} />
             : list.loading || !list.data ? <Skeleton rows={4} />
-            : list.data.rows.length === 0 ? <EmptyState title="Belum ada percakapan" hint="Percakapan terekam saat pengunjung memakai widget embed." />
+            : list.data.rows.length === 0 ? <EmptyState title="Belum ada percakapan" hint="Percakapan terekam saat pengunjung memakai widget embed." action={<a className="btn" href="/chat">Uji di Chat</a>} />
             : list.data.rows.map((c) => (
               <button key={c.id} onClick={() => setActive(c.id)}
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '13px 16px', border: 'none',

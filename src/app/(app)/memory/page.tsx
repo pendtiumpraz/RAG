@@ -351,7 +351,7 @@ function MemoryPageInner() {
               : graph.error ? <ErrorState message={graph.error} onRetry={graph.refetch} />
               : graph.loading || !graph.data ? <Skeleton rows={4} />
               : graph.data.nodes.length === 0
-                ? <EmptyState title="Graph masih kosong" hint="Ingest dokumen lalu jalankan Memory Agent." />
+                ? <EmptyState title="Graph masih kosong" hint="Ingest dokumen lalu jalankan Memory Agent." action={<a className="btn btn-primary" href="/knowledge">Isi knowledge base</a>} />
                 : <>
                     <GraphView graph={filtered(graph.data, only)} cats={cats.data ?? []} />
                     <CategoryLegend graph={graph.data} cats={cats.data ?? []} only={only} onToggle={setOnly} />

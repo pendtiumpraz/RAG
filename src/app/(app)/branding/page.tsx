@@ -110,7 +110,7 @@ function BrandingPageInner() {
   if (bots.loading || !bots.data) return <div className="card"><Skeleton rows={4} /></div>;
   if (bots.data.length === 0) {
     return <div className="card"><EmptyState title="Belum ada chatbot"
-      hint="Branding menempel pada chatbot — buat satu dulu di halaman Chatbots." /></div>;
+      hint="Branding menempel pada chatbot — buat satu dulu di halaman Chatbots." action={<a className="btn btn-primary" href="/chatbots">Buat chatbot</a>} /></div>;
   }
 
   return (

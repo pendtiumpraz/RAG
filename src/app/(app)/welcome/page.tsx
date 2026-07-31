@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../_lib/api';
 import { useEntitlements, SKIP_ONBOARD_KEY } from '../../_components/entitlements';
 import { Skeleton, useToast } from '../../_components/ui';
+import { PLAN_LIMITS } from '@/modules/core/limits';
 
 /**
  * ONBOARDING — pilih paket setelah akun disetujui (D14).
@@ -15,23 +16,42 @@ import { Skeleton, useToast } from '../../_components/ui';
  * baru terasa perlu setelah produknya dipakai serius.
  */
 
-const PERKS: Record<string, string[]> = {
+/**
+ * Isi kartu paket — ANGKANYA DIBACA DARI PLAN_LIMITS, bukan diketik.
+ *
+ * Sebelum ini ketiganya salah, dan salahnya ke arah yang paling merugikan:
+ * halaman ini menjanjikan Free 1.000 pesan/bulan (sebenarnya 10), Pro 50.000
+ * (sebenarnya 5.000), dan Enterprise "pesan tanpa batas" (sebenarnya 50.000).
+ * Ini halaman tempat orang memutuskan membayar, jadi angka yang salah di sini
+ * bukan cuma keliru — ia janji yang ditagih balik oleh produknya sendiri
+ * beberapa hari kemudian.
+ *
+ * Angka yang diketik tangan selalu berakhir begini: batasnya disesuaikan di
+ * limits.ts, dan tak ada apa pun yang memberi tahu halaman ini.
+ */
+const angka = (n: number) => (Number.isFinite(n) ? n.toLocaleString('id-ID') : 'tanpa batas');
+
+function batasPaket(plan: 'free' | 'pro' | 'enterprise'): string[] {
+  const l = PLAN_LIMITS[plan];
+  return [
+    `${angka(l.maxChatbots)} chatbot · ${angka(l.maxKnowledgeBases)} knowledge base`,
+    `${angka(l.messagesPerMonth)} pesan/bulan`,
+    `${angka(l.maxMembers)} anggota tim`,
+  ];
+}
+
+/** Kemampuan (bukan angka) — ini memang keputusan produk, bukan turunan kode. */
+const KEMAMPUAN: Record<string, string[]> = {
   free: [
-    '1 chatbot + 1 knowledge base',
-    '1.000 pesan/bulan',
     'Jawaban bersitasi + widget embed',
     'Riwayat percakapan',
   ],
   pro: [
-    'Semua di Free, plus:',
-    '10 chatbot · 50.000 pesan/bulan · 15 anggota',
     'Analitik per chatbot & Memory agent',
     'Branding/white-label widget',
     'Kelola tim & peran (RBAC)',
   ],
   enterprise: [
-    'Semua di Pro, plus:',
-    'Chatbot, pesan, dan anggota tanpa batas',
     'Monitoring pemakaian & biaya rinci',
     'Dukungan prioritas',
   ],
@@ -78,7 +98,10 @@ export default function WelcomePage() {
                 {p === 'free' ? 'Gratis' : price ? rupiah(price) : '—'}
                 {p !== 'free' && price ? <small>/bulan</small> : null}
               </div>
-              <ul>{PERKS[p].map((x, i) => <li key={i}>{x}</li>)}</ul>
+              <ul>
+                {batasPaket(p).map((x) => <li key={x}>{x}</li>)}
+                {KEMAMPUAN[p].map((x) => <li key={x}>{x}</li>)}
+              </ul>
               {current ? (
                 <button className="btn" disabled>Paket aktifmu</button>
               ) : p === 'free' ? (

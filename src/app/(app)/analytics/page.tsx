@@ -42,7 +42,7 @@ function AnalyticsPageInner() {
   if (bots.loading || !bots.data) return <div className="card"><Skeleton rows={4} /></div>;
   if (bots.data.length === 0) {
     return <div className="card"><EmptyState title="Belum ada chatbot"
-      hint="Analitik dihitung per chatbot — buat satu dulu di halaman Chatbots." /></div>;
+      hint="Analitik dihitung per chatbot — buat satu dulu di halaman Chatbots." action={<a className="btn btn-primary" href="/chatbots">Buat chatbot</a>} /></div>;
   }
 
   return (
@@ -79,7 +79,7 @@ function AnalyticsPageInner() {
         : a.loading || !a.data ? <div className="card"><Skeleton rows={5} /></div>
         : a.data.totals.questions === 0 ? (
           <div className="card"><EmptyState title="Belum ada percakapan"
-            hint={`Chatbot ini belum menerima pertanyaan dalam ${days} hari terakhir. Angka muncul setelah ada yang bertanya lewat widget.`} /></div>
+            hint={`Chatbot ini belum menerima pertanyaan dalam ${days} hari terakhir. Angka muncul setelah ada yang bertanya lewat widget.`} action={<a className="btn" href="/chat">Uji di Chat</a>} /></div>
         ) : (
           <>
             <div className="grid g4" style={{ marginBottom: 'var(--sp-4)' }}>
