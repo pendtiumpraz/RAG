@@ -23,16 +23,43 @@ export interface Sampling {
 /** Dipakai bila pemanggil tak menyebut apa pun (mis. agent memori). */
 const SAMPLING_FALLBACK = { temperature: 0.2, maxTokens: 2048 };
 
+/**
+ * Pilihan untuk `completeChat` — SATU objek bernama, bukan dua angka berurut.
+ *
+ * Bentuk lamanya `(modelId, messages, apiKey, maxChars, sampling)` dan itu
+ * jebakan yang sudah menggigit dua kali: kedua pemanggil menulis
+ * `completeChat(model, pesan, apiKey, 2000)` bermaksud membatasi TOKEN,
+ * padahal posisi itu `maxChars` — pemotong panjang string di sisi kita.
+ * Akibatnya batas token yang diinginkan tak pernah sampai ke model, yang
+ * berlaku bawaan 2.048, dan model bernalar menghabiskannya untuk berpikir
+ * lalu membalas KOSONG. Tak ada galat, tak ada peringatan; yang terlihat
+ * hanyalah fitur yang diam.
+ *
+ * Dengan objek bernama, kekeliruan yang sama tak bisa ditulis: `maxTokens`
+ * dan `maxChars` tak punya posisi untuk tertukar.
+ */
+export interface OpsiCompletion {
+  /**
+   * Batas panjang STRING yang dikumpulkan di sisi kita, bukan batas model.
+   * Pengaman terhadap model yang mengoceh tanpa henti.
+   */
+  maxChars?: number;
+  /** Batas token KELUARAN yang benar-benar dikirim ke model. */
+  maxTokens?: number;
+  temperature?: number;
+}
+
 /** Non-stream helper: kumpulkan seluruh stream jadi satu string (dipakai agent). */
 export async function completeChat(
   modelId: string,
   messages: ChatMessage[],
   apiKey: string,
-  maxChars = 8000,
-  sampling: Sampling = {},
+  opsi: OpsiCompletion = {},
 ): Promise<string> {
+  const maxChars = opsi.maxChars ?? 8000;
   let full = '';
-  for await (const delta of streamChat(modelId, messages, apiKey, sampling)) {
+  for await (const delta of streamChat(modelId, messages, apiKey,
+    { temperature: opsi.temperature, maxTokens: opsi.maxTokens })) {
     full += delta;
     if (full.length > maxChars) break;
   }

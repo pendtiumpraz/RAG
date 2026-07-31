@@ -49,9 +49,13 @@ test('anggaran token dikirim lewat sampling, BUKAN lewat maxChars', () => {
      di sisi kita, bukan batas token model. Memakainya sebagai batas token
      membuat anggaran sesungguhnya diam-diam jatuh ke bawaan 2.048, dan model
      bernalar menghabiskannya untuk berpikir sebelum sempat menulis apa pun. */
-  assert.ok(/maxChars = 8000/.test(LLM), 'bentuk completeChat berubah — periksa ulang argumennya');
-  assert.ok(/\], apiKey, 8_000, \{ maxTokens: MAX_TOKEN_BATCH \}\)/.test(SVC),
-    'anggaran token tak dikirim lewat argumen sampling');
+  /* Bentuk berposisi itu sudah DIGANTI objek bernama (kartu a-llm-maxchars),
+     supaya kekeliruan yang sama tak bisa ditulis lagi. Uji ini mengikutinya —
+     dan kegagalannya tadi justru bukti bahwa ia mengunci bentuk yang benar. */
+  assert.ok(/opsi: OpsiCompletion = \{\}/.test(LLM),
+    'bentuk completeChat berubah — periksa ulang argumennya');
+  assert.ok(/\], apiKey, \{ maxChars: 8_000, maxTokens: MAX_TOKEN_BATCH \}\)/.test(SVC),
+    'anggaran token tak dikirim lewat opsi bernama');
   assert.ok(!/\], apiKey, 2000\)/.test(SVC), 'angka token masih dikirim sebagai maxChars');
 });
 

@@ -220,7 +220,7 @@ export const recategorizeService = {
           'itu bukan kategori. Bila ragu antara dua, pilih yang lebih spesifik. ' +
           'Sertakan SEMUA nomor yang diberikan, satu entri masing-masing.' },
         { role: 'user', content: daftarDok },
-      ], apiKey, 8_000, { maxTokens: MAX_TOKEN_BATCH });
+      ], apiKey, { maxChars: 8_000, maxTokens: MAX_TOKEN_BATCH });
 
       try {
         const parsed = JSON.parse(

@@ -36,6 +36,22 @@ export const MEMORY_MAX_LEVEL = 5 as const;
 const MERGE_THRESHOLD = 0.93;
 const SIMILARITY_EDGE_THRESHOLD = 0.82;
 const MAX_DOC_CHARS_FOR_LLM = 6000;
+
+/**
+ * Anggaran token KELUARAN untuk satu distill.
+ *
+ * Sebelumnya tahap ini menulis `completeChat(…, apiKey, 2000)` bermaksud
+ * membatasi token, padahal posisi itu `maxChars`. Batas sesungguhnya diam-diam
+ * jatuh ke bawaan 2.048, dan model bernalar menghabiskannya untuk berpikir
+ * sebelum sempat menulis JSON-nya — hasilnya kosong, parsingnya gagal, dan
+ * dokumen jatuh ke penampung "belum dikategorikan" tanpa satu pun tanda.
+ * Itulah sebab 33 catatan di produksi lahir tanpa kategori.
+ *
+ * Angkanya jauh di atas panjang jawaban yang terlihat (abstract + beberapa
+ * poin + kategori) justru karena model bernalar memakai sebagian besar
+ * anggaran untuk berpikir, bukan untuk menulis.
+ */
+const MAX_TOKEN_DISTILL = 4_000;
 const MAX_DOCS_PER_RUN = 40;
 
 interface RunPayload { tenantId: string; chatbotId: string; }
@@ -129,7 +145,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
         'itu bukan kategori, dan jawaban semacam itu tak berguna bagi siapa pun. ' +
         'Bahasa mengikuti dokumen.' },
       { role: 'user', content: `Judul: ${doc.title}\n\n${excerpt}` },
-    ], apiKey, 2000);
+    ], apiKey, { maxTokens: MAX_TOKEN_DISTILL });
 
     let abstract = '', keyPoints: string[] = [], entities: string[] = [];
     // Penampung berlaku juga saat JSON gagal diurai: dokumen tetap masuk graf,
