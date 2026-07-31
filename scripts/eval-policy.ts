@@ -24,7 +24,7 @@ import { db, client } from '../src/modules/core/db';
 import { tenants } from '../src/modules/core/db/schema';
 import { withTenant } from '../src/modules/core/db/tenant-context';
 import { validasi, type HimpunanBaku } from '../src/modules/eval/golden';
-import { jalankanEvalKebijakan } from '../src/modules/eval/policy-runner';
+import { jalankanEvalKebijakan, type RingkasanKebijakan } from '../src/modules/eval/policy-runner';
 
 const DIR = path.join(process.cwd(), 'eval', 'golden');
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
@@ -51,12 +51,56 @@ async function main() {
 
   let adaKarangan = false;
 
+  /**
+   * Berapa kali himpunan dijalankan, lalu dirata-rata.
+   *
+   * ADA KARENA TERBUKTI PERLU, bukan untuk kelengkapan. Pada 31 Jul 2026
+   * sebuah perubahan prompt diukur satu jalan sebelum dan satu jalan
+   * sesudah, dan angkanya membaik — lalu mengulangnya tiga kali menunjukkan
+   * sebaran yang BERTUMPANG TINDIH (tanpa perubahan: 3·2·1 pelanggaran
+   * bahasa; dengan perubahan: 2·1·0). Satu jalan tak bisa membedakan
+   * perbaikan dari keberuntungan, dan eval yang memberi angka meyakinkan
+   * atas dasar satu jalan lebih berbahaya daripada tak ada eval: ia
+   * membuat orang MENGIRA sudah membuktikan.
+   */
+  const ulang = Math.max(1, Number(arg('ulang') ?? 1));
+
   for (const f of dipakai) {
     const himpunan: HimpunanBaku = validasi(JSON.parse(await fs.readFile(path.join(DIR, f), 'utf8')));
-    console.log(`\n▸ ${himpunan.nama} — ${himpunan.pertanyaan.length} pertanyaan`);
+    console.log(`\n▸ ${himpunan.nama} — ${himpunan.pertanyaan.length} pertanyaan`
+      + (ulang > 1 ? ` × ${ulang} jalan` : ''));
     console.log('  (tiap pertanyaan = satu panggilan model; sabar)');
 
-    const r = await jalankanEvalKebijakan(t.id, himpunan, { chatbotId: bot });
+    const jalan: RingkasanKebijakan[] = [];
+    for (let i = 0; i < ulang; i++) {
+      jalan.push(await jalankanEvalKebijakan(t.id, himpunan, { chatbotId: bot }));
+      if (ulang > 1) {
+        const j = jalan[i];
+        console.log(`   jalan ${i + 1}: karangan ${j.tolakSeharusnya - j.tolakBenar}`
+          + ` · bahasa salah ${j.bahasaSalah} · tak terbaca ${j.bahasaTakTerbaca}`);
+      }
+    }
+    /* Laporan rinci memakai jalan TERAKHIR; sebarannya sudah dicetak di
+       atas. Merata-rata teks jawaban tak berarti apa-apa, dan menampilkan
+       seluruh jalan akan menenggelamkan yang penting. */
+    const r = jalan[jalan.length - 1];
+
+    if (ulang > 1) {
+      const rata = (f: (x: typeof r) => number) =>
+        (jalan.reduce((a, x) => a + f(x), 0) / ulang).toFixed(1);
+      const rentang = (f: (x: typeof r) => number) => {
+        const v = jalan.map(f);
+        return `${Math.min(...v)}–${Math.max(...v)}`;
+      };
+      console.log(`\n  RATA-RATA ${ulang} jalan`);
+      console.log(`    karangan     ${rata((x) => x.tolakSeharusnya - x.tolakBenar)}  (rentang ${rentang((x) => x.tolakSeharusnya - x.tolakBenar)})`);
+      console.log(`    bahasa salah ${rata((x) => x.bahasaSalah)}  (rentang ${rentang((x) => x.bahasaSalah)})`);
+      console.log(`    tak terbaca  ${rata((x) => x.bahasaTakTerbaca)}  (rentang ${rentang((x) => x.bahasaTakTerbaca)})`);
+      /* RENTANG ikut dicetak, bukan rata-rata saja. Rata-rata sendirian
+         menyembunyikan justru hal yang menentukan apakah selisih dua
+         pengukuran berarti sesuatu. */
+      console.log('    → bandingkan RENTANG, bukan rata-rata: sebaran yang bertumpang tindih bukan bukti perbaikan');
+    }
 
     console.log(`\n  ANTI-KARANGAN  menolak dengan benar ${pct(r.tolakBenar, r.tolakSeharusnya)}`);
     /* Tiga angka, bukan satu: "salah" adalah pelanggaran produk, "tak

@@ -8,7 +8,7 @@ import { conversationRepository as convo } from './conversation.repository';
 import { retrievalService, type RetrievedChunk } from './retrieval.service';
 import { streamChat, type ChatMessage } from './llm';
 import {
-  normalizePolicy, policyDirectives, samplingFor, type AnswerPolicy,
+  normalizePolicy, policyDirectives, policyReminder, samplingFor, type AnswerPolicy,
 } from './answer-policy';
 import { estimateTokens } from '@/modules/core/limits';
 import { usageService } from '@/modules/usage/usage.service';
@@ -26,6 +26,16 @@ function buildPrompt(
   context: RetrievedChunk[],
   history: ChatMessage[],
   question: string,
+  /**
+   * Pengingat yang ditempel SESUDAH blok konteks.
+   *
+   * Tanpa ini, aturan bahasa & kepatuhan sumber berakhir di sepertiga atas
+   * system prompt sementara ribuan token dokumen menyusul di bawahnya — dan
+   * hal terakhir yang dibaca model sebelum menjawab adalah dokumen, bukan
+   * aturannya. Terukur: tiga dari dua belas jawaban memakai bahasa yang
+   * salah, mengikuti bahasa dokumen alih-alih bahasa penanya.
+   */
+  reminder?: string | null,
 ): { messages: ChatMessage[]; injectionFlagged: boolean } {
   // Guardrail L2+L3: cap jumlah & panjang chunk, sanitasi injeksi per chunk.
   let injectionFlagged = false;
@@ -69,6 +79,8 @@ function buildPrompt(
     ] : []),
     BLOCK_FORMAT_INSTRUCTIONS,
     '\n=== CONTEXT ===\n' + contextBlock,
+    // SESUDAH konteks, bukan sebelumnya — itulah seluruh maksudnya.
+    ...(reminder ? ['\n=== END OF CONTEXT ===\n' + reminder] : []),
   ].join('\n');
 
   const messages: ChatMessage[] = [{ role: 'system', content: sys }, ...history, { role: 'user', content: question }];
@@ -185,7 +197,8 @@ export async function chatTurn(
   const systemParts = [botContext, settings?.systemPrompt, policyDirectives(policy)]
     .filter(Boolean) as string[];
   const { messages: prompt, injectionFlagged } = buildPrompt(
-    systemParts.length ? systemParts.join('\n') : null, context, history, input.question);
+    systemParts.length ? systemParts.join('\n') : null, context, history, input.question,
+    policyReminder(policy));
 
   const provider = (await resolveLlmModel(llmModel))?.provider;
   // Server LLM sendiri memakai kredensial dari pendaftaran servernya, bukan

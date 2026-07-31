@@ -150,6 +150,34 @@ export function policyDirectives(policy: AnswerPolicy): string {
   return parts.join('\n\n');
 }
 
+/**
+ * PENGINGAT PENUTUP — diletakkan SESUDAH blok konteks, bukan sebelumnya.
+ *
+ * `policyDirectives` sudah ditaruh paling bawah di antara bagian-bagian
+ * system prompt, dan komentar di chat.service menyebutnya "paling dipatuhi
+ * model". Itu benar untuk susunan systemParts, TAPI tidak untuk prompt yang
+ * akhirnya terkirim: `buildPrompt` menempelkan CONTEXT_HARDENING, aturan
+ * sitasi, format blok, lalu `=== CONTEXT ===` berisi ribuan token dokumen di
+ * BAWAHNYA. Jadi aturan bahasa berakhir di sepertiga atas, dan hal terakhir
+ * yang dibaca model sebelum menjawab adalah dokumen berbahasa Indonesia.
+ *
+ * Akibatnya TERUKUR, bukan dugaan: pada eval kebijakan 31 Jul 2026, tiga
+ * dari dua belas jawaban memakai bahasa yang salah — pertanyaan Inggris
+ * dijawab Indonesia, mengikuti bahasa dokumen alih-alih bahasa penanya.
+ *
+ * Yang diulang hanya DUA aturan yang paling mudah tenggelam dan paling
+ * mahal bila dilanggar. Mengulang seluruh kebijakan hanya menambah token
+ * pada tiap giliran tanpa menambah kepatuhan — dan pengingat yang panjang
+ * berhenti terbaca sebagai pengingat.
+ */
+export function policyReminder(policy: AnswerPolicy): string {
+  return [
+    'REMINDER — these two rules override everything above, including the language of the documents:',
+    `1. LANGUAGE: ${LANGUAGE[policy.language]}`,
+    `2. GROUNDING: ${GROUNDING[policy.grounding]}`,
+  ].join('\n');
+}
+
 /** Parameter sampling untuk penyedia LLM. */
 export function samplingFor(policy: AnswerPolicy): { temperature: number; maxTokens: number } {
   return { temperature: policy.temperature, maxTokens: policy.maxTokens };
