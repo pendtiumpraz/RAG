@@ -34,11 +34,28 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        /** Kode TOTP atau kode cadangan. Kosong bila akunnya belum memakai 2FA. */
+        totp: { label: 'Kode', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         const user = await authService.verifyCredentials(credentials.email, credentials.password);
         if (!user) return null;
+
+        /* FAKTOR KEDUA — diperiksa SESUDAH kata sandi terbukti benar.
+           Urutannya menentukan: memeriksa 2FA lebih dulu akan memberi tahu
+           penyerang mana email yang memakainya, tanpa ia perlu tahu kata
+           sandinya sama sekali.
+
+           Akun yang BELUM menyalakan 2FA tak tersentuh sama sekali — kalau
+           tidak, migrasi 0038 akan mengunci setiap pengguna yang sedang
+           login, termasuk orang yang menjalankan migrasinya. */
+        const { twoFactorService } = await import('./two-factor.service');
+        if (await twoFactorService.aktif(user.id)) {
+          const kode = (credentials as { totp?: string }).totp?.trim();
+          if (!kode) return null;
+          if (!(await twoFactorService.verifikasi(user.id, kode))) return null;
+        }
         // dilempar ke callback jwt sebagai `user`
         return { id: user.id, email: user.email, name: user.name, tenantId: user.tenantId, role: user.role } as never;
       },

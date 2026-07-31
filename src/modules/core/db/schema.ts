@@ -124,11 +124,30 @@ export const users = pgTable('users', {
    * (backfill 0020) otomatis terverifikasi.
    */
   emailVerifiedAt: timestamp('email_verified_at'),
+
+  /* ── 2FA / TOTP (migrasi 0038) ──────────────────────────────────────
+     Semuanya boleh NULL: 2FA menyala per AKUN, bukan per sistem. */
+
+  /** Rahasia TOTP, TERENKRIPSI (core/crypto) — setara kata sandi kedua. */
+  totpSecret: text('totp_secret'),
+  /** NULL = pendaftaran belum dikonfirmasi dengan satu kode yang benar. */
+  totpEnabledAt: timestamp('totp_enabled_at'),
+  /**
+   * Langkah waktu terakhir yang sudah dipakai — penahan pemakaian ulang.
+   * Tanpa ini satu kode berlaku 90 detik penuh dan bisa dipakai berkali-kali.
+   */
+  totpLastStep: bigint('totp_last_step', { mode: 'number' }),
+  /** Kode cadangan, disimpan sebagai HASH scrypt — sama seperti kata sandi. */
+  totpBackupCodes: jsonb('totp_backup_codes').$type<string[]>(),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_users_tenant_id').on(t.tenantId),
   statusIdx: index('idx_users_status').on(t.status),
   delIdx: index('idx_users_deleted_at').on(t.deletedAt),
+  /* NAMA SAMA dengan migrasi 0038 — kalau berbeda, db:push membuat indeks
+     kedua yang isinya sama sambil membiarkan yang lama. */
+  totpIdx: index('idx_users_totp_enabled').on(t.tenantId)
+    .where(sql`totp_enabled_at IS NOT NULL AND deleted_at IS NULL`),
 })).enableRLS();
 
 /** Per-tenant settings: single active LLM + embedding model + dashboard theme. */

@@ -702,6 +702,34 @@ export const openApiSpec = {
         requestBody: json(obj({ email: str, password: str }, ['email', 'password'])),
         responses: { 200: err('outcome: invalid | pending | rejected | active') } },
     },
+    '/api/auth/two-factor': {
+      get: {
+        summary: 'Keadaan dua faktor akun yang sedang login',
+        security: [sessionAuth],
+        responses: { 200: err('{ aktif, sisaCadangan }') },
+      },
+      post: {
+        summary: 'Daftarkan / konfirmasi / matikan dua faktor (TOTP)',
+        description: 'Tiga aksi dalam satu endpoint karena ketiganya menyentuh SATU keadaan '
+          + 'yang sama dan urutannya wajib: `mulai` membuat rahasia tapi TIDAK mengaktifkannya '
+          + '(rahasia yang langsung berlaku akan mengunci orang yang salah memindai QR dari '
+          + 'akunnya sendiri); `konfirmasi` mengaktifkan setelah satu kode benar membuktikan '
+          + 'perangkatnya terpasang, dan mengembalikan kode cadangan SEKALI SAJA — sesudah itu '
+          + 'hanya hash-nya tersimpan; `matikan` menuntut KATA SANDI, bukan sekadar sesi yang '
+          + 'hidup, karena sesi yang hidup adalah persis yang dimiliki penyerang pencuri cookie. '
+          + 'Seluruh aksi menyentuh akun PEMANGGIL saja — userId diambil dari sesi, tak pernah '
+          + 'dari badan permintaan.',
+        security: [sessionAuth],
+        requestBody: json(obj({
+          aksi: { type: 'string', enum: ['mulai', 'konfirmasi', 'matikan'] },
+          kode: str, kataSandi: str,
+        }, ['aksi'])),
+        responses: {
+          200: err('{ rahasia, otpauth } | { kodeCadangan[] } | { ok }'),
+          400: err('kode tidak cocok / kata sandi salah / keadaan tak sesuai'),
+        },
+      },
+    },
     '/api/admin/users': {
       get: { summary: 'Antrean verifikasi pendaftaran (lintas tenant)', security: [sessionAuth],
         parameters: [{ name: 'status', in: 'query', required: false, schema: { type: 'string', enum: ['pending', 'all'] } }],

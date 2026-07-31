@@ -17,6 +17,9 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({ orgName: '', name: '', email: '', password: '' });
+  /** Kode faktor kedua — kolomnya baru muncul setelah password terbukti benar. */
+  const [totp, setTotp] = useState('');
+  const [mintaTotp, setMintaTotp] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   // Provider OAuth hanya terdaftar di NextAuth bila env-nya terisi. Tanpa
@@ -41,7 +44,9 @@ export default function AuthPage() {
 
   async function doLogin(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null); setNotice(null);
-    const res = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
+    const res = await signIn('credentials', {
+      email: form.email, password: form.password, totp: totp.trim(), redirect: false,
+    });
     if (!res?.error) { window.location.href = '/chat'; return; }
 
     // NextAuth sengaja menolak akun pending sama seperti password salah (supaya
@@ -56,6 +61,19 @@ export default function AuthPage() {
     if (why.outcome === 'unverified') setNotice(UNVERIFIED_MSG);
     else if (why.outcome === 'pending') setNotice(PENDING_MSG);
     else if (why.outcome === 'rejected') setError(REJECTED_MSG);
+    else if (why.outcome === 'active') {
+      /* Password BENAR dan akunnya aktif, tapi NextAuth tetap menolak —
+         yang tersisa hanyalah faktor kedua. Kolomnya baru muncul di sini,
+         bukan sejak awal: menampilkannya lebih dulu akan memberi tahu
+         penebak email mana yang memakai 2FA, dan itu justru daftar akun
+         bernilai tinggi. Kesimpulan ini pun hanya bisa ditarik oleh orang
+         yang sudah memegang password yang benar. */
+      setMintaTotp(true);
+      setError(totp.trim()
+        ? 'Kode tidak cocok. Periksa jam perangkatmu, lalu coba kode berikutnya.'
+        : null);
+      if (!totp.trim()) setNotice('Akun ini memakai dua faktor. Masukkan kode 6 digit dari aplikasi authenticator — atau salah satu kode cadanganmu.');
+    }
     else setError('Email atau password salah.');
   }
 
@@ -117,6 +135,14 @@ export default function AuthPage() {
           <form onSubmit={doLogin} className="stack gap-4">
             <div className="field"><label>Email</label><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="nama@perusahaan.com" /></div>
             <div className="field"><label>Password</label><input className="input" type="password" required value={form.password} onChange={set('password')} /></div>
+            {mintaTotp && (
+              <div className="field"><label>Kode dua faktor</label>
+                <input className="input mono" inputMode="numeric" autoComplete="one-time-code"
+                  autoFocus required placeholder="000000" maxLength={14} value={totp}
+                  onChange={(e) => setTotp(e.target.value)} />
+                <span className="microlabel">6 DIGIT DARI APLIKASI, ATAU SATU KODE CADANGAN.</span>
+              </div>
+            )}
             {error && <span className="error">{error}</span>}
             {notice && <span className="notice">{notice}</span>}
             <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>Masuk</button>
