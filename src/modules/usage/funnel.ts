@@ -36,7 +36,7 @@ export const TAHAP: Tahap[] = [
   { kunci: 'punyaChatbot', label: 'Membuat chatbot', arti: 'Langkah pertama yang benar-benar dilakukan sendiri.' },
   { kunci: 'punyaPengetahuan', label: 'Mengisi pengetahuan', arti: 'Potongan dokumen masuk. Tanpa ini chatbotnya tak bisa menjawab apa pun.' },
   { kunci: 'punyaPercakapan', label: 'Menerima pertanyaan', arti: 'Bukti produknya benar-benar dipakai, bukan sekadar disiapkan.' },
-  { kunci: 'membayar', label: 'Membayar', arti: 'Transaksi lunas pertama.' },
+  { kunci: 'membayar', label: 'Membayar', arti: 'Transaksi lunas pertama. Berhenti di sini berarti produknya sudah dipakai tapi belum cukup berharga untuk dibayar — pertanyaan harga, bukan pertanyaan produk.' },
 ];
 
 /** Keadaan satu tenant pada tiap tahap. */

@@ -17,7 +17,7 @@
  * memakainya sambil lalu: begitu satu tempat memakainya tanpa penjagaan,
  * kebiasaannya menyebar.
  */
-import { sql } from 'drizzle-orm';
+import { isNull, sql } from 'drizzle-orm';
 import { db, client } from '@/modules/core/db';
 import { tenants } from '@/modules/core/db/schema';
 import { withTenant } from '@/modules/core/db/tenant-context';
@@ -26,8 +26,14 @@ import {
 } from '@/modules/usage/funnel';
 
 async function main() {
+  /* HANYA tenant yang masih hidup. Tanpa penyaring ini laporan pertama
+     menghitung 81 tenant padahal yang hidup 2 — 79 sisanya baris uji asap
+     ("Smoke Gate", "Org A", "Org B") yang sudah dihapus lunak. Angka funnel
+     yang memuat mereka bukan sekadar meleset; ia menciptakan "kebocoran
+     terbesar" palsu di tahap verifikasi email, dan itu justru jenis temuan
+     yang membuat orang memperbaiki hal yang tak pernah rusak. */
   const daftarTenant = await db.select({ id: tenants.id, nama: tenants.name })
-    .from(tenants);
+    .from(tenants).where(isNull(tenants.deletedAt));
 
   if (daftarTenant.length === 0) {
     console.log('\nTidak ada satu tenant pun. Tak ada yang bisa dilaporkan.\n');
