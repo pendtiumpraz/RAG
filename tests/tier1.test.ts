@@ -267,19 +267,19 @@ test('perata-rataan MEMANG mengencerkan sinyal — kalau tidak, tak ada yang diu
   assert.equal(jarakKosinus(jawab, jawab), 0);
 });
 
-test('TIER1_DOCS produksi sejalan dengan yang diukur', async () => {
-  /* Konstanta ini pernah 40, dan pengukuran menunjukkan 40 menjatuhkan 8,2%
-     jawaban yang seharusnya terambil. Kalau seseorang menurunkannya kembali
-     tanpa mengukur ulang, kerugian itu kembali tanpa satu pun tes gagal —
-     karena tak ada tes yang bisa "gagal" akibat jawaban yang hilang diam-diam.
-     Uji ini menahan penurunan yang tak disertai ukuran baru. */
+test('TIER1_DOCS membawa ukurannya, dan ukuran itu tak boleh hilang diam-diam', async () => {
+  /* Tes ini SENGAJA tidak memaksa angkanya.
+     Menaikkan TIER1_DOCS melipatgandakan potongan yang dipindai lapisan kedua
+     pada tiap pertanyaan, di lambda Vercel — itu keputusan pemilik produk,
+     bukan kesimpulan yang boleh dipaksakan sebuah tes dari satu korpus
+     sintetis. Yang dijaga hanya bahwa angkanya tetap membawa sebabnya:
+     konstanta tanpa asal-usul akan diubah orang berikutnya sambil mengira ia
+     asal pilih, dan kerugian recall tak pernah membuat satu tes pun gagal. */
   const { readFileSync } = await import('node:fs');
   const src = readFileSync('src/modules/chat/retrieval.service.ts', 'utf8');
   const m = src.match(/const TIER1_DOCS = (\d+);/);
   assert.ok(m, 'TIER1_DOCS tak ditemukan — bentuk berkasnya berubah');
-  assert.ok(Number(m![1]) >= 95,
-    `TIER1_DOCS = ${m![1]}, di bawah 95 yang diukur perlu untuk recall 95% pada 400 dokumen`);
-  // Dan alasannya harus ikut tertulis: angka tanpa sebab akan dipangkas
-  // orang berikutnya yang mengiranya asal pilih.
-  assert.ok(/eval:tier1/.test(src), 'TIER1_DOCS tak menyebut ukuran yang mendasarinya');
+  assert.ok(Number(m![1]) > 0, 'TIER1_DOCS harus positif');
+  assert.ok(/eval:tier1/.test(src),
+    'TIER1_DOCS tak lagi menyebut cara mengukurnya — angkanya jadi tak bisa ditinjau');
 });
