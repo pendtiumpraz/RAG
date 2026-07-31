@@ -5,6 +5,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/modules/core/jobs';
 import { audit } from '@/modules/core/guardrails';
 import { periksaSync, terbitkanPeringatan } from '@/modules/core/alerts';
+import { batasSync } from './sync-limits';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService, QuotaError } from './knowledge.service';
@@ -56,10 +57,12 @@ import { assertPublicHttpUrl } from '@/modules/core/net';
 
 interface SyncPayload { tenantId: string; userId: string; sourceId: string; full?: boolean }
 
-/** Listing metadata murah → boleh besar; menentukan akurasi deteksi file terhapus. */
-const MAX_LIST_FILES = 2000;
-/** Kerja mahal (download + embed) dibatasi per run; sisanya lanjut run berikutnya. */
-const MAX_INGEST_PER_SYNC = 150;
+/* Batas DITENTUKAN OLEH TEMPAT KODE INI BERJALAN, bukan ditulis mati.
+   Di lambda ia harus muat di tenggat 60 detik; di pekerja yang hidup
+   terus tenggat itu tak ada, dan mempertahankan angka lambda di sana
+   berarti korpus 700 GB butuh 20.589 kali jalan untuk sesuatu yang bisa
+   diselesaikan satu proses. Lihat ./sync-limits. */
+const { ingestPerRun: MAX_INGEST_PER_SYNC, listFiles: MAX_LIST_FILES } = batasSync();
 const MAX_FILE_CHARS = 200_000;
 
 registerJobHandler('source.sync', async (payload) => {
@@ -131,7 +134,10 @@ export function planDelta(
 
 /* ── job utama ────────────────────────────────────────────────────── */
 
-async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promise<void> {
+/** DIEKSPOR utk pekerja ingest (scripts/ingest-worker.ts) — pekerja WAJIB
+ *  memanggil jalur yang sama dengan HTTP; jalur ingest kedua akan berbeda
+ *  perilakunya dalam hal yang tak seorang pun sadari sampai hasilnya beda. */
+export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promise<void> {
   const source = await withTenant(tenantId, async (tx) =>
     (await tx.select().from(dataSources).where(and(
       eq(dataSources.id, sourceId), isNull(dataSources.deletedAt),

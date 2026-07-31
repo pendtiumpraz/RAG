@@ -13,6 +13,7 @@
     "bench": "node --env-file=.env --import tsx scripts/bench-retrieval.ts",
     "eval": "node --env-file=.env --import tsx scripts/eval.ts",
     "eval:policy": "node --env-file=.env --import tsx scripts/eval-policy.ts",
+    "ingest:worker": "node --env-file=.env --import tsx scripts/ingest-worker.ts",
     "models:push": "node --env-file=.env --import tsx scripts/push-model.ts",
     "models:verify": "node --env-file=.env --import tsx scripts/verify-model-host.ts",
     "demo:account": "node --env-file=.env --import tsx scripts/create-demo-account.ts",
