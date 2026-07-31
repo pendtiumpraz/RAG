@@ -3,6 +3,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { embed, embeddingDims } from '@/modules/knowledge/embeddings';
 import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusion';
+import { lexicalTsquery } from './lexical-query';
 
 /**
  * Bobot MMR: 0,75 condong ke relevansi, cukup untuk membuang potongan yang
@@ -116,6 +117,11 @@ export const retrievalService = {
     const getApiKey = apiKeyResolver(tenantId);
     const [qVec] = await embed(embeddingModel, [query], { tenantId, getApiKey });
     const vecLiteral = `[${qVec.join(',')}]`;
+    /* Kata tanya dibuang, sisanya digabung OR. Dihitung SEKALI di luar SQL
+       supaya bisa diuji unit tanpa basis data — dan karena bentuk kuery
+       inilah yang pernah mematikan seluruh kaki leksikal tanpa satu pun
+       galat, ia layak punya tesnya sendiri. */
+    const lexQuery = lexicalTsquery(query);
 
     /**
      * Ekspresi jarak yang COCOK dengan indeks parsial berdimensi asli
@@ -229,17 +235,27 @@ export const retrievalService = {
           order by ${dist}
           limit ${pool}
         ),
-        q as (select plainto_tsquery('simple', ${query}) as tsq),
+        /* to_tsquery atas kuery ber-OR yang dibangun lexicalTsquery(), BUKAN
+           plainto_tsquery atas pertanyaan mentah.
+
+           plainto_tsquery menggabungkan seluruh kata dengan AND, dan karena
+           konfigurasinya 'simple' tak ada stopword yang dibuang — jadi kata
+           tanya ikut jadi syarat WAJIB. Terukur di korpus produksi: "berapa
+           NPWP perusahaan" mencocoki NOL potongan sementara "NPWP" saja
+           mencocoki tiga. Pada hampir setiap pertanyaan yang ditulis manusia
+           kaki ini mengembalikan kosong, dan hybrid search yang dijual tiga
+           kaki sebenarnya berjalan satu setengah. */
+        q as (select to_tsquery('simple', ${lexQuery ?? ''}) as tsq),
         lex as (
           select d.id, row_number() over (order by ts_rank_cd(d.fts, q.tsq) desc) as rnk
           from documents d, q
           where d.knowledge_base_id in (select id from kb)
             and d.embedding_model = ${embeddingModel}
             and d.deleted_at is null
-            -- Query yang seluruhnya stopword menghasilkan tsquery kosong dan
-            -- tak mencocoki apa pun; kaki ini lalu kosong dan penggabungan
-            -- otomatis jatuh ke vektor murni. Itu memang perilaku yang benar.
-            and d.fts @@ q.tsq
+            -- Pertanyaan yang isinya HANYA kata tanya tak punya istilah untuk
+            -- dicari; lexicalTsquery mengembalikan null, kaki ini kosong, dan
+            -- penggabungan jatuh ke vektor murni. Itu memang perilaku benar.
+            and ${lexQuery ? sql`d.fts @@ q.tsq` : sql`false`}
           order by ts_rank_cd(d.fts, q.tsq) desc
           limit ${pool}
         )
