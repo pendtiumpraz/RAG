@@ -57,6 +57,10 @@ export const invitationService = {
       tx.select({
         id: users.id, email: users.email, name: users.name,
         role: users.role, status: users.status, createdAt: users.createdAt,
+        /* Divisi (migrasi 0040) — halaman tim menampilkannya dan mengubahnya
+           di tempat yang sama dengan peran, karena keduanya adalah jawaban
+           atas satu pertanyaan: orang ini boleh melihat apa. */
+        divisionId: users.divisionId,
       }).from(users)
         .where(isNull(users.deletedAt))
         .orderBy(desc(users.createdAt)));

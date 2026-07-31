@@ -16,6 +16,10 @@
 /** Tabel yang barisnya dipilih lewat kolom `tenant_id`. */
 export const TENANT_TABLES = [
   // identitas & pengaturan — didahulukan karena sisanya menunjuk ke sini
+  /* Divisi didahulukan dari users: users.division_id menunjuk ke sini, dan
+     memindahkan orangnya lebih dulu membuat penunjuk itu menggantung di
+     tengah perpindahan — tak ada FK yang akan mengeluhkannya (Rule #2). */
+  'divisions',
   'users',
   'tenant_settings',
   'invitations',

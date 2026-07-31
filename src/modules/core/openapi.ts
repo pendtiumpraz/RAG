@@ -379,6 +379,41 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('{ ok, softDeleted }'), 422: err('penampung tak bisa dihapus') } },
     },
+    '/api/divisions': {
+      get: { summary: 'Daftar divisi + jumlah anggota & chatbotnya', security: [sessionAuth],
+        description: 'Boleh dibaca SEMUA anggota tenant, bukan hanya admin: form chatbot dan ' +
+          'halaman tim perlu menampilkan namanya, dan daftar nama divisi bukan rahasia di dalam ' +
+          'tenant sendiri. Yang dijaga divisi adalah ISI chatbotnya, bukan keberadaan divisinya.',
+        responses: { 200: err('daftar divisi') } },
+      post: { summary: 'Tambah divisi', security: [sessionAuth],
+        requestBody: json(obj({ name: str, description: str }, ['name'])),
+        responses: { 201: err('divisi terbuat'), 422: err('nama kosong / sudah dipakai') } },
+    },
+    '/api/divisions/{id}': {
+      patch: { summary: 'Ubah nama/keterangan divisi', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ name: str, description: str })),
+        responses: { 200: err('divisi diperbarui'), 422: err('validasi') } },
+      delete: { summary: 'Soft delete divisi; anggota & chatbotnya DILEPAS jadi tanpa divisi',
+        security: [sessionAuth],
+        description: 'Pelepasan itu wajib, bukan kenyamanan: tanpa FK (Rule #2) tak ada yang ' +
+          'membersihkan penunjuk ke baris terhapus, dan chatbot yang menunjuk divisi mati akan ' +
+          'hilang dari layar semua orang kecuali admin — terhapus tanpa pernah dihapus.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok, softDeleted }'), 404: err('tidak ditemukan') } },
+    },
+    '/api/divisions/trashed': {
+      get: { summary: 'Divisi ter-soft-delete (Rule #3)', security: [sessionAuth],
+        responses: { 200: err('daftar divisi di Sampah') } },
+    },
+    '/api/divisions/{id}/restore': {
+      patch: { summary: 'Pulihkan divisi dari Sampah — TANPA keanggotaannya', security: [sessionAuth],
+        description: 'Orang & chatbot yang dulu di dalamnya bisa saja sudah dipindahkan ' +
+          'sesudahnya; mengembalikan keadaan lama berarti mencabut penempatan yang dibuat ' +
+          'belakangan — memulihkan satu baris sambil merusak yang lain.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('divisi pulih'), 404: err('tidak ada di Sampah') } },
+    },
     '/api/knowledge-bases': {
       get: { summary: 'Daftar KB + ringkasan (sumber, chunk, chatbot ter-assign)', security: [sessionAuth],
         responses: { 200: err('daftar KB') } },

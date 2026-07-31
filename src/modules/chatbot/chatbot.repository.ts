@@ -1,22 +1,61 @@
-import { and, eq, isNull, isNotNull, desc } from 'drizzle-orm';
+import { and, eq, isNull, isNotNull, or, desc, type SQL } from 'drizzle-orm';
 import { chatbots, type Db } from '@/modules/core/db';
+import { lintasDivisi, type AktorDivisi } from './divisi';
+
+/**
+ * Klausa penyaring divisi — dipasang di WHERE, bukan disaring di memori.
+ *
+ * Bedanya menentukan: menyaring setelah query berjalan berarti barisnya
+ * sempat keluar dari basis data, dan setiap penghitungan, ekspor, atau
+ * paginasi yang lupa memakai hasil saringannya akan membocorkan yang sama.
+ * Di WHERE, kebocoran itu tak punya jalan.
+ *
+ * `undefined` untuk peran lintas divisi — and() mengabaikannya, jadi tak ada
+ * klausa yang perlu dinegasikan belakangan.
+ */
+export function klausaDivisi(aktor: AktorDivisi): SQL | undefined {
+  if (lintasDivisi(aktor)) return undefined;
+  // Chatbot tanpa divisi = tak dibatasi; sisanya harus cocok persis.
+  return aktor.divisionId === null
+    ? isNull(chatbots.divisionId)
+    : or(isNull(chatbots.divisionId), eq(chatbots.divisionId, aktor.divisionId));
+}
 
 /**
  * Repository = satu-satunya layer yang menyentuh tabel `chatbots`.
  * Semua query aktif memfilter `deleted_at IS NULL` (Rule #3).
  * `tx` selalu datang dari withTenant() — RLS aktif.
+ *
+ * `aktor` WAJIB pada setiap pembacaan daftar, dan itu disengaja: parameter
+ * opsional dengan bawaan "lihat semua" berarti setiap pemanggil baru yang
+ * lupa mengisinya diam-diam menembus pembatasan divisi, tanpa satu pun galat
+ * kompilasi. Yang wajib memaksa penulisnya memutuskan.
  */
 export const chatbotRepository = {
-  listActive(tx: Db, tenantId: string) {
+  listActive(tx: Db, tenantId: string, aktor: AktorDivisi) {
     return tx.select().from(chatbots)
-      .where(and(eq(chatbots.tenantId, tenantId), isNull(chatbots.deletedAt)))
+      .where(and(eq(chatbots.tenantId, tenantId), isNull(chatbots.deletedAt), klausaDivisi(aktor)))
       .orderBy(desc(chatbots.createdAt));
   },
 
-  listTrashed(tx: Db, tenantId: string) {
+  listTrashed(tx: Db, tenantId: string, aktor: AktorDivisi) {
     return tx.select().from(chatbots)
-      .where(and(eq(chatbots.tenantId, tenantId), isNotNull(chatbots.deletedAt)))
+      .where(and(eq(chatbots.tenantId, tenantId), isNotNull(chatbots.deletedAt), klausaDivisi(aktor)))
       .orderBy(desc(chatbots.deletedAt));
+  },
+
+  /**
+   * Jumlah chatbot aktif SE-TENANT — sengaja mengabaikan divisi.
+   *
+   * Dipakai menegakkan batas paket. Menghitungnya lewat daftar yang sudah
+   * tersaring divisi akan membuat setiap divisi punya jatah penuh sendiri:
+   * tenant paket gratis dengan lima divisi diam-diam mendapat lima kali
+   * batasnya. Batas paket milik TENANT, bukan milik divisi.
+   */
+  async countActive(tx: Db, tenantId: string) {
+    const rows = await tx.select({ id: chatbots.id }).from(chatbots)
+      .where(and(eq(chatbots.tenantId, tenantId), isNull(chatbots.deletedAt)));
+    return rows.length;
   },
 
   async findById(tx: Db, id: string, opts: { withTrashed?: boolean } = {}) {

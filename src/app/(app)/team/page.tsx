@@ -13,7 +13,12 @@ interface PendingUser {
   tenantId: string; tenantName: string | null; createdAt: string; approvedAt: string | null;
 }
 interface ApprovalPage extends PageMeta { rows: PendingUser[] }
-interface Member { id: string; email: string; name: string | null; role: string; status: string; createdAt: string }
+interface Member {
+  id: string; email: string; name: string | null; role: string; status: string; createdAt: string;
+  /** Divisi (migrasi 0040). null = belum ditempatkan. */
+  divisionId: string | null;
+}
+interface Divisi { id: string; name: string }
 interface Invitation { id: string; email: string; role: string; expiresAt: string; acceptedAt: string | null; createdAt: string; expired: boolean }
 
 /** Anggota tenant. Saat ini menampilkan user aktif (nyata dari sesi);
@@ -25,6 +30,7 @@ function TeamPageInner() {
 
   const members = useApi<Member[]>('/api/team/members');
   const invites = useApi<Invitation[]>(canInvite ? '/api/team/invitations' : null);
+  const divisi = useApi<Divisi[]>('/api/divisions');
   const [inviting, setInviting] = useState(false);
   const toast = useToast();
 
@@ -35,6 +41,20 @@ function TeamPageInner() {
     try {
       await api(`/api/team/members/${m.id}`, { method: 'PATCH', body: JSON.stringify({ role }) });
       toast(`${m.email} sekarang ${role}`); members.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); members.refetch(); }
+  }
+  /* Divisi ditempatkan DI SINI, bukan di halaman Divisi. Menempatkan orang
+     dari sisi divisi berarti mencari nama di daftar seluruh organisasi;
+     dari sisi orang, jawabannya sudah ada di depan mata bersama perannya —
+     dan keduanya menjawab pertanyaan yang sama: ia boleh melihat apa. */
+  async function changeDivision(m: Member, divisionId: string) {
+    try {
+      await api(`/api/team/members/${m.id}`, {
+        method: 'PATCH', body: JSON.stringify({ divisionId: divisionId || null }),
+      });
+      const nama = divisi.data?.find((d) => d.id === divisionId)?.name;
+      toast(nama ? `${m.email} masuk divisi ${nama}` : `${m.email} dilepas dari divisinya`);
+      members.refetch();
     } catch (e) { toast((e as Error).message, 'error'); members.refetch(); }
   }
   async function removeMember(m: Member) {
@@ -63,7 +83,7 @@ function TeamPageInner() {
           : members.loading || !members.data ? <Skeleton rows={2} />
           : (
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Status</th><th>Bergabung</th>{canInvite && <th />}</tr></thead>
+              <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Divisi</th><th>Status</th><th>Bergabung</th>{canInvite && <th />}</tr></thead>
               <tbody>
                 {members.data.map((m) => {
                   const untouchable = m.role === 'superadmin' || m.email === u?.email;
@@ -79,6 +99,25 @@ function TeamPageInner() {
                             <option value="member">member</option>
                           </Select>
                         ) : <span className="badge badge-source">{m.role}</span>}
+                      </td>
+                      <td>
+                        {/* Admin & superadmin memang melihat SELURUH divisi menurut
+                            keputusan produk, jadi menempatkan mereka tak mengubah
+                            apa pun — dan pilihan yang tak berpengaruh lebih
+                            membingungkan daripada tak ada pilihan sama sekali. */}
+                        {m.role === 'member' && canInvite ? (
+                          <Select className="select-sm" style={{ width: 150 }}
+                            value={m.divisionId ?? ''} onChange={(e) => changeDivision(m, e.target.value)}>
+                            <option value="">— tanpa divisi —</option>
+                            {(divisi.data ?? []).map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </Select>
+                        ) : m.role === 'member' ? (
+                          <span style={{ color: 'var(--muted)' }}>
+                            {divisi.data?.find((d) => d.id === m.divisionId)?.name ?? '—'}
+                          </span>
+                        ) : <span className="microlabel">SEMUA DIVISI</span>}
                       </td>
                       <td><StatusBadge status={m.status} /></td>
                       <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{m.createdAt?.slice(0, 10)}</td>

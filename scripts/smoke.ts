@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { authService } from '../src/modules/auth/auth.service';
 import { chatbotService } from '../src/modules/chatbot/chatbot.service';
+import type { AktorDivisi } from '../src/modules/chatbot/divisi';
 import { knowledgeService } from '../src/modules/knowledge/knowledge.service';
 import { retrievalService } from '../src/modules/chat/retrieval.service';
 import { withTenant } from '../src/modules/core/db/tenant-context';
@@ -64,13 +65,18 @@ async function main() {
   const leak = seen.some((u) => u.tenantId === b.tenantId);
   console.log('✓ RLS: user terlihat di tenant A=' + seen.length + ' · bocor ke B=' + (leak ? 'YA(BAHAYA)' : 'TIDAK'));
 
+  /* Aktor tanpa divisi berperan admin — smoke menguji jalur data, bukan
+     RBAC divisi. Aturan divisinya sendiri diuji murni di tests/divisi.test.ts
+     tanpa basis data, jadi tak ada yang perlu diulang di sini. */
+  const aktor: AktorDivisi = { role: 'admin', divisionId: null };
+
   // 4) chatbot (integritas referensial app-level + event)
-  const bot = await chatbotService.create(a.tenantId, { ownerId: a.id, name: 'Smoke Bot' });
+  const bot = await chatbotService.create(a.tenantId, aktor, { ownerId: a.id, name: 'Smoke Bot' });
   console.log('✓ chatbot publicKey=' + bot.publicKey.slice(0, 14) + '…');
 
   // 5) chatbot tenant B TIDAK bisa dibuat dgn owner tenant A (validasi service)
   let crossOwner = false;
-  try { await chatbotService.create(b.tenantId, { ownerId: a.id, name: 'X' }); }
+  try { await chatbotService.create(b.tenantId, aktor, { ownerId: a.id, name: 'X' }); }
   catch { crossOwner = true; }
   console.log('✓ tolak owner lintas-tenant=' + crossOwner);
 
@@ -191,7 +197,7 @@ async function main() {
   //    404. Diuji di sini supaya tak bisa diam-diam rusak lagi.
   try {
     const { resolveChatbotByPublicKey } = await import('../src/modules/core/db/tenant-context');
-    await chatbotService.update(a.tenantId, bot.id, {
+    await chatbotService.update(a.tenantId, aktor, bot.id, {
       greeting: 'Halo dari smoke!',
       themeConfig: { brand: { name: 'Smoke Co', logo: 'SC' }, theme: { signal: '#E11D48' } },
     });

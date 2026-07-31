@@ -29,6 +29,9 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
   ] },
   { group: 'Organisasi', items: [
     { href: '/team', label: 'Team', icon: 'users', feature: 'team' },
+    /* Tepat di bawah Team, karena keduanya menjawab satu pertanyaan yang
+       sama: siapa orangnya, dan ia boleh melihat apa. */
+    { href: '/divisions', label: 'Divisi', icon: 'users', feature: 'team' },
     { href: '/usage', label: 'Usage', icon: 'pulse', feature: 'usage' },
     { href: '/billing', label: 'Billing', icon: 'card' },
     { href: '/observability', label: 'Observability', icon: 'pulse' },

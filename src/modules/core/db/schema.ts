@@ -139,6 +139,14 @@ export const users = pgTable('users', {
   totpLastStep: bigint('totp_last_step', { mode: 'number' }),
   /** Kode cadangan, disimpan sebagai HASH scrypt — sama seperti kata sandi. */
   totpBackupCodes: jsonb('totp_backup_codes').$type<string[]>(),
+  /**
+   * Divisi tempat pengguna ini berada (migrasi 0040). Tanpa FK (Rule #2).
+   *
+   * SATU orang = SATU divisi, keputusan pemilik produk. NULL = belum
+   * ditempatkan: ia melihat chatbot yang tak berdivisi saja — bukan tak
+   * melihat apa pun, dan bukan melihat semuanya.
+   */
+  divisionId: uuid('division_id'),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_users_tenant_id').on(t.tenantId),
@@ -148,6 +156,34 @@ export const users = pgTable('users', {
      kedua yang isinya sama sambil membiarkan yang lama. */
   totpIdx: index('idx_users_totp_enabled').on(t.tenantId)
     .where(sql`totp_enabled_at IS NOT NULL AND deleted_at IS NULL`),
+  /* NAMA SAMA dengan migrasi 0040, parsial persis seperti di sana. */
+  divisionIdx: index('idx_users_division').on(t.divisionId)
+    .where(sql`division_id IS NOT NULL AND deleted_at IS NULL`),
+})).enableRLS();
+
+/**
+ * DIVISI — pembatasan chatbot di dalam satu tenant (migrasi 0040).
+ *
+ * Sebelum ini "divisi" hanya hidup sebagai prosa di `chatbots.context`:
+ * tulisan yang membentuk watak jawaban tapi tidak menjaga apa pun. Setiap
+ * anggota tenant bisa membuka setiap chatbot, termasuk chatbot HR yang
+ * menjawab pertanyaan gaji.
+ */
+export const divisions = pgTable('divisions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),   // tanpa FK (Rule #2)
+  name: text('name').notNull(),
+  description: text('description'),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_divisions_tenant').on(t.tenantId)
+    .where(sql`deleted_at IS NULL`),
+  /* Unik per tenant TANPA memandang besar-kecil huruf. "Keuangan" dan
+     "keuangan" sebagai dua divisi berbeda adalah cara paling mudah membuat
+     setengah orang tak melihat chatbot yang seharusnya mereka lihat — dan
+     sebabnya nyaris mustahil terlihat di layar. */
+  namaUnik: uniqueIndex('uq_divisions_tenant_name').on(t.tenantId, sql`lower(name)`)
+    .where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 /** Per-tenant settings: single active LLM + embedding model + dashboard theme. */
@@ -294,6 +330,17 @@ export const chatbots = pgTable('chatbots', {
   /** Aturan bebas pemilik — disisipkan sebagai preferensi GAYA saja. */
   answerRules: text('answer_rules'),
   enabled: boolean('enabled').default(true).notNull(),
+  /**
+   * Divisi pemilik chatbot ini (migrasi 0040). Tanpa FK (Rule #2).
+   *
+   * NULL = TAK DIBATASI, dan itu bukan kebetulan: semua chatbot yang sudah
+   * ada bernilai NULL setelah migrasi, jadi tak ada satu pun orang yang
+   * kehilangan akses pada saat divisi diperkenalkan. Pembatasan menjadi
+   * sesuatu yang ditambahkan dengan sengaja, bukan yang mendadak berlaku.
+   *
+   * Penyaringannya ada di chatbot.repository (klausaDivisi) — bukan di UI.
+   */
+  divisionId: uuid('division_id'),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_chatbots_tenant_id').on(t.tenantId),
@@ -303,6 +350,9 @@ export const chatbots = pgTable('chatbots', {
    *  dipakai ulang setelah chatbot di-soft-delete. */
   uqPublicKey: uniqueIndex('uq_chatbots_public_key')
     .on(t.publicKey).where(sql`deleted_at IS NULL`),
+  /* NAMA SAMA dengan migrasi 0040, parsial persis seperti di sana. */
+  divisionIdx: index('idx_chatbots_division').on(t.divisionId)
+    .where(sql`division_id IS NOT NULL AND deleted_at IS NULL`),
 })).enableRLS();
 
 /* ── knowledge ─────────────────────────────────────────────────────── */

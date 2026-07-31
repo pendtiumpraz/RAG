@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { and, eq, isNull } from 'drizzle-orm';
-import { users, conversations, chatbotKnowledgeBases, type ThemeConfig } from '@/modules/core/db';
+import { users, conversations, chatbotKnowledgeBases, type Db, type ThemeConfig } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import {
   normalizePolicy, type LanguageMode, type Tone, type Grounding,
@@ -8,31 +8,46 @@ import {
 import { dispatch } from '@/modules/core/events';
 import { usageService } from '@/modules/usage/usage.service';
 import { chatbotRepository as repo } from './chatbot.repository';
+import { bolehLihat, lintasDivisi, PESAN_DILUAR_DIVISI, type AktorDivisi } from './divisi';
 
 export class ValidationError extends Error {}
+
+/**
+ * Ditolak karena DIVISI, bukan karena data tak sah — dan bedanya penting di
+ * HTTP: yang satu 403, yang lain 422. Menyamakannya membuat "kamu tak berhak"
+ * terbaca sebagai "kirimanmu salah", dan orang akan mencoba memperbaiki
+ * kiriman yang sebenarnya sudah benar.
+ */
+export class AksesDitolakError extends Error {
+  constructor(msg = PESAN_DILUAR_DIVISI) { super(msg); }
+}
 
 /**
  * Service = business logic + referential integrity (konsekuensi No-FK Rule #2).
  * Controller (route) hanya memanggil service; service tidak tahu HTTP.
  */
 export const chatbotService = {
-  list(tenantId: string) {
-    return withTenant(tenantId, (tx) => repo.listActive(tx, tenantId));
+  list(tenantId: string, aktor: AktorDivisi) {
+    return withTenant(tenantId, (tx) => repo.listActive(tx, tenantId, aktor));
   },
 
-  listTrashed(tenantId: string) {
-    return withTenant(tenantId, (tx) => repo.listTrashed(tx, tenantId));
+  listTrashed(tenantId: string, aktor: AktorDivisi) {
+    return withTenant(tenantId, (tx) => repo.listTrashed(tx, tenantId, aktor));
   },
 
-  async create(tenantId: string, input: {
+  async create(tenantId: string, aktor: AktorDivisi, input: {
     ownerId: string; name: string; allowedOrigins?: string[];
     greeting?: string; themeConfig?: ThemeConfig;
     /** D11: konteks kepemilikan/persona (divisi) — masuk system prompt bot ini. */
     context?: string;
+    /** Divisi pemilik. NULL = tak dibatasi; hanya admin yang boleh memilihnya. */
+    divisionId?: string | null;
   }) {
-    // Enforcement plan: batas jumlah chatbot.
+    /* Batas paket dihitung SE-TENANT, bukan lewat daftar yang sudah tersaring
+       divisi — kalau lewat daftar, tiap divisi mendapat jatah penuh sendiri
+       dan tenant gratis berdivisi lima diam-diam punya lima kali batasnya. */
     const usage = await usageService.snapshot(tenantId);
-    const activeCount = (await this.list(tenantId)).length;
+    const activeCount = await withTenant(tenantId, (tx) => repo.countActive(tx, tenantId));
     if (activeCount >= usage.limits.maxChatbots) {
       throw new ValidationError(`Plan ${usage.plan} maksimal ${usage.limits.maxChatbots} chatbot. Upgrade untuk menambah.`);
     }
@@ -43,6 +58,15 @@ export const chatbotService = {
         .where(and(eq(users.id, input.ownerId), isNull(users.deletedAt))).limit(1);
       if (!owner[0]) throw new ValidationError('Owner tidak ditemukan di tenant ini');
 
+      /* Member TIDAK boleh memilih divisi chatbot yang ia buat — chatbotnya
+         mengikuti divisinya sendiri. Kalau boleh memilih, ia tinggal
+         mengirim divisionId:null lewat API dan chatbot divisinya jadi
+         terbuka untuk seluruh tenant; pembatasannya akan terlihat berjalan
+         di layar sambil bisa dilewati dengan satu permintaan HTTP. */
+      const divisionId = lintasDivisi(aktor)
+        ? (input.divisionId ?? null)
+        : aktor.divisionId;
+
       const created = await repo.create(tx, {
         tenantId,
         ownerId: input.ownerId,
@@ -52,20 +76,49 @@ export const chatbotService = {
         greeting: input.greeting,
         themeConfig: input.themeConfig,
         context: input.context?.trim() || null,
+        divisionId,
       });
       await dispatch('chatbot.created', { tenantId, chatbotId: created.id, ownerId: input.ownerId });
       return created;
     });
   },
 
-  async update(tenantId: string, id: string, input: Partial<{
+  /**
+   * Penjaga divisi untuk operasi BER-ID.
+   *
+   * Daftar yang tersaring belum menjaga apa pun: id chatbot muncul di URL,
+   * di log, dan di potongan embed yang memang dibagikan. Tanpa pemeriksaan
+   * ini, member divisi lain tetap bisa PATCH atau DELETE chatbot yang tak
+   * pernah terlihat olehnya — pembatasannya akan terlihat bekerja di layar
+   * sambil tak menjaga apa-apa.
+   *
+   * `withTrashed` untuk restore: barisnya memang sudah terhapus lunak, dan
+   * mencarinya tanpa itu akan menjawab "tidak ditemukan" pada chatbot divisi
+   * lain — kebetulan aman, tapi aman karena alasan yang salah.
+   */
+  async pastikanBoleh(tx: Db, id: string, aktor: AktorDivisi, opts: { withTrashed?: boolean } = {}) {
+    const bot = await repo.findById(tx, id, opts);
+    if (!bot) throw new ValidationError('Chatbot tidak ditemukan');
+    if (!bolehLihat(aktor, bot.divisionId)) throw new AksesDitolakError();
+    return bot;
+  },
+
+  async update(tenantId: string, aktor: AktorDivisi, id: string, input: Partial<{
     name: string; allowedOrigins: string[]; greeting: string;
     enabled: boolean; themeConfig: ThemeConfig; context: string | null;
     /* Kebijakan jawaban (D14). */
     temperature: number; maxTokens: number; languageMode: string;
     tone: string; grounding: string; answerRules: string | null;
+    /** Hanya peran lintas divisi yang boleh memindahkan chatbot. */
+    divisionId: string | null;
   }>) {
     return withTenant(tenantId, async (tx) => {
+      await this.pastikanBoleh(tx, id, aktor);
+      /* Memindahkan chatbot ke divisi lain — atau melepasnya jadi tak
+         dibatasi — adalah keputusan lintas divisi menurut definisinya
+         sendiri. Member yang mengirim divisionId cuma diabaikan, bukan
+         ditolak: kirimannya sah, wewenangnya yang tidak. */
+      if ('divisionId' in input && !lintasDivisi(aktor)) delete input.divisionId;
       // Kebijakan DINORMALKAN di server sebelum menyentuh DB. Klien boleh
       // mengirim apa saja; batas temperature/token dan daftar nilai sah
       // ditegakkan di sini (dan sekali lagi oleh CHECK constraint migrasi
@@ -102,8 +155,9 @@ export const chatbotService = {
    * entitas BERSAMA, jadi menghapus chatbot TIDAK menyentuh KB/dokumennya;
    * yang ikut terhapus hanya ASSIGNMENT-nya dan percakapan chatbot ini.
    */
-  async softDelete(tenantId: string, id: string) {
+  async softDelete(tenantId: string, aktor: AktorDivisi, id: string) {
     return withTenant(tenantId, async (tx) => {
+      await this.pastikanBoleh(tx, id, aktor);
       const deleted = await repo.softDelete(tx, id);
       if (!deleted) throw new ValidationError('Chatbot tidak ditemukan');
       const now = new Date();
@@ -117,8 +171,9 @@ export const chatbotService = {
   },
 
   /** Restore chatbot + kaskade kebalikannya (assignment & percakapan). */
-  async restore(tenantId: string, id: string) {
+  async restore(tenantId: string, aktor: AktorDivisi, id: string) {
     return withTenant(tenantId, async (tx) => {
+      await this.pastikanBoleh(tx, id, aktor, { withTrashed: true });
       const restored = await repo.restore(tx, id);
       if (!restored) throw new ValidationError('Chatbot tidak ada di Sampah');
       const now = new Date();

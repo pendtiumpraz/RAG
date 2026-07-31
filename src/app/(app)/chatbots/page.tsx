@@ -13,6 +13,8 @@ interface Chatbot {
      Opsional karena baris pra-migrasi 0030 belum memilikinya. */
   temperature?: number; maxTokens?: number; languageMode?: string;
   tone?: string; grounding?: string; answerRules?: string | null;
+  /** Divisi pemilik (migrasi 0040). null = tak dibatasi. */
+  divisionId?: string | null;
 }
 
 export default function ChatbotsPage() {
@@ -131,6 +133,11 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
   const [tone, setTone] = useState(bot?.tone ?? 'netral');
   const [grounding, setGrounding] = useState(bot?.grounding ?? 'strict');
   const [answerRules, setAnswerRules] = useState(bot?.answerRules ?? '');
+  /* Divisi PEMILIK (migrasi 0040) — beda dari "Konteks divisi / persona" di
+     bawah, yang cuma prosa untuk system prompt dan tak menjaga apa pun.
+     '' berarti tak dibatasi; dikirim sebagai null. */
+  const [divisionId, setDivisionId] = useState(bot?.divisionId ?? '');
+  const divisi = useApi<Array<{ id: string; name: string }>>('/api/divisions');
   const [snippet, setSnippet] = useState<string | null>(
     bot ? `<script src="${location.origin}/embed.js" data-chatbot="${bot.publicKey}"></script>` : null);
   const [busy, setBusy] = useState(false);
@@ -147,6 +154,7 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
       allowedOrigins: origins.split('\n').map((s) => s.trim()).filter(Boolean),
       temperature, maxTokens, languageMode, tone, grounding,
       answerRules: answerRules.trim() || null,
+      divisionId: divisionId || null,
     };
     try {
       if (isNew) {
@@ -171,6 +179,22 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
         <div className="db stack gap-4">
           <Field label="Nama chatbot"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="Greeting"><input className="input" value={greeting} onChange={(e) => setGreeting(e.target.value)} /></Field>
+
+          {/* Divisi PEMILIK (migrasi 0040) — ini yang benar-benar membatasi
+              siapa boleh membuka chatbot ini. Sengaja ditaruh TEPAT DI ATAS
+              "Konteks divisi / persona": keduanya menyebut kata divisi, dan
+              satu-satunya cara membedakannya adalah melihatnya berdampingan. */}
+          <Field label="Divisi pemilik">
+            <Select value={divisionId} onChange={(e) => setDivisionId(e.target.value)} items={[
+              { value: '', label: 'Tanpa divisi — terlihat semua anggota' },
+              ...(divisi.data ?? []).map((d) => ({ value: d.id, label: d.name })),
+            ]} />
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              {divisionId
+                ? 'HANYA ANGGOTA DIVISI INI — DAN ADMIN ORGANISASI — YANG MELIHAT CHATBOT INI'
+                : 'SELURUH ANGGOTA ORGANISASI MELIHAT CHATBOT INI'}
+            </p>
+          </Field>
 
           {/* D11: konteks kepemilikan divisi — masuk system prompt chatbot ini saja */}
           <Field label="Konteks divisi / persona"><textarea className="input" rows={3} value={context} onChange={(e) => setContext(e.target.value)}

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/modules/core/auth';
-import { chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
+import { AksesDitolakError, chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
+import { divisionService } from '@/modules/settings/division.service';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,8 @@ const PatchBody = z.object({
   tone: z.enum(['netral', 'formal', 'ramah', 'ringkas', 'teknis']).optional(),
   grounding: z.enum(['strict', 'balanced', 'open']).optional(),
   answerRules: z.string().max(2000).nullable().optional(),
+  /** Pindah divisi (migrasi 0040) — diabaikan bila pemanggilnya bukan lintas divisi. */
+  divisionId: z.string().uuid().nullable().optional(),
 });
 
 /** PATCH /api/chatbots/:id — update. */
@@ -30,9 +33,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const parsed = PatchBody.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   try {
-    const updated = await chatbotService.update(user.tenantId, id, parsed.data as never);
+    const updated = await chatbotService.update(
+      user.tenantId, await divisionService.aktor(user), id, parsed.data as never);
     return NextResponse.json(updated);
   } catch (e) {
+    if (e instanceof AksesDitolakError) return NextResponse.json({ error: e.message }, { status: 403 });
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });
     throw e;
   }
@@ -43,9 +48,10 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   const user = await requireRole('superadmin', 'admin');
   const { id } = await ctx.params;
   try {
-    await chatbotService.softDelete(user.tenantId, id);
+    await chatbotService.softDelete(user.tenantId, await divisionService.aktor(user), id);
     return NextResponse.json({ ok: true, softDeleted: id });
   } catch (e) {
+    if (e instanceof AksesDitolakError) return NextResponse.json({ error: e.message }, { status: 403 });
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });
     throw e;
   }

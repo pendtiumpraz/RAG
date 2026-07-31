@@ -37,6 +37,7 @@ export const config = {
     '/bantuan',
     '/kuitansi/:path*',
     '/team/:path*',
+    '/divisions/:path*',
     '/billing/:path*',
     '/observability/:path*',
     '/settings/:path*',
