@@ -15,8 +15,9 @@
 | **Dimulai** | `2026-07-23` |
 | **Live sejak** | `2026-07-24` di `rag.sainskerta.net` (Vercel + Neon PG17/pgvector 0.8) |
 | **Terakhir diperbarui** | `2026-07-31` |
-| **Antrean kerja** | **Papan backlog** (Dataroom ▸ Update & Backlog) — 12 selesai · 53 tersisa (P0=3 · P1=15 · P2=25 · P3=13) |
-| **Progress** | `~93% — produk tayang & terverifikasi; ketiga P0 yang tersisa SEMUANYA menunggu kredensial pihak ketiga (SMTP, gateway, Drive API key), bukan menunggu kode` |
+| **Antrean kerja** | **Papan backlog** (Dataroom ▸ Update & Backlog) — 17 selesai · 53 tersisa (P0=3 · P1=13 · P2=25 · P3=12) |
+| **Migrasi produksi** | `0001–0036 TERPASANG (31 Jul 2026)` — diverifikasi kolom per kolom; RLS utuh 22 tabel / 35 kebijakan |
+| **Progress** | `~94% — produk tayang & terverifikasi; ketiga P0 yang tersisa SEMUANYA menunggu kredensial pihak ketiga (SMTP, gateway, Drive API key), bukan menunggu kode` |
 
 > **Pembagian sumber kebenaran** (ditegaskan 2026-07-31 setelah `.claude/loop.md`
 > tertinggal delapan hari): berkas ini = STATUS proyek · papan backlog di basis
@@ -492,8 +493,44 @@ sekadar ditulis — angka di bawah hasil ukur, bukan perkiraan):
       semua-pasangan menolak palet 8 warna (ungu vs biru ΔE 0,4 pada deutan).
 - [x] **Persetujuan ringkasan + dashboard Dokumen** — cari berkas di KB lewat
       judul, isi, DAN ringkasan sekaligus.
-- [x] **Dataroom**: dek HLA beranimasi (SVG+CSS murni, 20 slide), kalkulator
+- [x] **Dataroom**: dek HLA beranimasi (SVG+CSS murni, 24 slide), kalkulator
       kapasitas, ekspor SVG+WebP dalam ZIP tanpa pustaka.
+- [x] **Kategorikan ulang dari ringkasan** — dokumen yang tersangkut di
+      penampung dulu hanya bisa dibereskan dengan menjalankan ULANG seluruh
+      agen Memory (baca ulang tiap berkas, ringkas ulang, bangun ulang graf).
+      Karena semahal itu, ia tak pernah dilakukan dan penampungnya menumpuk
+      selamanya. Kini satu tombol menilainya dari ringkasan yang SUDAH ada,
+      dibundel 20 sekali kirim. Hanya menyentuh yang berkategori `belum`.
+
+**Permukaan chat** — *ditambahkan 31 Jul 2026*
+- [x] **Chat halaman penuh publik `/c/{publicKey}`** — daftar sesi di samping,
+      diambil dari SERVER bukan localStorage: pengunjung yang membersihkan
+      penyimpanan peramban akan melihat riwayatnya kosong padahal servernya
+      menyimpan semuanya. Judul sesi diturunkan dari pertanyaan pembuka,
+      bukan dari panggilan model tambahan per sesi.
+- [x] **Mode embed `inline`** — `data-mode="inline"` memasang chat halaman
+      penuh lewat iframe, bukan menggambar ulang antarmukanya di JavaScript
+      biasa. Dua antarmuka yang sama berarti dua tempat yang harus diperbaiki,
+      dan yang satu pasti tertinggal.
+- [x] 🔴 **Proteksi framing dipasang** — sebelumnya TAK ADA sama sekali.
+      Selama iframe belum dipakai produk ini hal itu tak kentara; begitu
+      iframe jadi pola resmi, dasbor yang bisa dibingkai adalah celah
+      clickjacking. `/c` boleh dibingkai, sisanya `frame-ancestors 'none'`.
+
+**Perbaikan cacat produksi** — *31 Jul 2026*
+- [x] 🔴 **Refresh token OAuth mati untuk SEMUA koneksi Google.** Sejak D10
+      kredensial aplikasi OAuth pindah ke tabel `oauth_apps`, tapi pemindahan
+      itu hanya dikerjakan di jalur CONNECT; `refresh()` dan `userDrive()`
+      tertinggal membaca `process.env` yang di pemasangan ini KOSONG. Akibat
+      berurutan: menyambung berhasil → sejam kemudian `invalid_client` →
+      pesan menyuruh menyambung ulang → menyambung ulang berhasil → gagal
+      lagi persis sejam kemudian. Saran yang mustahil menolong tapi tampak
+      bekerja selama satu jam — itulah yang membuatnya bertahan lama.
+      Sekarang kegagalan KONFIGURASI dibedakan dari token tercabut dan dari
+      gagal jaringan, karena ketiganya menuntut tindakan berlawanan.
+- [x] **Migrasi 0030–0036 diterapkan ke produksi** — sebelumnya hanya di dev.
+      Diverifikasi kolom per kolom, termasuk RLS yang tetap utuh (22 tabel,
+      35 kebijakan) — di proyek ini justru migrasi yang pernah mematikannya.
 
 Yang TERSISA dan diakui belum ada:
 - [ ] **Uji beban** — satu-satunya bagian Fase 05 yang belum dijalankan
@@ -504,6 +541,22 @@ Yang TERSISA dan diakui belum ada:
       dibuktikan, hanya bisa diyakini (kartu `a-eval`)
 - [ ] **Reranker lintas-encoder** — dipisah jujur dari kartu hybrid search
       yang sudah selesai (kartu `a-reranker`)
+- [ ] **Pekerja ingest di luar Vercel** — melayani pertanyaan atas korpus
+      700 GB kini SUDAH muat di Vercel + Neon (indeks residen 2,5 GB, jauh di
+      bawah atap Neon 64 GB). Yang belum: MEMASUKKAN-nya. Terhitung dari batas
+      kode sendiri — 150 berkas/jalan, 60 detik/lambda — 3,1 juta dokumen
+      berarti ±20.589 kali jalan, ±14 hari nonstop; ditambah jendela listing
+      2.000 yang membuat deteksi berkas terhapus permanen dilewati, dan 700 GB
+      yang menghabiskan ±70% jatah transfer Vercel Pro sebulan. Yang
+      menghalangi bukan kapasitas melainkan tak adanya proses latar
+      (kartu `a-ingest-worker`)
+- [ ] **Sidebar sesi di konsol Chat DASBOR** — sudah ada di chat publik `/c`,
+      belum di dasbor yang masih melayani satu sesi (kartu `a-chat-sessions`)
+- [ ] **Riwayat chat publik lintas perangkat** — identitas pengunjung
+      sepenuhnya `visitorId` di localStorage; buka dari ponsel setelah
+      mengobrol di laptop, riwayatnya kosong. Batas itu kini DITULIS apa
+      adanya di kaki daftar sesi — cukup untuk jujur, tak menyelesaikan apa
+      pun (kartu `a-visitor-identity`)
 
 ---
 
@@ -531,6 +584,10 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 | 10 | **Belum ada golden set untuk eval jawaban** — tanpa itu, perbaikan retrieval hanya bisa diyakini, tak bisa dibuktikan. Ini yang menghalangi keputusan reranker | high | open (`a-eval`) |
 | 11 | **Sisa kuota tak terlihat sebelum tertabrak** — endpoint `/api/usage/storage` sudah ada tapi belum dipakai UI mana pun. Dengan kuota Free yang sengaja ketat, ini pembeda antara pesan "paketmu penuh" dan kesan "aplikasinya rusak" | medium | open (`a-quota-ui-hint`) |
 | 12 | **Rate limit tak berbagi antar instans** — hitungannya di memori tiap lambda, jadi batas efektifnya melonggar saat lalu lintas naik. Kodenya siap begitu ada URL Redis | medium | open (`h-redis`) |
+| 13 | **Ingest korpus besar tak bisa lewat Vercel** — bukan soal kapasitas (melayani 700 GB sudah muat, indeks 2,5 GB); soal tak adanya proses latar. ±20.589 kali jalan untuk 3,1 juta dokumen, jendela listing 2.000 membuat deteksi berkas terhapus permanen dilewati | high | open (`a-ingest-worker`) |
+| 14 | **Riwayat chat publik terikat peramban** — `visitorId` di localStorage adalah satu-satunya identitas. Batasnya kini ditulis apa adanya di UI, tapi belum diselesaikan | low | open (`a-visitor-identity`) |
+| 15 | ~~Refresh token OAuth mati untuk semua koneksi Google~~ — `refresh()` & `userDrive()` membaca `process.env` sementara jalur connect sudah pindah ke `oauth_apps` (D10). Pesannya menyuruh menyambung ulang, yang mustahil menolong | high | ✅ fixed 2026-07-31 — kredensial lewat `oauthAppService`; kegagalan konfigurasi dibedakan dari token tercabut |
+| 16 | ~~Tak ada proteksi framing~~ — dasbor bisa dibingkai siapa pun (clickjacking). Tak kentara selama produk belum memakai iframe | medium | ✅ fixed 2026-07-31 — `/c` boleh dibingkai, sisanya `frame-ancestors 'none'` + `X-Frame-Options: DENY` |
 | 6 | White-label (theme_config per chatbot) | high | ✅ selesai 2026-07-26 — halaman /branding + pratinjau langsung; tipe ThemeConfig diselaraskan dgn embed.js |
 | 7 | Server-to-server API key per client (key tak pernah ke browser) | high | ✅ arsitektur ada (providerCredentials + apiKeyResolver); didokumentasi di docs/idea.md |
 
@@ -548,6 +605,11 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 
 | Tanggal | Fase | Perubahan |
 |---------|------|-----------|
+| 2026-07-31 | 07 | **Migrasi 0030–0036 diterapkan ke PRODUKSI** — sebelumnya hanya di dev, jadi enam fitur yang sudah ditulis (kebijakan jawaban, kategori, tinjauan ringkasan, dedup, halfvec, kuota per paket) belum benar-benar hidup di sana. Diverifikasi kolom per kolom, bukan dipercaya dari pesan "Migrations applied"; RLS diperiksa terpisah dan tetap utuh (22 tabel, 35 kebijakan) — di proyek ini justru migrasi yang pernah mematikannya |
+| 2026-07-31 | 07 | 🔴 **Refresh token OAuth mati untuk SELURUH koneksi Google.** Sejak D10 kredensial aplikasi OAuth pindah ke `oauth_apps`, tapi pemindahannya hanya dikerjakan di jalur CONNECT — `refresh()` dan `userDrive()` tertinggal membaca `process.env` yang di pemasangan ini kosong. Menyambung berhasil, sejam kemudian `invalid_client`, pesannya menyuruh menyambung ulang, menyambung ulang berhasil, lalu gagal lagi persis sejam kemudian: saran yang mustahil menolong tapi tampak bekerja selama satu jam — itulah yang membuatnya bertahan lama. Kini kegagalan KONFIGURASI dibedakan dari token tercabut dan dari gagal jaringan, karena ketiganya menuntut tindakan berlawanan |
+| 2026-07-31 | 07 | **Chat halaman penuh publik `/c/{publicKey}` + mode embed `inline`.** Gelembung sudut sudah ada; yang belum ada di mana pun adalah tampilan penuh DAN daftar sesi di samping. Daftar sesi diambil dari SERVER, bukan localStorage — pengunjung yang membersihkan penyimpanan peramban akan melihat riwayatnya kosong padahal servernya menyimpan semuanya; localStorage tetap dipakai, tapi hanya untuk `visitorId`, yaitu kuncinya. Mode inline memuat halaman itu lewat iframe alih-alih menggambar ulang antarmukanya. 🔴 Sekalian ketahuan: **tak ada proteksi framing sama sekali** — tak kentara selama produk belum memakai iframe, jadi kelalaian begitu iframe jadi pola resmi |
+| 2026-07-31 | 07 | **Kategorikan ulang dokumen dari ringkasan.** Kategori hanya ditetapkan sekali saat agen meringkas; kalau gagal, catatan jatuh ke penampung dan tak pernah keluar lagi kecuali seluruh agen dijalankan ulang — dan karena semahal itu, tak pernah dilakukan. Kini satu tombol menilai dari ringkasan yang SUDAH ada, dibundel 20 sekali kirim. Hanya menyentuh yang berkategori `belum`: tombol yang diam-diam memindahkan dokumen yang sudah sengaja diarsipkan seseorang membuat seluruh master data kategori berhenti dipercaya |
+| 2026-07-31 | 07 | **Slide memori & batas Vercel di HLA + spesifikasi server diturunkan.** Setelah halfvec, korpus 700 GB butuh indeks residen 2,5 GB — bukan 282 GB, jadi rekomendasi server proposal turun 64/128 GB → 32/64 GB dan anggaran perangkatnya ikut turun. Penawaran diturunkan, bukan selisihnya disimpan. Sekalian terhitung bahwa MELAYANI 700 GB sudah muat di Vercel sementara MEMASUKKAN-nya tidak (±20.589 kali jalan), dan itu jadi kartu backlog sendiri, bukan catatan kaki |
 | 2026-07-31 | 07 | **Papan backlog jadi sumber kebenaran antrean kerja.** `.claude/loop.md` ternyata tertinggal DELAPAN HARI — masih menyebut Fase 04 "pending" sementara D11–D15 sudah diambil dan produknya tayang. Sebabnya struktural: daftar yang berubah tiap jam tak bisa hidup di berkas yang diperbarui manual. Loop.md menyusut jadi pencatat fase & konteks; antreannya pindah ke papan yang tersimpan di DB. Papan sendiri dirapikan — kartu `a-hybrid` berjudul "Hybrid search + reranker" dan ditandai selesai padahal reranker-nya belum ada, jadi judulnya diperbaiki dan reranker dipisah jadi kartu sendiri |
 | 2026-07-31 | 07 | **halfvec tanpa batas dimensi** (migrasi 0035): kolom vektor 6.148 → **776 byte** (7,9×), baris 8.228 → 2.852 (2,9×). Ketelitiannya DIUKUR sebelum diputuskan — 50/50 posisi peringkat identik antara fp32 & fp16; sesudah migrasi, uji retrieval kembali 4/4 identik. Tiga cacat ketahuan lewat menjalankan sungguhan: HNSW menuntut dimensi diketahui sehingga kolom tanpa batas tetap perlu cast; nama indeks 0028 ternyata `emb_` bukan `dims_`; `memory_notes` tak punya `embedding_dims` sehingga catatan lama 1.536-dim menabrak literal 384-dim dan MEMATIKAN seluruh pencarian. Migrasi 0028/0029 diberi penjaga tipe agar tak melawan 0035 |
 | 2026-07-31 | 07 | **Kuota per paket bisa disetel superadmin** (0036) — angka kuota keputusan BISNIS, dan penyesuaian yang menuntut deploy tak akan pernah dilakukan. Default baru sengaja ketat: Free 10 potongan & 10 pesan/bulan = ruang COBA, bukan paket pemakaian. `onprem` tak bisa ditimpa jadi berhingga. Cacat build ketahuan: impor `db` di `limits.ts` menyeret driver Postgres ke bundle browser karena kalkulator Dataroom mengimpor konstantanya — dipisah ke `limits-server.ts` |

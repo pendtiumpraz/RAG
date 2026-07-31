@@ -73,6 +73,8 @@ loop:
     ai_provider: "multi (1 aktif per tenant)"
     ai_model: "core/registry.ts — satu sumber untuk LLM & embedding"
     vector_storage: "halfvec tanpa batas dimensi (migrasi 0035) — 776 B/potongan"
+    migrations_applied: "0001–0036 TERPASANG di produksi (2026-07-31, diverifikasi kolom per kolom)"
+    chat_surfaces: "widget gelembung (embed.js) · halaman penuh publik /c/{publicKey} · mode embed inline"
     work_queue: "papan backlog di basis data, BUKAN berkas ini"
 ```
 
@@ -88,8 +90,15 @@ Siklusnya **Deploy → Monitor → Improve → Deploy**. Tak ada checklist yang 
 Status tiap kartu tersimpan di basis data, jadi papan itu mengingat posisinya
 dan tak bisa tertinggal seperti berkas ini pernah tertinggal.
 
-**Keadaan papan per 2026-07-31:** 12 selesai · 53 tersisa
-(P0=3 · P1=15 · P2=25 · P3=13).
+**Keadaan papan per 2026-07-31 (sore):** 17 selesai · 53 tersisa
+(P0=3 · P1=13 · P2=25 · P3=12).
+
+Jumlah tersisa tak berkurang walau lima kartu ditandai selesai — empat kartu
+BARU masuk pada hari yang sama. Itu bukan kemunduran, dan disebut apa adanya:
+tiga di antaranya lahir dari pekerjaan yang baru selesai (chat halaman penuh,
+kategorisasi ulang, identitas pengunjung), satu dari temuan saat menghitung
+batas Vercel untuk korpus besar (`a-ingest-worker`). Papan yang jumlahnya
+hanya bisa turun adalah papan yang berhenti mencatat apa yang ditemukan.
 
 **Ketiga P0 yang tersisa ada di jalur MANUSIA** — tak satu pun bisa dikerjakan
 agen tanpa menunggu:

@@ -275,6 +275,26 @@ const AGENT: SeedItem[] = [
   { key: 'a-connectors', track: 'agent', dimension: 'feature', size: 'L', priority: 'P3',
     title: 'Konektor tambahan (Notion, Slack, S3)',
     why: 'Pengetahuan perusahaan tak hanya tinggal di Drive/SharePoint. Kerangka sync inkremental sudah umum, tinggal adaptornya.' },
+
+  /* ── ditambahkan 31 Jul 2026 ──────────────────────────────────────
+     Tiga di antaranya lahir dari pekerjaan yang sudah selesai; satu dari
+     temuan yang muncul saat menghitung batas Vercel untuk korpus besar. */
+
+  { key: 'a-chat-fullpage', track: 'agent', dimension: 'uiux', size: 'M', priority: 'P1',
+    title: 'Chat halaman penuh publik + mode embed inline',
+    why: 'Gelembung sudut cocok untuk chatbot yang MENEMANI isi situs — dibuka sambil lalu, satu sesi, ditutup dan dilupakan. Ia salah bentuk untuk tautan yang dibagikan sendiri, tempat percakapannya berumur panjang dan dibuka berulang kali. /c/{publicKey} memberi bentuk itu: chat memenuhi layar dengan daftar sesi di samping, diambil dari SERVER bukan localStorage supaya membersihkan penyimpanan peramban tak menghapus riwayat yang sebenarnya masih ada. embed.js mendapat data-mode="inline" yang memuatnya lewat iframe — bukan menggambar ulang antarmukanya, karena dua antarmuka yang sama berarti dua tempat yang harus diperbaiki dan yang satu pasti tertinggal.' },
+
+  { key: 'a-recategorize', track: 'agent', dimension: 'agentic', size: 'S', priority: 'P1',
+    title: 'Kategorikan ulang dokumen dari ringkasan yang sudah ada',
+    why: 'Kategori hanya ditetapkan SEKALI, saat agen Memory meringkas dokumen. Kalau penilaian itu gagal — JSON model cacat, usulan kategori ditolak, kategorinya belakangan dihapus pengguna — catatan jatuh ke penampung dan tak pernah keluar lagi. Satu-satunya jalan keluar sebelumnya adalah menjalankan ulang seluruh agen: membaca ulang tiap dokumen, meringkas ulang semuanya, membangun ulang grafnya. Untuk membetulkan kategori saja itu ongkos yang tak masuk akal, dan karena mahal ia tak pernah dilakukan — sehingga penampungnya menumpuk selamanya.' },
+
+  { key: 'a-ingest-worker', track: 'agent', dimension: 'feature', size: 'L', priority: 'P1',
+    title: 'Pekerja ingest di luar Vercel untuk korpus besar',
+    why: 'Terhitung dari batas kode produksi sendiri: korpus 700 GB berarti ±3,1 juta dokumen, dan dengan MAX_INGEST_PER_SYNC=150 per jalan serta maxDuration 60 detik itu ±20.589 kali jalan — ±14 hari nonstop kalau dipicu cron tiap menit dan setiap putaran sukses penuh. Ditambah jendela listing 2.000 yang membuat deteksi berkas terhapus permanen dilewati, dan 700 GB yang harus mengalir lewat lambda (±70% jatah transfer Vercel Pro sebulan). Yang menghalangi BUKAN kapasitas — indeks 700 GB kini hanya 2,5 GB dan melayani pertanyaan dari Vercel sudah muat — melainkan tak adanya proses latar yang hidup terus. Basis datanya sama, jadi menjalankan ingest dari VPS sementara penyajian tetap di Vercel tak menuntut kode baru; yang dibutuhkan hanya pemicu dan pembungkusnya.' },
+
+  { key: 'a-visitor-identity', track: 'agent', dimension: 'feature', size: 'M', priority: 'P2',
+    title: 'Riwayat chat publik yang ikut berpindah perangkat',
+    why: 'Identitas pengunjung di /c dan di widget sepenuhnya visitorId di localStorage. Untuk chatbot landing page itu tepat dan sengaja. Tapi batasnya nyata: buka dari ponsel setelah mengobrol di laptop, riwayatnya kosong — dan pengunjung akan menyangka datanya terhapus, bukan menyangka identitasnya berbeda. Sekarang batas itu ditulis apa adanya di kaki daftar sesi, yang cukup untuk jujur tapi tak menyelesaikan apa pun. Jalan keluarnya bisa ringan (tautan lanjutkan-percakapan berisi token sekali pakai) atau berat (login pengunjung opsional); yang berat baru sepadan kalau ada pelanggan yang benar-benar memintanya.' },
 ];
 
 export const SEED: SeedItem[] = [...HUMAN, ...AGENT];
