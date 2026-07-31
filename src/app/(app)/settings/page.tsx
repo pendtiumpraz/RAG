@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
-import { Skeleton, useToast } from '../../_components/ui';
+import { Skeleton, useToast, Field } from '../../_components/ui';
 import Integrations from './Integrations';
 import TwoFactor from './TwoFactor';
 import { toggleTheme } from '../../providers';
@@ -141,29 +141,22 @@ function MailSettings() {
           : <span className="badge"><span className="led led-off" />belum diisi</span>}</div>
       <div className="card-pad stack gap-4">
         <div className="grid g4">
-          <div className="field"><label>SMTP host</label>
-            <input className="input mono" placeholder="smtp.gmail.com" value={f.host}
-              onChange={(e) => setF({ ...f, host: e.target.value })} /></div>
-          <div className="field"><label>Port</label>
-            <input className="input mono" inputMode="numeric" value={f.port}
-              onChange={(e) => setF({ ...f, port: e.target.value.replace(/D/g, '') })} /></div>
-          <div className="field"><label>Akun / username</label>
-            <input className="input mono" placeholder="akun@gmail.com" value={f.user}
-              onChange={(e) => setF({ ...f, user: e.target.value })} /></div>
-          <div className="field"><label>App password</label>
-            <input className="input mono" type="password"
+          <Field label="SMTP host"><input className="input mono" placeholder="smtp.gmail.com" value={f.host}
+              onChange={(e) => setF({ ...f, host: e.target.value })} /></Field>
+          <Field label="Port"><input className="input mono" inputMode="numeric" value={f.port}
+              onChange={(e) => setF({ ...f, port: e.target.value.replace(/D/g, '') })} /></Field>
+          <Field label="Akun / username"><input className="input mono" placeholder="akun@gmail.com" value={f.user}
+              onChange={(e) => setF({ ...f, user: e.target.value })} /></Field>
+          <Field label="App password"><input className="input mono" type="password"
               placeholder={data?.hasPassword ? 'kosongkan = tak diubah' : '16 karakter dari Google'}
-              value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+              value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         </div>
         <div className="grid g3">
-          <div className="field"><label>Nama pengirim</label>
-            <input className="input" value={f.fromName} onChange={(e) => setF({ ...f, fromName: e.target.value })} /></div>
-          <div className="field"><label>Email pengirim</label>
-            <input className="input mono" placeholder="sama dgn akun bila kosong" value={f.fromEmail}
-              onChange={(e) => setF({ ...f, fromEmail: e.target.value })} /></div>
-          <div className="field"><label>Kirim email uji ke</label>
-            <input className="input mono" placeholder="alamat kamu (opsional)" value={testTo}
-              onChange={(e) => setTestTo(e.target.value)} /></div>
+          <Field label="Nama pengirim"><input className="input" value={f.fromName} onChange={(e) => setF({ ...f, fromName: e.target.value })} /></Field>
+          <Field label="Email pengirim"><input className="input mono" placeholder="sama dgn akun bila kosong" value={f.fromEmail}
+              onChange={(e) => setF({ ...f, fromEmail: e.target.value })} /></Field>
+          <Field label="Kirim email uji ke"><input className="input mono" placeholder="alamat kamu (opsional)" value={testTo}
+              onChange={(e) => setTestTo(e.target.value)} /></Field>
         </div>
         <label className="cluster gap-2" style={{ cursor: 'pointer', fontSize: 13 }}>
           <input type="checkbox" checked={f.secure} onChange={(e) => setF({ ...f, secure: e.target.checked })} />

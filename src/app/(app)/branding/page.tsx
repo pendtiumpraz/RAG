@@ -4,7 +4,7 @@ import { FeatureGate } from '../../_components/entitlements';
 import { Select } from '../../_components/select';
 import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
-import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Field } from '../../_components/ui';
 
 interface Chatbot {
   id: string; name: string; publicKey: string; greeting: string | null;
@@ -129,16 +129,14 @@ function BrandingPageInner() {
         <div className="card">
           <div className="panel-head"><span className="t">pengaturan</span></div>
           <div className="card-pad stack gap-4">
-            <div className="field"><label>Nama merek</label>
-              <input className="input" value={cfg.name} onChange={(e) => set('name')(e.target.value)} /></div>
+            <Field label="Nama merek"><input className="input" value={cfg.name} onChange={(e) => set('name')(e.target.value)} /></Field>
 
-            <div className="field"><label>Logo</label>
-              <div className="cluster gap-3" style={{ alignItems: 'center' }}>
+            <Field label="Logo"><div className="cluster gap-3" style={{ alignItems: 'center' }}>
                 {/* pratinjau logo terunggah; onError = belum ada logo */}
                 {active && logoVersion >= 0 && (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img key={logoVersion} src={`/api/chat/${active.publicKey}/logo?v=${logoVersion}`}
-                    alt="" style={{ height: 34, width: 'auto', borderRadius: 6, border: '1px solid var(--line)', background: '#fff', padding: 3 }}
+                    alt="Logo yang sedang terpasang" style={{ height: 34, width: 'auto', borderRadius: 6, border: '1px solid var(--line)', background: '#fff', padding: 3 }}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 )}
                 <label className="btn btn-sm" style={{ cursor: 'pointer' }}>
@@ -148,41 +146,36 @@ function BrandingPageInner() {
                 </label>
                 <button className="btn btn-sm btn-ghost" onClick={() => void removeLogo()}>Hapus</button>
               </div>
-              <p className="microlabel" style={{ marginTop: 6 }}>PNG/JPEG/WEBP ≤300KB — TAMPIL DI KEPALA WIDGET</p></div>
+              <p className="microlabel" style={{ marginTop: 6 }}>PNG/JPEG/WEBP ≤300KB — TAMPIL DI KEPALA WIDGET</p></Field>
 
-            <div className="field"><label>Inisial logo (cadangan)</label>
-              <input className="input" maxLength={2} style={{ width: 90 }} value={cfg.logo}
+            <Field label="Inisial logo (cadangan)"><input className="input" maxLength={2} style={{ width: 90 }} value={cfg.logo}
                 onChange={(e) => set('logo')(e.target.value)} />
-              <p className="microlabel" style={{ marginTop: 6 }}>DIPAKAI BILA TAK ADA LOGO UNGGAHAN</p></div>
+              <p className="microlabel" style={{ marginTop: 6 }}>DIPAKAI BILA TAK ADA LOGO UNGGAHAN</p></Field>
 
             <div className="cluster gap-4">
               <ColorField label="Warna utama" value={cfg.signal} onChange={set('signal')} />
               <ColorField label="Warna sitasi" value={cfg.source} onChange={set('source')} />
             </div>
 
-            <div className="field"><label>Sudut membulat</label>
-              <Select value={cfg.radius} onChange={(e) => set('radius')(e.target.value)}>
+            <Field label="Sudut membulat"><Select value={cfg.radius} onChange={(e) => set('radius')(e.target.value)}>
                 <option value="4px">Tajam (4px)</option>
                 <option value="12px">Sedang (12px)</option>
                 <option value="20px">Bulat (20px)</option>
-              </Select></div>
+              </Select></Field>
 
             <div className="cluster gap-4">
-              <div className="field" style={{ flex: 1 }}><label>Tema</label>
-                <Select value={cfg.mode}
+              <Field label="Tema" style={{ flex: 1 }}><Select value={cfg.mode}
                   onChange={(e) => set('mode')(e.target.value as 'light' | 'dark')}>
                   <option value="light">Terang</option><option value="dark">Gelap</option>
-                </Select></div>
-              <div className="field" style={{ flex: 1 }}><label>Posisi</label>
-                <Select value={cfg.position}
+                </Select></Field>
+              <Field label="Posisi" style={{ flex: 1 }}><Select value={cfg.position}
                   onChange={(e) => set('position')(e.target.value as 'left' | 'right')}>
                   <option value="right">Kanan bawah</option><option value="left">Kiri bawah</option>
-                </Select></div>
+                </Select></Field>
             </div>
 
-            <div className="field"><label>Sapaan pembuka</label>
-              <input className="input" value={cfg.greeting} placeholder="Halo! Ada yang bisa dibantu?"
-                onChange={(e) => set('greeting')(e.target.value)} /></div>
+            <Field label="Sapaan pembuka"><input className="input" value={cfg.greeting} placeholder="Halo! Ada yang bisa dibantu?"
+                onChange={(e) => set('greeting')(e.target.value)} /></Field>
 
             <label className="cluster gap-2" style={{ cursor: 'pointer', fontSize: 14 }}>
               <input type="checkbox" checked={cfg.showTrace}
@@ -203,14 +196,11 @@ function BrandingPageInner() {
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="field" style={{ flex: 1 }}>
-      <label>{label}</label>
-      <div className="cluster gap-2">
+    <Field label={<>{label}</>} style={{ flex: 1 }}><div className="cluster gap-2">
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
           style={{ width: 44, height: 38, padding: 2, border: '1px solid var(--line)', borderRadius: 6, background: 'none' }} />
         <input className="input mono" value={value} onChange={(e) => onChange(e.target.value)} style={{ flex: 1 }} />
-      </div>
-    </div>
+      </div></Field>
   );
 }
 

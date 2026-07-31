@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useApi, api } from '../../_lib/api';
-import { Skeleton, EmptyState, ErrorState, Pager, type PageMeta } from '../../_components/ui';
+import { Skeleton, EmptyState, ErrorState, Pager, type PageMeta, Field } from '../../_components/ui';
 import { Select } from '../../_components/select';
 import { AnswerBlocks, renderCited } from '../../_components/answer-blocks';
 import { plainTextToBlocks, type AnswerBlock } from '@/modules/chat/blocks';
@@ -109,21 +109,12 @@ export default function ConversationsPage() {
       {/* Baris filter — satu baris di atas daftar, sesuai pola halaman lain. */}
       <div className="card card-pad" style={{ marginBottom: 'var(--sp-4)' }}>
         <div className="cluster gap-2" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="field" style={{ flex: '1 1 260px', minWidth: 220 }}>
-            <label>Cari isi percakapan</label>
-            <input className="input" value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder="kata yang diingat muncul di percakapan…" />
-          </div>
-          <div className="field" style={{ width: 160 }}>
-            <label>Dari tanggal</label>
-            <input className="input" type="date" value={from} max={to || undefined}
-              onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="field" style={{ width: 160 }}>
-            <label>Sampai tanggal</label>
-            <input className="input" type="date" value={to} min={from || undefined}
-              onChange={(e) => setTo(e.target.value)} />
-          </div>
+          <Field label="Cari isi percakapan" style={{ flex: '1 1 260px', minWidth: 220 }}><input className="input" value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="kata yang diingat muncul di percakapan…" /></Field>
+          <Field label="Dari tanggal" style={{ width: 160 }}><input className="input" type="date" value={from} max={to || undefined}
+              onChange={(e) => setFrom(e.target.value)} /></Field>
+          <Field label="Sampai tanggal" style={{ width: 160 }}><input className="input" type="date" value={to} min={from || undefined}
+              onChange={(e) => setTo(e.target.value)} /></Field>
           <div className="cluster gap-2">
             {hasFilter && (
               <button className="btn" onClick={() => { setQ(''); setFrom(''); setTo(''); }}>Bersihkan</button>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { signIn } from 'next-auth/react';
+import { Field } from '../_components/ui';
 
 const PENDING_MSG = 'Akunmu sudah terdaftar dan sedang menunggu verifikasi admin. '
   + 'Kamu akan bisa masuk setelah disetujui.';
@@ -133,33 +134,31 @@ export default function AuthPage() {
 
         {tab === 'login' ? (
           <form onSubmit={doLogin} className="stack gap-4">
-            <div className="field"><label>Email</label><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="nama@perusahaan.com" /></div>
-            <div className="field"><label>Password</label><input className="input" type="password" required value={form.password} onChange={set('password')} /></div>
+            <Field label="Email"><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="nama@perusahaan.com" /></Field>
+            <Field label="Password"><input className="input" type="password" required value={form.password} onChange={set('password')} /></Field>
             {mintaTotp && (
-              <div className="field"><label>Kode dua faktor</label>
-                <input className="input mono" inputMode="numeric" autoComplete="one-time-code"
+              <Field label="Kode dua faktor"><input className="input mono" inputMode="numeric" autoComplete="one-time-code"
                   autoFocus required placeholder="000000" maxLength={14} value={totp}
                   onChange={(e) => setTotp(e.target.value)} />
-                <span className="microlabel">6 DIGIT DARI APLIKASI, ATAU SATU KODE CADANGAN.</span>
-              </div>
+                <span className="microlabel">6 DIGIT DARI APLIKASI, ATAU SATU KODE CADANGAN.</span></Field>
             )}
             {error && <span className="error">{error}</span>}
             {notice && <span className="notice">{notice}</span>}
             <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>Masuk</button>
-            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Belum punya akun? <a onClick={() => setTab('register')} style={{ cursor: 'pointer' }}>Daftar gratis</a></p>
+            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Belum punya akun? <button type="button" className="tautan" onClick={() => setTab('register')}>Daftar gratis</button></p>
             <p style={{ textAlign: 'center', fontSize: 13, marginTop: -6 }}>
-              <a onClick={forgot} style={{ cursor: 'pointer', color: 'var(--muted)' }}>Lupa password?</a></p>
+              <button type="button" className="tautan" style={{ color: 'var(--muted)' }} onClick={forgot}>Lupa password?</button></p>
           </form>
         ) : (
           <form onSubmit={doRegister} className="stack gap-4">
-            <div className="field"><label>Nama organisasi</label><input className="input" required value={form.orgName} onChange={set('orgName')} placeholder="PT Nusantara" /></div>
-            <div className="field"><label>Nama lengkap</label><input className="input" required value={form.name} onChange={set('name')} /></div>
-            <div className="field"><label>Email</label><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="nama@perusahaan.com" /></div>
-            <div className="field"><label>Password</label><input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} placeholder="Minimal 8 karakter" /></div>
+            <Field label="Nama organisasi"><input className="input" required value={form.orgName} onChange={set('orgName')} placeholder="PT Nusantara" /></Field>
+            <Field label="Nama lengkap"><input className="input" required value={form.name} onChange={set('name')} /></Field>
+            <Field label="Email"><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="nama@perusahaan.com" /></Field>
+            <Field label="Password"><input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} placeholder="Minimal 8 karakter" /></Field>
             {error && <span className="error">{error}</span>}
             {notice && <span className="notice">{notice}</span>}
             <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>Buat workspace</button>
-            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Sudah punya akun? <a onClick={() => setTab('login')} style={{ cursor: 'pointer' }}>Masuk</a></p>
+            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Sudah punya akun? <button type="button" className="tautan" onClick={() => setTab('login')}>Masuk</button></p>
           </form>
         )}
         <p className="microlabel" style={{ textAlign: 'center', marginTop: 26 }}>

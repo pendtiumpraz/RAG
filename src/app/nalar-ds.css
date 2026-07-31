@@ -164,7 +164,11 @@ a:hover{ text-decoration:underline; text-underline-offset:2px; }
 .icon-btn:hover{ color:var(--ink); border-color:var(--faint); background:var(--card-2); }
 
 .field{ display:flex; flex-direction:column; gap:var(--sp-2); }
-.field > label{ font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-wide); text-transform:uppercase; color:var(--muted); }
+/* .field-label dipakai saat isinya BUKAN satu kontrol tunggal (mis. pilihan
+   yang bercabang jadi tombol atau keterangan). <label htmlFor> yang menunjuk
+   elemen non-form adalah HTML tak sah, dan pembaca layar akan mengumumkan
+   label untuk sesuatu yang tak bisa diisi. */
+.field > label, .field > .field-label{ font-family:var(--font-mono); font-size:var(--fs-2xs); letter-spacing:var(--tk-wide); text-transform:uppercase; color:var(--muted); }
 .input,.select,.textarea{ width:100%; min-height:44px; background:var(--card); color:var(--ink);
   border:1px solid var(--line-strong); border-radius:var(--rad-sm); padding:11px var(--sp-3);
   font:inherit; font-size:var(--fs-sm); outline:none; transition:border-color var(--dur-fast), box-shadow var(--dur-fast); }
@@ -353,3 +357,12 @@ table.table tr:last-child td{ border-bottom:none; }
 /* varian kompak — padanan .select-sm untuk sel tabel & bar filter */
 .nsel.select-sm .nsel-btn{ min-height:34px; padding:5px 10px; font-size:var(--fs-xs); }
 .nsel.select-sm .nsel-opt{ font-size:var(--fs-xs); padding:7px 9px; }
+
+/* Tombol yang TAMPAK seperti tautan.
+   Dipakai untuk aksi dalam kalimat ("Belum punya akun? Daftar gratis"). Dulu
+   ditulis <a onClick> tanpa href: secara visual sama, tapi tak bisa dijangkau
+   Tab, tak punya peran tombol, dan Enter tak melakukan apa pun — aksi yang
+   hanya ada bagi pengguna tetikus. */
+.tautan{ background:none; border:none; padding:0; font:inherit; color:var(--signal);
+  cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.tautan:hover{ color:var(--signal-strong); }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { api, useApi } from '../../_lib/api';
-import { useToast } from '../../_components/ui';
+import { useToast, Field } from '../../_components/ui';
 
 /**
  * DUA FAKTOR — pendaftaran, kode cadangan, dan mematikan.
@@ -111,10 +111,9 @@ export default function TwoFactor() {
                 display: 'block', wordBreak: 'break-all', fontSize: 13,
                 background: 'var(--surface-2, rgba(0,0,0,.04))', padding: 8, borderRadius: 6,
               }}>{daftar.rahasia}</code>
-              <div className="field"><label>Kode 6 digit dari aplikasi</label>
-                <input className="input mono" inputMode="numeric" autoComplete="one-time-code"
+              <Field label="Kode 6 digit dari aplikasi"><input className="input mono" inputMode="numeric" autoComplete="one-time-code"
                   placeholder="000000" value={kode} maxLength={8}
-                  onChange={(e) => setKode(e.target.value.replace(/[^0-9]/g, ''))} /></div>
+                  onChange={(e) => setKode(e.target.value.replace(/[^0-9]/g, ''))} /></Field>
               <div className="cluster gap-2">
                 <button className={`btn btn-primary${busy ? ' is-loading' : ''}`}
                   disabled={busy || kode.length < 6} onClick={konfirmasi}>Aktifkan</button>
@@ -150,11 +149,8 @@ export default function TwoFactor() {
               </td></tr>
             </tbody></table>
             <div className="cluster gap-2" style={{ alignItems: 'flex-end' }}>
-              <div className="field" style={{ flex: 1, maxWidth: 280 }}>
-                <label>Matikan — masukkan kata sandi</label>
-                <input className="input" type="password" autoComplete="current-password"
-                  value={sandi} onChange={(e) => setSandi(e.target.value)} />
-              </div>
+              <Field label="Matikan — masukkan kata sandi" style={{ flex: 1, maxWidth: 280 }}><input className="input" type="password" autoComplete="current-password"
+                  value={sandi} onChange={(e) => setSandi(e.target.value)} /></Field>
               <button className={`btn${busy ? ' is-loading' : ''}`} disabled={busy || !sandi}
                 onClick={matikan}>Matikan</button>
             </div>

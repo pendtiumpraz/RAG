@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
-import { Skeleton, ErrorState, EmptyState, useToast, Pager, type PageMeta } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Pager, type PageMeta, Field, Drawer } from '../../_components/ui';
 
 interface PendingUser {
   id: string; email: string; name: string | null; role: string; status: string;
@@ -179,8 +179,7 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Undang anggota">
+      <Drawer onClose={onClose} label="Undang anggota">
         <div className="dh"><h3>Undang anggota</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
 
@@ -199,14 +198,12 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
           </div>
         ) : (
           <div className="db stack gap-4">
-            <div className="field"><label>Email</label>
-              <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="rekan@perusahaan.com" /></div>
-            <div className="field"><label>Peran</label>
-              <Select value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>
+            <Field label="Email"><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="rekan@perusahaan.com" /></Field>
+            <Field label="Peran"><Select value={role} onChange={(e) => setRole(e.target.value as 'admin' | 'member')}>
                 <option value="member">Member — pakai chatbot &amp; knowledge</option>
                 <option value="admin">Admin — kelola tim &amp; pengaturan</option>
-              </Select></div>
+              </Select></Field>
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>
               Yang diundang bergabung ke workspace ini dan langsung aktif —
               tidak perlu menunggu verifikasi, karena undangan ini sendiri yang
@@ -223,7 +220,7 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
                 <button className="btn btn-ghost" onClick={onClose}>Batal</button>
               </>}
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }

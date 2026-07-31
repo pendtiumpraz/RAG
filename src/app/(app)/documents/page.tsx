@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
-import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 
 interface Doc {
   docRef: string; title: string | null;
@@ -224,8 +224,7 @@ function SummaryDrawer({ doc, onClose }: { doc: Doc; onClose: () => void }) {
   const md = (doc.summary ?? '').replace(/^---[\s\S]*?---\n/, '').trim();
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Ringkasan dokumen">
+      <Drawer onClose={onClose} label="Ringkasan dokumen">
         <div className="dh">
           <h3 style={{ wordBreak: 'break-word' }}>{doc.title ?? doc.docRef}</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button>
@@ -236,22 +235,19 @@ function SummaryDrawer({ doc, onClose }: { doc: Doc; onClose: () => void }) {
             {doc.knowledgeBaseName && <span className="badge">{doc.knowledgeBaseName}</span>}
             {doc.noteStatus === 'pending' && <span className="badge badge-source">menunggu tinjauan</span>}
           </div>
-          <div className="field">
-            <label>Ringkasan</label>
-            <div className="card card-pad" style={{ background: 'var(--card-2)', whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>
+          <Field label="Ringkasan"><div className="card card-pad" style={{ background: 'var(--card-2)', whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>
               {md || 'Belum ada ringkasan.'}
             </div>
             <p className="microlabel" style={{ marginTop: 6 }}>
               DITULIS AI DARI ISI DOKUMEN — UNTUK GAMBARAN UMUM. ANGKA, TANGGAL, DAN NOMOR PASAL
               SELALU DIAMBIL DARI TEKS ASLI, BUKAN DARI RINGKASAN INI.
-            </p>
-          </div>
+            </p></Field>
           <button className="btn btn-sm" onClick={() => { navigator.clipboard?.writeText(md); toast('Ringkasan disalin'); }}>
             Salin ringkasan
           </button>
         </div>
         <div className="df"><button className="btn" style={{ flex: 1 }} onClick={onClose}>Tutup</button></div>
-      </aside>
+      </Drawer>
     </>
   );
 }

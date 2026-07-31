@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
-import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { QuotaBar } from '../../_components/quota-bar';
 
 interface Chatbot { id: string; name: string }
@@ -366,14 +366,11 @@ function KbDrawer({ onClose, onSave }: { onClose: () => void; onSave: (name: str
   const [err, setErr] = useState<string | null>(null);
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Buat knowledge base">
+      <Drawer onClose={onClose} label="Buat knowledge base">
         <div className="dh"><h3>Buat knowledge base</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-4">
-          <div className="field"><label>Nama</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dokumen HR / SOP Finance / …" autoFocus /></div>
-          <div className="field"><label>Deskripsi (opsional)</label>
-            <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Isi & pemilik KB ini" /></div>
+          <Field label="Nama"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dokumen HR / SOP Finance / …" autoFocus /></Field>
+          <Field label="Deskripsi (opsional)"><input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Isi & pemilik KB ini" /></Field>
           <p className="microlabel">SATU KB BISA DIPAKAI BANYAK CHATBOT — DI-INGEST SEKALI, TANPA DUPLIKASI EMBEDDING.</p>
           {err && <span className="error">{err}</span>}
         </div>
@@ -384,7 +381,7 @@ function KbDrawer({ onClose, onSave }: { onClose: () => void; onSave: (name: str
           </button>
           <button className="btn" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }
@@ -409,8 +406,7 @@ function AssignDrawer({ kb, bots, onClose, onSaved }:
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label={`Assign ${kb.name}`}>
+      <Drawer onClose={onClose} label={`Assign ${kb.name}`}>
         <div className="dh"><h3>Assign — {kb.name}</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-3">
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
@@ -435,7 +431,7 @@ function AssignDrawer({ kb, bots, onClose, onSaved }:
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} style={{ flex: 1 }} disabled={busy} onClick={save}>Simpan</button>
           <button className="btn" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }
@@ -710,24 +706,22 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Tambah sumber">
+      <Drawer onClose={onClose} label="Tambah sumber">
         <div className="dh"><h3>Tambah sumber</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-4">
-          <div className="field"><label>Jenis sumber</label>
-            <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+          <Field label="Jenis sumber"><Select value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="gdrive">Google Drive (akun tersambung)</option>
               <option value="gdrive_public">Google Drive — URL folder publik (tanpa login)</option>
               <option value="onedrive">OneDrive</option>
               <option value="sharepoint">SharePoint (situs / tautan berbagi)</option>
               <option value="upload">Unggah berkas dari komputer</option>
               <option value="url">Halaman web (URL)</option>
-            </Select></div>
+            </Select></Field>
 
           {/* Folder publik tak butuh akun sama sekali — jangan tampilkan
               tombol Connect yang justru membingungkan. */}
           {!noAuth && (
-            <div className="field"><label>Akun {provider}</label>
+            <div className="field"><span className="field-label">Akun {provider}</span>
               {providerAccounts.length ? (
                 <Select value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)}>
                   {providerAccounts.map((a) => <option key={a.id} value={a.accountEmail}>{a.accountEmail}</option>)}
@@ -743,7 +737,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
           )}
 
           {isUpload && (
-            <div className="field"><label>Berkas dari komputer</label>
+            <div className="field"><span className="field-label">Berkas dari komputer</span>
               {/* Petunjuk format ditaruh SEBELUM pemilih berkas, bukan sesudah:
                   sesudahnya orang sudah terlanjur memilih, dan nasihat yang
                   datang setelah keputusan bukan nasihat. Tiga kalimat, karena
@@ -786,44 +780,40 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
           )}
 
           {kind === 'url' && (
-            <div className="field"><label>URL halaman</label>
-              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
+            <Field label="URL halaman"><input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://situsmu.com/kebijakan-garansi" />
               <p className="microlabel" style={{ marginTop: 6 }}>
                 SATU HALAMAN, BUKAN SELURUH SITUS. BISA DI-SYNC ULANG — PERUBAHAN
                 HALAMAN TERTANGKAP LEWAT ETAG/LAST-MODIFIED. WAJIB HTTPS PUBLIK;
                 ALAMAT JARINGAN INTERNAL DITOLAK.
-              </p></div>
+              </p></Field>
           )}
 
           {kind === 'gdrive_public' && (
-            <div className="field"><label>URL folder Google Drive</label>
-              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
+            <Field label="URL folder Google Drive"><input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://drive.google.com/drive/folders/1A2b3C…" />
               <p className="microlabel" style={{ marginTop: 6 }}>
                 SELURUH ISI FOLDER IKUT, TERMASUK SUB-SUB-FOLDER. SYARATNYA SATU:
                 BAGIKAN FOLDER SEBAGAI &ldquo;SIAPA SAJA YANG MEMILIKI LINK&rdquo; (PELIHAT).
                 TAUTAN TERBATAS ORGANISASI TIDAK BISA DIBACA.{' '}
                 <a href="/docs/sumber-pengetahuan.html" target="_blank" rel="noreferrer">Panduan</a>
-              </p></div>
+              </p></Field>
           )}
 
           {kind === 'sharepoint' && (
-            <div className="field"><label>URL situs atau tautan berbagi folder</label>
-              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
+            <Field label="URL situs atau tautan berbagi folder"><input className="input" value={url} onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://perusahaan.sharepoint.com/sites/Marketing/Shared Documents/Kebijakan" />
               <p className="microlabel" style={{ marginTop: 6 }}>
                 URL SITUS, DOCUMENT LIBRARY, ATAU TAUTAN BERBAGI FOLDER — SEMUA
                 ISINYA DITELUSURI REKURSIF. KOSONGKAN UNTUK MEMAKAI ONEDRIVE
                 PRIBADI AKUN INI.{' '}
                 <a href="/docs/sumber-pengetahuan.html" target="_blank" rel="noreferrer">Panduan</a>
-              </p></div>
+              </p></Field>
           )}
 
           {/* Pilihan METODE Drive — dua jalur, keduanya tetap terlihat. */}
           {kind === 'gdrive' && (
-            <div className="field"><label>Cara memilih dokumen</label>
-              <div className="cluster gap-2">
+            <Field label="Cara memilih dokumen"><div className="cluster gap-2">
                 <button type="button" className={`btn btn-sm${driveMethod === 'picker' ? ' btn-primary' : ''}`}
                   onClick={() => setDriveMethod('picker')}>
                   Pilih berkas (Picker)
@@ -836,7 +826,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
               <p className="microlabel" style={{ marginTop: 6 }}>
                 PICKER: PILIH BERKAS SATU PER SATU — BEKERJA TANPA IZIN TAMBAHAN.
                 FOLDER: SELURUH ISI FOLDER REKURSIF — BUTUH IZIN BACA FOLDER.
-              </p></div>
+              </p></Field>
           )}
 
           {/* Izin kurang untuk metode yang dipilih: tawarkan MENAMBAH izin,
@@ -857,8 +847,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
           )}
 
           {pickerMode ? (
-            <div className="field"><label>Berkas Drive</label>
-              <button type="button" className="btn" onClick={openPicker}>
+            <Field label="Berkas Drive"><button type="button" className="btn" onClick={openPicker}>
                 <Icon name="plus" size={14} /> Pilih berkas dari Google Drive
               </button>
               {picked.length > 0 && (
@@ -879,19 +868,16 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
                 MEMILIH FOLDER TIDAK MEMBERI AKSES KE ISINYA — ITU BATAS GOOGLE, BUKAN
                 PENGATURAN. UNTUK SELURUH ISI FOLDER, PAKAI URL FOLDER PUBLIK ATAU
                 TAMBAH IZIN BACA FOLDER.
-              </p>
-            </div>
+              </p></Field>
           ) : !useUrl ? (<>
-          <div className="field"><label>Cakupan</label>
-            <Select value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'folder')}>
+          <Field label="Cakupan"><Select value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'folder')}>
               <option value="all">Seluruh Drive (rekursif)</option>
               <option value="folder">Folder tertentu (rekursif)</option>
-            </Select></div>
+            </Select></Field>
 
           {scope === 'folder' && (
-            <div className="field"><label>{kind === 'gdrive' ? 'Folder ID' : 'Folder path'}</label>
-              <input className="input" value={loc} onChange={(e) => setLoc(e.target.value)}
-                placeholder={kind === 'gdrive' ? '1A2b3C… (kosong = root)' : '/Knowledge/support'} /></div>
+            <Field label={<>{kind === 'gdrive' ? 'Folder ID' : 'Folder path'}</>}><input className="input" value={loc} onChange={(e) => setLoc(e.target.value)}
+                placeholder={kind === 'gdrive' ? '1A2b3C… (kosong = root)' : '/Knowledge/support'} /></Field>
           )}
           </>) : null}
 
@@ -902,7 +888,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} style={{ flex: 1 }} onClick={save} disabled={busy}>Tambah &amp; sync</button>
           <button className="btn" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }

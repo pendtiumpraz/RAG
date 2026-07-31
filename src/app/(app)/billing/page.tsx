@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
-import { Skeleton, ErrorState, useToast } from '../../_components/ui';
+import { Skeleton, ErrorState, useToast, Field, Drawer } from '../../_components/ui';
 import { Select } from '../../_components/select';
 
 interface PlanSpec { id: string; messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null }
@@ -231,18 +231,14 @@ function PaymentSettings() {
 
         {/* mode deploy */}
         <div className="cluster gap-4" style={{ alignItems: 'flex-end' }}>
-          <div className="field" style={{ width: 260 }}>
-            <label>Mode deploy</label>
-            <Select value={data.deploymentMode} disabled={busy}
+          <Field label="Mode deploy" style={{ width: 260 }}><Select value={data.deploymentMode} disabled={busy}
               onChange={(e) => void put({ deploymentMode: e.target.value }, 'Mode deploy tersimpan')}>
               <option value="saas">SaaS — pembayaran & kuota aktif</option>
               <option value="onprem">On-premise — bayar mati, semua unlimited</option>
-            </Select>
-          </div>
+            </Select></Field>
           {/* harga plan */}
           {(['pro', 'enterprise'] as const).map((p) => (
-            <div key={p} className="field" style={{ width: 180 }}>
-              <label>Harga {p} (IDR/bln)</label>
+            <Field key={p} label={<>Harga {p} (IDR/bln)</>} style={{ width: 180 }}>
               <input className="input" inputMode="numeric"
                 value={prices[p] ?? String(data.planPrices[p] ?? '')}
                 onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value.replace(/\D/g, '') }))}
@@ -252,7 +248,7 @@ function PaymentSettings() {
                     void put({ planPrices: { ...data.planPrices, [p]: v } }, `Harga ${p} tersimpan`);
                   }
                 }} />
-            </div>
+            </Field>
           ))}
         </div>
 
@@ -271,8 +267,7 @@ function PaymentSettings() {
               </div>
               <div className="card-pad stack gap-3">
                 {GATEWAY_FIELDS[g.provider].map((f) => (
-                  <div key={f.key} className="field">
-                    <label>{f.label}</label>
+                  <Field key={f.key} label={f.label}>
                     <input className="input mono" type={f.secret ? 'password' : 'text'}
                       placeholder={f.secret && g.configured ? 'kosongkan = tak diubah'
                         : !f.secret ? String(g.publicConfig[f.key] ?? '') || f.label : f.label}
@@ -280,7 +275,7 @@ function PaymentSettings() {
                       onChange={(e) => setFields((s) => ({
                         ...s, [g.provider]: { ...s[g.provider], [f.key]: e.target.value },
                       }))} />
-                  </div>
+                  </Field>
                 ))}
                 <label className="cluster gap-2" style={{ cursor: 'pointer', fontSize: 13 }}>
                   <input type="checkbox"
@@ -387,21 +382,18 @@ function PlanDrawer({ tenant, plans, onClose, onSaved }: {
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Ubah plan">
+      <Drawer onClose={onClose} label="Ubah plan">
         <div className="dh"><h3>Plan — {tenant.tenantName}</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Tutup">×</button></div>
         <div className="db stack gap-4">
-          <div className="field"><label>Plan</label>
-            <Select value={plan} onChange={(e) => setPlan(e.target.value)}>
+          <Field label="Plan"><Select value={plan} onChange={(e) => setPlan(e.target.value)}>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
-            </Select></div>
-          <div className="field"><label>Berlaku sampai</label>
-            <input className="input mono" type="date" value={expiresAt}
+            </Select></Field>
+          <Field label="Berlaku sampai"><input className="input mono" type="date" value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)} />
             <p className="microlabel" style={{ marginTop: 6 }}>
               KOSONGKAN = TANPA BATAS WAKTU. LEWAT TANGGAL INI KUOTA TURUN KE FREE.
-            </p></div>
+            </p></Field>
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
             Dipakai untuk penagihan manual: setelah pembayaran diterima, setel
             plan dan tanggal berakhirnya di sini.
@@ -411,7 +403,7 @@ function PlanDrawer({ tenant, plans, onClose, onSaved }: {
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={save}>Simpan</button>
           <button className="btn btn-ghost" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }

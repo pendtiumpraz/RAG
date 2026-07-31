@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Field } from '../../_components/ui';
 
 /** Halaman atur ulang password dari tautan email (publik, D13). */
 export default function ResetPage() {
@@ -49,12 +50,10 @@ function ResetInner() {
         </>) : (<>
           <h1>Atur password baru</h1>
           <p>Masukkan password baru untuk akunmu. Tautan ini berlaku 1 jam dan sekali pakai.</p>
-          <div className="field" style={{ width: '100%' }}><label>Password baru</label>
-            <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} /></div>
-          <div className="field" style={{ width: '100%' }}><label>Ulangi password</label>
-            <input className="input" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} /></div>
+          <Field label="Password baru" style={{ width: '100%' }}><input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} /></Field>
+          <Field label="Ulangi password" style={{ width: '100%' }}><input className="input" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} /></Field>
           {err && <span className="error">{err}</span>}
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} style={{ width: '100%' }}
             disabled={busy || !token} onClick={submit}>Simpan password</button>

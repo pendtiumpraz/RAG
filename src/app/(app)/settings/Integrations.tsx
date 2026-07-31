@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
-import { Skeleton, useToast } from '../../_components/ui';
+import { Skeleton, useToast, Field } from '../../_components/ui';
 
 /**
  * API KEY & WEBHOOK — akses programatik tenant.
@@ -135,11 +135,9 @@ function ApiKeys() {
       )}
 
       <div className="card-pad stack gap-3">
-        <div className="field"><label>Nama kunci baru</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="mis. Integrasi ERP, Agen internal" /></div>
-        <div className="field"><label>Izin</label>
-          <div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
+        <Field label="Nama kunci baru"><input className="input" value={name} onChange={(e) => setName(e.target.value)}
+            placeholder="mis. Integrasi ERP, Agen internal" /></Field>
+        <Field label="Izin"><div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
             {(['read', 'write', 'chat'] as const).map((s) => (
               <button key={s} type="button"
                 className={`btn btn-sm${scopes.includes(s) ? ' btn-primary' : ''}`}
@@ -150,7 +148,7 @@ function ApiKeys() {
           </div>
           <p className="microlabel" style={{ marginTop: 6 }}>
             READ = BACA · WRITE = INGEST &amp; HAPUS (SUDAH MENCAKUP BACA) · CHAT = PENCARIAN SEMANTIK
-          </p></div>
+          </p></Field>
         <div>
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`}
             disabled={busy || !scopes.length} onClick={create}>
@@ -284,14 +282,12 @@ function Webhooks() {
       )}
 
       <div className="card-pad stack gap-3">
-        <div className="field"><label>URL penerima</label>
-          <input className="input mono" value={url} onChange={(e) => setUrl(e.target.value)}
+        <Field label="URL penerima"><input className="input mono" value={url} onChange={(e) => setUrl(e.target.value)}
             placeholder="https://sistemmu.com/hooks/nalar" />
           <p className="microlabel" style={{ marginTop: 6 }}>
             WAJIB HTTPS · ALAMAT JARINGAN INTERNAL DITOLAK
-          </p></div>
-        <div className="field"><label>Kejadian yang dilanggan</label>
-          <div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
+          </p></Field>
+        <Field label="Kejadian yang dilanggan"><div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
             {(data?.events ?? []).map((e) => (
               <button key={e.id} type="button" title={e.label}
                 className={`btn btn-sm${picked.includes(e.id) ? ' btn-primary' : ''}`}
@@ -299,7 +295,7 @@ function Webhooks() {
                 {e.id}
               </button>
             ))}
-          </div></div>
+          </div></Field>
         <div>
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`}
             disabled={busy || !url || !picked.length} onClick={create}>

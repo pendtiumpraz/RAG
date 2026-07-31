@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { signIn } from 'next-auth/react';
+import { Field } from '../../_components/ui';
 
 interface Peek { email: string; role: string; tenantName: string | null }
 
@@ -76,13 +77,11 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               Undangan untuk <b>{peek?.email}</b> sebagai <b>{peek?.role}</b>.
             </p>
             <form onSubmit={accept} className="stack gap-4">
-              <div className="field"><label>Nama lengkap</label>
-                <input className="input" value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-              <div className="field"><label>Buat password</label>
-                <input className="input" type="password" required minLength={8} value={form.password}
+              <Field label="Nama lengkap"><input className="input" value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
+              <Field label="Buat password"><input className="input" type="password" required minLength={8} value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  placeholder="Minimal 8 karakter" /></div>
+                  placeholder="Minimal 8 karakter" /></Field>
               {error && <span className="error">{error}</span>}
               <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>
                 Gabung &amp; masuk

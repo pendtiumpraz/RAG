@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useToast } from '../../_components/ui';
+import { useToast, Field, Drawer, useDialogFokus } from '../../_components/ui';
 import { Select } from '../../_components/select';
 
 /**
@@ -321,10 +321,14 @@ function Detail({ row, no, onClose, onStatus, onPriority }: {
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
 
+  // Modal ini mengaku aria-modal sama seperti Drawer, jadi ia berutang
+  // perilaku yang sama: Escape menutup, Tab terkurung, fokus dikembalikan.
+  const dlgRef = useDialogFokus(onClose);
+
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <div className="kb-modal" role="dialog" aria-modal="true" aria-label={row.title}>
+      <div className="backdrop show" onClick={onClose} aria-hidden />
+      <div ref={dlgRef as React.RefObject<HTMLDivElement>} className="kb-modal" role="dialog" aria-modal="true" aria-label={row.title}>
         <header>
           <div className="kb-mtop">
             <span className="kb-no">#{no}</span>
@@ -410,39 +414,32 @@ function AddCard({ track, onClose, onSaved }: {
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Form kartu backlog">
+      <Drawer onClose={onClose} label="Form kartu backlog">
         <div className="dh">
           <h3>Kartu baru · {track === 'human' ? 'butuh tanganmu' : 'bisa kukerjakan'}</h3>
           <button className="icon-btn" aria-label="Tutup" onClick={onClose}>×</button>
         </div>
         <div className="db stack gap-4">
-          <div className="field"><label>Judul</label>
-            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder="Apa yang harus dikerjakan" /></div>
-          <div className="field"><label>Kenapa penting</label>
-            <textarea className="input" rows={4} value={why} onChange={(e) => setWhy(e.target.value)}
-              placeholder="Apa yang rusak atau hilang tanpa ini" /></div>
-          <div className="field"><label>Dimensi</label>
-            <Select className="select-sm"  value={dimension} onChange={(e) => setDim(e.target.value as Dim)}>
+          <Field label="Judul"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="Apa yang harus dikerjakan" /></Field>
+          <Field label="Kenapa penting"><textarea className="input" rows={4} value={why} onChange={(e) => setWhy(e.target.value)}
+              placeholder="Apa yang rusak atau hilang tanpa ini" /></Field>
+          <Field label="Dimensi"><Select className="select-sm"  value={dimension} onChange={(e) => setDim(e.target.value as Dim)}>
               {(Object.keys(DIM_LABEL) as Dim[]).map((d) => <option key={d} value={d}>{DIM_LABEL[d]}</option>)}
-            </Select></div>
-          <div className="field"><label>Prioritas</label>
-            <Select className="select-sm" value={priority} onChange={(e) => setPriority(e.target.value as Pri)}>
+            </Select></Field>
+          <Field label="Prioritas"><Select className="select-sm" value={priority} onChange={(e) => setPriority(e.target.value as Pri)}>
               {(Object.keys(PRI_LABEL) as Pri[]).map((p) => (
                 <option key={p} value={p}>{p} — {PRI_LABEL[p]}</option>
               ))}
-            </Select></div>
-          <div className="field"><label>Bobot</label>
-            <Select className="select-sm"  value={size} onChange={(e) => setSize(e.target.value as 'S' | 'M' | 'L')}>
+            </Select></Field>
+          <Field label="Bobot"><Select className="select-sm"  value={size} onChange={(e) => setSize(e.target.value as 'S' | 'M' | 'L')}>
               <option value="S">S — hitungan jam</option>
               <option value="M">M — setengah hari</option>
               <option value="L">L — berhari-hari</option>
-            </Select></div>
+            </Select></Field>
           {track === 'human' && (
-            <div className="field"><label>Tersandera apa</label>
-              <input className="input" value={blocked} onChange={(e) => setBlocked(e.target.value)}
-                placeholder="mis. akun merchant, keputusan bisnis" /></div>
+            <Field label="Tersandera apa"><input className="input" value={blocked} onChange={(e) => setBlocked(e.target.value)}
+                placeholder="mis. akun merchant, keputusan bisnis" /></Field>
           )}
           {err && <div className="field"><span className="error">{err}</span></div>}
         </div>
@@ -451,7 +448,7 @@ function AddCard({ track, onClose, onSaved }: {
             disabled={busy || title.trim().length < 3} onClick={() => void save()}>Simpan</button>
           <button className="btn" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }

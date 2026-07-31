@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
-import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 
 interface LlmModel { id: string; label: string; provider: string }
 interface EmbModel { id: string; label: string; bucket: string; kind: string }
@@ -87,25 +87,22 @@ export default function ModelsPage() {
       <div className="grid g2">
         <div className="stack gap-4">
           <div className="card"><div className="panel-head"><span className="t">model chat aktif</span><span className="badge badge-signal">1 aktif</span></div>
-            <div className="card-pad"><div className="field"><label>Model</label>
-              <Select value={llm} onChange={(e) => setLlm(e.target.value)}>
+            <div className="card-pad"><Field label="Model"><Select value={llm} onChange={(e) => setLlm(e.target.value)}>
                 {data.llmModels.map((m) => <option key={m.id} value={m.id}>{m.label} — {m.provider}</option>)}
-              </Select></div></div></div>
+              </Select></Field></div></div>
 
           <div className="card"><div className="panel-head"><span className="t">model embedding aktif</span><span className="badge badge-source">1 aktif</span></div>
-            <div className="card-pad"><div className="field"><label>Model</label>
-              <Select value={emb} onChange={(e) => setEmb(e.target.value)}>
+            <div className="card-pad"><Field label="Model"><Select value={emb} onChange={(e) => setEmb(e.target.value)}>
                 {/* Ukuran nyata ada di label tiap model (dari registry) — jangan
                     menuliskannya lagi di sini supaya tak pernah bertentangan. */}
                 <optgroup label="Lokal — ringan">{g.localSmall.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
                 <optgroup label="Lokal — akurasi tinggi">{g.localLarge.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
                 {!!g.selfhosted.length && <optgroup label="Server sendiri (VPS)">{g.selfhosted.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>}
                 <optgroup label="API">{g.api.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
-              </Select></div></div></div>
+              </Select></Field></div></div>
 
           <div className="card"><div className="panel-head"><span className="t">system prompt</span></div>
-            <div className="card-pad"><div className="field"><label>Instruksi</label>
-              <textarea className="textarea" rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} /></div></div></div>
+            <div className="card-pad"><Field label="Instruksi"><textarea className="textarea" rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} /></Field></div></div>
         </div>
 
         <div className="card" style={{ alignSelf: 'start' }}>
@@ -279,26 +276,22 @@ function LlmServerDrawer({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label="Tambah server LLM">
+      <Drawer onClose={onClose} label="Tambah server LLM">
         <div className="dh"><h3>Tambah server LLM</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-4">
-          <div className="field"><label>Nama</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="mis. Ollama kantor" /></div>
+          <Field label="Nama"><input className="input" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="mis. Ollama kantor" /></Field>
 
-          <div className="field"><label>Alamat (sampai /v1)</label>
-            <input className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
+          <Field label="Alamat (sampai /v1)"><input className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://llm.kantormu.com/v1" />
             <p className="microlabel" style={{ marginTop: 6 }}>
               OLLAMA :11434/v1 · VLLM :8000/v1 · LM STUDIO :1234/v1
-            </p></div>
+            </p></Field>
 
-          <div className="field"><label>Token (opsional)</label>
-            <input className="input mono" type="password" value={token}
+          <Field label="Token (opsional)"><input className="input mono" type="password" value={token}
               onChange={(e) => setToken(e.target.value)} placeholder="kosongkan bila server tanpa auth" />
-            <p className="microlabel" style={{ marginTop: 6 }}>DISIMPAN TERENKRIPSI · TAK PERNAH KE BROWSER</p></div>
+            <p className="microlabel" style={{ marginTop: 6 }}>DISIMPAN TERENKRIPSI · TAK PERNAH KE BROWSER</p></Field>
 
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
             Alamat non-<code>https</code> hanya diizinkan ke loopback. Untuk server di
@@ -310,7 +303,7 @@ function LlmServerDrawer({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy || !name || !baseUrl} onClick={save}>Simpan</button>
           <button className="btn btn-ghost" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }
@@ -447,35 +440,30 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true" aria-label={`Kredensial ${label}`}>
+      <Drawer onClose={onClose} label={`Kredensial ${label}`}>
         <div className="dh"><h3>Kredensial {label}</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-4">
-          <div className="field"><label>Client ID</label>
-            <input className="input mono" value={clientId} onChange={(e) => setClientId(e.target.value)}
-              placeholder={app.provider === 'google' ? '….apps.googleusercontent.com' : 'Application (client) ID'} /></div>
+          <Field label="Client ID"><input className="input mono" value={clientId} onChange={(e) => setClientId(e.target.value)}
+              placeholder={app.provider === 'google' ? '….apps.googleusercontent.com' : 'Application (client) ID'} /></Field>
 
-          <div className="field"><label>Client secret</label>
-            <input className="input mono" type="password" value={clientSecret}
+          <Field label="Client secret"><input className="input mono" type="password" value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
               placeholder={app.hasSecret ? 'kosongkan untuk tidak mengubah' : 'wajib diisi'} />
             <p className="microlabel" style={{ marginTop: 6 }}>
               DISIMPAN TERENKRIPSI · TAK PERNAH DIKIRIM KE BROWSER
-            </p></div>
+            </p></Field>
 
           {app.provider === 'microsoft' && (
-            <div className="field"><label>Directory (tenant) ID</label>
-              <input className="input mono" value={msTenantId} onChange={(e) => setMsTenantId(e.target.value)}
+            <Field label="Directory (tenant) ID"><input className="input mono" value={msTenantId} onChange={(e) => setMsTenantId(e.target.value)}
                 placeholder="common" />
               <p className="microlabel" style={{ marginTop: 6 }}>
                 COMMON = AKUN KERJA &amp; PRIBADI · ATAU GUID DIREKTORI
-              </p></div>
+              </p></Field>
           )}
 
           {app.provider === 'google' && (<>
-            <div className="field"><label>Mode akses Drive</label>
-              <Select value={driveMode}
+            <Field label="Mode akses Drive"><Select value={driveMode}
                 onChange={(e) => setDriveMode(e.target.value as 'full' | 'picker')}>
                 <option value="full">Full — scan folder rekursif (drive.readonly, scope RESTRICTED)</option>
                 <option value="picker">Picker — user pilih berkas (drive.file, verifikasi ringan)</option>
@@ -483,22 +471,20 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
               <p className="microlabel" style={{ marginTop: 6 }}>
                 PICKER = BEBAS VERIFIKASI BERAT GOOGLE (VIDEO DEMO + CASA) ·
                 HAPUS JUGA drive.readonly DARI CONSENT SCREEN
-              </p></div>
+              </p></Field>
 
             {driveMode === 'picker' && (
-              <div className="field"><label>Google Picker API key (opsional)</label>
-                <input className="input mono" value={pickerApiKey}
+              <Field label="Google Picker API key (opsional)"><input className="input mono" value={pickerApiKey}
                   onChange={(e) => setPickerApiKey(e.target.value)}
                   placeholder={app.hasPickerApiKey ? 'kosongkan = tak diubah · "-" = hapus' : 'AIza… (Credentials → API key)'} />
                 <p className="microlabel" style={{ marginTop: 6 }}>
                   KEY BROWSER (BUKAN RAHASIA) — BATASI PER-REFERRER DI CONSOLE
-                </p></div>
+                </p></Field>
             )}
 
             {/* Kunci SERVER-SIDE — beda peran dari Picker key di atas, dan
                 perbedaan itu gampang tertukar, jadi disebut eksplisit. */}
-            <div className="field"><label>Drive API key — folder publik (opsional)</label>
-              <input className="input mono" type="password" value={driveApiKey}
+            <Field label="Drive API key — folder publik (opsional)"><input className="input mono" type="password" value={driveApiKey}
                 onChange={(e) => setDriveApiKey(e.target.value)}
                 placeholder={app.hasDriveApiKey ? 'kosongkan = tak diubah · "-" = hapus' : 'AIza… (Credentials → API key)'} />
               <p className="microlabel" style={{ marginTop: 6 }}>
@@ -507,7 +493,7 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
                 DISIMPAN TERENKRIPSI, TAK PERNAH KE BROWSER. BATASI KE DRIVE API SAJA
                 (JANGAN PASANG PEMBATASAN REFERRER).{' '}
                 <a href="/docs/sumber-pengetahuan.html" target="_blank" rel="noreferrer">Panduan</a>
-              </p></div>
+              </p></Field>
           </>)}
 
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
@@ -520,7 +506,7 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy || !clientId} onClick={save}>Simpan</button>
           <button className="btn btn-ghost" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }
@@ -659,31 +645,26 @@ function ServerDrawer({ server, onClose, onSaved }:
 
   return (
     <>
-      <div className="backdrop show" onClick={onClose} />
-      <aside className="drawer open" role="dialog" aria-modal="true"
-        aria-label={server ? 'Ubah server embedding' : 'Tambah server embedding'}>
+      <Drawer onClose={onClose} label={server ? 'Ubah server embedding' : 'Tambah server embedding'}>
         <div className="dh">
           <h3>{server ? 'Ubah server' : 'Tambah server embedding'}</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button>
         </div>
         <div className="db stack gap-4">
-          <div className="field"><label>Nama</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="mis. VPS Singapura" /></div>
+          <Field label="Nama"><input className="input" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="mis. VPS Singapura" /></Field>
 
-          <div className="field"><label>Alamat</label>
-            <input className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
+          <Field label="Alamat"><input className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://embed.domainmu.com" />
             <p className="microlabel" style={{ marginTop: 6 }}>
               WAJIB HTTPS — ISI DOKUMEN TENANT MELINTAS DI SINI.
-            </p></div>
+            </p></Field>
 
-          <div className="field"><label>Token</label>
-            <input className="input mono" type="password" value={token} onChange={(e) => setToken(e.target.value)}
+          <Field label="Token"><input className="input mono" type="password" value={token} onChange={(e) => setToken(e.target.value)}
               placeholder={server?.hasToken ? 'kosongkan untuk tidak mengubah' : 'EMBEDDING_TOKEN di server'} />
             <p className="microlabel" style={{ marginTop: 6 }}>
               SAMA PERSIS DENGAN EMBEDDING_TOKEN DI VPS. DISIMPAN TERENKRIPSI.
-            </p></div>
+            </p></Field>
 
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
             Setelah disimpan, tekan <strong>Test koneksi</strong>. Aplikasi memanggil
@@ -695,7 +676,7 @@ function ServerDrawer({ server, onClose, onSaved }:
           <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={save}>Simpan</button>
           <button className="btn btn-ghost" onClick={onClose}>Batal</button>
         </div>
-      </aside>
+      </Drawer>
     </>
   );
 }
