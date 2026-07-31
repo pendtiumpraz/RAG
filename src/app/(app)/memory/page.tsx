@@ -32,7 +32,7 @@ interface Cat { id: string; slug: string; label: string; status: string; origin:
 /** Berapa catatan yang tersangkut di penampung, dan mana yang bisa dibereskan. */
 interface Kandidat { siap: number; tanpaRingkasan: number }
 interface HasilKategori {
-  diperbarui: number; tetapBelum: number; tanpaRingkasan: number; tersisa: number;
+  diperbarui: number; tetapBelum: number; gagalDinilai: number; tanpaRingkasan: number; tersisa: number;
   usulanBaru: string[]; perKategori: Array<{ slug: string; jumlah: number }>;
   /** Hanya ada pada mode "kerjakan semua". */
   putaran?: number;
@@ -323,6 +323,16 @@ function MemoryPageInner() {
                   )}
                   {hasilKat.tetapBelum > 0 && (
                     <>{hasilKat.tetapBelum} tetap di penampung — model tak bisa memutuskan dari ringkasannya. </>
+                  )}
+                  {/* DIBEDAKAN dari "tetap di penampung", dan bedanya menentukan:
+                      yang di atas berarti model sudah menilai dan tak yakin, yang
+                      ini berarti penilaiannya TAK PERNAH TERJADI. Sebelum dipisah,
+                      keduanya tampak sama — dan tombolnya melaporkan "33 tetap
+                      belum" berkali-kali sementara modelnya sendiri yang diam. */}
+                  {(hasilKat.gagalDinilai ?? 0) > 0 && (
+                    <><b>{hasilKat.gagalDinilai} tak sempat dinilai</b> — model tidak
+                    membalas dengan bentuk yang bisa dibaca. Coba lagi; bila terus
+                    berulang, ganti model aktif di Models &amp; Keys. </>
                   )}
                   {hasilKat.tersisa > 0 && (
                     <>{hasilKat.tersisa} belum tersentuh — melewati batas satu permintaan; tekan lagi untuk melanjutkan. </>

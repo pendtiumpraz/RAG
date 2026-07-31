@@ -28,7 +28,8 @@
     "tenant:export": "node --env-file=.env --import tsx scripts/tenant-move.ts export",
     "tenant:import": "node --env-file=.env --import tsx scripts/tenant-move.ts import",
     "eval:tier1": "node --env-file=.env --import tsx scripts/tier1-recall.ts",
-    "a11y:kontras": "node --import tsx scripts/a11y-kontras.ts"
+    "a11y:kontras": "node --import tsx scripts/a11y-kontras.ts",
+    "funnel:report": "node --env-file=.env --import tsx scripts/funnel-report.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.66.0",

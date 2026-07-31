@@ -40,8 +40,28 @@ import { categoryService } from './category.service';
  * mempercayai seluruh fiturnya.
  */
 
-/** Berapa ringkasan dikirim dalam SATU panggilan model. */
-const PER_BATCH = 20;
+/**
+ * Berapa ringkasan dikirim dalam SATU panggilan model.
+ *
+ * DITURUNKAN 20 → 8 setelah kegagalan nyata di produksi: dengan 20 ringkasan,
+ * model bernalar (deepseek-v4-flash) menghabiskan seluruh anggaran token untuk
+ * penalaran internal dan mengembalikan ISI KOSONG. Dengan 3 ringkasan model
+ * yang sama menjawab benar. Batch kecil juga gagal lebih anggun: yang hilang
+ * satu kelompok, bukan seluruh jalannya.
+ */
+const PER_BATCH = 8;
+
+/**
+ * Anggaran token KELUARAN untuk satu batch.
+ *
+ * Dikirim lewat argumen `sampling`, BUKAN argumen keempat completeChat —
+ * argumen keempat itu `maxChars` (pemotong panjang string di sisi kita), dan
+ * memakainya sebagai batas token adalah persis kekeliruan yang membuat
+ * anggaran sesungguhnya diam-diam jatuh ke bawaan 2.048. Model bernalar
+ * memakai sebagian besar anggaran untuk berpikir, jadi angkanya harus jauh di
+ * atas panjang jawaban yang terlihat.
+ */
+const MAX_TOKEN_BATCH = 6_000;
 /** Potongan ringkasan yang dikirim — cukup untuk menilai jenis dokumen. */
 const MAX_RINGKASAN_CHARS = 700;
 /** Batas satu kali jalan; sisanya dilaporkan sebagai `pending`. */
@@ -54,6 +74,16 @@ export interface RecategorizeResult {
   tetapBelum: number;
   /** Punya kategori 'belum' TAPI ringkasannya kosong — tak bisa dinilai. */
   tanpaRingkasan: number;
+  /**
+   * Model TIDAK MENJAWAB dengan bentuk yang bisa dibaca (kosong, atau JSON
+   * cacat). Dipisahkan dari `tetapBelum` karena artinya berlawanan:
+   * `tetapBelum` berarti model sudah menilai dan tak bisa memutuskan;
+   * yang ini berarti penilaiannya TAK PERNAH TERJADI. Sebelum dipisah,
+   * kegagalan model terbaca persis seperti dokumen yang memang sulit — dan
+   * tombolnya melapor "33 tetap belum" berkali-kali tanpa seorang pun tahu
+   * bahwa modelnya sendiri yang diam.
+   */
+  gagalDinilai: number;
   /** Belum tersentuh karena batas satu kali jalan. */
   tersisa: number;
   /** Kategori baru yang DIUSULKAN model (masih menunggu persetujuan). */
@@ -147,7 +177,7 @@ export const recategorizeService = {
     const tanpaRingkasan = batasan.length - siap.length;
 
     const kosong: RecategorizeResult = {
-      diperbarui: 0, tetapBelum: 0, tanpaRingkasan, tersisa,
+      diperbarui: 0, tetapBelum: 0, gagalDinilai: 0, tanpaRingkasan, tersisa,
       usulanBaru: [], perKategori: [],
     };
     if (!siap.length) return kosong;
@@ -167,6 +197,7 @@ export const recategorizeService = {
 
     const hasil = new Map<string, string>();   // noteId → slug
     const usulanBaru = new Set<string>();
+    let gagalDinilai = 0;   // dokumen di batch yang jawabannya tak terbaca
 
     for (let i = 0; i < siap.length; i += PER_BATCH) {
       const batch = siap.slice(i, i + PER_BATCH);
@@ -189,7 +220,7 @@ export const recategorizeService = {
           'itu bukan kategori. Bila ragu antara dua, pilih yang lebih spesifik. ' +
           'Sertakan SEMUA nomor yang diberikan, satu entri masing-masing.' },
         { role: 'user', content: daftarDok },
-      ], apiKey, 2000);
+      ], apiKey, 8_000, { maxTokens: MAX_TOKEN_BATCH });
 
       try {
         const parsed = JSON.parse(
@@ -224,15 +255,23 @@ export const recategorizeService = {
           if (!namaTerlaluSamar(usul)) usulanBaru.add(usul);
         }
       } catch {
-        // Satu batch dengan JSON cacat TIDAK menggagalkan sisanya. Dokumen di
-        // dalamnya tetap di penampung — keadaan yang sama seperti sebelum
-        // tombol ditekan, jadi menekannya lagi aman.
+        /* Satu batch dengan jawaban tak terbaca TIDAK menggagalkan sisanya —
+           dokumen di dalamnya tetap di penampung, keadaan yang sama seperti
+           sebelum tombol ditekan, jadi menekannya lagi aman.
+
+           Tapi ia DIHITUNG. Sebelumnya batch semacam ini hanya `continue`,
+           dan hasilnya masuk ke `tetapBelum` — tak bisa dibedakan dari
+           dokumen yang memang sulit. Itulah yang membuat kegagalan nyata di
+           produksi (model bernalar kehabisan anggaran token dan membalas
+           kosong) terlihat seperti "modelnya sudah menilai dan tak yakin",
+           berulang kali, tanpa satu pun petunjuk. */
+        gagalDinilai += batch.length;
         continue;
       }
     }
 
     if (!hasil.size) {
-      return { ...kosong, tetapBelum: siap.length, usulanBaru: [...usulanBaru] };
+      return { ...kosong, tetapBelum: siap.length - gagalDinilai, gagalDinilai, usulanBaru: [...usulanBaru] };
     }
 
     /* Satu UPDATE untuk semuanya, bukan satu per catatan: pada 200 dokumen
@@ -262,12 +301,13 @@ export const recategorizeService = {
     })).sort((a, b) => b.jumlah - a.jumlah);
 
     await audit(tenantId, 'user', 'memory.recategorize', opts.knowledgeBaseId, {
-      diperbarui: hasil.size, dinilai: siap.length, sumber: 'ringkasan',
+      diperbarui: hasil.size, dinilai: siap.length, gagalDinilai, sumber: 'ringkasan',
     });
 
     return {
       diperbarui: hasil.size,
-      tetapBelum: siap.length - hasil.size,
+      tetapBelum: siap.length - hasil.size - gagalDinilai,
+      gagalDinilai,
       tanpaRingkasan, tersisa,
       usulanBaru: [...usulanBaru],
       perKategori,
@@ -300,7 +340,7 @@ export const recategorizeService = {
     opts: { knowledgeBaseId?: string } = {},
   ): Promise<RecategorizeResult & { putaran: number; mandek: boolean }> {
     const gabungan: RecategorizeResult & { putaran: number; mandek: boolean } = {
-      diperbarui: 0, tetapBelum: 0, tanpaRingkasan: 0, tersisa: 0,
+      diperbarui: 0, tetapBelum: 0, gagalDinilai: 0, tanpaRingkasan: 0, tersisa: 0,
       usulanBaru: [], perKategori: [], putaran: 0, mandek: false,
     };
     const usul = new Set<string>();
@@ -314,6 +354,7 @@ export const recategorizeService = {
          ia menggambarkan keadaan yang tersisa sekarang, dan menjumlahkan
          keadaan akan menghitung dokumen yang sama berkali-kali. */
       gabungan.tetapBelum = r.tetapBelum;
+      gabungan.gagalDinilai = r.gagalDinilai;
       gabungan.tanpaRingkasan = r.tanpaRingkasan;
       gabungan.tersisa = r.tersisa;
       for (const u of r.usulanBaru) usul.add(u);

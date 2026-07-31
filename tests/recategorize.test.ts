@@ -65,8 +65,16 @@ test('satu batch cacat tidak menggagalkan sisanya', () => {
   // Jawaban JSON yang rusak pada satu bundel tak boleh membuang pekerjaan
   // sembilan bundel lainnya; dokumen di dalamnya cukup tetap di penampung —
   // keadaan yang sama seperti sebelum tombol ditekan, jadi aman ditekan lagi.
-  const loop = SVC.slice(SVC.indexOf('for (let i = 0; i < siap.length'));
-  assert.ok(/} catch \{[\s\S]{0,400}continue;/.test(loop),
+  /* KOMENTAR DIBUANG dulu, dan jaraknya tak dipatok. Versi sebelumnya
+     memakai jendela 400 karakter setelah `} catch {`, lalu gagal begitu
+     penjelasan di dalam catch itu bertambah panjang — tesnya tersandung
+     komentarnya sendiri, bukan perubahan perilaku. */
+  const kode = SVC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const loop = kode.slice(kode.indexOf('for (let i = 0; i < siap.length'));
+  const iCatch = loop.indexOf('} catch {');
+  assert.ok(iCatch > 0, 'blok catch per-bundel hilang');
+  const isiCatch = loop.slice(iCatch, loop.indexOf('}', loop.indexOf('{', iCatch + 8)));
+  assert.ok(/continue;/.test(isiCatch),
     'kegagalan parse membatalkan seluruh proses, bukan hanya bundelnya');
 });
 
