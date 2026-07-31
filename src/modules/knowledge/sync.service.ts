@@ -4,6 +4,7 @@ import { dataSources } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/modules/core/jobs';
 import { audit } from '@/modules/core/guardrails';
+import { periksaSync, terbitkanPeringatan } from '@/modules/core/alerts';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService, QuotaError } from './knowledge.service';
@@ -269,6 +270,17 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
       ...(quotaStop ? { quotaExceeded: quotaStop } : {}),
     };
     await setStatus(quotaStop ? 'quota' : pending > 0 ? 'partial' : 'synced', stats);
+    /* Kuota yang menghentikan sync DIBERITAHUKAN, bukan cuma dicatat di
+       status sumber. Status hanya terbaca oleh yang kebetulan membuka
+       halaman Knowledge; sementara akibatnya — dokumen berhenti masuk —
+       baru terasa berhari-hari kemudian saat jawaban mulai meleset. */
+    if (quotaStop) {
+      await terbitkanPeringatan(tenantId, {
+        jenis: 'kuota.habis', tingkat: 'gawat',
+        pesan: `Sync berhenti karena kuota penyimpanan habis: ${quotaStop}`,
+        konteks: { sourceId, knowledgeBaseId: source.knowledgeBaseId, ingested, pending },
+      });
+    }
     await audit(tenantId, 'system', 'source.sync', sourceId, {
       kind: source.kind, knowledgeBaseId: source.knowledgeBaseId, ...stats,
     });
@@ -284,6 +296,17 @@ async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promi
     }
   } catch (err) {
     await setStatus('error', { message: (err as Error).message });
+    /* Diterbitkan SEBELUM melempar ulang: kalau menunggu pemanggil, tak
+       ada pemanggil yang tahu sumber mana yang gagal — job runner hanya
+       melihat satu galat tanpa konteks. Peredaman 6 jam ada di
+       terbitkanPeringatan; sync berjalan berkali-kali sehari, dan tanpa
+       itu satu folder yang izinnya dicabut mengirim belasan peringatan
+       identik per hari sampai orang berhenti membacanya. */
+    const p = periksaSync({
+      sourceId, kbId: source.knowledgeBaseId,
+      gagal: 1, pesan: (err as Error).message.slice(0, 160),
+    });
+    if (p) await terbitkanPeringatan(tenantId, p);
     throw err;
   }
 }

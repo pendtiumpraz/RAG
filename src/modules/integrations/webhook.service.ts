@@ -31,6 +31,7 @@ export const WEBHOOK_EVENTS = [
   'conversation.turn',
   'chatbot.created',
   'chatbot.deleted',
+  'alert.raised',
 ] as const satisfies ReadonlyArray<keyof NalarEvents>;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
@@ -42,6 +43,7 @@ export const EVENT_LABEL: Record<WebhookEvent, string> = {
   'conversation.turn': 'Giliran percakapan baru',
   'chatbot.created': 'Chatbot dibuat',
   'chatbot.deleted': 'Chatbot dihapus',
+  'alert.raised': 'Peringatan: sync gagal, kuota nyaris habis, galat melonjak',
 };
 
 export interface WebhookRow {

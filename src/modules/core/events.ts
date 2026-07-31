@@ -15,6 +15,8 @@ export interface NalarEvents {
   'conversation.turn':{ tenantId: string; chatbotId: string; conversationId: string };
   'source.connected': { tenantId: string; knowledgeBaseId: string; sourceId: string; kind: string };
   'memory.note.upserted': { tenantId: string; chatbotId: string; noteId: string; slug: string };
+  /** Ada yang RUSAK — bukan 'sesuatu terjadi'. Lihat core/alerts.ts. */
+  'alert.raised': { tenantId: string; jenis: string; tingkat: string; pesan: string; konteks: Record<string, unknown> };
 }
 
 type Handler<K extends keyof NalarEvents> = (payload: NalarEvents[K]) => void | Promise<void>;
