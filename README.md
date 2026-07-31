@@ -115,9 +115,13 @@ cp .env.example .env          # isi CREDENTIALS_ENCRYPTION_KEY & DATABASE_URL
 docker compose up -d
 ```
 
-Aplikasi, Postgres+pgvector, dan server embedding berjalan bersama. Untuk LLM
-sepenuhnya lokal, arahkan ke Ollama / vLLM / LM Studio — semuanya berprotokol
-OpenAI-compatible, cukup didaftarkan URL-nya di **Models & Keys**.
+Aplikasi, Postgres+pgvector, dan penyiapan basis datanya berjalan berurutan.
+Untuk LLM sepenuhnya lokal, arahkan ke Ollama / vLLM / LM Studio — semuanya
+berprotokol OpenAI-compatible, cukup didaftarkan URL-nya di **Models & Keys**.
+
+Panduan lengkapnya — variabel yang wajib diubah, cara MEMBUKTIKAN isolasi
+tenant benar-benar menyala, kebutuhan disk, dan apa yang belum tercakup — ada
+di **[docs/ONPREM.md](docs/ONPREM.md)**.
 
 ### Pengembangan lokal
 

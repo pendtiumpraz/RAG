@@ -1,5 +1,11 @@
-# On-prem one-command stack: Postgres+pgvector and the Next.js app.
-# `docker compose up` gives you a fully self-hosted, air-gap-capable RAG.
+# Tumpukan on-premise satu perintah: Postgres+pgvector, penyiapan basis data,
+# lalu aplikasinya. `docker compose up -d` memberi RAG yang sepenuhnya berjalan
+# sendiri dan sanggup dipakai tanpa internet.
+#
+# TIGA LAYANAN, bukan dua. Sebelumnya hanya `db` dan `app`, dan susunan itu tak
+# pernah menghasilkan instalasi yang bekerja: tak ada satu pun langkah yang
+# membuat tabel, jadi aplikasinya menyala di atas basis data kosong. Layanan
+# `setup` menutup celah itu lalu berhenti sendiri.
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -17,19 +23,54 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
+  # Sekali jalan lalu berhenti. Idempoten, jadi aman diulang tiap
+  # `docker compose up` — dan itu memang yang terjadi saat versi baru dipasang.
+  setup:
     build: .
     depends_on:
       db:
         condition: service_healthy
     env_file: .env
     environment:
+      # Menyiapkan skema menuntut hak PEMILIK basis data. Peran aplikasi
+      # (nalar_app) sengaja tak boleh mengubah skema — pagar itu yang membuat
+      # kecelakaan `db:push` tak mungkin datang dari aplikasi.
       DATABASE_URL: postgres://rag:rag@db:5432/rag
+      DATABASE_URL_UNPOOLED: postgres://rag:rag@db:5432/rag
+      APP_PW: ${APP_PW:-nalar_app_pw}
+    # push membuat tabel (basis data BARU, sesuai aturan di CLAUDE.md),
+    # migrate memasang pgvector + kebijakan RLS, setup-role membuat peran
+    # aplikasi NOBYPASSRLS beserta grant-nya. Urutannya menentukan: grant
+    # hanya berlaku untuk tabel yang sudah ada.
+    command: >
+      sh -c "npm run db:push &&
+             npm run db:migrate &&
+             npm run db:setup-role"
+    restart: "no"
+
+  app:
+    build: .
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      # APLIKASI TERSAMBUNG SEBAGAI nalar_app, BUKAN sebagai pemilik.
+      #
+      # Ini bukan kerapian. Postgres MELEWATI seluruh kebijakan RLS untuk
+      # pemilik tabel — diam-diam, tanpa galat, tanpa jejak di log. Susunan
+      # lama menyambungkan aplikasi sebagai `rag` (pemilik), sehingga setiap
+      # kebijakan isolasi yang dipasang migrasi 0001 tidak berlaku sama sekali,
+      # dan tak ada cara melihatnya dari dalam aplikasi.
+      DATABASE_URL: postgres://nalar_app:${APP_PW:-nalar_app_pw}@db:5432/rag
+      # Untuk jalur admin yang memang menuntut hak pemilik (mis. laporan
+      # lintas tenant). Boleh dikosongkan bila tak dipakai.
+      DATABASE_URL_UNPOOLED: postgres://rag:rag@db:5432/rag
     ports:
       - "3000:3000"
     volumes:
-      # Cache for downloaded embedding model files (80MB / 2GB) so they
-      # are pulled from Drive/SharePoint once and reused across restarts.
+      # Singgahan berkas model embedding (80MB / 2GB) supaya hanya diunduh
+      # sekali dan dipakai ulang lintas restart.
       - modelcache:/app/.model-cache
 
 volumes:
