@@ -243,6 +243,19 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     }
   });
 
+  /* ── L1b · PERCAKAPAN — pertanyaan berulang jadi catatan ─────────
+     Menumpang run yang sudah ada dan TIDAK memanggil LLM sama sekali:
+     mengenali pertanyaan berulang cukup dengan menghitung. Kegagalannya
+     tak boleh menjatuhkan seluruh pipeline — dokumen sudah terlanjur
+     diringkas, dan membuang hasil itu jauh lebih mahal daripada kehilangan
+     satu tahap tambahan. */
+  try {
+    const { percakapanMemory } = await import('./percakapan.service');
+    await percakapanMemory.jalankan(tenantId, chatbotId);
+  } catch (err) {
+    console.error('[memory] tahap percakapan gagal, pipeline dilanjutkan:', err);
+  }
+
   /* ── L5 · SELF-EVOLVING — merge duplikat + prune orphan ─────────── */
   const evolution = await runSelfEvolution(tenantId, chatbotId, uniqueDrafts, vectors, idBySlug);
 
