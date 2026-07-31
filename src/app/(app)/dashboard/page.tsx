@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useApi } from '../../_lib/api';
-import { Skeleton, ErrorState } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
+import { isiHariKosong, ringkasTren, tinggiBatang, MIN_HARI_TREN } from '@/modules/usage/tren';
 
 interface Usage {
   plan: string; period: string;
@@ -10,12 +12,19 @@ interface Usage {
   maxChatbots: number | null;
 }
 interface Chatbot { id: string; enabled: boolean }
+interface Breakdown {
+  days: number;
+  perChatbot: Array<{ chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }>;
+  daily: Array<{ day: string; messages: number }>;
+}
 
 const fmt = (n: number) => n.toLocaleString('id-ID');
+const HARI_TREN = 30;
 
 export default function DashboardPage() {
   const usage = useApi<Usage>('/api/usage');
   const bots = useApi<Chatbot[]>('/api/chatbots');
+  const bd = useApi<Breakdown>(`/api/usage/breakdown?days=${HARI_TREN}`);
 
   return (
     <>
@@ -41,6 +50,8 @@ export default function DashboardPage() {
           </div>
         )}
 
+      <TrenPemakaian bd={bd} />
+
       <div className="grid g2">
         <div className="card">
           <div className="panel-head"><span className="t">Cara kerja</span><span className="badge badge-ok"><span className="led led-live" />pipeline</span></div>
@@ -64,6 +75,108 @@ export default function DashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * TREN 30 HARI + rincian per chatbot — mengisi separuh bawah dashboard.
+ *
+ * Datanya sudah lama ada di `/api/usage/breakdown`; yang belum ada hanyalah
+ * yang membacanya. Tidak ada pelacakan baru yang ditambahkan.
+ */
+function TrenPemakaian({ bd }: { bd: ReturnType<typeof useApi<Breakdown>> }) {
+  const titik = useMemo(
+    // Hari kosong DIISI nol di sini, bukan dibiarkan hilang: `group by day`
+    // di server tak mengembalikan hari tanpa aktivitas, dan menggambarnya
+    // apa adanya akan merapatkan hari-hari yang berjauhan.
+    () => (bd.data ? isiHariKosong(bd.data.daily, bd.data.days, Date.now()) : []),
+    [bd.data]);
+  const ringkas = useMemo(() => ringkasTren(titik), [titik]);
+  const maks = useMemo(() => titik.reduce((m, t) => Math.max(m, t.pesan), 0), [titik]);
+
+  if (bd.error) {
+    return <div className="card" style={{ marginBottom: 'var(--sp-4)' }}>
+      <ErrorState message={bd.error} onRetry={bd.refetch} /></div>;
+  }
+  if (bd.loading || !bd.data) {
+    return <div className="card" style={{ marginBottom: 'var(--sp-4)' }}><Skeleton rows={4} /></div>;
+  }
+
+  return (
+    <div className="grid g2" style={{ marginBottom: 'var(--sp-4)' }}>
+      <div className="card">
+        <div className="panel-head">
+          <span className="t">Pesan {HARI_TREN} hari terakhir</span>
+          {/* Arah tren hanya ditampilkan bila memang bisa dikatakan. Tenant
+              baru selalu punya paruh awal kosong, dan "naik ∞%" pada hari
+              kedua adalah janji yang tak berdasar apa pun. */}
+          {ringkas.arah && ringkas.persen !== null && (
+            <span className={`badge${ringkas.arah === 'turun' ? ' badge-warn' : ringkas.arah === 'naik' ? ' badge-ok' : ''}`}>
+              {ringkas.arah === 'naik' ? '▲' : ringkas.arah === 'turun' ? '▼' : '■'} {Math.abs(ringkas.persen)}%
+            </span>
+          )}
+        </div>
+        <div className="card-pad">
+          {ringkas.total === 0 ? (
+            <EmptyState title="Belum ada percakapan"
+              hint={`Grafik terisi setelah chatbot menerima pertanyaan. Jendelanya ${HARI_TREN} hari terakhir.`} />
+          ) : (
+            <>
+              <div className="cluster" style={{ alignItems: 'flex-end', gap: 2, height: 120 }}
+                role="img"
+                aria-label={`Pesan per hari selama ${HARI_TREN} hari terakhir, total ${fmt(ringkas.total)} pesan`}>
+                {titik.map((t) => (
+                  <div key={t.hari} title={`${t.hari}: ${fmt(t.pesan)} pesan`}
+                    style={{
+                      flex: 1, minWidth: 0, height: `${tinggiBatang(t.pesan, maks)}%`,
+                      background: t.pesan > 0 ? 'var(--signal)' : 'transparent',
+                      borderRadius: '2px 2px 0 0',
+                    }} />
+                ))}
+              </div>
+              <div className="cluster" style={{ justifyContent: 'space-between', marginTop: 6 }}>
+                <span className="microlabel">{titik[0]?.hari}</span>
+                <span className="microlabel">{titik[titik.length - 1]?.hari}</span>
+              </div>
+              <div className="cluster gap-4" style={{ marginTop: 'var(--sp-3)' }}>
+                <span><b>{fmt(ringkas.total)}</b> <span className="microlabel">TOTAL</span></span>
+                <span><b>{ringkas.rerata.toFixed(1)}</b> <span className="microlabel">RATA-RATA/HARI</span></span>
+                {ringkas.puncak && (
+                  <span><b>{fmt(ringkas.puncak.pesan)}</b> <span className="microlabel">TERSIBUK ({ringkas.puncak.hari})</span></span>
+                )}
+              </div>
+              {!ringkas.arah && (
+                <p className="microlabel" style={{ marginTop: 'var(--sp-2)' }}>
+                  ARAH TREN BELUM BISA DISEBUT — BUTUH MINIMAL {MIN_HARI_TREN} HARI DENGAN AKTIVITAS DI PARUH AWAL.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="panel-head"><span className="t">Per chatbot ({HARI_TREN} hari)</span></div>
+        <div className="card-pad">
+          {bd.data.perChatbot.length === 0 ? (
+            <EmptyState title="Belum ada aktivitas"
+              hint="Rincian muncul setelah salah satu chatbot dipakai." />
+          ) : (
+            <table className="table"><thead><tr>
+              <th>Chatbot</th><th className="num">Pesan</th><th className="num">Token</th>
+            </tr></thead><tbody>
+              {bd.data.perChatbot.slice(0, 6).map((c) => (
+                <tr key={c.chatbotId}>
+                  <td>{c.name}</td>
+                  <td className="num">{fmt(c.messages)}</td>
+                  <td className="num">{fmt(c.tokensIn + c.tokensOut)}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
