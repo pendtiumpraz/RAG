@@ -366,8 +366,8 @@
 .sl-anim svg{ width:100%; height:100%; max-height:46cqw; overflow:visible; }
 
 /* Teks di dalam scene — ukurannya ikut viewBox, bukan cqw. */
-.sc-t{ font-family:var(--font-sans); font-size:11px; fill:#0F172A; font-weight:650; }
-.sc-s{ font-family:var(--font-sans); font-size:9px;  fill:#475569; }
+.sc-t{ font-family:var(--font-ui); font-size:11px; fill:#0F172A; font-weight:650; }
+.sc-s{ font-family:var(--font-ui); font-size:9px;  fill:#475569; }
 .sc-m{ font-family:var(--font-mono); font-size:8.5px; fill:#475569; letter-spacing:.04em; }
 .sc-k{ font-family:var(--font-mono); font-size:8px; fill:#94A3B8; letter-spacing:.16em; text-transform:uppercase; }
 .sc-w{ fill:#fff; }

@@ -62,7 +62,7 @@ function RetrievalModeCell({ tier1, chunks }: { tier1: number; chunks: number })
               + 'ditelusuri langsung dalam satu tahap — cara paling teliti. Mode bertingkat menyala '
               + 'sendiri kalau isinya sudah cukup besar; tak ada yang perlu Anda atur.'}
           className="microlabel"
-          style={{ cursor: 'help', borderBottom: '1px dotted var(--border)' }}
+          style={{ cursor: 'help', borderBottom: '1px dotted var(--line-strong)' }}
         >
           APA INI?
         </span>

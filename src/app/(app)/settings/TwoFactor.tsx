@@ -109,7 +109,7 @@ export default function TwoFactor() {
               </p>
               <code className="mono" style={{
                 display: 'block', wordBreak: 'break-all', fontSize: 13,
-                background: 'var(--surface-2, rgba(0,0,0,.04))', padding: 8, borderRadius: 6,
+                background: 'var(--card-2)', padding: 8, borderRadius: 6,
               }}>{daftar.rahasia}</code>
               <Field label="Kode 6 digit dari aplikasi"><input className="input mono" inputMode="numeric" autoComplete="one-time-code"
                   placeholder="000000" value={kode} maxLength={8}

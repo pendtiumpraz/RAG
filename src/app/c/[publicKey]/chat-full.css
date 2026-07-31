@@ -24,7 +24,7 @@
   grid-template-columns: 264px 1fr;
   background: var(--cw-bg);
   color: var(--cw-ink);
-  font-family: var(--font-sans, system-ui, sans-serif);
+  font-family: var(--font-ui, system-ui, sans-serif);
 }
 .cw.dark {
   --cw-bg: #0F172A; --cw-panel: #1E293B; --cw-ink: #F1F5F9;
