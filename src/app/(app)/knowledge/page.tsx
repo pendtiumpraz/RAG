@@ -99,6 +99,29 @@ export default function KnowledgePage() {
   const [kuotaTick, setKuotaTick] = useState(0);
   const segarkanKuota = () => setKuotaTick((n) => n + 1);
 
+  /**
+   * Segarkan sendiri SELAGI ada sumber yang sedang sync.
+   *
+   * Tanpa ini, halaman membeku pada keadaan saat ia dibuka: status berhenti
+   * di 'syncing' dan tak berubah sampai seseorang menekan muat ulang. Yang
+   * paling merugikan bukan rasa tak nyamannya, melainkan tindakan yang
+   * lahir darinya — pemilik data menekan Sync lagi karena mengira yang
+   * pertama mati, dan sync kedua benar-benar berjalan, membakar kuota dua
+   * kali untuk pekerjaan yang sama.
+   *
+   * BERHENTI SENDIRI begitu tak ada yang berjalan. Polling yang terus jalan
+   * pada halaman diam adalah satu permintaan tiap dua detik selamanya, untuk
+   * jawaban yang tak pernah berubah.
+   */
+  const adaBerjalan = (sources.data ?? []).some(
+    (s) => (s.jobStatus?.state ?? s.status) === 'syncing' || s.jobStatus?.state === 'running');
+  useEffect(() => {
+    if (!adaBerjalan) return;
+    const t = setInterval(() => { sources.refetch(); }, 2500);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adaBerjalan]);
+
   async function createKb(name: string, description: string) {
     const kb = await api<Kb>('/api/knowledge-bases', {
       method: 'POST', body: JSON.stringify({ name, ...(description ? { description } : {}) }),
@@ -307,7 +330,7 @@ export default function KnowledgePage() {
                         : s.config.scope === 'all' ? 'seluruh drive'
                         : String(s.config.folderId ?? s.config.folderPath ?? 'folder')
                     }</td>
-                    <td><StatusBadge s={s} /></td>
+                    <td><StatusBadge s={s} /><SyncProgress s={s} /></td>
                     <td><DeltaSummary last={s.config.lastSync as LastSync | undefined} /></td>
                     <td className="mono" style={{ color: 'var(--muted)' }}>{s.lastSyncedAt?.slice(0, 16).replace('T', ' ') ?? '—'}</td>
                     <td>
@@ -460,6 +483,51 @@ function StatusBadge({ s }: { s: Source }) {
   const cls = st === 'synced' || st === 'done' ? 'badge-ok' : st === 'error' || st === 'failed' ? 'badge-danger' : 'badge-signal';
   const live = st === 'syncing' || st === 'running';
   return <span className={`badge ${cls}`}><span className={`led ${live ? 'led-live' : st === 'error' ? 'led-err' : 'led-off'}`} />{st}</span>;
+}
+
+/** Progres yang ditulis sync selagi berjalan (config.progress). */
+interface Progres { selesai: number; total: number; berkas: string | null; at: string }
+
+/**
+ * Bilah progres sync.
+ *
+ * Muncul HANYA selagi berjalan. Bilah yang tertinggal setelah sync selesai
+ * akan terbaca sebagai pekerjaan yang masih jalan, dan pemiliknya menunggu
+ * sesuatu yang sudah rampung berjam-jam lalu — sync membuang progresnya saat
+ * selesai justru untuk itu.
+ */
+function SyncProgress({ s }: { s: Source }) {
+  const p = (s.config as { progress?: Progres | null }).progress;
+  if (!p || !p.total) return null;
+
+  const persen = Math.min(100, Math.round((p.selesai / p.total) * 100));
+  /* Cap waktu ikut dibaca: proses yang MATI meninggalkan progres terakhirnya
+     di basis data, dan bilah beku pada 40% tak bisa dibedakan dari sync yang
+     sedang mengunduh berkas besar. Lewat satu menit tanpa kabar, keadaannya
+     disebut apa adanya alih-alih dibiarkan menipu. */
+  const diam = Date.now() - new Date(p.at).getTime() > 60_000;
+
+  return (
+    <div className="stack gap-1" style={{ marginTop: 6, minWidth: 220 }}>
+      <div className="cluster" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="meter" style={{ width: 120 }}>
+          <i style={{ width: `${Math.max(2, persen)}%`, background: diam ? 'var(--warn)' : 'var(--signal)' }} />
+        </div>
+        <span className="microlabel" style={{ margin: 0 }}>
+          {p.selesai}/{p.total} BERKAS
+        </span>
+      </div>
+      {diam
+        ? <span className="microlabel" style={{ margin: 0, color: 'var(--warn)' }}>
+            TAK ADA KABAR &gt;1 MENIT — MUNGKIN BERHENTI
+          </span>
+        : p.berkas && (
+          <span className="microlabel" style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+            {p.berkas}
+          </span>
+        )}
+    </div>
+  );
 }
 
 /* ── Google Picker (mode 'picker', D10) ─────────────────────────────

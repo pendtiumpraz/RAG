@@ -150,6 +150,33 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
       ...(extra ? { config: { ...(source.config as object), lastSync: extra } } : {}),
     }).where(eq(dataSources.id, sourceId)));
 
+  /**
+   * Kabar progres SELAMA sync berjalan.
+   *
+   * Tanpa ini, sync panjang tampak menggantung: status berhenti di
+   * 'syncing' dan tak berubah lagi sampai seluruhnya selesai. Pemilik
+   * data lalu menekan Sync lagi karena mengira yang pertama mati — dan
+   * sync kedua benar-benar berjalan, membakar kuota dua kali untuk
+   * pekerjaan yang sama.
+   *
+   * DITULIS BERKALA, bukan per berkas: satu UPDATE per berkas berarti
+   * 150 tulis per jalan di lambda dan 5.000 di pekerja, semuanya untuk
+   * angka yang dibaca manusia beberapa detik sekali. Yang dibutuhkan
+   * hanya cukup sering agar bilahnya terlihat BERGERAK.
+   */
+  const kabarProgres = async (selesai: number, total: number, berkas?: string) => {
+    try {
+      await withTenant(tenantId, (tx) => tx.update(dataSources).set({
+        updatedAt: new Date(),
+        config: { ...(source.config as object), progress: { selesai, total, berkas: berkas ?? null, at: new Date().toISOString() } },
+      }).where(eq(dataSources.id, sourceId)));
+    } catch (err) {
+      // Gagal mengabarkan progres TIDAK boleh menggagalkan sync. Yang
+      // hilang cuma bilahnya; pekerjaannya sendiri tetap benar.
+      console.error('[sync] gagal menulis progres:', err);
+    }
+  };
+
   await setStatus('syncing');
 
   try {
@@ -191,6 +218,18 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
     let noText = 0;
     /** Pesan kuota bila sync berhenti karena jatah habis; null = tak terjadi. */
     let quotaStop: string | null = null;
+    /* Sekali setiap KABAR_TIAP berkas, atau setiap 3 detik — mana pun yang
+       lebih dulu. Dua syarat karena keduanya bisa jadi yang lambat: berkas
+       kecil melaju puluhan per detik (hitungan yang menahan), sementara satu
+       PDF 200 halaman bisa memakan setengah menit sendirian (waktu yang
+       menahan). Hanya salah satu, dan bilahnya akan terlihat macet di
+       separuh kasus. */
+    const KABAR_TIAP = 5;
+    const KABAR_MS = 3_000;
+    let kabarTerakhir = Date.now();
+    let diproses = 0;
+    await kabarProgres(0, batch.length);
+
     for (const f of batch) {
       try {
         /* LAPIS 1 — nama + ukuran, SEBELUM mengunduh apa pun.
@@ -262,6 +301,16 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
         console.error(`[sync] gagal memproses ${f.name}:`, err);
         failed++;
       }
+
+      /* Dihitung di LUAR try: berkas yang gagal tetap berkas yang sudah
+         dilewati. Menghitungnya hanya saat berhasil membuat bilah berhenti
+         bergerak pada folder yang isinya banyak gagal — dan bilah yang
+         berhenti persis itulah yang membuat orang mengira sync-nya mati. */
+      diproses++;
+      if (diproses % KABAR_TIAP === 0 || Date.now() - kabarTerakhir >= KABAR_MS) {
+        kabarTerakhir = Date.now();
+        await kabarProgres(diproses, batch.length, f.name);
+      }
     }
 
     const stats = {
@@ -275,6 +324,12 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
       // berbeda dari berkas yang gagal diproses.
       ...(quotaStop ? { quotaExceeded: quotaStop } : {}),
     };
+    /* Progres DIBUANG saat selesai. Bilah yang tertinggal dari jalan
+       sebelumnya akan terbaca sebagai sync yang masih berjalan — dan
+       pemiliknya menunggu sesuatu yang sudah selesai berjam-jam lalu. */
+    await withTenant(tenantId, (tx) => tx.update(dataSources).set({
+      config: { ...(source.config as object), progress: null },
+    }).where(eq(dataSources.id, sourceId)));
     await setStatus(quotaStop ? 'quota' : pending > 0 ? 'partial' : 'synced', stats);
     /* Kuota yang menghentikan sync DIBERITAHUKAN, bukan cuma dicatat di
        status sumber. Status hanya terbaca oleh yang kebetulan membuka
