@@ -1,3 +1,7 @@
+import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { conversations, messages } from '@/modules/core/db/schema';
+import type { Db } from '@/modules/core/db';
+
 /**
  * EKSPOR PERCAKAPAN — penyaring dan bentuk keluarannya, murni.
  *
@@ -79,4 +83,64 @@ export function halaman<T extends { updatedAt: Date | string }>(
        tersimpan sementara halaman ini sedang disusun. */
     berikutnya: adaLagi && akhir ? new Date(akhir).toISOString() : null,
   };
+}
+
+/**
+ * Kueri daftar percakapan + jumlah pesannya.
+ *
+ * DIBANGUN DI SINI, BUKAN DI RUTENYA, supaya SQL yang dihasilkannya bisa
+ * diperiksa uji lewat `.toSQL()` tanpa basis data. Versi pertama endpoint ini
+ * memakai subkueri berkorelasi yang ditulis di dalam template `sql`:
+ *
+ *     select count(*)::int from ${messages}
+ *     where ${messages.conversationId} = ${conversations.id}
+ *
+ * dan Drizzle merender kolomnya TANPA kualifikasi tabel:
+ *
+ *     where "conversation_id" = "id"
+ *
+ * Di dalam subkueri, KEDUANYA lalu menunjuk kolom `messages` sendiri, jadi
+ * yang dibandingkan `messages.conversation_id = messages.id` — praktis tak
+ * pernah benar. Endpoint-nya selalu menjawab `pesan: 0`, tanpa satu pun galat:
+ * tsc tak bisa memvalidasi SQL, dan uji unit tak menyentuh basis data.
+ *
+ * LEFT JOIN + GROUP BY dipakai sebagai gantinya bukan sekadar karena benar,
+ * tapi karena kondisi join DIKUALIFIKASI Drizzle sendiri — bentuk yang salah
+ * tak bisa lagi ditulis tanpa terlihat. Kebetulan ia juga sekali jalan alih-
+ * alih satu subkueri per baris.
+ *
+ * GROUP BY memuat SELURUH kolom non-agregat, dan urutannya mengikuti SELECT:
+ * Postgres menolak yang kurang, dan Drizzle tak menambahkannya sendiri.
+ */
+export function bangunKueriDaftar(
+  tx: Db, opsi: { sejak: Date | null; chatbotId: string | null; batas: number },
+) {
+  return tx
+    .select({
+      id: conversations.id,
+      chatbotId: conversations.chatbotId,
+      visitorId: conversations.visitorId,
+      startedAt: conversations.startedAt,
+      updatedAt: conversations.updatedAt,
+      pesan: sql<number>`count(${messages.id})::int`,
+    })
+    .from(conversations)
+    /* Soft delete pesan ikut di kondisi JOIN, bukan di WHERE. Di WHERE, baris
+       percakapan yang SELURUH pesannya terhapus akan ikut hilang dari daftar
+       — percakapan yang nyata ada mendadak tak pernah bisa diekspor. */
+    .leftJoin(messages, and(
+      eq(messages.conversationId, conversations.id),
+      isNull(messages.deletedAt),
+    ))
+    .where(and(
+      isNull(conversations.deletedAt),
+      opsi.sejak ? gt(conversations.updatedAt, opsi.sejak) : undefined,
+      opsi.chatbotId ? eq(conversations.chatbotId, opsi.chatbotId) : undefined,
+    ))
+    .groupBy(
+      conversations.id, conversations.chatbotId, conversations.visitorId,
+      conversations.startedAt, conversations.updatedAt,
+    )
+    .orderBy(asc(conversations.updatedAt))
+    .limit(opsi.batas + 1);
 }

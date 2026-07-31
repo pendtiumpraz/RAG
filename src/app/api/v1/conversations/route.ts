@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { and, asc, gt, isNull, sql } from 'drizzle-orm';
-import { conversations, messages } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { batasiAmbil, halaman, tafsirSejak } from '@/modules/chat/ekspor';
+import { bangunKueriDaftar, batasiAmbil, halaman, tafsirSejak } from '@/modules/chat/ekspor';
 import { apiRoute } from '../_guard';
 
 export const runtime = 'nodejs';
@@ -29,6 +27,10 @@ export const dynamic = 'force-dynamic';
  * memang melihat seluruh divisi (lihat chatbot/divisi.ts). Menyaringnya per
  * divisi di sini berarti kunci API punya pandangan yang lebih sempit dari
  * pemiliknya, dan arsip pelanggan jadi bolong tanpa penjelasan.
+ *
+ * Kuerinya sendiri dibangun di `chat/ekspor.ts` supaya SQL yang dihasilkan
+ * bisa diperiksa uji tanpa basis data — lihat catatan di sana soal subkueri
+ * tak berkualifikasi yang membuat versi pertama selalu menjawab `pesan: 0`.
  */
 export const GET = apiRoute('read', async (req, _ctx, caller) => {
   const q = new URL(req.url).searchParams;
@@ -40,30 +42,9 @@ export const GET = apiRoute('read', async (req, _ctx, caller) => {
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
-  const chatbotId = q.get('chatbotId');
 
-  const baris = await withTenant(caller.tenantId, (tx) => tx
-    .select({
-      id: conversations.id,
-      chatbotId: conversations.chatbotId,
-      visitorId: conversations.visitorId,
-      startedAt: conversations.startedAt,
-      updatedAt: conversations.updatedAt,
-      pesan: sql<number>`(
-        select count(*)::int from ${messages}
-        where ${messages.conversationId} = ${conversations.id}
-          and ${messages.deletedAt} is null)`,
-    })
-    .from(conversations)
-    .where(and(
-      isNull(conversations.deletedAt),
-      sejak ? gt(conversations.updatedAt, sejak) : undefined,
-      chatbotId ? sql`${conversations.chatbotId} = ${chatbotId}::uuid` : undefined,
-    ))
-    /* Menaik, mengikuti kursor. Menurun akan membuat `sejak` menunjuk ke
-       baris terbaru dan seluruh sisa riwayat tak pernah terjangkau. */
-    .orderBy(asc(conversations.updatedAt))
-    .limit(batas + 1));
+  const baris = await withTenant(caller.tenantId, (tx) =>
+    bangunKueriDaftar(tx, { sejak, chatbotId: q.get('chatbotId'), batas }));
 
   const h = halaman(baris, batas);
   return NextResponse.json({

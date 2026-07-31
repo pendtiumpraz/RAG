@@ -98,6 +98,7 @@ test('halaman kosong tidak mengembalikan kursor', () => {
 
 const LIST = readFileSync('src/app/api/v1/conversations/route.ts', 'utf8');
 const SATU = readFileSync('src/app/api/v1/conversations/[id]/route.ts', 'utf8');
+const KUERI = readFileSync('src/modules/chat/ekspor.ts', 'utf8');
 
 test('kedua rute lewat apiRoute + withTenant, bukan query telanjang', () => {
   /* apiRoute yang terlewat berarti riwayat percakapan seluruh tenant terbuka
@@ -111,18 +112,22 @@ test('kedua rute lewat apiRoute + withTenant, bukan query telanjang', () => {
     assert.ok(/export const GET = apiRoute[\s\S]{0,120}?\('read'/.test(src),
       `${nama}: tak dibungkus apiRoute scope read`);
     assert.ok(/withTenant\(caller\.tenantId/.test(src), `${nama}: tak lewat withTenant`);
-    assert.ok(/deletedAt\)/.test(src) || /isNull\(/.test(src), `${nama}: tak menyaring soft delete`);
   }
+  /* Penyaring soft delete daftar ikut PINDAH bersama kuerinya ke
+     chat/ekspor.ts — supaya SQL-nya bisa diperiksa `.toSQL()` tanpa basis
+     data. Yang dijaga tetap sama; hanya berkasnya yang berbeda. */
+  assert.ok(/isNull\(conversations\.deletedAt\)/.test(KUERI), 'daftar tak menyaring soft delete');
+  assert.ok(/isNull\(/.test(SATU), 'transkrip tak menyaring soft delete');
 });
 
 test('paginasi berbasis WAKTU, bukan offset', () => {
   /* Dengan offset, baris bergeser di antara dua permintaan karena percakapan
      baru terus lahir: penarik melewatkan sebagian dan menggandakan sebagian
      lain, tanpa pernah tahu. */
-  assert.ok(!/\.offset\(/.test(LIST), 'memakai offset — baris akan bergeser antar permintaan');
-  assert.ok(/asc\(conversations\.updatedAt\)/.test(LIST),
+  assert.ok(!/\.offset\(/.test(KUERI), 'memakai offset — baris akan bergeser antar permintaan');
+  assert.ok(/asc\(conversations\.updatedAt\)/.test(KUERI),
     'urutan menurun membuat kursor menunjuk baris terbaru dan sisa riwayat tak terjangkau');
-  assert.ok(/limit\(batas \+ 1\)/.test(LIST), 'tak meminta baris pengintip — adaLagi tak bisa jujur');
+  assert.ok(/limit\(opsi\.batas \+ 1\)/.test(KUERI), 'tak meminta baris pengintip — adaLagi tak bisa jujur');
 });
 
 test('tanggal ngawur dijawab 400, bukan diabaikan', () => {
