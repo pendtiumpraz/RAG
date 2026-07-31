@@ -49,7 +49,14 @@
  * model sekadar bingung, dan itu perilaku lain yang tak boleh dicampur.
  */
 const INGKAR_ADA = /\b(tidak|tak|belum|bukan)\b[^.!?]{0,40}?\b(ada|tersedia|ditemukan|terdapat|tercantum|disebut\w*|dijelaskan|dimuat|memuat|menyebut\w*|berisi)\b/i;
-const INGKAR_ADA_EN = /\b(no|not|does\s?n[o']t|do\s?n[o']t|cannot|can[o']t|unable)\b[^.!?]{0,40}?\b(information|data|mention\w*|found|available|specified|provided|stated|contain\w*|include\w*|details?|find)\b/i;
+/* Bentuk kata kerja diberi akhiran bebas (\w*), bukan didaftar satu per satu.
+   Versi sebelumnya menulis `stated` dan meleset pada jawaban model yang
+   sungguhan: "The documents do not STATE the total number of employees" —
+   penolakan yang benar dilaporkan sebagai KARANGAN, dan gerbangnya berbunyi
+   palsu. Ini kegagalan yang sama persis dengan yang sudah diperbaiki di sisi
+   Indonesia; sisi Inggris terlewat karena contoh ujinya kebetulan memakai
+   bentuk lampau. */
+const INGKAR_ADA_EN = /\b(no|not|does\s?n[o']t|do\s?n[o']t|cannot|can[o']t|unable)\b[^.!?]{0,40}?\b(information|data|mention\w*|found|availab\w*|specif\w*|provid\w*|stat\w*|contain\w*|includ\w*|detail\w*|list\w*|indicat\w*|find)\b/i;
 const RUJUK_SUMBER = /\b(dokumen|berkas|konteks|sumber|document|documents|context|sources?|provided|given)\b/i;
 
 /** Pecah jadi kalimat. Kasar dengan sengaja — yang dibutuhkan hanya batas. */

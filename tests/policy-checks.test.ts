@@ -143,3 +143,22 @@ test('himpunan kebijakan memuat cukup pertanyaan tanpa jawaban DAN dwibahasa', a
   assert.ok(kosong.some((p) => p.bahasa === 'en'),
     'tak ada pertanyaan tanpa jawaban berbahasa Inggris — menolak pun harus dalam bahasa penanya');
 });
+
+test('penolakan berbahasa Inggris dikenali pada BENTUK KATA apa pun', async () => {
+  /* Jawaban model sungguhan, 31 Jul 2026: "The documents do not STATE the
+     total number of employees" — pola lama menuntut "stated" (bentuk
+     lampau) dan meleset, jadi penolakan yang benar dilaporkan sebagai
+     KARANGAN dan gerbangnya berbunyi palsu. Contoh uji buatan tangan
+     kebetulan seluruhnya memakai bentuk lampau, jadi cacatnya tak pernah
+     muncul sampai dijalankan terhadap model. */
+  const { deteksiPenolakan } = await load();
+  for (const j of [
+    'The documents do not state the total number of employees at the company. [1][5]',
+    'The provided documents do not specify the revenue for last quarter.',
+    'The context does not list any branch offices outside Jakarta.',
+    'The documents do not indicate the average salary.',
+    'That information is not available in the provided sources.',
+  ]) {
+    assert.ok(deteksiPenolakan(j), `penolakan Inggris dilaporkan sebagai KARANGAN: "${j.slice(0, 62)}…"`);
+  }
+});

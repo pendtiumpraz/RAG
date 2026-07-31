@@ -33,12 +33,55 @@ export function guardInput(raw: string): string {
 }
 
 /* ── L2 · CONTEXT GUARD (anti prompt-injection) ───────────────────── */
+/**
+ * Pola kalimat-perintah yang dinetralkan sebelum menyentuh model.
+ *
+ * BAHASA INDONESIA DITAMBAHKAN 31 Jul 2026, dan alasannya memalukan tapi
+ * layak dicatat: kelima pola awal seluruhnya berbahasa INGGRIS, pada produk
+ * yang korpus pelanggannya nyaris seluruhnya berbahasa Indonesia. Terukur
+ * dengan korpus serangan (eval/injection-corpus.ts): empat dari enam kalimat
+ * serangan berbahasa Indonesia lolos tanpa disentuh, dan yang satu
+ * tertangkap pun hanya kebetulan — karena memuat frasa Inggris
+ * "system prompt".
+ *
+ * TIAP POLA MENUNTUT TIGA BAGIAN, bukan satu kata kunci: kata kerja perintah
+ * + sasaran (instruksi/aturan/perintah) + penunjuk (sebelumnya/di atas).
+ * Menyaring dari satu kata saja akan memotong kalimat dokumen yang sah —
+ * "Karyawan wajib mengabaikan panggilan tak dikenal", "Aturan di atas
+ * berlaku sejak 2025" — dan jawaban lalu kehilangan bagian yang justru
+ * ditanyakan, tanpa satu pun tanda bahwa ada yang dipotong. Daftar teks sah
+ * di `TEKS_SAH` adalah penahannya, dan tes menjalankan keduanya.
+ */
 const INJECTION_PATTERNS: RegExp[] = [
+  /* ── Inggris (sejak awal) ─────────────────────────────────────── */
   /\b(ignore|disregard|forget|override)\b[^.\n]{0,40}\b(previous|prior|above|all)\b[^.\n]{0,40}\b(instruction|prompt|rule)s?\b/gi,
   /\byou\s+are\s+now\b[^.\n]{0,60}/gi,
   /\bsystem\s*prompt\b[^.\n]{0,60}/gi,
   /\bdo\s+anything\s+now\b|\bDAN\s+mode\b/gi,
-  /<\s*\/?\s*(system|assistant|im_start|im_end)\b[^>]*>/gi,
+
+  /* ── Indonesia ────────────────────────────────────────────────── */
+  // Membatalkan aturan. Kata kerjanya BERAWALAN KOSONG dengan sengaja:
+  // "mengabaikan"/"melupakan" adalah bentuk berimbuhan yang lazim di kalimat
+  // dokumen biasa, dan \b menahannya karena huruf sebelumnya bukan batas kata.
+  /\b(abaikan|lupakan|hapus|batalkan|kesampingkan|langgar)\b[^.\n]{0,40}\b(instruksi|aturan|perintah|arahan|batasan|pedoman|ketentuan)\b[^.\n]{0,30}\b(sebelumnya|sebelum\s*ini|di\s*atas|awal|terdahulu|yang\s+diberikan)\b/gi,
+  // Mengganti jati diri. Dua bentuk, karena "sekarang" bisa berada sebelum
+  // maupun sesudah kata gantinya.
+  /\b(kamu|anda|kau|km)\s+sekarang\s+(adalah|menjadi|jadi)\b[^.\n]{0,60}/gi,
+  /\bmulai\s+sekarang[,\s]+(kamu|anda|kau)\s+(adalah|menjadi|jadi)\b[^.\n]{0,60}/gi,
+  // "Berperan sebagai" DIPERSEMPIT ke sasaran yang mencurigakan: "Manajer
+  // berperan sebagai koordinator" adalah kalimat SOP yang sangat lazim, dan
+  // menyaringnya akan merusak dokumen sungguhan.
+  /\bberperan(lah)?\s+sebagai\b[^.\n]{0,40}\b(mode|asisten|ai|sistem|admin|administrator|developer|pengembang)\b/gi,
+  // Memancing system prompt keluar — termasuk bentuk paling halus yang tak
+  // menyebut satu pun istilah teknis.
+  /\b(tampilkan|sebutkan|tuliskan|ungkapkan|beri\s*tahu|bocorkan)\b[^.\n]{0,40}\b(instruksi\s+sistem|prompt\s+sistem|aturan\s+yang\s+(kamu|anda|diberikan)|instruksi\s+yang\s+(kamu|anda|diberikan))\b/gi,
+  // Menyamar sebagai pesan sistem tanpa satu pun tanda kurung sudut.
+  /\binstruksi\s+baru\s+untuk\s+(asisten|ai|sistem|model|kamu|anda)\b[^.\n]{0,60}/gi,
+
+  /* ── struktural ───────────────────────────────────────────────── */
+  // `\|?` ditambahkan untuk penanda ChatML `<|im_start|>`: tanpa itu, pola
+  // lama berhenti di karakter pipa dan penanda peran palsu lewat begitu saja.
+  /<\s*\|?\s*\/?\s*(system|assistant|im_start|im_end)\b[^>]*>/gi,
 ];
 
 /**
