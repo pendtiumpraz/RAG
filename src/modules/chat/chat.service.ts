@@ -296,7 +296,20 @@ export async function chatTurn(
      Mencatatnya seolah terkirim membuat laporan biaya menagih token yang tak
      pernah ada — dan justru menyembunyikan penghematan yang baru dibuat. */
   const tokensIn = pintasTanpaKonteks ? 0 : estimateTokens(prompt.map((m) => m.content).join('\n'));
-  const tokensOut = estimateTokens(full);
+  /* Keluaran juga NOL saat dipintas: kalimat penolakannya kita sendiri yang
+     menulis (chat/confidence.ts), tak ada satu token pun yang dibayar ke
+     penyedia. Menghitungnya membuat laporan biaya menagih sesuatu yang tak
+     pernah ditagih siapa pun — kecil per giliran, tapi justru pada
+     penyalahgunaan yang berulang-ulang itulah selisihnya menumpuk, dan di
+     situ pula angkanya paling sering dilihat orang. */
+  const tokensOut = pintasTanpaKonteks ? 0 : estimateTokens(full);
+
+  /* PESANNYA TETAP DIHITUNG, dan itu keputusan sadar (kartu a-abuse-cost,
+     diputuskan pemilik produk 31 Jul 2026): permintaan di luar korpus tetap
+     memakai embedding kueri, pencarian vektor, penyimpanan percakapan, dan
+     satu giliran perhatian sistem. Menggratiskannya berarti penyalahgunaan
+     yang berulang tak berbiaya apa pun bagi pelakunya — dan biaya yang tak
+     ditanggung pelaku selalu berpindah ke orang lain. */
   await usageService.recordTurn(input.tenantId, tokensIn, tokensOut);
 
   // Guardrail L5: audit setiap giliran + flag pelanggaran lapis mana pun.

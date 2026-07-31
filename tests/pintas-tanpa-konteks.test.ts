@@ -38,12 +38,43 @@ test('jalur normal tetap memanggil model', () => {
     'cabang pintas tak memancarkan blok penolakan');
 });
 
-test('token masuk dicatat NOL saat dipintas', () => {
-  /* Prompt-nya dibangun tapi tak pernah dikirim. Mencatatnya seolah terkirim
+test('token masuk DAN keluar dicatat NOL saat dipintas', () => {
+  /* Prompt-nya dibangun tapi tak pernah dikirim, dan kalimat penolakannya
+     kita sendiri yang menulis. Mencatat keduanya seolah lewat penyedia
      membuat laporan biaya menagih token yang tak pernah ada — dan justru
      menyembunyikan penghematan yang baru dibuat. */
   assert.ok(/const tokensIn = pintasTanpaKonteks \? 0 :/.test(SVC),
     'token masuk tetap dihitung dari prompt yang tak terkirim');
+  assert.ok(/const tokensOut = pintasTanpaKonteks \? 0 :/.test(SVC),
+    'token keluar tetap dihitung dari kalimat yang kita tulis sendiri');
+});
+
+test('penolakan TETAP memotong kuota — keputusan, bukan kelalaian', () => {
+  /* Kartu a-abuse-cost, diputuskan pemilik produk 31 Jul 2026: permintaan di
+     luar korpus tetap memakai embedding kueri, pencarian vektor, penyimpanan
+     percakapan, dan satu giliran perhatian sistem. Menggratiskannya berarti
+     penyalahgunaan yang berulang tak berbiaya apa pun bagi pelakunya.
+
+     Uji ini ada karena kombinasi "token 0 tapi pesan tetap +1" TERLIHAT
+     seperti bug bagi pembaca berikutnya — cukup masuk akal untuk "diperbaiki"
+     jadi tak menghitung sama sekali. Yang dijaga di sini bentuk kegagalannya:
+     penambahan pesan harus TANPA SYARAT, bukan bergantung pada apakah model
+     dipanggil. */
+  const usage = readFileSync('src/modules/usage/usage.service.ts', 'utf8');
+  const blok = usage.slice(usage.indexOf('async recordTurn'), usage.indexOf('async recordTurn') + 900);
+  assert.ok(/messages\s*=\s*usage_counters\.messages \+ 1/.test(blok),
+    'penambahan pesan tak lagi tetap +1');
+  assert.ok(!/pintas|penolakan|refus/i.test(blok),
+    'recordTurn kini membedakan penolakan — kuota jadi gratis bagi penyalahguna');
+  /* Dan panggilannya tak boleh disyaratkan: `if (!pintasTanpaKonteks) await
+     usageService.recordTurn(...)` akan lolos pemeriksaan di atas namun
+     membuat penolakan tak berbiaya sama sekali. */
+  const baris = SVC.split('\n').filter((b) => b.includes('usageService.recordTurn'));
+  assert.equal(baris.length, 1, 'recordTurn dipanggil lebih dari sekali');
+  // Dua spasi = tingkat teratas fungsi. Lebih dalam berarti ia bersarang di
+  // dalam `if`/`else`, dan penolakan bisa melewatinya.
+  assert.match(baris[0], /^ {2}await usageService\.recordTurn\(/,
+    `recordTurn bersarang di dalam cabang — penolakan lolos dari kuota: "${baris[0]}"`);
 });
 
 test('bentuk balasan tak berubah — blok, keyakinan, penyimpanan, audit tetap jalan', () => {
