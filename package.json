@@ -30,7 +30,8 @@
     "eval:tier1": "node --env-file=.env --import tsx scripts/tier1-recall.ts",
     "a11y:kontras": "node --import tsx scripts/a11y-kontras.ts",
     "funnel:report": "node --env-file=.env --import tsx scripts/funnel-report.ts",
-    "dr:verify": "node --env-file=.env --import tsx scripts/dr-verify.ts"
+    "dr:verify": "node --env-file=.env --import tsx scripts/dr-verify.ts",
+    "eval:leksikal": "node --import tsx scripts/eval-leksikal.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.66.0",

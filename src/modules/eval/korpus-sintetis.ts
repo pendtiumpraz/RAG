@@ -32,6 +32,16 @@ export interface PotonganSintetis {
   nomor: number;
   teks: string;
   /**
+   * Pertanyaan yang sama, tapi menyebut dokumennya dengan KATA-KATA alih-alih
+   * kode registernya — cara orang bertanya kalau tak memegang nomornya.
+   *
+   * Inilah kasus yang belum pernah diukur: kaki leksikal menyelamatkan
+   * pencarian di korpus bertemplate justru karena kodenya langka, dan
+   * pertanyaan tanpa kode kehilangan penyelamat itu. null untuk potongan
+   * pengisi.
+   */
+  tanyaKata?: string | null;
+  /**
    * Pertanyaan yang HANYA dijawab potongan ini, atau null untuk potongan
    * pengisi. Pengisi bukan hiasan: ia MENENTUKAN hasil, karena centroid
    * produksi adalah rata-rata 50 potongan — potongan pengisi itulah yang
@@ -117,16 +127,20 @@ function bagianKontrak(r: () => number, i: number): { judul: string; fakta: Poto
     fakta: [
       { nomor: 0,
         teks: `${pembuka} Pasal 1 Nilai Pekerjaan. Nilai keseluruhan pekerjaan yang disepakati dalam perjanjian ${kodePerkara} adalah ${rupiah(nilai)} termasuk pajak pertambahan nilai. Pembayaran dilakukan dalam tiga termin sesuai kemajuan pekerjaan yang diverifikasi bersama oleh kedua pihak.`,
-        tanya: `Berapa nilai keseluruhan pekerjaan dalam perjanjian ${kodePerkara}?` },
+        tanya: `Berapa nilai keseluruhan pekerjaan dalam perjanjian ${kodePerkara}?`,
+        tanyaKata: `Berapa nilai pekerjaan dalam perjanjian antara ${a} dan ${b}?` },
       { nomor: 1,
         teks: `${pembuka} Pasal 2 Jangka Waktu. Perjanjian ${kodePerkara} berlaku selama ${bulan} bulan terhitung sejak tanggal penandatanganan dan dapat diperpanjang atas kesepakatan tertulis kedua pihak. Perpanjangan diajukan paling lambat tiga puluh hari sebelum masa berlaku berakhir.`,
-        tanya: `Berapa bulan masa berlaku perjanjian ${kodePerkara}?` },
+        tanya: `Berapa bulan masa berlaku perjanjian ${kodePerkara}?`,
+        tanyaKata: `Berapa bulan masa berlaku perjanjian antara ${a} dan ${b}?` },
       { nomor: 2,
         teks: `${pembuka} Pasal 3 Denda Keterlambatan. Apabila pihak kedua terlambat menyelesaikan pekerjaan, dikenakan denda sebesar ${denda}% dari nilai pekerjaan untuk setiap hari keterlambatan dalam perjanjian ${kodePerkara}, dengan denda maksimum lima persen dari nilai keseluruhan.`,
-        tanya: `Berapa persen denda keterlambatan per hari dalam perjanjian ${kodePerkara}?` },
+        tanya: `Berapa persen denda keterlambatan per hari dalam perjanjian ${kodePerkara}?`,
+        tanyaKata: `Berapa persen denda keterlambatan per hari dalam perjanjian ${a} dengan ${b}?` },
       { nomor: 3,
         teks: `${pembuka} Pasal 4 Penyelesaian Sengketa. Segala perselisihan yang timbul dari perjanjian ${kodePerkara} diselesaikan secara musyawarah, dan bila tidak tercapai kesepakatan, diselesaikan melalui Badan Arbitrase Nasional Indonesia perwakilan ${kota} sesuai peraturan yang berlaku.`,
-        tanya: `Di kota mana sengketa perjanjian ${kodePerkara} diselesaikan?` },
+        tanya: `Di kota mana sengketa perjanjian ${kodePerkara} diselesaikan?`,
+        tanyaKata: `Di kota mana sengketa antara ${a} dan ${b} diselesaikan?` },
     ],
   };
 }
@@ -144,16 +158,20 @@ function bagianSop(r: () => number, i: number): { judul: string; fakta: Potongan
     fakta: [
       { nomor: 0,
         teks: `${pembuka} Bagian 1 Ruang Lingkup. Prosedur ${kode} berlaku untuk seluruh kegiatan ${proses} yang dilakukan unit ${unit}, termasuk kegiatan yang dialihdayakan kepada pihak ketiga di bawah pengawasan unit tersebut.`,
-        tanya: `Unit mana yang menjalankan prosedur ${kode}?` },
+        tanya: `Unit mana yang menjalankan prosedur ${kode}?`,
+        tanyaKata: `Unit mana yang menjalankan prosedur ${proses}?` },
       { nomor: 1,
         teks: `${pembuka} Bagian 2 Batas Waktu. Setiap tahapan dalam prosedur ${kode} harus diselesaikan paling lambat ${jam} jam sejak permintaan diterima. Keterlambatan wajib dilaporkan kepada penyelia beserta alasannya pada hari yang sama.`,
-        tanya: `Berapa jam batas penyelesaian tahapan dalam prosedur ${kode}?` },
+        tanya: `Berapa jam batas penyelesaian tahapan dalam prosedur ${kode}?`,
+        tanyaKata: `Berapa jam batas penyelesaian tahapan ${proses} di unit ${unit}?` },
       { nomor: 2,
         teks: `${pembuka} Bagian 3 Kondisi Penyimpanan. Barang yang ditangani dalam prosedur ${kode} disimpan pada suhu ${suhu} derajat Celsius dengan kelembapan terkendali, dan dicatat dua kali sehari pada kartu pemantauan.`,
-        tanya: `Pada suhu berapa barang disimpan menurut prosedur ${kode}?` },
+        tanya: `Pada suhu berapa barang disimpan menurut prosedur ${kode}?`,
+        tanyaKata: `Pada suhu berapa barang disimpan pada ${proses} di unit ${unit}?` },
       { nomor: 3,
         teks: `${pembuka} Bagian 4 Rekaman. Seluruh rekaman prosedur ${kode} disimpan sekurang-kurangnya lima tahun dan dapat diakses auditor internal maupun eksternal tanpa persetujuan tambahan dari unit ${unit}.`,
-        tanya: `Berapa lama rekaman prosedur ${kode} disimpan?` },
+        tanya: `Berapa lama rekaman prosedur ${kode} disimpan?`,
+        tanyaKata: `Berapa lama rekaman ${proses} di unit ${unit} disimpan?` },
     ],
   };
 }
@@ -170,16 +188,20 @@ function bagianSdm(r: () => number, i: number): { judul: string; fakta: Potongan
     fakta: [
       { nomor: 0,
         teks: `${pembuka} Bab 1 Hak Cuti. Karyawan ${jabatan} yang tunduk pada kebijakan ${kode} berhak atas ${cuti} hari cuti tahunan yang dapat diambil setelah masa percobaan selesai, dan sisa cuti tidak dapat diuangkan.`,
-        tanya: `Berapa hari cuti tahunan menurut kebijakan ${kode}?` },
+        tanya: `Berapa hari cuti tahunan menurut kebijakan ${kode}?`,
+        tanyaKata: `Berapa hari cuti tahunan karyawan ${jabatan} di kantor ${kota}?` },
       { nomor: 1,
         teks: `${pembuka} Bab 2 Tunjangan Transportasi. Kebijakan ${kode} menetapkan tunjangan transportasi sebesar ${rupiah(tunjangan)} per bulan, dibayarkan bersama gaji pokok dan disesuaikan bila karyawan dipindahtugaskan.`,
-        tanya: `Berapa tunjangan transportasi dalam kebijakan ${kode}?` },
+        tanya: `Berapa tunjangan transportasi dalam kebijakan ${kode}?`,
+        tanyaKata: `Berapa tunjangan transportasi karyawan ${jabatan} di kantor ${kota}?` },
       { nomor: 2,
         teks: `${pembuka} Bab 3 Jam Kerja. Jam kerja yang diatur kebijakan ${kode} adalah empat puluh jam sepekan dengan pengaturan fleksibel yang disetujui atasan langsung, dan kehadiran dicatat melalui sistem presensi kantor ${kota}.`,
-        tanya: `Di kantor kota mana kebijakan ${kode} diberlakukan?` },
+        tanya: `Di kantor kota mana kebijakan ${kode} diberlakukan?`,
+        tanyaKata: `Di kantor kota mana kebijakan untuk ${jabatan} itu diberlakukan?` },
       { nomor: 3,
         teks: `${pembuka} Bab 4 Peninjauan. Kebijakan ${kode} ditinjau setiap dua tahun oleh komite yang beranggotakan perwakilan manajemen dan perwakilan karyawan, dan perubahannya diumumkan tiga puluh hari sebelum berlaku.`,
-        tanya: `Berapa tahun sekali kebijakan ${kode} ditinjau?` },
+        tanya: `Berapa tahun sekali kebijakan ${kode} ditinjau?`,
+        tanyaKata: `Berapa tahun sekali kebijakan ${jabatan} di ${kota} ditinjau?` },
     ],
   };
 }
@@ -196,16 +218,20 @@ function bagianKeuangan(r: () => number, i: number): { judul: string; fakta: Pot
     fakta: [
       { nomor: 0,
         teks: `${pembuka} Bagian 1 Pendapatan. Pendapatan usaha yang dilaporkan dalam ${kode} mencapai ${rupiah(pendapatan)} sepanjang tahun buku, tumbuh dibanding tahun sebelumnya terutama dari segmen penjualan langsung.`,
-        tanya: `Berapa pendapatan usaha yang dilaporkan dalam ${kode}?` },
+        tanya: `Berapa pendapatan usaha yang dilaporkan dalam ${kode}?`,
+        tanyaKata: `Berapa pendapatan usaha ${pt} pada tahun buku ${tahun}?` },
       { nomor: 1,
         teks: `${pembuka} Bagian 2 Laba Bersih. Laba bersih setelah pajak dalam laporan ${kode} tercatat ${rupiah(laba)}, setelah memperhitungkan beban bunga dan penyisihan piutang tak tertagih.`,
-        tanya: `Berapa laba bersih setelah pajak dalam laporan ${kode}?` },
+        tanya: `Berapa laba bersih setelah pajak dalam laporan ${kode}?`,
+        tanyaKata: `Berapa laba bersih setelah pajak ${pt} tahun ${tahun}?` },
       { nomor: 2,
         teks: `${pembuka} Bagian 3 Opini Auditor. Auditor independen memberikan opini wajar tanpa pengecualian atas laporan ${kode} untuk tahun buku ${tahun}, tanpa paragraf penekanan suatu hal.`,
-        tanya: `Untuk tahun buku berapa opini auditor atas laporan ${kode} diberikan?` },
+        tanya: `Untuk tahun buku berapa opini auditor atas laporan ${kode} diberikan?`,
+        tanyaKata: `Untuk tahun buku berapa opini auditor atas laporan ${pt} diberikan?` },
       { nomor: 3,
         teks: `${pembuka} Bagian 4 Peristiwa Setelah Periode. Tidak terdapat peristiwa setelah periode pelaporan yang berdampak material terhadap laporan ${kode} selain perubahan susunan pengurus ${pt} yang telah diumumkan.`,
-        tanya: `Perusahaan mana yang menerbitkan laporan ${kode}?` },
+        tanya: `Perusahaan mana yang menerbitkan laporan ${kode}?`,
+        tanyaKata: `Perusahaan mana yang menerbitkan laporan keuangan tahun buku ${tahun} itu?` },
     ],
   };
 }
