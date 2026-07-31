@@ -1,0 +1,23 @@
+-- 0039 — IDENTITAS PENERBIT KUITANSI
+--
+-- Kuitansi tanpa identitas penerbit tak bisa dipakai pembukuan. Bagian
+-- keuangan pelanggan menuntut tahu SIAPA yang menerima uangnya — nama badan
+-- hukum, alamat, dan (bila ada) NPWP. Tanpa itu berkasnya cuma tangkapan
+-- layar bernomor.
+--
+-- KENAPA DI DATABASE, BUKAN DI KODE. Isinya keputusan bisnis: badan hukum
+-- mana yang menerbitkan, alamat mana yang dipakai, dan apakah perusahaannya
+-- sudah PKP. Menuliskannya di kode berarti menebak keputusan itu, lalu
+-- membekukannya sampai ada yang mendeploy ulang.
+--
+-- BOLEH NULL. Selama belum diisi, halaman kuitansi mengatakannya apa adanya
+-- alih-alih mencetak nama kosong yang terlihat seperti kerusakan. Instalasi
+-- on-prem yang tak pernah menagih siapa pun tak perlu mengisinya sama sekali.
+--
+-- Bentuk: { "legalName": "...", "address": "...", "npwp": "...",
+--           "email": "...", "phone": "..." }
+--
+-- CATATAN YANG MENENTUKAN: ini KUITANSI (bukti terima uang), BUKAN faktur
+-- pajak. Faktur pajak menuntut status PKP dan diterbitkan lewat e-Faktur DJP;
+-- tak ada satu pun bagian sistem ini yang boleh mengaku menerbitkannya.
+alter table platform_settings add column if not exists billing_identity jsonb;

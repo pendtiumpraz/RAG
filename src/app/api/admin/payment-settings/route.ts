@@ -26,6 +26,16 @@ export const GET = superadminRoute(async () => {
 const Body = z.object({
   deploymentMode: z.enum(['saas', 'onprem']).optional(),
   planPrices: z.record(z.number().int().positive()).optional(),
+  /* Identitas penerbit kuitansi. Semua kolom opsional dan boleh dikosongkan
+     kembali — perusahaan bisa berganti alamat, dan memaksa isinya tetap
+     terisi berarti memaksa data lama yang salah tetap tercetak. */
+  billingIdentity: z.object({
+    legalName: z.string().max(200).optional(),
+    address: z.string().max(400).optional(),
+    npwp: z.string().max(40).optional(),
+    email: z.string().max(200).optional(),
+    phone: z.string().max(60).optional(),
+  }).optional(),
   /** simpan kredensial satu provider (secrets kosong = pertahankan) */
   gateway: z.object({
     provider: z.enum(['midtrans', 'tripay', 'xendit']),
@@ -41,9 +51,9 @@ export const PUT = superadminRoute(async (req, _ctx, actor) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Input tidak valid' }, { status: 400 });
   }
-  const { deploymentMode, planPrices, gateway, activate } = parsed.data;
-  if (deploymentMode || planPrices) {
-    await platformSettingsService.update(actor, { deploymentMode, planPrices });
+  const { deploymentMode, planPrices, gateway, activate, billingIdentity } = parsed.data;
+  if (deploymentMode || planPrices || billingIdentity) {
+    await platformSettingsService.update(actor, { deploymentMode, planPrices, billingIdentity });
   }
   if (gateway) {
     await paymentGatewayService.upsert(actor, gateway.provider as PaymentProvider, {

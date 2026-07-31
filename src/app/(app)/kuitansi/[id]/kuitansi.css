@@ -1,0 +1,41 @@
+/* KUITANSI — tampil di layar, tapi dirancang untuk kertas.
+   Aturan cetaknya yang menentukan: tanpa @media print, hasil cetaknya
+   memuat sidebar, tombol, dan latar gelap — halaman yang tak bisa
+   dilampirkan ke pembukuan siapa pun. */
+
+.kw{
+  background:#fff; color:#0F172A;
+  border:1px solid var(--line-strong); border-radius:var(--rad-sm);
+  padding:32px; max-width:760px;
+}
+.kw-head{ display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap;
+  border-bottom:2px solid #0F172A; padding-bottom:16px; margin-bottom:24px; }
+.kw-judul{ font-family:var(--font-display); font-weight:800; font-size:20px; letter-spacing:-0.01em; }
+.kw-nomor{ font-family:var(--font-mono); font-size:13px; margin-top:4px; }
+.kw-penerbit{ font-size:12.5px; line-height:1.6; text-align:right; max-width:300px; }
+.kw-kosong{ color:#7E8FA6; font-style:italic; }
+
+.kw-tabel{ width:100%; border-collapse:collapse; }
+.kw-tabel th{ text-align:left; vertical-align:top; width:180px; padding:10px 0;
+  font-weight:600; font-size:13px; color:#475569; }
+.kw-tabel td{ padding:10px 0; font-size:14px; border-bottom:1px solid #E2E8F0; }
+
+.kw-kaki{ margin-top:28px; font-size:12px; line-height:1.6; color:#475569; }
+.kw-kaki p{ margin:0 0 6px; }
+.kw-sah{ font-style:italic; }
+
+/* Layar gelap tak boleh mengubah warna kuitansi: yang tercetak harus sama
+   dengan yang disepakati, apa pun tema perangkat yang membukanya. */
+[data-theme="dark"] .kw{ background:#fff; color:#0F172A; }
+
+@media print{
+  /* Semua kerangka aplikasi disembunyikan — yang tersisa hanya kuitansinya. */
+  .sidebar, .topbar, .backdrop, .kw-aksi{ display:none !important; }
+  .shell{ display:block !important; }
+  .content{ padding:0 !important; max-width:none !important; }
+  .kw{ border:none; padding:0; max-width:none; }
+  /* Warna latar tak dicetak peramban secara bawaan; ini memaksanya agar
+     garis dan judulnya tetap terbaca di kertas. */
+  *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @page{ margin:18mm; }
+}

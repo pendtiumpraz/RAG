@@ -579,6 +579,14 @@ export const platformSettings = pgTable('platform_settings', {
    * TANPA BATAS, karena Infinity tak punya padanan di JSON.
    */
   planQuotas: jsonb('plan_quotas').$type<Record<string, Record<string, number | null>>>(),
+  /**
+   * Identitas penerbit KUITANSI (migrasi 0039) — nama badan hukum, alamat,
+   * NPWP bila ada. Keputusan bisnis, jadi tinggal di DB dan bukan di kode.
+   * NULL = belum diisi; halaman kuitansi mengatakannya apa adanya.
+   */
+  billingIdentity: jsonb('billing_identity').$type<{
+    legalName?: string; address?: string; npwp?: string; email?: string; phone?: string;
+  }>(),
   ...stamps,
 });
 

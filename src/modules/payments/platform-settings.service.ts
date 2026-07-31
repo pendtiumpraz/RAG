@@ -18,9 +18,21 @@ import { audit } from '@/modules/core/guardrails';
 
 export type DeploymentMode = 'saas' | 'onprem';
 
+/** Identitas penerbit kuitansi. Kosong = belum diisi, dan itu keadaan yang sah. */
+export interface BillingIdentity {
+  legalName?: string;
+  address?: string;
+  /** NPWP penerbit. Kuitansi tetap sah tanpa ini; faktur pajak bukan urusan sistem ini. */
+  npwp?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface PlatformConfig {
   deploymentMode: DeploymentMode;
   planPrices: Record<string, number>;
+  /** null = belum diisi. Halaman kuitansi mengatakannya apa adanya. */
+  billingIdentity: BillingIdentity | null;
 }
 
 const TTL = 30_000;
@@ -29,6 +41,10 @@ let cache: { value: PlatformConfig; at: number } | null = null;
 const DEFAULTS: PlatformConfig = {
   deploymentMode: (process.env.DEPLOYMENT_MODE === 'onprem' ? 'onprem' : 'saas'),
   planPrices: { pro: 299_000, enterprise: 1_499_000 },
+  /* TIDAK ada nilai bawaan, dan itu disengaja. Nama badan hukum yang ditebak
+     akan tercetak di kuitansi yang masuk pembukuan pelanggan — kesalahan yang
+     baru ketahuan saat auditor menanyakannya. Kosong lebih jujur. */
+  billingIdentity: null,
 };
 
 export const platformSettingsService = {
@@ -42,6 +58,7 @@ export const platformSettingsService = {
         value = {
           deploymentMode: row.deploymentMode === 'onprem' ? 'onprem' : 'saas',
           planPrices: row.planPrices ?? DEFAULTS.planPrices,
+          billingIdentity: row.billingIdentity ?? null,
         };
       }
     } catch (err) {
@@ -59,11 +76,13 @@ export const platformSettingsService = {
   async update(actor: { id: string; tenantId: string }, input: {
     deploymentMode?: DeploymentMode;
     planPrices?: Record<string, number>;
+    billingIdentity?: BillingIdentity;
   }): Promise<PlatformConfig> {
     await db.insert(platformSettings).values({ id: 1 }).onConflictDoNothing();
     await db.update(platformSettings).set({
       ...(input.deploymentMode ? { deploymentMode: input.deploymentMode } : {}),
       ...(input.planPrices ? { planPrices: input.planPrices } : {}),
+      ...(input.billingIdentity ? { billingIdentity: input.billingIdentity } : {}),
       updatedAt: new Date(),
     }).where(eq(platformSettings.id, 1));
     cache = null;

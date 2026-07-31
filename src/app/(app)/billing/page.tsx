@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
-import { Skeleton, ErrorState, useToast, Field, Drawer } from '../../_components/ui';
+import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { Select } from '../../_components/select';
 
 interface PlanSpec { id: string; messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null }
@@ -113,12 +113,139 @@ export default function BillingPage() {
         </div>
       </div>
 
+      <RiwayatPembayaran />
+
+      {session?.user?.role === 'superadmin' && <IdentitasPenerbit />}
       {session?.user?.role === 'superadmin' && <PaymentSettings />}
       {session?.user?.role === 'superadmin' && <PlanQuotas />}
       {session?.user?.role === 'superadmin' && <AllTenants />}
     </>
   );
 }
+
+/* ── riwayat pembayaran & kuitansi ──────────────────────────────────── */
+
+interface Trx {
+  id: string; plan: string; months: number; amount: number;
+  provider: string; status: string; createdAt: string; paidAt: string | null;
+}
+
+const tglSingkat = (iso: string | null) => (iso ? iso.slice(0, 10) : '—');
+
+/**
+ * RIWAYAT TRANSAKSI.
+ *
+ * Datanya sudah lama tersedia di GET /api/payments — yang belum ada hanyalah
+ * yang menampilkannya. Tanpa daftar ini, satu-satunya jejak pembayaran yang
+ * dipegang pelanggan adalah mutasi banknya sendiri, dan bagian keuangan
+ * menuntut lebih dari itu.
+ *
+ * Tombol kuitansi HANYA muncul pada transaksi lunas. Kuitansi adalah bukti
+ * terima uang, dan pelanggan akan memakainya persis sebagai itu — menerbitkan
+ * satu untuk tagihan yang belum dibayar akan berbalik jadi masalah kita.
+ */
+function RiwayatPembayaran() {
+  const { data, loading, error, refetch } = useApi<Trx[]>('/api/payments');
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">riwayat pembayaran</span></div>
+      {error ? <div className="card-pad"><ErrorState message={error} onRetry={refetch} /></div>
+        : loading || !data ? <div className="card-pad"><Skeleton rows={3} /></div>
+        : data.length === 0 ? (
+          <div className="card-pad">
+            <EmptyState title="Belum ada transaksi"
+              hint="Riwayat muncul setelah pembayaran pertama. Paket free tak menghasilkan transaksi." />
+          </div>
+        ) : (
+          <div className="card-pad table-wrap">
+            <table className="table"><thead><tr>
+              <th>Tanggal</th><th>Paket</th><th className="num">Jumlah</th>
+              <th>Status</th><th /></tr></thead><tbody>
+              {data.map((t) => (
+                <tr key={t.id}>
+                  <td className="mono">{tglSingkat(t.paidAt ?? t.createdAt)}</td>
+                  <td style={{ textTransform: 'capitalize' }}>{t.plan} · {t.months} bln</td>
+                  <td className="num">{fmt(t.amount)}</td>
+                  <td>
+                    <span className={`badge ${t.status === 'paid' ? 'badge-ok' : t.status === 'pending' ? 'badge-source' : ''}`}>
+                      {t.status === 'paid' ? 'lunas' : t.status}
+                    </span>
+                  </td>
+                  <td className="num">
+                    {t.status === 'paid'
+                      ? <a className="btn btn-sm" href={`/kuitansi/${t.id}`}>Kuitansi</a>
+                      : <span className="microlabel">BELUM LUNAS</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        )}
+    </div>
+  );
+}
+
+/**
+ * IDENTITAS PENERBIT KUITANSI (superadmin).
+ *
+ * Isinya keputusan bisnis — badan hukum mana yang menerbitkan, alamat mana
+ * yang dipakai, dan apakah NPWP-nya dicantumkan — jadi ia diisi manusia, tak
+ * ditebak kode. Selama kosong, kuitansi tetap terbit tapi mengatakan apa
+ * adanya bahwa penerbitnya belum diisi.
+ */
+function IdentitasPenerbit() {
+  const { data, refetch } = useApi<{ billingIdentity: Penerbit | null }>('/api/admin/payment-settings');
+  const toast = useToast();
+  const [f, setF] = useState<Penerbit>({});
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { if (data?.billingIdentity) setF(data.billingIdentity); }, [data]);
+
+  async function simpan() {
+    setBusy(true);
+    try {
+      await api('/api/admin/payment-settings', {
+        method: 'PUT', body: JSON.stringify({ billingIdentity: f }),
+      });
+      toast('Identitas penerbit tersimpan'); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">identitas penerbit kuitansi (superadmin)</span>
+        {data?.billingIdentity?.legalName
+          ? <span className="badge badge-ok"><span className="led led-live" />terisi</span>
+          : <span className="badge"><span className="led led-off" />belum diisi</span>}</div>
+      <div className="card-pad stack gap-4">
+        <div className="grid g2">
+          <Field label="Nama badan hukum"><input className="input" placeholder="PT Sainskerta Nusantara"
+            value={f.legalName ?? ''} onChange={(e) => setF({ ...f, legalName: e.target.value })} /></Field>
+          <Field label="NPWP (opsional)"><input className="input mono" placeholder="00.000.000.0-000.000"
+            value={f.npwp ?? ''} onChange={(e) => setF({ ...f, npwp: e.target.value })} /></Field>
+        </div>
+        <Field label="Alamat"><input className="input" placeholder="Jalan, kota, kode pos"
+          value={f.address ?? ''} onChange={(e) => setF({ ...f, address: e.target.value })} /></Field>
+        <div className="grid g2">
+          <Field label="Email"><input className="input mono" value={f.email ?? ''}
+            onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+          <Field label="Telepon"><input className="input mono" value={f.phone ?? ''}
+            onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        </div>
+        <div className="cluster gap-2">
+          <button className={`btn btn-primary${busy ? ' is-loading' : ''}`}
+            disabled={busy || !f.legalName?.trim()} onClick={simpan}>Simpan</button>
+          <span className="microlabel">
+            DICETAK DI SETIAP KUITANSI. INI KUITANSI — BUKAN FAKTUR PAJAK.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface Penerbit { legalName?: string; address?: string; npwp?: string; email?: string; phone?: string }
 
 /** Bar pemakaian. Limit null = tak terbatas, jadi jangan tampilkan bar palsu. */
 function Meter({ label, used, limit }: { label: string; used: number; limit: number | null }) {

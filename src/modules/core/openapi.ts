@@ -509,6 +509,17 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('{ status, qrString, qrImageUrl, amount, expiresAt }') } },
     },
+    '/api/payments/{id}/kuitansi': {
+      get: { summary: 'Data kuitansi satu transaksi (HANYA yang sudah lunas)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: {
+          200: err('{ nomor, uraian, amount, provider, paidAt, penerbit }'),
+          404: err('transaksi tidak ditemukan'),
+          // Kuitansi adalah bukti terima uang; menerbitkannya untuk tagihan
+          // yang belum dibayar akan dipakai pelanggan persis sebagai itu.
+          409: err('transaksi belum lunas'),
+        } },
+    },
     '/api/payments/callback/{provider}': {
       post: { summary: 'Webhook gateway (publik; otentikasi = verifikasi signature per provider)',
         parameters: [{ name: 'provider', in: 'path', required: true, schema: str }],
