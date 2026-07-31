@@ -105,23 +105,14 @@ test('panduan menyebutkan yang MENGECEWAKAN, bukan hanya jalan mulus', () => {
     'panduan tak menyebut batas paket gratis di muka');
 });
 
-test('panduan tak menjanjikan pesan kuota yang jelas selama widget belum membedakannya', () => {
-  /* Ditemukan saat menulis panduan ini: kuota habis dibalas 429 dengan pesan
-     yang BENAR di badan respons, tapi embed.js memperlakukan setiap 429
-     sebagai "coba lagi sebentar" — keliru untuk kuota bulanan, yang tak akan
-     pulih sebentar lagi. Selama itu belum diperbaiki (kartu a-kuota-pesan),
-     panduan tak boleh menjanjikan sebaliknya.
-
-     Uji ini akan gagal begitu widget diperbaiki — dan gagalnya adalah
-     PENGINGAT untuk memperbarui panduannya, bukan gangguan. */
-  const embed = readFileSync('public/embed.js', 'utf8');
-  const membedakan = /kuota|quota/i.test(embed);
-  if (!membedakan) {
-    assert.ok(!/pesan yang jelas/.test(HAL),
-      'panduan menjanjikan pesan kuota yang jelas, padahal widget belum membedakannya');
-    assert.ok(/itu keliru untuk kuota bulanan/.test(HAL),
-      'panduan tak menyebutkan batas yang sedang berlaku');
-  } else {
-    assert.fail('embed.js kini membedakan kuota — perbarui bagian "Kuota" di halaman bantuan');
-  }
+test('panduan menggambarkan perilaku kuota yang SEDANG berlaku', () => {
+  /* Ditulis saat panduan ini dibuat, diperbaiki saat kartu a-kuota-pesan
+     selesai. Bentuk kegagalan yang dijaga: panduan yang tertinggal satu
+     langkah di belakang kodenya — ia pernah menuliskan keterbatasan yang
+     kini sudah tak ada, dan itu menakut-nakuti pengguna tanpa sebab. */
+  assert.ok(!/itu keliru untuk kuota bulanan/.test(HAL),
+    'panduan masih menyebut keterbatasan yang sudah diperbaiki');
+  assert.ok(/pesan netral/.test(HAL), 'panduan tak menjelaskan apa yang dilihat pengunjung');
+  assert.ok(/ditampilkan ke pengunjung/.test(HAL),
+    'panduan tak menyebut bahwa angka kuota tak bocor ke pengunjung');
 });

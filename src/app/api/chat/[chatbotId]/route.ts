@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import { resolveChatbotByPublicKey } from '@/modules/core/db/tenant-context';
 import { chatTurn } from '@/modules/chat/chat.service';
 import { rateLimit } from '@/modules/core/limits';
-import { usageService, QuotaExceededError } from '@/modules/usage/usage.service';
+import { usageService } from '@/modules/usage/usage.service';
+import { PESAN_KUOTA, PESAN_LAJU } from '@/modules/chat/pesan-batas';
 import { ensureIntegrations } from '../../_wire';
 
 export const runtime = 'nodejs';
@@ -76,13 +77,25 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
   const rl = !rlBot.ok ? rlBot : rlIp;
   if (!rl.ok) {
     return Response.json(
-      { error: 'Terlalu banyak permintaan. Coba lagi sebentar.' },
+      // `kode` ditambahkan, status TIDAK diubah: widget yang sudah terpasang
+      // di situs pelanggan membaca 429, dan mengubahnya berarti mengubah
+      // kontrak yang tak bisa kita perbarui dari sini.
+      { error: PESAN_LAJU, kode: 'laju' },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec), 'Access-Control-Allow-Origin': cors } },
     );
   }
   if (usage.messages >= usage.limits.messagesPerMonth) {
+    /* Pesannya NETRAL dan tanpa angka. Sebelum ini endpoint publik ini
+       membalas "Kuota pesan bulan ini habis (5.000 pesan). Upgrade plan untuk
+       lanjut." kepada pengunjung anonim mana pun — membocorkan kuota persis
+       pemilik situs, dan menyuruh pengunjung meng-upgrade langganan orang
+       lain. Angka itu tetap ada untuk pemiliknya, di halaman Usage.
+
+       Retry-After sengaja TIDAK dikirim: kuota bulanan tak pulih dalam
+       hitungan detik, dan header yang menjanjikan sebaliknya akan membuat
+       klien mencoba ulang sepanjang sisa bulan. */
     return Response.json(
-      { error: new QuotaExceededError(usage.limits.messagesPerMonth).message },
+      { error: PESAN_KUOTA, kode: 'kuota' },
       { status: 429, headers: { 'Access-Control-Allow-Origin': cors } },
     );
   }

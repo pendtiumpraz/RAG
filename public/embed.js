@@ -329,7 +329,25 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: v, conversationId: conversationId, visitorId: visitorId })
       }).then(function (res) {
-        if (res.status === 429) { stopTyping(); el.textContent = 'Batas permintaan tercapai. Coba lagi sebentar.'; return; }
+        /* 429 dipakai DUA batas yang berbeda, dan dulu keduanya dijawab
+           "coba lagi sebentar". Untuk rate limit itu benar; untuk kuota
+           bulanan keliru — ia tak pulih sampai tanggal 1, dan pengunjung yang
+           memercayainya akan mencoba lagi sepanjang sisa bulan.
+
+           Yang membedakan keduanya ada di SERVER (badan respons memuat `kode`
+           dan kalimat yang sesuai), dan widget menampilkannya apa adanya.
+           Menyalin kalimatnya ke sini berarti widget yang sudah terpasang di
+           situs pelanggan tak pernah ikut berubah saat kalimatnya diperbaiki —
+           dan widget itulah yang paling tak bisa kita perbarui. */
+        if (res.status === 429) {
+          stopTyping();
+          res.json().then(function (j) {
+            el.textContent = (j && j.error) || 'Batas permintaan tercapai.';
+          }).catch(function () {
+            el.textContent = 'Batas permintaan tercapai.';
+          });
+          return;
+        }
         var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
         (function pump() {
           reader.read().then(function (r) {

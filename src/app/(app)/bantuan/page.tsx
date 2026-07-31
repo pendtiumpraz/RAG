@@ -227,10 +227,11 @@ function daftarBagian(): Bagian[] {
             paketnya dinaikkan. Percakapan lama tetap tersimpan dan tetap bisa dibaca.
           </p>
           <p style={{ margin: 0, color: 'var(--muted)' }}>
-            Yang dilihat pengunjung saat ini masih pesan umum &quot;batas permintaan tercapai, coba
-            lagi sebentar&quot; — itu keliru untuk kuota bulanan, yang tak akan pulih sebentar lagi.
-            Perbaikannya sudah tercatat; sampai itu selesai, pantau sisa kuotamu di{' '}
-            <a href="/usage">Usage</a> supaya tak kehabisan tanpa sadar.
+            Yang dilihat pengunjung adalah pesan netral: chatbot sedang tidak bisa menjawab
+            pertanyaan baru, dan mereka dianjurkan menghubungi pemilik situs. Angka kuotamu dan
+            tingkat paketmu <b>tidak</b> ditampilkan ke pengunjung — itu keadaan bisnismu, bukan
+            urusan orang yang kebetulan mampir. Pantau sisanya di <a href="/usage">Usage</a> supaya
+            tak kehabisan tanpa sadar.
           </p>
           <p style={{ margin: 0, color: 'var(--muted)' }}>
             Paket gratis sengaja kecil ({rupiahAngka(PLAN_LIMITS.free.messagesPerMonth)} pesan):

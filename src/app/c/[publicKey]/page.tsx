@@ -197,7 +197,13 @@ export default function ChatFullPage({ params }: { params: Promise<{ publicKey: 
           ...(convId ? { conversationId: convId } : {}),
         }),
       });
-      if (!res.ok || !res.body) throw new Error(await res.text().catch(() => 'Gagal'));
+      if (!res.ok || !res.body) {
+        /* Badan galat berbentuk JSON { error, kode }. Melemparkan teks
+           mentahnya akan menampilkan '{"error":"…","kode":"kuota"}' apa adanya
+           kepada pengunjung — benar secara data, tak terbaca sebagai kalimat. */
+        const j = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(j?.error || 'Gagal menghubungi chatbot.');
+      }
 
       const reader = res.body.getReader();
       const dec = new TextDecoder();
