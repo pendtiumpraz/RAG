@@ -288,6 +288,36 @@ export const openApiSpec = {
         responses: { 200: err('{ id, status } atau { ok, approved }'), 400: err('argumen kurang'), 404: err('tak ditemukan') },
       },
     },
+    '/api/memory/recategorize': {
+      get: {
+        summary: 'Berapa dokumen tersangkut di penampung "Belum dikategorikan"',
+        description: 'Memisahkan dua keadaan yang mengarah ke tindakan berbeda: `siap` sudah punya '
+          + 'ringkasan dan bisa dinilai ulang, `tanpaRingkasan` belum pernah disentuh agen Memory '
+          + 'dan harus diringkas dulu. Ada endpoint sendiri supaya UI bisa menyebut angkanya '
+          + 'SEBELUM pengguna menekan sesuatu yang memakai kuota model.',
+        security: [sessionAuth],
+        parameters: [{ name: 'knowledgeBaseId', in: 'query', schema: uuid }],
+        responses: { 200: err('{ siap, tanpaRingkasan }') },
+      },
+      post: {
+        summary: 'Nilai ulang kategori dari ringkasan yang sudah ada',
+        description: 'HANYA menyentuh catatan yang kategorinya `belum`; kategori yang sudah punya '
+          + 'nilai — apa pun asalnya, agen maupun pengguna — tak pernah dipindahkan. Tak ada berkas '
+          + 'yang diunduh ulang, tak ada teks yang di-embed ulang, dan graf tidak dibangun ulang: '
+          + 'yang berjalan hanya panggilan model atas ringkasan, dibundel 20 sekali kirim. '
+          + 'Menilai dari ringkasan LEBIH LEMAH daripada membaca dokumennya (ringkasan sudah '
+          + 'kehilangan detail) — dibenarkan di sini karena yang dibereskan adalah dokumen yang '
+          + 'kategorinya tidak ada, bukan yang kategorinya salah. Kategori yang diusulkan model '
+          + 'tapi belum dikenal masuk sebagai usulan; dokumennya TETAP di penampung sampai '
+          + 'usulannya disetujui. Batas 200 catatan per panggilan; sisanya dilaporkan di `tersisa`.',
+        security: [sessionAuth],
+        requestBody: json(obj({ knowledgeBaseId: uuid })),
+        responses: {
+          200: err('{ diperbarui, tetapBelum, tanpaRingkasan, tersisa, usulanBaru[], perKategori[] }'),
+          400: err('kunci API provider belum diisi'),
+        },
+      },
+    },
     '/api/categories': {
       get: { summary: 'Master data kategori dokumen + jumlah catatan pemakainya', security: [sessionAuth],
         description: 'Termasuk usulan agen (status `proposed`) yang belum disetujui. ' +

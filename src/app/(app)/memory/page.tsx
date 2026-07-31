@@ -29,6 +29,13 @@ function ringkas(md: string): string {
 /** Baris master data kategori — penanda visualnya dihitung di server. */
 interface Cat { id: string; slug: string; label: string; status: string; origin: string; color: string; shape: string; notes: number }
 
+/** Berapa catatan yang tersangkut di penampung, dan mana yang bisa dibereskan. */
+interface Kandidat { siap: number; tanpaRingkasan: number }
+interface HasilKategori {
+  diperbarui: number; tetapBelum: number; tanpaRingkasan: number; tersisa: number;
+  usulanBaru: string[]; perKategori: Array<{ slug: string; jumlah: number }>;
+}
+
 /**
  * Saring graf ke kategori terpilih. Sisi ikut dibuang bila salah satu
  * ujungnya hilang — kalau tidak, canvas menggambar garis ke node yang tak ada.
@@ -122,6 +129,25 @@ function MemoryPageInner() {
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
 
+  /* Kandidat penampung. Diambil tanpa bergantung chatbot: kategori melekat
+     pada CATATAN, bukan pada chatbot yang memicunya — memfilternya per
+     chatbot akan menyembunyikan dokumen yang justru paling perlu dibereskan. */
+  const kandidat = useApi<Kandidat>('/api/memory/recategorize');
+  const [hasilKat, setHasilKat] = useState<HasilKategori | null>(null);
+
+  async function kategorikanDariRingkasan() {
+    setBusy('kategori');
+    setHasilKat(null);
+    try {
+      const r = await api<HasilKategori>('/api/memory/recategorize', { method: 'POST', body: '{}' });
+      setHasilKat(r);
+      toast(r.diperbarui > 0
+        ? `${r.diperbarui} dokumen dikategorikan dari ringkasannya`
+        : 'Tak ada yang bisa dinilai dari ringkasan yang ada');
+      kandidat.refetch(); cats.refetch(); graph.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(null); }
+  }
+
   async function tinjau(noteId: string, status: 'active' | 'rejected') {
     setBusy(noteId);
     try {
@@ -201,6 +227,85 @@ function MemoryPageInner() {
             ))}
             {pending.data!.length > 20 && (
               <p className="microlabel">MENAMPILKAN 20 DARI {pending.data!.length} — SETUJUI SEMUA UNTUK MEMPROSES SISANYA</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PENAMPUNG — hanya muncul bila memang ada isinya. Panel yang selalu
+          ada tapi hampir selalu kosong mengajari orang untuk mengabaikannya,
+          dan pada hari ia benar-benar berisi, ia sudah tak dibaca lagi. */}
+      {((kandidat.data?.siap ?? 0) > 0 || (kandidat.data?.tanpaRingkasan ?? 0) > 0) && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <span className="t">belum dikategorikan</span>
+            <div className="cluster gap-2">
+              <span className="badge">
+                {(kandidat.data!.siap + kandidat.data!.tanpaRingkasan).toLocaleString('id-ID')} dokumen
+              </span>
+              <button className={`btn btn-sm${busy === 'kategori' ? ' is-loading' : ''}`}
+                disabled={!!busy || kandidat.data!.siap === 0}
+                onClick={kategorikanDariRingkasan}>
+                <Icon name="sync" size={15} /> Kategorikan dari ringkasan
+              </button>
+            </div>
+          </div>
+          <div className="card-pad stack gap-3">
+            <p className="sub" style={{ margin: 0 }}>
+              {kandidat.data!.siap > 0 ? (
+                <>
+                  <b>{kandidat.data!.siap.toLocaleString('id-ID')}</b> dokumen sudah punya ringkasan
+                  tapi belum punya kategori. Tombol ini menilainya dari RINGKASAN yang sudah ada —
+                  tak ada berkas yang diunduh ulang, tak ada teks yang di-embed ulang, dan grafnya
+                  tidak dibangun ulang. Biayanya sepersekian dari menjalankan agen lagi.
+                </>
+              ) : (
+                <>Tak ada yang bisa dinilai: semua dokumen di penampung belum punya ringkasan.</>
+              )}
+            </p>
+            {kandidat.data!.tanpaRingkasan > 0 && (
+              <p className="sub" style={{ margin: 0 }}>
+                <b>{kandidat.data!.tanpaRingkasan.toLocaleString('id-ID')}</b> dokumen belum bisa
+                dinilai karena belum pernah diringkas. Jalankan Memory Agent lebih dulu untuk yang ini —
+                mereka butuh dibaca, bukan sekadar dinilai ulang.
+              </p>
+            )}
+            <p className="microlabel" style={{ margin: 0 }}>
+              MENILAI DARI RINGKASAN LEBIH LEMAH DARIPADA MEMBACA DOKUMENNYA — RINGKASAN SUDAH
+              KEHILANGAN DETAIL. CUKUP UNTUK MENJAWAB &ldquo;INI DOKUMEN JENIS APA&rdquo;, DAN HANYA
+              DOKUMEN TANPA KATEGORI YANG DISENTUH.
+            </p>
+
+            {hasilKat && (
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                <div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
+                  {hasilKat.perKategori.map((k) => (
+                    <span key={k.slug} className="badge">
+                      {cats.data?.find((c) => c.slug === k.slug)?.label ?? k.slug} · {k.jumlah}
+                    </span>
+                  ))}
+                </div>
+                {/* Yang TIDAK berpindah dilaporkan juga. Melaporkan hanya yang
+                    berhasil membuat sisa penampung tampak seperti kegagalan
+                    diam-diam, padahal masing-masing punya sebab dan jalan
+                    keluarnya sendiri. */}
+                <p className="sub" style={{ marginTop: 8, marginBottom: 0 }}>
+                  {hasilKat.tetapBelum > 0 && (
+                    <>{hasilKat.tetapBelum} tetap di penampung — model tak bisa memutuskan dari ringkasannya. </>
+                  )}
+                  {hasilKat.tersisa > 0 && (
+                    <>{hasilKat.tersisa} belum tersentuh (batas 200 per sekali jalan) — tekan lagi untuk melanjutkan. </>
+                  )}
+                  {hasilKat.usulanBaru.length > 0 && (
+                    <>
+                      {hasilKat.usulanBaru.length} kategori BARU diusulkan
+                      ({hasilKat.usulanBaru.slice(0, 5).join(', ')}
+                      {hasilKat.usulanBaru.length > 5 ? ', …' : ''}) —
+                      dokumennya tetap di penampung sampai usulannya disetujui di master data kategori.
+                    </>
+                  )}
+                </p>
+              </div>
             )}
           </div>
         </div>
