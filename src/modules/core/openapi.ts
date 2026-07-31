@@ -74,6 +74,38 @@ export const openApiSpec = {
       get: { summary: 'Daftar chatbot tenant (termasuk publicKey)', security: [apiKeyAuth],
         responses: { 200: err('{ chatbots }'), 403: err('kunci tanpa izin read') } },
     },
+    '/api/v1/conversations': {
+      get: { summary: 'Daftar percakapan tenant — untuk ditarik SERVER pelanggan',
+        security: [apiKeyAuth],
+        description: 'Melengkapi /api/chat/{publicKey}/history, yang menuntut visitorId milik '
+          + 'peramban DAN origin yang diizinkan sehingga hanya bisa dipanggil dari peramban '
+          + 'pengunjung itu sendiri. Endpoint ini untuk mesin: menarik transkrip ke CRM, gudang '
+          + 'data, atau arsip pelanggan. Paginasinya berbasis WAKTU (`sejak`), bukan offset — '
+          + 'percakapan baru terus lahir, dan dengan offset penarik berkala melewatkan sebagian '
+          + 'sambil menggandakan sebagian lain tanpa pernah tahu. Selama `adaLagi` bernilai true, '
+          + 'ulangi permintaan dengan `sejak` = nilai `berikutnya`.',
+        parameters: [
+          { name: 'sejak', in: 'query', schema: str,
+            description: 'ISO 8601. Hanya percakapan yang berubah SESUDAH waktu ini. '
+              + 'Tanggal yang tak terbaca dijawab 400, bukan diabaikan — mengabaikannya '
+              + 'membuat penarik yang salah format mengunduh ulang seluruh riwayat tiap kali.' },
+          { name: 'chatbotId', in: 'query', schema: uuid },
+          { name: 'limit', in: 'query', schema: { type: 'integer' },
+            description: 'Bawaan 50, maksimum 200. Nilai di luar rentang dibulatkan, tidak ditolak.' },
+        ],
+        responses: { 200: err('{ conversations, adaLagi, berikutnya }'),
+          400: err('parameter `sejak` bukan ISO 8601'), 403: err('kunci tanpa izin read') } },
+    },
+    '/api/v1/conversations/{id}': {
+      get: { summary: 'Transkrip utuh satu percakapan (termasuk sitasi & blok jawaban)',
+        security: [apiKeyAuth],
+        description: '`citations` ikut karena jawaban tanpa rujukannya tak bisa diaudit '
+          + 'belakangan — dan "kenapa ia menjawab begitu" selalu ditanyakan berbulan kemudian. '
+          + 'Percakapan tenant lain dijawab 404, bukan 403: membedakan "tak ada" dari "bukan '
+          + 'milikmu" membuat endpoint ini bisa dipakai memastikan sebuah id itu nyata.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ conversation }'), 404: err('tidak ditemukan') } },
+    },
     '/api/v1/knowledge-bases': {
       get: { summary: 'Daftar knowledge base + jumlah potongan', security: [apiKeyAuth],
         responses: { 200: err('{ knowledgeBases }') } },
