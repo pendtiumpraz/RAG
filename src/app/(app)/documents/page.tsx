@@ -5,6 +5,9 @@ import { useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
+import { AnswerBlocks } from '../../_components/answer-blocks';
+import { plainTextToBlocks } from '@/modules/chat/blocks';
+import { abstrakBersih, ringkasanBersih } from '@/modules/memory/ringkasan';
 
 interface Doc {
   docRef: string; title: string | null;
@@ -29,18 +32,10 @@ function Swatch({ color, shape, size = 11 }: { color: string; shape: string; siz
   );
 }
 
-/**
- * Ringkasan disimpan sebagai markdown ber-frontmatter (format vault Obsidian).
- * Untuk daftar, yang dibutuhkan cuma abstraknya — frontmatter, judul, dan
- * baris [[wikilink]] dibuang supaya kolomnya terbaca sebagai kalimat.
- */
-function abstrakDari(md: string | null): string | null {
-  if (!md) return null;
-  const tanpaFm = md.replace(/^---[\s\S]*?---\n/, '');
-  const baris = tanpaFm.split('\n')
-    .filter((l) => l.trim() && !l.startsWith('#') && !l.startsWith('Topik:') && !l.startsWith('-'));
-  return baris[0]?.trim() || null;
-}
+/* Pratinjau tabel dan isi laci kini memakai pembersih YANG SAMA
+   (modules/memory/ringkasan.ts). Sebelumnya masing-masing punya aturannya
+   sendiri, dan yang di tabel hanya membuang frontmatter — sehingga
+   `**tebal**` dan `[[wikilink]]` lolos apa adanya ke layar. */
 
 export default function DocumentsPage() {
   const [q, setQ] = useState('');
@@ -160,7 +155,7 @@ export default function DocumentsPage() {
                     <tbody>
                       {docs.data.rows.map((d) => {
                         const c = d.category ? catBySlug.get(d.category) : null;
-                        const abstrak = abstrakDari(d.summary);
+                        const abstrak = abstrakBersih(d.summary);
                         return (
                           <tr key={`${d.knowledgeBaseId}:${d.docRef}`}>
                             <td style={{ maxWidth: 260 }}>
@@ -221,7 +216,12 @@ export default function DocumentsPage() {
 
 function SummaryDrawer({ doc, onClose }: { doc: Doc; onClose: () => void }) {
   const toast = useToast();
-  const md = (doc.summary ?? '').replace(/^---[\s\S]*?---\n/, '').trim();
+  /* Dirender jadi BLOK, bukan ditempel sebagai teks. Sebelumnya isinya
+     ditampilkan dengan white-space:pre-wrap, sehingga "# Judul", "**tebal**",
+     dan "[[wikilink]]" tampil apa adanya di layar — pengguna melihat penanda
+     Markdown mentah dan menyangka ringkasannya rusak. */
+  const teks = ringkasanBersih(doc.summary);
+  const blok = plainTextToBlocks(teks);
   return (
     <>
       <Drawer onClose={onClose} label="Ringkasan dokumen">
@@ -235,14 +235,14 @@ function SummaryDrawer({ doc, onClose }: { doc: Doc; onClose: () => void }) {
             {doc.knowledgeBaseName && <span className="badge">{doc.knowledgeBaseName}</span>}
             {doc.noteStatus === 'pending' && <span className="badge badge-source">menunggu tinjauan</span>}
           </div>
-          <Field label="Ringkasan"><div className="card card-pad" style={{ background: 'var(--card-2)', whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>
-              {md || 'Belum ada ringkasan.'}
+          <Field label="Ringkasan"><div className="card card-pad" style={{ background: 'var(--card-2)', lineHeight: 1.65 }}>
+              {blok.length ? <AnswerBlocks blocks={blok} /> : 'Belum ada ringkasan.'}
             </div>
             <p className="microlabel" style={{ marginTop: 6 }}>
               DITULIS AI DARI ISI DOKUMEN — UNTUK GAMBARAN UMUM. ANGKA, TANGGAL, DAN NOMOR PASAL
               SELALU DIAMBIL DARI TEKS ASLI, BUKAN DARI RINGKASAN INI.
             </p></Field>
-          <button className="btn btn-sm" onClick={() => { navigator.clipboard?.writeText(md); toast('Ringkasan disalin'); }}>
+          <button className="btn btn-sm" onClick={() => { navigator.clipboard?.writeText(teks); toast('Ringkasan disalin'); }}>
             Salin ringkasan
           </button>
         </div>
