@@ -26,11 +26,35 @@
  * perubahan yang DISENGAJA terlihat di diff, dan perubahan yang tak disengaja
  * — yang dibuat langsung di produksi — muncul sebagai kegagalan skrip ini.
  *
+ * DUA JENIS "BARU", DAN MEMBEDAKANNYA ADALAH INTI ALAT INI. Versi pertama
+ * memperlakukan setiap objek yang belum ada di patokan sebagai bahaya. Begitu
+ * migrasi 0040 masuk, ia melaporkan tujuh selisih menakutkan yang SEMUANYA
+ * sah — lahir dari berkas migrasi yang sudah di-commit, dan karena itu pasti
+ * lahir lagi setelah pemulihan. Yang berbahaya justru kebalikannya: objek
+ * yang TIDAK disebut migrasi mana pun, karena hanya itu yang lenyap saat
+ * basis data dibangun ulang dari repo.
+ *
+ * Bahayanya halus, dan justru itu sebabnya diperbaiki: kalau tiap migrasi sah
+ * memicu gelombang alarm palsu, menyegarkan patokan jadi refleks — dan
+ * hanyutan yang sungguhan ikut disetujui tanpa pernah dibaca. Alat yang
+ * selalu berbunyi sama saja dengan alat yang tak pernah berbunyi.
+ *
+ * BATAS PENGENALANNYA, DAN ARAH SALAHNYA DISENGAJA. Objek dianggap
+ * terjelaskan bila NAMANYA muncul di salah satu migrations/*.sql. Empat
+ * kebijakan yang dibuat migrasi 0017 lewat FOREACH + format() tak pernah
+ * menampakkan nama literalnya, jadi seandainya ia baru, ia akan dilaporkan
+ * TAK TERJELASKAN. Itu arah yang benar: alat ini boleh terlalu curiga, tak
+ * boleh terlalu tenang.
+ *
  * HANYA MEMBACA. Tak membuat, mengubah, atau menghapus apa pun.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
 import { db, client } from '@/modules/core/db';
+/* Klasifikasinya tinggal di src/, bukan di sini: berkas ini membuka koneksi
+   saat diimpor, jadi logika yang menumpang di dalamnya cuma bisa diuji
+   dengan Postgres yang hidup. */
+import { dijelaskanMigrasi, teksMigrasi } from '@/modules/core/dr-drift';
 
 const BASELINE = 'docs/dr-baseline.json';
 
@@ -84,9 +108,35 @@ function bandingkan(patokan: string[], hidup: string[]) {
   };
 }
 
+
 async function main() {
   const kini = await potret();
   const tulis = process.argv.includes('--tulis');
+
+  /* Menyegarkan patokan saat masih ada hanyutan LIAR adalah cara paling rapi
+     menghapus bukti: selisihnya berhenti dilaporkan tanpa pernah menjadi bisa
+     dipulihkan. Karena itu --tulis menolak, dan --paksa harus diketik sadar. */
+  if (tulis && existsSync(BASELINE) && !process.argv.includes('--paksa')) {
+    const lama = JSON.parse(readFileSync(BASELINE, 'utf8')) as Patokan;
+    const migrasi = teksMigrasi();
+    const liar = ([
+      [lama.tabel, kini.tabel], [lama.indeks, kini.indeks],
+      [lama.kebijakan, kini.kebijakan], [lama.ekstensi, kini.ekstensi],
+      [lama.rlsAktif, kini.rlsAktif],
+    ] as Array<[string[], string[]]>).flatMap(([p, h]) => {
+      const d = bandingkan(p, h);
+      return [...d.hilang, ...d.baru.filter((x) => !dijelaskanMigrasi(x, migrasi))];
+    });
+    if (liar.length) {
+      console.error(`\nMENOLAK menulis patokan: ${liar.length} selisih LIAR belum dijelaskan`);
+      console.error('migrasi mana pun.\n');
+      for (const x of liar) console.error(`  ${x}`);
+      console.error('\nTuliskan dulu migrations/*.sql-nya. Kalau memang sengaja, ulangi');
+      console.error('dengan `-- --tulis --paksa`.\n');
+      process.exitCode = 1;
+      return;
+    }
+  }
 
   if (tulis || !existsSync(BASELINE)) {
     writeFileSync(BASELINE, `${JSON.stringify(kini, null, 2)}\n`);
@@ -109,29 +159,46 @@ async function main() {
   console.log(`\nVERIFIKASI PEMULIHAN — ${kini.tabel.length} tabel · ${kini.indeks.length} indeks · `
     + `${kini.kebijakan.length} kebijakan · RLS aktif di ${kini.rlsAktif.length} tabel\n`);
 
-  let selisih = 0;
+  const migrasi = teksMigrasi();
+  const terjelaskan: string[] = [];
+  let liar = 0;
+
   for (const [nama, p, h] of bagian) {
     const d = bandingkan(p, h);
+    /* HILANG selalu liar. Migrasi bisa menjelaskan kelahiran sebuah objek,
+       tak pernah ketiadaannya — tak ada berkas yang bisa membuktikan bahwa
+       sesuatu memang seharusnya lenyap. */
     for (const x of d.hilang) {
-      selisih++;
+      liar++;
       console.log(`  [${nama} HILANG] ${x}`);
       console.log('      Ada di patokan, tak ada di produksi. Sesuatu menghapusnya.');
     }
     for (const x of d.baru) {
-      selisih++;
-      console.log(`  [${nama} BARU] ${x}`);
-      console.log('      Ada di produksi, tak ada di patokan — kemungkinan dibuat langsung');
-      console.log('      di produksi dan TIDAK akan ada setelah pemulihan.');
+      if (dijelaskanMigrasi(x, migrasi)) { terjelaskan.push(`${nama}: ${x}`); continue; }
+      liar++;
+      console.log(`  [${nama} LIAR] ${x}`);
+      console.log('      Ada di produksi, TAK disebut migrasi mana pun — kemungkinan dibuat');
+      console.log('      langsung di produksi, dan TIDAK akan ada setelah pemulihan.');
     }
   }
 
-  if (selisih === 0) {
-    console.log('Tak ada selisih. Bentuk produksi sama persis dengan patokan terakhir');
-    console.log('yang disepakati di repo.\n');
+  if (terjelaskan.length) {
+    console.log(`  ${terjelaskan.length} objek baru TERJELASKAN oleh migrations/*.sql:`);
+    for (const x of terjelaskan) console.log(`      ${x}`);
+    console.log('      Ini bukan hanyutan: pemulihan memutar ulang migrasinya dan akan');
+    console.log('      menghasilkan objek yang sama. Patokannya saja yang tertinggal —');
+    console.log('      segarkan dengan `npm run dr:verify -- --tulis`.\n');
+  }
+
+  if (liar === 0) {
+    console.log(terjelaskan.length
+      ? 'Tak ada hanyutan liar. Semua selisih terjelaskan migrasi ter-commit.\n'
+      : 'Tak ada selisih. Bentuk produksi sama persis dengan patokan terakhir\nyang disepakati di repo.\n');
   } else {
-    console.log(`\n${selisih} selisih. Setiap satu berarti pemulihan menghasilkan basis data`);
-    console.log('yang BERBEDA dari produksi sekarang. Perbaiki lewat migrations/*.sql,');
-    console.log('lalu perbarui patokan dengan `npm run dr:verify -- --tulis`.\n');
+    console.log(`\n${liar} selisih LIAR. Setiap satu berarti pemulihan menghasilkan basis data`);
+    console.log('yang BERBEDA dari produksi sekarang. Perbaiki lewat migrations/*.sql —');
+    console.log('BUKAN dengan menyegarkan patokan, karena menyegarkannya hanya membuat');
+    console.log('selisihnya berhenti dilaporkan tanpa membuatnya bisa dipulihkan.\n');
     process.exitCode = 1;
   }
 

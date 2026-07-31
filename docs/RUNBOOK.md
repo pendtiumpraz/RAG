@@ -116,9 +116,41 @@ Skrip ini membandingkan bentuk basis data yang hidup dengan
 basis data yang **berbeda** dari produksi sekarang — dan itulah yang membuat
 pemulihan gagal justru setelah tampak berhasil.
 
+### Dua jenis "baru", dan hanya satu yang berbahaya
+
+Objek yang ada di produksi tapi belum ada di patokan dibagi dua, dan skripnya
+membedakannya sendiri:
+
+- **TERJELASKAN** — namanya muncul di salah satu `migrations/*.sql`. Ini bukan
+  hanyutan: pemulihan memutar ulang migrasinya dan menghasilkan objek yang
+  sama. Patokannya saja yang tertinggal. **Tidak** menggagalkan skrip.
+- **LIAR** — tak disebut migrasi mana pun. Inilah yang dicari: indeks yang
+  dibuat manual lewat psql, kebijakan yang tak pernah masuk migrasi, kolom
+  yang lahir dari `db:push` lalu tak pernah dituliskan. Semua itu **lenyap**
+  saat basis data dibangun ulang dari repo. Menggagalkan skrip (exit 1).
+
+Pembedaan ini ditambahkan setelah migrasi 0040 memicu **tujuh** selisih yang
+semuanya sah. Masalahnya bukan berisik — berisik cuma gejala. Kalau tiap
+migrasi sah memicu gelombang alarm, menyegarkan patokan jadi refleks, dan
+hanyutan sungguhan ikut disetujui tanpa pernah dibaca.
+
+Batas pengenalannya, yang perlu diketahui sebelum percaya penuh: pencocokan
+dilakukan atas **nama**. Empat kebijakan yang dibuat migrasi 0017 lewat
+`FOREACH` + `format()` tak pernah menampakkan nama literalnya, jadi seandainya
+ia baru, ia akan dilaporkan LIAR. Arah salahnya disengaja — alat ini boleh
+terlalu curiga, tak boleh terlalu tenang.
+
+### Menyegarkan patokan
+
 Perbarui patokan **hanya bersama** perubahan skema yang disengaja, di commit
 yang sama. Memperbaruinya untuk "membuat skripnya hijau" menghapus satu-satunya
-gunanya.
+gunanya — karena itu `--tulis` **menolak berjalan** selama masih ada selisih
+LIAR, dan menuntut `--paksa` yang harus diketik sadar:
+
+```bash
+npm run dr:verify -- --tulis           # ditolak bila ada selisih liar
+npm run dr:verify -- --tulis --paksa   # timpa juga; pikirkan dulu kenapa
+```
 
 ---
 
