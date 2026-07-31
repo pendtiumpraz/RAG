@@ -56,9 +56,21 @@ const MAX_DOCS_PER_RUN = 40;
 
 interface RunPayload { tenantId: string; chatbotId: string; }
 
+/** Ringkasan satu run — dibaca UI lewat GET /api/memory/run. */
+export interface RingkasRun {
+  dokumen: number;
+  catatan: number;
+  /** Model tak membalas apa pun — biasanya anggaran token habis. */
+  distillKosong: number;
+  /** Model membalas, tapi bukan JSON yang bisa diurai. */
+  distillCacat: number;
+}
+
 registerJobHandler('memory.run', async (payload) => {
   const { tenantId, chatbotId } = payload as RunPayload;
-  await runMemoryPipeline(tenantId, chatbotId);
+  // Nilai kembaliannya disimpan di status job — tanpa itu, run yang seluruh
+  // distill-nya gagal berakhir "done" persis seperti run yang mulus.
+  return runMemoryPipeline(tenantId, chatbotId);
 });
 
 export const memoryAgent = {
@@ -74,7 +86,7 @@ export const memoryAgent = {
 
 /* ── pipeline ─────────────────────────────────────────────────────── */
 
-export async function runMemoryPipeline(tenantId: string, chatbotId: string): Promise<void> {
+export async function runMemoryPipeline(tenantId: string, chatbotId: string): Promise<RingkasRun> {
   const getApiKey = apiKeyResolver(tenantId);
 
   // model & key tenant (dipakai L2/L3)
@@ -118,6 +130,16 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
 
   const noteDrafts: Array<{ slug: string; title: string; source: string; body: string; category: string; docRef?: string }> = [];
 
+  /* Kegagalan distill DIHITUNG, bukan ditelan.
+     Sampai kartu a-distill-senyap, jawaban model yang kosong atau cacat hanya
+     mengisi abstract dengan teks mentah dan membiarkan kategorinya jatuh ke
+     penampung — tanpa satu pun angka yang membedakannya dari "model sudah
+     menilai dan tak yakin". Itu bentuk kegagalan yang sama yang membuat bug
+     "kategorikan semua" tak terlihat berminggu-minggu: kegagalan model
+     menyamar jadi keputusan model. */
+  let distillKosong = 0;   // model tak membalas apa pun
+  let distillCacat = 0;    // membalas, tapi bukan JSON yang bisa diurai
+
   for (const doc of docs) {
     const slug = slugify(doc.title);
     const excerpt = doc.full_text.slice(0, MAX_DOC_CHARS_FOR_LLM);
@@ -151,6 +173,15 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     // Penampung berlaku juga saat JSON gagal diurai: dokumen tetap masuk graf,
     // bukan hilang karena satu jawaban LLM cacat.
     let category: string = FALLBACK_SLUG;
+
+    /* KOSONG dipisahkan dari CACAT, dan bedanya menentukan langkah berikutnya.
+       Balasan kosong hampir selalu berarti anggaran token habis sebelum model
+       sempat menulis — jawabannya: naikkan anggaran atau ganti model. Balasan
+       cacat berarti model menulis sesuatu yang bukan JSON — jawabannya:
+       perbaiki instruksinya. Menggabung keduanya jadi satu angka membuat
+       keduanya tak bisa ditindaklanjuti. */
+    if (!distilled.trim()) distillKosong++;
+
     try {
       const parsed = JSON.parse(distilled.slice(distilled.indexOf('{'), distilled.lastIndexOf('}') + 1));
       abstract = String(parsed.abstract ?? '');
@@ -167,6 +198,7 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
       // kategori yang tak ada.
       category = cocok ? cocok.slug : usul ? await categoryService.propose(tenantId, usul) : FALLBACK_SLUG;
     } catch {
+      if (distilled.trim()) distillCacat++;
       abstract = distilled.slice(0, 300); // fallback: pakai teks mentah
     }
 
@@ -275,10 +307,24 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   /* ── L5 · SELF-EVOLVING — merge duplikat + prune orphan ─────────── */
   const evolution = await runSelfEvolution(tenantId, chatbotId, uniqueDrafts, vectors, idBySlug);
 
+  /* Angka distill ikut tercatat. Tanpanya, satu-satunya jejak run yang
+     seluruh distill-nya gagal adalah "notes: N" yang terlihat persis sama
+     dengan run yang berhasil — dan penelusuran keluhan berhenti di situ. */
   await audit(tenantId, 'system', 'memory.run', chatbotId, {
     documents: docs.length, notes: uniqueDrafts.length, level: MEMORY_MAX_LEVEL,
+    distillKosong, distillCacat,
     l5: evolution,
   });
+
+  if (distillKosong || distillCacat) {
+    console.error('[memory] distill gagal pada sebagian dokumen:',
+      { chatbotId, dokumen: docs.length, kosong: distillKosong, cacat: distillCacat });
+  }
+
+  return {
+    dokumen: docs.length, catatan: uniqueDrafts.length,
+    distillKosong, distillCacat,
+  };
 }
 
 /**

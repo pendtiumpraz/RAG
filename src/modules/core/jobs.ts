@@ -4,7 +4,16 @@
  * (interface enqueueJob/registerJobHandler dipertahankan).
  */
 
-type Handler = (payload: unknown) => Promise<void>;
+/**
+ * Handler boleh MENGEMBALIKAN ringkasan hasilnya.
+ *
+ * Sebelumnya `Promise<void>`, sehingga satu-satunya kabar dari sebuah job
+ * adalah "done" — yang terlihat persis sama entah pekerjaannya berhasil
+ * seluruhnya atau gagal pada tiap dokumen. Nilai kembaliannya disimpan di
+ * status dan bisa dibaca pemanggil lewat getJobStatus, jadi kegagalan
+ * sebagian punya tempat untuk muncul.
+ */
+type Handler = (payload: unknown) => Promise<unknown>;
 
 interface Job { name: string; key: string; payload: unknown; attempts: number; }
 export interface JobStatus {
@@ -12,6 +21,14 @@ export interface JobStatus {
   attempts: number;
   error?: string;
   updatedAt: number;
+  /**
+   * Ringkasan yang dikembalikan handler saat selesai.
+   *
+   * "done" saja tak cukup: sebuah run yang seluruh distill-nya gagal berakhir
+   * "done" persis seperti run yang mulus. Di sinilah kegagalan SEBAGIAN
+   * punya tempat untuk terlihat.
+   */
+  hasil?: unknown;
 }
 
 const handlers = new Map<string, Handler>();
@@ -73,8 +90,9 @@ async function pump(): Promise<void> {
 
       status.state = 'running'; status.attempts = ++job.attempts; status.updatedAt = Date.now();
       try {
-        await handler(job.payload);
+        const hasil = await handler(job.payload);
         status.state = 'done'; status.updatedAt = Date.now();
+        if (hasil !== undefined) status.hasil = hasil;
       } catch (err) {
         status.error = (err as Error).message; status.updatedAt = Date.now();
         if (job.attempts < MAX_ATTEMPTS) {

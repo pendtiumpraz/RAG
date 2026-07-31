@@ -31,6 +31,8 @@ interface Cat { id: string; slug: string; label: string; status: string; origin:
 
 /** Berapa catatan yang tersangkut di penampung, dan mana yang bisa dibereskan. */
 interface Kandidat { siap: number; tanpaRingkasan: number }
+/** Ringkasan satu run agen — dibaca dari status job, bukan ditebak dari layar. */
+interface HasilRun { dokumen: number; catatan: number; distillKosong: number; distillCacat: number }
 interface HasilKategori {
   diperbarui: number; tetapBelum: number; gagalDinilai: number; tanpaRingkasan: number; tersisa: number;
   usulanBaru: string[]; perKategori: Array<{ slug: string; jumlah: number }>;
@@ -176,11 +178,48 @@ function MemoryPageInner() {
     } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(null); }
   }
 
+  /**
+   * Jalankan agen, lalu TUNGGU hasilnya alih-alih menyuruh orang menebak.
+   *
+   * "Refresh sebentar lagi" adalah kalimat yang benar hanya bila hasilnya
+   * pasti baik. Run yang seluruh distill-nya gagal berakhir dengan status
+   * "done" yang sama persis, dan pengguna menyegarkan halaman lalu menemukan
+   * dokumen tetap tak berkategori — tanpa satu pun keterangan kenapa.
+   */
   async function run() {
     setBusy('run');
-    try { await api('/api/memory/run', { method: 'POST', body: JSON.stringify({ chatbotId }) });
-      toast('Memory Agent dijalankan (L1–L5). Refresh sebentar lagi.'); }
-    catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(null); }
+    try {
+      await api('/api/memory/run', { method: 'POST', body: JSON.stringify({ chatbotId }) });
+      const r = await tungguRun(chatbotId);
+      if (!r) {
+        toast('Memory Agent berjalan. Prosesnya lebih lama dari biasa — segarkan halaman sebentar lagi.');
+      } else if (r.distillKosong || r.distillCacat) {
+        /* Kegagalan SEBAGIAN dikatakan apa adanya. Tanpa kalimat ini, run yang
+           gagal pada tiap dokumen terlihat persis seperti run yang mulus, dan
+           yang tersisa hanya dokumen tanpa kategori tanpa sebab. */
+        const gagal = r.distillKosong + r.distillCacat;
+        const sebab = r.distillKosong
+          ? 'model tak membalas — anggaran token mungkin kurang'
+          : 'balasan model bukan JSON';
+        toast(`${r.catatan} catatan dibuat, tapi ${gagal} dari ${r.dokumen} dokumen gagal diringkas (${sebab}).`, 'error');
+      } else {
+        toast(`Memory Agent selesai — ${r.catatan} catatan dari ${r.dokumen} dokumen.`);
+      }
+      pending.refetch(); graph.refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(null); }
+  }
+
+  /** Tanyakan status run sampai selesai; null bila melewati batas tunggu. */
+  async function tungguRun(id: string): Promise<HasilRun | null> {
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 2_000));
+      const s = await api<{ status: { state: string; hasil?: HasilRun } | null }>(
+        `/api/memory/run?chatbotId=${id}`).catch(() => null);
+      if (!s?.status) continue;
+      if (s.status.state === 'failed') throw new Error('Memory Agent gagal. Lihat Observability untuk sebabnya.');
+      if (s.status.state === 'done') return s.status.hasil ?? null;
+    }
+    return null;
   }
   async function syncVault() {
     setBusy('vault');
