@@ -78,3 +78,57 @@ test('nama berkas berurutan & aman', async () => {
   assert.match(slideFileName(0, '!!!'), /^01-slide$/);
   assert.ok(slideFileName(0, 'x'.repeat(200)).length <= 52);
 });
+
+/* ── WebP yang diam, dan janji yang tak pernah diucapkan ─────────────── */
+
+test('keterangan ekspor menyebut WebP DIAM, bukan sekadar menamai formatnya', async () => {
+  /* Kartu a-slide-anim-webp sudah memutuskan sendiri bahwa WebP beranimasi
+     tak sepadan: peramban hanya bisa satu bingkai lewat canvas, dan encoder
+     tambahan ~100 KB akan diunduh SEMUA orang demi kebutuhan segelintir.
+     Keputusan itu benar. Yang salah adalah DIAMNYA — kode sejak awal tahu
+     WebP-nya statis, tapi yang membaca komentar bukan orang yang menekan
+     tombolnya. */
+  const { KETERANGAN_EKSPOR } = await import('../src/app/(app)/dataroom/slide-export');
+  assert.ok(/GAMBAR DIAM, bukan animasi/.test(KETERANGAN_EKSPOR),
+    'keterangan tak menyatakan WebP-nya tidak beranimasi');
+  assert.ok(/svg\/[\s\S]*beranimasi/.test(KETERANGAN_EKSPOR),
+    'keterangan tak menyebut mana yang beranimasi');
+  // Sebabnya ikut, bukan cuma keadaannya: "WebP-nya diam" tanpa sebab
+  // terbaca seperti kekurangan yang akan diperbaiki besok.
+  assert.ok(/100 KB/.test(KETERANGAN_EKSPOR), 'keterangan tak menyebut biaya encodernya');
+  // Dan ada jalan keluar — penjelasan tanpa jalan keluar cuma memindahkan
+  // kebuntuan.
+  assert.ok(/rekam layar/i.test(KETERANGAN_EKSPOR), 'keterangan tak menawarkan jalan keluar');
+  assert.ok(/WhatsApp|PowerPoint/.test(KETERANGAN_EKSPOR),
+    'keterangan tak menyebut tempat orang benar-benar menempelkannya');
+});
+
+test('keterangan IKUT masuk ZIP, bukan berhenti di komentar kode', () => {
+  /* Di dalam ZIP-lah orangnya berada saat menemukan WebP-nya diam — bukan di
+     dasbor, bukan di catatan rilis. */
+  assert.ok(/name: 'BACA-DULU\.txt'/.test(PAGE), 'keterangan tak dimasukkan ke ZIP');
+  assert.ok(/KETERANGAN_EKSPOR/.test(PAGE), 'ZIP memuat salinan teks, bukan sumber yang sama');
+  const iKet = PAGE.indexOf("name: 'BACA-DULU.txt'");
+  const iZip = PAGE.indexOf('buildZip(files)');
+  assert.ok(iKet > 0 && iKet < iZip, 'keterangan ditambahkan setelah ZIP dirakit — ia tak akan ikut');
+});
+
+test('pesan & tombol ekspor menyebut bedanya', () => {
+  /* Toast "3 slide diekspor — SVG + WebP" benar dan tak memberi tahu apa pun.
+     Saat itulah satu-satunya momen orangnya pasti sedang melihat layar ini. */
+  assert.ok(/SVG beranimasi; WebP gambar diam/.test(PAGE), 'pesan ekspor tak menyebut bedanya');
+  assert.ok(/BACA-DULU\.txt/.test(PAGE), 'pesan tak menunjuk keterangannya');
+  assert.ok(/title="SVG beranimasi · WebP gambar diam \(satu bingkai\)"/.test(PAGE),
+    'tombol tak menjelaskan apa yang didapat sebelum ditekan');
+});
+
+test('jalur WebP masih satu bingkai — penjaga agar keterangannya tetap BENAR', () => {
+  /* Uji ini bukan menjaga keterbatasan, melainkan menjaga agar keterangannya
+     tidak berbohong. Kalau suatu hari WebP beranimasi dibangun, uji ini gagal
+     — dan gagalnya adalah pengingat memperbarui BACA-DULU.txt, bukan
+     gangguan. */
+  assert.ok(/c\.toBlob\(res, 'image\/webp', 0\.92\)/.test(EXP),
+    'jalur WebP berubah — periksa apakah keterangan "gambar diam" masih benar');
+  assert.ok(!/webp-?anim|WebPAnimEncoder|encodeAnimation/i.test(EXP),
+    'encoder animasi ditambahkan — perbarui KETERANGAN_EKSPOR dan kartu a-slide-anim-webp');
+});

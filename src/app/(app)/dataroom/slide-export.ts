@@ -213,3 +213,39 @@ export function slideFileName(i: number, title: string): string {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
   return `${String(i + 1).padStart(2, '0')}-${slug || 'slide'}`;
 }
+
+/**
+ * Keterangan yang IKUT masuk ZIP.
+ *
+ * Kode ini sejak awal tahu WebP-nya statis, dan komentarnya mengatakan itu —
+ * tapi yang membaca komentar bukan orang yang mengekspor. Tombolnya bertulis
+ * "Export SVG + WebP", dan orang yang mengekspornya untuk ditempel ke
+ * WhatsApp menemukan bingkai diam tanpa satu pun peringatan. Kekecewaan itu
+ * datang jauh dari layar ini, saat tak ada yang bisa menjelaskan.
+ *
+ * Keterangan ditaruh di DALAM ZIP karena di situlah orangnya berada saat ia
+ * menemukan masalahnya — bukan di dasbor, bukan di rilis notes.
+ */
+export const KETERANGAN_EKSPOR = [
+  'ISI BERKAS INI',
+  '',
+  '  svg/   — slide beranimasi. Buka di peramban (Chrome/Edge/Firefox) dan',
+  '           animasinya berjalan. Tajam di segala ukuran; ini yang dipakai',
+  '           untuk dokumen, situs, dan cetak.',
+  '',
+  '  webp/  — GAMBAR DIAM, bukan animasi. Satu bingkai pada keadaan AKHIR',
+  '           slide. Dipakai untuk ditempel ke PowerPoint, Google Slides,',
+  '           atau dokumen yang tak bisa membaca SVG.',
+  '',
+  'KENAPA WEBP-NYA TIDAK BERANIMASI',
+  '',
+  '  Peramban hanya bisa menghasilkan SATU bingkai lewat canvas. WebP',
+  '  beranimasi menuntut encoder tambahan sekitar 100 KB yang harus diunduh',
+  '  setiap orang yang membuka Dataroom — dibayar oleh semua, dipakai',
+  '  segelintir. Selama SVG-nya sudah beranimasi, pertukaran itu belum',
+  '  sepadan.',
+  '',
+  '  Butuh animasi di WhatsApp atau PowerPoint? Buka berkas svg/ di peramban,',
+  '  lalu rekam layarnya. Satu langkah manual, tanpa membebani semua orang.',
+  '',
+].join('\n');

@@ -9,7 +9,7 @@ import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment
 import { SHIPPED, SHIPPED_AT } from './updates';
 import Kanban from './Kanban';
 import Calculator from './Calculator';
-import { buildZip, standaloneSvg, svgToWebp, slideFileName } from './slide-export';
+import { buildZip, standaloneSvg, svgToWebp, slideFileName, KETERANGAN_EKSPOR } from './slide-export';
 import { EmptyState, useToast } from '../../_components/ui';
 
 /**
@@ -65,6 +65,10 @@ export default function DataroomPage() {
    * ukuran dan animasinya masih hidup bila dibuka di peramban; WebP-nya
    * statis pada keadaan akhir, untuk ditempel ke dokumen atau dikirim.
    *
+   * Bedanya IKUT DIKIRIM sebagai BACA-DULU.txt di dalam ZIP — kode ini sejak
+   * awal tahu WebP-nya diam, tapi yang membaca komentar bukan orang yang
+   * mengekspor.
+   *
    * Merender dari DOM yang sedang tampil, bukan dari data: yang diekspor
    * persis yang dilihat, termasuk angka yang dihitung saat render.
    */
@@ -89,12 +93,16 @@ export default function DataroomPage() {
         n++;
       }
 
+      /* Keterangan ikut masuk ZIP — di situlah orangnya berada saat ia
+         menemukan WebP-nya diam, bukan di dasbor ini. */
+      files.push({ name: 'BACA-DULU.txt', data: enc.encode(KETERANGAN_EKSPOR) as Uint8Array<ArrayBuffer> });
+
       const url = URL.createObjectURL(buildZip(files));
       const a = document.createElement('a');
       a.href = url; a.download = `nalar-${deck.id}-slides.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast(`${n} slide diekspor — SVG + WebP`);
+      toast(`${n} slide diekspor. SVG beranimasi; WebP gambar diam — lihat BACA-DULU.txt.`);
     } catch (e) { toast((e as Error).message, 'error'); }
     finally { setExporting(false); }
   }
@@ -120,8 +128,12 @@ export default function DataroomPage() {
               Export PPTX
             </button>
           )}
+          {/* Judul tombol tetap menyebut formatnya, tapi `title` menyebut
+              BENTUKNYA: "SVG + WebP" tak memberi tahu siapa pun bahwa yang
+              satu beranimasi dan yang lain tidak. */}
           {!isDoc && deck.slides.some((s) => s.kind === 'anim') && (
-            <button className={`btn btn-sm${exporting ? ' is-loading' : ''}`} disabled={exporting} onClick={toImages}>
+            <button className={`btn btn-sm${exporting ? ' is-loading' : ''}`} disabled={exporting}
+              onClick={toImages} title="SVG beranimasi · WebP gambar diam (satu bingkai)">
               Export SVG + WebP
             </button>
           )}
