@@ -16,8 +16,25 @@ const MMR_LAMBDA = 0.75;
  * Kandidat DOKUMEN dari lapisan pertama. Sengaja jauh lebih banyak dari
  * jumlah potongan yang akhirnya dipakai: rerata dokumen tebal itu kabur, dan
  * dokumen yang terlewat di sini tak akan pernah dibaca di lapisan kedua.
+ *
+ * DINAIKKAN 40 → 120 pada 31 Jul 2026, berdasarkan ukuran, bukan perkiraan
+ * (`npm run eval:tier1`, 400 dokumen × 60 potongan, MiniLM):
+ *
+ *   • Dari 61 pertanyaan yang potongan benarnya MEMANG terjangkau pencarian
+ *     datar, ambang 40 menjatuhkan 5 — 8,2% jawaban yang seharusnya
+ *     terambil, hilang sebelum lapisan kedua sempat membacanya.
+ *   • Recall 95% pada korpus itu menuntut 95 dokumen, jauh di atas 40. Dan
+ *     angkanya memburuk saat korpus tumbuh, karena pengganggu bertambah
+ *     sementara ambangnya tetap.
+ *
+ * Sebabnya bukan peringkatnya yang salah melainkan perata-rataan: centroid
+ * satu bagian adalah avg() atas 50 potongan, jadi potongan yang membawa
+ * jawaban hanya menyumbang seperlima puluh arahnya. Naik ke 120 membeli
+ * kembali sebagian besar kerugian itu dengan harga yang kecil — yang tumbuh
+ * hanyalah jumlah potongan yang dipindai lapisan kedua (±120 dokumen alih-
+ * alih 40), sementara lapisan pertamanya sendiri tetap satu kueri berindeks.
  */
-const TIER1_DOCS = 40;
+const TIER1_DOCS = 120;
 
 /** Kandidat catatan Memory yang diadu di RRF. Kecil: tabelnya satu baris per
  *  dokumen, dan gunanya memberi gambaran luas — bukan menyapu korpus. */
