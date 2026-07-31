@@ -10,6 +10,7 @@ import { documentVectorsService } from './document-vectors.service';
 import { contentFingerprint, fingerprintable, nameSizeKey } from './dedupe';
 import { BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
 import { limitsFor } from '@/modules/core/limits-server';
+import { audit } from '@/modules/core/guardrails';
 
 /**
  * Pemotong teks — pindah ke `./chunker` (D-a-chunk, 31 Jul 2026).
@@ -133,7 +134,30 @@ async function chunkUsage(tenantId: string): Promise<number> {
  * berkas dalam satu jalan, dan memeriksa di awal saja akan membiarkan
  * seluruh sisanya menembus batas.
  */
-async function assertChunkQuota(tenantId: string, tambahan: number): Promise<void> {
+/**
+ * Aksi audit untuk penolakan kuota.
+ *
+ * SATU nama, dipakai di semua jalur. Analisis "berapa persen akun Free
+ * menabrak kuota" hanya mungkin bila peristiwanya punya nama yang sama di
+ * mana pun ia terjadi; dua nama berbeda untuk hal yang sama akan membuat
+ * angkanya diam-diam separuh.
+ */
+export const AKSI_TOLAK_KUOTA = 'quota.rejected';
+
+async function assertChunkQuota(
+  tenantId: string, tambahan: number,
+  /**
+   * Dari mana ingest-nya datang — sync, unggahan manual, konektor URL, API.
+   *
+   * Ikut dicatat karena tiga pertanyaan yang ingin dijawab kartu induk
+   * (a-plan-quota-eval) semuanya bergantung padanya: pengguna yang menabrak
+   * kuota saat MENGUNGGAH sedang mencoba produknya dengan sengaja, sementara
+   * yang menabraknya saat SYNC mungkin tak sedang melihat layar sama sekali.
+   * Menyatukan keduanya jadi satu angka menghapus perbedaan yang justru
+   * menentukan apakah kuotanya perlu dilonggarkan.
+   */
+  jalur: 'ingest' = 'ingest',
+): Promise<void> {
   const { plan, isPlatform } = await withTenant(tenantId, async (tx) => {
     const r = await tx.execute(sql`
       select plan, is_platform from tenants where id = ${tenantId} limit 1`);
@@ -148,6 +172,21 @@ async function assertChunkQuota(tenantId: string, tambahan: number): Promise<voi
 
   const dipakai = await chunkUsage(tenantId);
   if (dipakai + tambahan <= batas) return;
+
+  /* DICATAT DI TITIK PENOLAKAN, bukan diserahkan ke pemanggil.
+     Penolakan kuota selama ini dilempar sebagai QuotaError dan diubah jadi
+     402 di rute — benar untuk pengguna, tapi tak meninggalkan satu pun jejak.
+     Akibatnya pertanyaan yang menentukan apakah kuota Free perlu dilonggarkan
+     ("berapa persen akun baru menabraknya di hari pertama, dan berapa yang
+     lalu hilang") mustahil dijawab, sekarang maupun enam bulan lagi.
+     Diletakkan di sini karena ada TIGA pemanggil yang bisa menabraknya; satu
+     saja yang lupa mencatat, dan angkanya diam-diam separuh. */
+  await audit(tenantId, 'system', AKSI_TOLAK_KUOTA, jalur, {
+    plan, terpakai: dipakai, batas, diminta: tambahan, jalur,
+    // Selisihnya dicatat apa adanya: "kurang 3 potongan" dan "kurang 3.000"
+    // adalah dua keadaan yang sangat berbeda saat memutuskan kuota baru.
+    kurang: dipakai + tambahan - batas,
+  });
 
   const dok = Math.round(batas / CHUNKS_PER_DOC).toLocaleString('id-ID');
   throw new QuotaError(
