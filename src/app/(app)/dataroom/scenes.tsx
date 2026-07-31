@@ -364,15 +364,22 @@ export function ScenePolicy() {
 /* ══ 6 · LIMA LAPIS PENJAGA ═════════════════════════════════════════ */
 
 export function SceneGuardrails() {
+  /* Keterangan dipecah jadi BARIS, bukan satu kalimat panjang.
+     Kotaknya selebar 110 dengan jarak 12 antar kotak; "dokumen = data, bukan
+     perintah" pada 9px memakan ±130px dan — karena rata tengah — meluber ±10px
+     ke KIRI dan ke KANAN sekaligus, menabrak kotak tetangganya di kedua sisi.
+     SVG tak punya pembungkus teks otomatis, jadi pemenggalannya harus
+     ditentukan di sini. Batas aman ±16 karakter per baris. */
   const lapis = [
-    { t: 'Sanitasi masukan', s: 'pertanyaan dibersihkan' },
-    { t: 'Anti penyusupan', s: 'dokumen = data, bukan perintah' },
-    { t: 'Batas eksekusi', s: 'waktu & panjang jawaban' },
-    { t: 'Redaksi rahasia', s: 'kunci & token disensor' },
-    { t: 'Jejak audit', s: 'setiap giliran tercatat' },
+    { t: 'Sanitasi masukan', s: ['pertanyaan', 'dibersihkan'] },
+    { t: 'Anti penyusupan', s: ['dokumen = data,', 'bukan perintah'] },
+    { t: 'Batas eksekusi', s: ['waktu & panjang', 'jawaban'] },
+    { t: 'Redaksi rahasia', s: ['kunci & token', 'disensor'] },
+    { t: 'Jejak audit', s: ['setiap giliran', 'tercatat'] },
   ];
+  const H_KOTAK = 78;   // muat dua baris keterangan; sebelumnya 72 utk satu
   return (
-    <svg viewBox="0 0 760 210" role="img" aria-label="Lima lapis penjaga yang dilewati setiap pertanyaan">
+    <svg viewBox="0 0 760 214" role="img" aria-label="Lima lapis penjaga yang dilewati setiap pertanyaan">
       <text x="0" y="16" className="sc-k">setiap pertanyaan melewati kelimanya · tak ada jalur pintas</text>
 
       <Box x={0} y={70} w={86} h={44} cls="ink" t="Masuk" d={0} />
@@ -382,11 +389,15 @@ export function SceneGuardrails() {
         return (
           <g key={l.t}>
             <g className="an-in" style={{ ['--d' as string]: `${0.3 + i * 0.22}s` }}>
-              <rect x={x} y={56} width={110} height={72} rx="6" className="sc-box" />
+              <rect x={x} y={56} width={110} height={H_KOTAK} rx="6" className="sc-box" />
               <rect x={x} y={56} width={110} height={4} rx="2" fill={BIRU} opacity={0.35 + i * 0.13} />
-              <text x={x + 55} y={78} textAnchor="middle" className="sc-m">L{i + 1}</text>
-              <text x={x + 55} y={96} textAnchor="middle" className="sc-t">{l.t}</text>
-              <text x={x + 55} y={110} textAnchor="middle" className="sc-s">{l.s}</text>
+              <text x={x + 55} y={76} textAnchor="middle" className="sc-m">L{i + 1}</text>
+              <text x={x + 55} y={94} textAnchor="middle" className="sc-t">{l.t}</text>
+              {l.s.map((baris, j) => (
+                <text key={baris} x={x + 55} y={108 + j * 12} textAnchor="middle" className="sc-s">
+                  {baris}
+                </text>
+              ))}
             </g>
             {i < lapis.length - 1 && (
               <Arrow x1={x + 112} y1={92} x2={x + 120} y2={92} d={0.5 + i * 0.22} pkt={false} />

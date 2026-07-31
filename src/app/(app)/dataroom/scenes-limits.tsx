@@ -73,8 +73,15 @@ export function ScenePlans() {
      terjadi diam-diam lagi. */
   const Y_TABEL = 66;
   const H_BARIS = 26;
-  const Y_AKHIR = Y_TABEL + kolom.length * H_BARIS;   // 66 + 6×26 = 222
-  const Y_CATATAN = Y_AKHIR + 12;                      // 234
+  /* Baris TERAKHIR perlu dua baris teks. Penandanya dulu ditaruh sebaris
+     dengan labelnya pada x = panjang_label × 6,2 — perkiraan lebar yang
+     memakai metrik sc-t padahal barisnya dirender sc-s, dan hasilnya
+     berakhir di x≈279 sementara kolom paket pertama sudah mulai di x=216.
+     Penanda dan angka paket Free saling menimpa. Sekarang penandanya turun
+     ke barisnya sendiri, dan tinggi barisnya ikut dihitung. */
+  const H_TAMBAHAN = 14;
+  const Y_AKHIR = Y_TABEL + kolom.length * H_BARIS + H_TAMBAHAN;
+  const Y_CATATAN = Y_AKHIR + 12;
 
   return (
     <svg viewBox={`0 0 760 ${Y_CATATAN + 48}`} role="img"
@@ -99,10 +106,11 @@ export function ScenePlans() {
         const turunan = k.t === 'Setara berkas sumber';
         return (
           <g key={k.t} className="an-in" style={{ ['--d' as string]: `${0.5 + r * 0.1}s` }}>
-            <line x1="0" y1={y + 8} x2="760" y2={y + 8} stroke="#EEF2F7" strokeWidth="1" />
+            <line x1="0" y1={y + (turunan ? 8 + H_TAMBAHAN : 8)} x2="760"
+              y2={y + (turunan ? 8 + H_TAMBAHAN : 8)} stroke="#EEF2F7" strokeWidth="1" />
             <text x="0" y={y} className={turunan ? 'sc-s' : 'sc-t'}>{k.t}</text>
             {turunan && (
-              <text x={k.t.length * 6.2 + 12} y={y} className="sc-k">perkiraan, bukan kuota</text>
+              <text x="0" y={y + 12} className="sc-k">perkiraan, bukan kuota</text>
             )}
             {plans.map((p, i) => (
               <text key={p} x={281 + i * 138} y={y} textAnchor="middle"

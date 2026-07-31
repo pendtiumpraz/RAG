@@ -159,3 +159,33 @@ test('spesifikasi server proposal menutup mode langsung, bukan cuma bertingkat',
   assert.ok(Number(min) < Number(rekomendasi), 'minimum tak lagi di bawah rekomendasi');
   assert.ok(!/'128 GB', '256 GB'/.test(DECKS), 'spesifikasi lama pra-halfvec masih terpasang');
 });
+
+/* ══ TABRAKAN TEKS — SVG tak punya pembungkus baris otomatis ═══════════ */
+
+test('keterangan lapis penjaga cukup pendek untuk kotaknya', () => {
+  // Kotak selebar 110 dengan jarak 12 antar kotak, teks rata TENGAH pada 9px
+  // (±4,6 px/karakter). Lebih dari ±16 karakter meluber ke KIRI dan ke KANAN
+  // sekaligus dan menabrak kedua tetangganya. Ini pernah terjadi pada
+  // "dokumen = data, bukan perintah" (29 karakter, ±133 px).
+  // Batasnya `];` — bukan `]` pertama, yang justru menutup array baris di
+  // dalam entri pertama dan membuat penjaringnya hanya melihat satu lapis.
+  const blok = SCENES.slice(SCENES.indexOf('const lapis = ['));
+  const isi = blok.slice(0, blok.indexOf('];'));
+  const baris = [...isi.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(baris.length >= 10, 'daftar lapis penjaga berubah bentuk — periksa penjaringnya');
+  for (const b of baris) {
+    assert.ok(b.length <= 16, `"${b}" (${b.length} karakter) meluber dari kotak 110 px`);
+  }
+});
+
+test('penanda "perkiraan" tak menabrak kolom paket pertama', () => {
+  // Kolom paket pertama mulai di x=216. Penandanya dulu diletakkan pada
+  // x = panjang_label × 6,2 — perkiraan lebar dengan metrik font yang SALAH
+  // (sc-t, padahal barisnya dirender sc-s) — dan berakhir menimpa angka Free.
+  const limits = readFileSync('src/app/(app)/dataroom/scenes-limits.tsx', 'utf8');
+  assert.ok(!/k\.t\.length \* 6\.2/.test(limits),
+    'lebar teks kembali ditaksir dari jumlah karakter — itu yang menyebabkan tabrakannya');
+  assert.ok(/perkiraan, bukan kuota/.test(limits), 'penandanya hilang, bukan dipindah');
+  assert.ok(/H_TAMBAHAN/.test(limits),
+    'baris terakhir tak lagi diberi tinggi tambahan untuk baris keduanya');
+});
