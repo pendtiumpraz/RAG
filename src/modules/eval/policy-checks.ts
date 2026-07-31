@@ -19,6 +19,27 @@
  * yang menjual jawaban bersumber.
  */
 
+/**
+ * Bagian maksimum pertanyaan berbahasa yang boleh salah bahasa sebelum
+ * gerbang eval berbunyi.
+ *
+ * DITURUNKAN DARI PENGUKURAN, bukan dipilih. Pada himpunan 14 pertanyaan
+ * penguji bahasa (31 Jul 2026, DeepSeek V4 Flash, korpus produksi):
+ *
+ *   tanpa pengingat kebijakan   1 · 6 · 4 pelanggaran  → 7–43%
+ *   dengan pengingat            1 · 0 · 1 pelanggaran  → 0–7%
+ *
+ * Ambang 20% memisahkan keduanya dengan lebar. Longgar DENGAN SENGAJA: pada
+ * temperature 0,2 angkanya bergoyang, dan gerbang yang sering berbunyi palsu
+ * akan dimatikan orang — lalu tak menjaga apa pun. Yang ingin ditangkap
+ * adalah kemunduran ke keadaan lama, bukan selisih satu pertanyaan.
+ *
+ * Tinggal di modul MURNI ini, bukan di skrip evalnya: mengimpornya dari sana
+ * akan menjalankan main() skrip itu beserta sambungan basis datanya, dan tes
+ * unit gagal karenanya.
+ */
+export const AMBANG_BAHASA_SALAH = 0.20;
+
 /* ── 1 · PENOLAKAN ──────────────────────────────────────────────────── */
 
 /**

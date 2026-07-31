@@ -162,3 +162,54 @@ test('penolakan berbahasa Inggris dikenali pada BENTUK KATA apa pun', async () =
     assert.ok(deteksiPenolakan(j), `penolakan Inggris dilaporkan sebagai KARANGAN: "${j.slice(0, 62)}…"`);
   }
 });
+
+/* ══ GERBANG KEPATUHAN BAHASA ══════════════════════════════════════════ */
+
+test('himpunan penguji bahasa cukup besar untuk memisahkan efek dari derau', async () => {
+  /* Himpunan lama memuat 12 pertanyaan yang hanya 5 di antaranya menguji
+     bahasa, dan pada temperature 0,2 hasilnya bergoyang 3-2-1 pelanggaran
+     TANPA perubahan apa pun. Perubahan prompt lalu diukur 2-1-0 — sebaran
+     yang bertumpang tindih penuh, jadi tak membuktikan apa-apa.
+
+     Dengan 14 pertanyaan yang SELURUHNYA menguji bahasa, efek yang sama
+     bergerak pada skala lebih besar: 1-6-4 tanpa pengingat melawan 1-0-1
+     dengan pengingat. Penyebutlah yang membuat selisihnya terbaca. */
+  const { validasi } = await import('../src/modules/eval/golden');
+  const h = validasi(JSON.parse(readFileSync('eval/golden/kebijakan-bahasa.json', 'utf8')));
+  const berbahasa = h.pertanyaan.filter((p) => p.bahasa);
+  assert.ok(berbahasa.length >= 12,
+    `hanya ${berbahasa.length} pertanyaan menguji bahasa — terlalu goyah untuk memutuskan apa pun`);
+  const en = berbahasa.filter((p) => p.bahasa === 'en').length;
+  assert.ok(en >= 8, `hanya ${en} pertanyaan Inggris — kasus yang benar-benar gagal kurang terwakili`);
+  // Pembanding Indonesia WAJIB ada: kalau ia ikut memburuk, yang rusak bukan
+  // kepatuhan bahasa melainkan sesuatu yang lain.
+  assert.ok(berbahasa.some((p) => p.bahasa === 'id'), 'tak ada pembanding berbahasa Indonesia');
+  // Menolak pun harus dalam bahasa penanya.
+  assert.ok(berbahasa.some((p) => p.bahasa === 'en' && p.docRefs.length === 0),
+    'tak ada pertanyaan Inggris tanpa jawaban — penolakan berbahasa tak teruji');
+});
+
+test('pengingat kebijakan ditempel SESUDAH blok konteks', async () => {
+  /* Inilah perubahan yang terukur menurunkan pelanggaran bahasa ~5×.
+     Memindahkannya kembali ke atas akan mengembalikan keadaan lama tanpa
+     satu pun galat: gejalanya cuma "jawaban terasa aneh bagi pengguna
+     berbahasa Inggris", dan tak seorang pun menghubungkannya dengan satu
+     baris prompt. */
+  const CS = readFileSync('src/modules/chat/chat.service.ts', 'utf8');
+  const sys = CS.slice(CS.indexOf('const sys = ['), CS.indexOf('].join(\'\n\');', CS.indexOf('const sys = [')));
+  const iKonteks = sys.indexOf('=== CONTEXT ===');
+  const iReminder = sys.indexOf('reminder');
+  assert.ok(iKonteks > 0, 'blok konteks tak ditemukan di susunan prompt');
+  assert.ok(iReminder > iKonteks,
+    'pengingat kebijakan berada SEBELUM blok konteks — ia akan tenggelam di bawah ribuan token dokumen');
+  assert.ok(/policyReminder\(policy\)/.test(CS), 'pengingat tak lagi disisipkan sama sekali');
+});
+
+test('gerbang bahasa memisahkan keadaan baik dari keadaan lama', async () => {
+  const { AMBANG_BAHASA_SALAH } = await load();
+  /* Diturunkan dari pengukuran, bukan dipilih: keadaan baik 0–7%, keadaan
+     lama 26–43%. Ambang harus di ANTARA keduanya dengan lebar — gerbang yang
+     sering berbunyi palsu akan dimatikan orang, lalu tak menjaga apa pun. */
+  assert.ok(AMBANG_BAHASA_SALAH > 0.10, 'ambang terlalu ketat — akan berbunyi palsu pada goyangan biasa');
+  assert.ok(AMBANG_BAHASA_SALAH < 0.26, 'ambang terlalu longgar — kemunduran ke keadaan lama akan lolos');
+});

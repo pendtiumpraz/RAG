@@ -25,8 +25,10 @@ import { tenants } from '../src/modules/core/db/schema';
 import { withTenant } from '../src/modules/core/db/tenant-context';
 import { validasi, type HimpunanBaku } from '../src/modules/eval/golden';
 import { jalankanEvalKebijakan, type RingkasanKebijakan } from '../src/modules/eval/policy-runner';
+import { AMBANG_BAHASA_SALAH } from '../src/modules/eval/policy-checks';
 
 const DIR = path.join(process.cwd(), 'eval', 'golden');
+
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const flag = (n: string) => process.argv.includes(`--${n}`);
 const pct = (a: number, b: number) => b === 0 ? '—' : `${((a / b) * 100).toFixed(0)}% (${a}/${b})`;
@@ -50,6 +52,7 @@ async function main() {
   if (!bot) { console.error('Tak ada chatbot dengan dokumen.'); process.exit(1); }
 
   let adaKarangan = false;
+  let bahasaBuruk = false;
 
   /**
    * Berapa kali himpunan dijalankan, lalu dirata-rata.
@@ -115,6 +118,24 @@ async function main() {
     const karangan = r.hasil.filter((h) => h.pelanggaran.some((v) => v.jenis === 'mengarang'));
     if (karangan.length) adaKarangan = true;
 
+    /* GERBANG BAHASA. Dipasang setelah perbaikannya TERUKUR (31 Jul 2026):
+       mengulang aturan bahasa sesudah blok konteks menurunkan pelanggaran
+       dari 1·6·4 jadi 1·0·1 pada himpunan 14 pertanyaan. Tanpa gerbang,
+       perubahan prompt berikutnya bisa mengembalikannya tanpa ada yang tahu —
+       gejalanya cuma "jawaban terasa aneh bagi pengguna berbahasa Inggris",
+       dan tak seorang pun akan menghubungkannya dengan satu baris prompt.
+
+       Ambangnya LONGGAR dengan sengaja (20%, sementara keadaan baik ada di
+       0–7%): pada temperature 0,2 angkanya bergoyang, dan gerbang yang
+       sering berbunyi palsu akan dimatikan orang — lalu tak menjaga apa pun.
+       Yang ingin ditangkap adalah kemunduran ke keadaan lama (26–43%), bukan
+       selisih satu pertanyaan. */
+    if (r.bahasaDinilai > 0 && r.bahasaSalah / r.bahasaDinilai > AMBANG_BAHASA_SALAH) {
+      bahasaBuruk = true;
+      console.log(`\n  ⚠ pelanggaran bahasa ${r.bahasaSalah}/${r.bahasaDinilai}`
+        + ` melewati ambang ${Math.round(AMBANG_BAHASA_SALAH * 100)}%`);
+    }
+
     for (const h of r.hasil) {
       const tampil = flag('detail') || h.pelanggaran.length > 0;
       if (!tampil) continue;
@@ -131,6 +152,11 @@ async function main() {
 
   if (adaKarangan) {
     console.log('\nGAGAL: ada jawaban yang MENGARANG atas pertanyaan tanpa jawaban di korpus.');
+    process.exit(1);
+  }
+  if (bahasaBuruk) {
+    console.log(`\nGAGAL: pelanggaran bahasa melewati ${Math.round(AMBANG_BAHASA_SALAH * 100)}%`
+      + ' dari pertanyaan yang menguji bahasa.');
     process.exit(1);
   }
   console.log('\nTak ada karangan terdeteksi.');
