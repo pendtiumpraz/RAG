@@ -1,6 +1,24 @@
 /* Layar Chat + Citations — replika PRODUCT UI resmi Nalar. */
-.chat-shell{ display:grid; grid-template-columns:1fr 330px; gap:0; height:calc(100vh - 61px); margin:calc(var(--sp-6) * -1); }
-@media (max-width:1080px){ .chat-shell{ grid-template-columns:1fr; } .cites-panel{ display:none; } }
+/* TIGA kolom: daftar sesi · percakapan · sitasi.
+   Urutan menyembunyikannya saat layar menyempit ditentukan oleh apa yang
+   paling sering dibutuhkan SAAT ITU JUGA: daftar sesi dibuka sesekali
+   untuk berpindah, sitasi dibaca pada tiap jawaban. Jadi rel sesi yang
+   pergi lebih dulu, bukan panel sitasi. */
+.chat-shell{ display:grid; grid-template-columns:248px 1fr 330px; gap:0; height:calc(100vh - 61px); margin:calc(var(--sp-6) * -1); }
+@media (max-width:1320px){ .chat-shell{ grid-template-columns:1fr 330px; } .sesi-rail{ display:none; } }
+@media (max-width:1080px){ .chat-shell{ grid-template-columns:1fr; } .cites-panel{ display:none; } .sesi-rail{ display:none; } }
+
+/* ── rel daftar sesi ─────────────────────────────────────────────── */
+.sesi-rail{ border-right:1px solid var(--line); background:var(--card-2); display:flex; flex-direction:column; min-height:0; }
+.sesi-rail .head{ padding:var(--sp-4); border-bottom:1px solid var(--line); }
+.sesi-list{ flex:1; overflow-y:auto; padding:var(--sp-2); min-height:0; }
+.sesi-item{ display:block; width:100%; text-align:left; border:none; background:transparent; color:var(--ink);
+  font:inherit; cursor:pointer; padding:var(--sp-3); border-radius:var(--rad-sm); margin-bottom:2px; }
+.sesi-item:hover{ background:var(--card-3); }
+.sesi-item.on{ background:color-mix(in srgb, var(--signal) 12%, transparent); }
+.sesi-item .q{ font-size:var(--fs-sm); font-weight:550; line-height:1.4;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.sesi-item .m{ font-size:var(--fs-xs); color:var(--faint); margin-top:3px; }
 
 .chat-main{ display:flex; flex-direction:column; min-width:0; }
 .chat-bar{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);

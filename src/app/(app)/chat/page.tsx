@@ -2,15 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import './chat.css';
-import { useApi } from '../../_lib/api';
+import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
-import { EmptyState } from '../../_components/ui';
+import { EmptyState, useToast } from '../../_components/ui';
 import { AnswerBlocks } from '../../_components/answer-blocks';
 import { blocksToPlainText, type AnswerBlock } from '@/modules/chat/blocks';
 
 interface Chatbot { id: string; name: string }
 interface Source { documentId: string; title: string | null; score: number; content: string }
+/** Satu percakapan di rel sesi. Bentuknya mengikuti /api/conversations. */
+interface Sesi { id: string; preview: string | null; count: number; startedAt: string }
 interface Msg { role: 'user' | 'assistant'; text?: string; blocks?: AnswerBlock[]; sources?: Source[]; streaming?: boolean }
 
 /** Konsol Chat internal + panel Citations — replika PRODUCT UI resmi, data nyata. */
@@ -25,6 +27,13 @@ export default function ChatPage() {
   /** Sesi berjalan — dikirim balik tiap giliran supaya riwayat menyambung
    *  jadi SATU conversation; null = giliran berikutnya membuka sesi baru. */
   const [convId, setConvId] = useState<string | null>(null);
+  const toast = useToast();
+  /* Daftar sesi chatbot terpilih. Diambil dari endpoint yang SAMA dengan
+     halaman Conversations — bukan endpoint baru: dua sumber untuk daftar
+     yang sama akan menyimpang begitu salah satunya diubah, dan yang
+     menyimpang diam-diam adalah yang jarang dibuka. */
+  const sesi = useApi<{ rows: Sesi[] }>(
+    chatbotId ? `/api/conversations?chatbotId=${chatbotId}&pageSize=50` : null);
   const threadRef = useRef<HTMLDivElement>(null);
   /** Pengendali giliran berjalan — dipakai tombol Hentikan. */
   const abortRef = useRef<AbortController | null>(null);
@@ -71,6 +80,36 @@ export default function ChatPage() {
   function newSession() {
     setConvId(null); setMsgs([]);
   }
+
+  /**
+   * Buka percakapan lama DI TEMPAT MENGETIK.
+   *
+   * Sebelumnya percakapan lama hanya bisa dibaca di halaman Conversations —
+   * dan dibaca saja, tak bisa dilanjutkan. Pemilik chatbot yang sedang
+   * menguji jawaban justru paling sering ingin kembali ke sesi kemarin lalu
+   * bertanya susulan; menyuruhnya membuka tab lain, membaca, mengingat, dan
+   * mengetik ulang dari nol adalah alur yang membuat orang berhenti menguji.
+   */
+  async function bukaSesi(id: string) {
+    if (id === convId || busy) return;
+    setConvId(id);
+    setMsgs([]);
+    try {
+      const rows = await api<Array<{ role: string; content: string; blocks?: unknown[]; citations?: Source[] }>>(
+        `/api/conversations/${id}`);
+      setMsgs(rows.map((m) => m.role === 'user'
+        ? { role: 'user', text: m.content }
+        : {
+            role: 'assistant',
+            // Blok TERSIMPAN dipakai bila ada; teks polos hanya cadangan untuk
+            // pesan lama yang lahir sebelum jawaban terstruktur ada.
+            ...(m.blocks?.length ? { blocks: m.blocks as AnswerBlock[] } : { text: m.content }),
+            sources: m.citations ?? [],
+          }));
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  }
   const lastSources = [...msgs].reverse().find((m) => m.role === 'assistant' && m.sources)?.sources ?? [];
 
   useEffect(() => { threadRef.current?.scrollTo(0, threadRef.current.scrollHeight); }, [msgs]);
@@ -98,7 +137,14 @@ export default function ChatPage() {
         for (const p of parts) {
           const ev = p.match(/event: (.*)/)?.[1];
           let data: unknown = {}; try { data = JSON.parse(p.match(/data: (.*)/)?.[1] ?? '{}'); } catch {}
-          if (ev === 'meta') { setConvId((data as { conversationId: string }).conversationId); continue; }
+          if (ev === 'meta') {
+            const baru = (data as { conversationId: string }).conversationId;
+            /* Rel disegarkan HANYA saat sesi yang benar-benar baru lahir.
+               Menyegarkannya tiap giliran berarti satu kueri agregat per
+               pesan, dan yang berubah cuma cap waktunya. */
+            if (baru !== convId) { setConvId(baru); void sesi.refetch(); }
+            continue;
+          }
           setMsgs((m) => {
             const copy = [...m]; const last = { ...copy[copy.length - 1] };
             if (ev === 'sources') last.sources = data as Source[];
@@ -134,6 +180,34 @@ export default function ChatPage() {
 
   return (
     <div className="chat-shell">
+      {/* Rel sesi. Sesi BERJALAN belum tentu ada di daftar — ia baru masuk
+          setelah giliran pertamanya tersimpan — jadi penandanya dihitung dari
+          convId, bukan dari keanggotaan di daftar. */}
+      <aside className="sesi-rail">
+        <div className="head">
+          <button className="btn btn-sm" style={{ width: '100%' }}
+            onClick={() => { newSession(); sesi.refetch(); }} disabled={busy}>
+            <Icon name="plus" size={14} /> Percakapan baru
+          </button>
+        </div>
+        <div className="sesi-list">
+          {!chatbotId ? <p className="microlabel" style={{ padding: 'var(--sp-3)' }}>PILIH CHATBOT</p>
+            : sesi.loading ? <p className="microlabel" style={{ padding: 'var(--sp-3)' }}>MEMUAT…</p>
+            : (sesi.data?.rows.length ?? 0) === 0
+              ? <p className="microlabel" style={{ padding: 'var(--sp-3)' }}>BELUM ADA PERCAKAPAN</p>
+              : sesi.data!.rows.map((s) => (
+                <button key={s.id} className={`sesi-item${s.id === convId ? ' on' : ''}`}
+                  onClick={() => bukaSesi(s.id)} disabled={busy} title={s.id}>
+                  <span className="q">{s.preview?.trim() || '(tanpa pertanyaan)'}</span>
+                  <span className="m">
+                    {new Date(s.startedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    {' · '}{s.count} pesan
+                  </span>
+                </button>
+              ))}
+        </div>
+      </aside>
+
       <div className="chat-main">
         <div className="chat-bar">
           <h1>Chat</h1>
