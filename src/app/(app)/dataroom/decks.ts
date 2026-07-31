@@ -415,7 +415,13 @@ const diskTahap1 = (gbText: number) =>
  */
 const TEKS_ATAS = 30;
 
-const gb = (n: number) => `${Math.round(n).toLocaleString('id-ID')} GB`;
+/* Di bawah 10 GB satu desimal DIPERTAHANKAN. Membulatkan 3,5 jadi "4" pada
+   angka yang justru jadi alasan menurunkan spesifikasi server terasa seperti
+   dibulatkan ke atas demi kenyamanan sendiri — dan pembacanya berhak
+   membandingkannya persis dengan angka di dek HLA. */
+const gb = (n: number) => n < 10 && n > 0
+  ? `${n.toFixed(1).replace('.', ',')} GB`
+  : `${Math.round(n).toLocaleString('id-ID')} GB`;
 const jt = (n: number) => `Rp ${n.toLocaleString('id-ID')} jt`;
 
 const proposal: Slide[] = [
