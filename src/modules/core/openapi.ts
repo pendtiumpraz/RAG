@@ -188,6 +188,29 @@ export const openApiSpec = {
           403: err('Origin tidak diizinkan'), 404: err('Chatbot tidak ditemukan') },
       },
     },
+    '/api/chat/{publicKey}/sessions': {
+      get: {
+        summary: 'PUBLIK: daftar percakapan milik satu pengunjung (sidebar chat halaman penuh)',
+        description: 'Melengkapi /history, yang hanya mengambil ISI satu percakapan yang id-nya sudah '
+          + 'diketahui pemanggil — cukup untuk widget gelembung dengan satu sesi berjalan, tapi tidak '
+          + 'untuk tampilan halaman penuh yang menampilkan DAFTAR sesi. Daftar itu tak bisa disusun '
+          + 'dari localStorage: pengunjung yang membersihkan penyimpanan peramban akan melihat '
+          + 'riwayatnya kosong padahal server menyimpan semuanya. Judul tiap sesi DITURUNKAN dari '
+          + 'pesan pertama pengunjung — percakapan tak punya kolom judul, dan menambahkannya berarti '
+          + 'satu panggilan model lagi per sesi hanya untuk menamai sesuatu yang pengunjung sudah '
+          + 'menamainya lewat pertanyaan pembuka. Penjagaannya sama dengan /history: origin diizinkan, '
+          + 'percakapan milik chatbot itu, dan visitorId cocok — yang tak cocok dijawab daftar kosong '
+          + 'supaya endpoint ini tak bisa dipakai memastikan sebuah visitorId itu nyata.',
+        parameters: [
+          { name: 'publicKey', in: 'path', required: true, schema: str },
+          { name: 'visitorId', in: 'query', schema: str },
+        ],
+        responses: {
+          200: err('{ sessions: [{ id, title, startedAt, lastAt, messages }] } — maksimum 50, terbaru dulu'),
+          403: err('Origin tidak diizinkan'), 404: err('Chatbot tidak ditemukan'),
+        },
+      },
+    },
     '/api/chat/{publicKey}/logo': {
       get: { summary: 'Byte logo chatbot utk widget (publik, cache 1 jam)',
         parameters: [{ name: 'publicKey', in: 'path', required: true, schema: str }],

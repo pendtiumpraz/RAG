@@ -30,6 +30,30 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
         ],
       },
+      {
+        /* Halaman chat penuh MEMANG untuk disematkan — mode inline embed.js
+           memuatnya di dalam iframe pada situs pelanggan. Dinyatakan tegas
+           supaya tak ada yang "mengeraskan" keamanan belakangan dengan
+           memasang X-Frame-Options global lalu mematikan fitur ini tanpa
+           sadar. Pembatasan siapa yang boleh memakainya tetap ada di tempat
+           yang benar: daftar izin origin per chatbot di route handler. */
+        source: '/c/:path*',
+        headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }],
+      },
+      {
+        /* SISANYA tak boleh dibingkai sama sekali. Sebelumnya tak ada
+           proteksi apa pun — dasbor bisa ditumpuk di bawah halaman penyerang
+           dan kliknya dicuri (clickjacking). Selama tak ada iframe yang
+           dipakai produk ini, celah itu tak kentara; begitu iframe jadi pola
+           resmi lewat mode inline, membiarkannya terbuka jadi kelalaian.
+           Dua header sekaligus: frame-ancestors untuk peramban modern,
+           X-Frame-Options untuk yang belum mendukungnya. */
+        source: '/((?!c/).*)',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+        ],
+      },
     ];
   },
 };

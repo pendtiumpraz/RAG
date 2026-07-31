@@ -1,17 +1,74 @@
 /**
  * Nalar embed widget — production.
- * <script src="https://app.nalar.id/embed.js" data-chatbot="cb_live_xxx"></script>
+ *
+ * DUA MODE, dipilih lewat data-mode:
+ *
+ *   bubble (bawaan)  gelembung mengambang di sudut halaman. Untuk chatbot
+ *                    yang menemani isi situs — dibuka sambil lalu, satu sesi
+ *                    berjalan, ditutup dan dilupakan.
+ *     <script src=".../embed.js" data-chatbot="cb_live_xxx"></script>
+ *
+ *   inline           chat memenuhi sebuah elemen di halaman, lengkap dengan
+ *                    DAFTAR SESI di samping. Untuk halaman yang chat-nya
+ *                    memang isi utamanya — halaman bantuan, portal internal,
+ *                    tautan yang dibagikan.
+ *     <div id="chat" style="height:600px"></div>
+ *     <script src=".../embed.js" data-chatbot="cb_live_xxx"
+ *             data-mode="inline" data-target="#chat"></script>
+ *
+ * Mode inline sengaja memuat /c/<key> di dalam IFRAME, bukan menggambar
+ * ulang seluruh antarmuka di sini. Halaman itu sudah ada, sudah membawa
+ * daftar sesi, dan sudah memakai endpoint yang sama; menyalinnya ke JavaScript
+ * biasa berarti dua antarmuka yang harus diperbaiki dua kali setiap kali ada
+ * yang berubah — dan yang satu pasti tertinggal. Iframe juga memberi isolasi
+ * gaya yang sempurna, hal yang di mode gelembung harus dikejar dengan
+ * meng-scope setiap selektor ke #nalar-embed.
  *
  * Boot: GET /api/chat/<key> → themeConfig (white-label) → render launcher +
  * panel. Kirim: POST /api/chat/<key> (SSE) → jawaban streaming + sitasi.
- * API key TIDAK pernah ada di sini — hanya public key. Semua style di-scope
- * ke #nalar-embed agar tidak bentrok dengan situs host.
+ * API key TIDAK pernah ada di sini — hanya public key.
  */
 (function () {
   var script = document.currentScript || document.querySelector('script[data-chatbot]');
   var key = script && script.getAttribute('data-chatbot');
   var host = new URL(script.src).origin;
   if (!key) { console.error('[nalar] data-chatbot wajib'); return; }
+
+  /* ── MODE INLINE — pasang iframe, selesai ────────────────────────────
+     Ditangani PALING AWAL supaya seluruh mesin gelembung di bawah (state
+     sesi, CSS, pendengar peristiwa) tak pernah dibuat sama sekali pada
+     halaman yang tak memakainya. */
+  if ((script.getAttribute('data-mode') || '').toLowerCase() === 'inline') {
+    var sel = script.getAttribute('data-target');
+    /* Tanpa data-target, chat dipasang tepat di posisi <script>-nya. Itu
+       tebakan yang benar untuk pemasangan paling sederhana, dan menolak
+       memasang apa pun hanya akan membuat orang mengira embed-nya rusak. */
+    var wadah = sel ? document.querySelector(sel) : null;
+    if (sel && !wadah) {
+      console.error('[nalar] data-target "' + sel + '" tidak ditemukan');
+      return;
+    }
+    if (!wadah) {
+      wadah = document.createElement('div');
+      wadah.style.height = '600px';
+      script.parentNode.insertBefore(wadah, script);
+    }
+    var f = document.createElement('iframe');
+    f.src = host + '/c/' + encodeURIComponent(key);
+    f.title = 'Chat';
+    f.style.cssText = 'width:100%;height:100%;min-height:420px;border:0;display:block;'
+      + 'border-radius:inherit;background:transparent';
+    /* Kotak pasir dibuka seperlunya saja: skrip & form untuk antarmukanya,
+       same-origin agar localStorage (visitorId) terbaca — tanpa itu setiap
+       muat ulang jadi pengunjung baru dan daftar sesinya selalu kosong.
+       allow-popups TIDAK diberikan: chatbot tak punya alasan membuka jendela,
+       dan halaman pihak ketiga yang menyematkannya tak boleh bisa dipakai
+       begitu. */
+    f.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
+    f.setAttribute('loading', 'lazy');
+    wadah.appendChild(f);
+    return;
+  }
 
   var visitorId = localStorage.getItem('nalar_visitor') ||
     (function () { var v = 'v_' + Math.random().toString(36).slice(2); localStorage.setItem('nalar_visitor', v); return v; })();
