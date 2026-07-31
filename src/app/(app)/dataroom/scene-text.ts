@@ -15,7 +15,8 @@
 
 export type SceneId =
   | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory'
-  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel' | 'storage' | 'scale' | 'dims' | 'halfvec';
+  | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel' | 'storage' | 'scale' | 'dims' | 'halfvec'
+  | 'ramShape' | 'ramQuery' | 'ramUsers';
 
 export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ingest: [
@@ -44,9 +45,9 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ],
   tiers: [
     { t: 'Mode langsung', d: 'Seluruh potongan berada dalam satu indeks. Cara paling teliti, dipakai selama korpus masih kecil.' },
-    { t: 'Batasnya', d: 'Kebutuhan memori tumbuh mengikuti besar korpus — pada 1 TB itu berarti 282 GB sebelum optimasi.' },
+    { t: 'Batasnya', d: 'Kebutuhan memori tumbuh mengikuti besar korpus — pada 1 TB itu berarti 282 GB sebelum optimasi, dan 35 GB sesudahnya.' },
     { t: 'Mode bertingkat', d: 'Yang residen di memori hanya satu vektor per DOKUMEN; potongannya dibaca dari disk sesuai kebutuhan.' },
-    { t: 'Hasilnya', d: '282 GB → 69 GB (dimensi asli, terpasang & terukur) → 1–3 GB (bertingkat, terpasang).' },
+    { t: 'Hasilnya', d: 'Korpus 1 TB: 282 GB → 69 GB (dimensi asli) → 35 GB (halfvec) → 3,5 GB (bertingkat). Ketiganya terpasang dan terukur.' },
     { t: 'Menyala sendiri', d: 'Ambangnya ditentukan sistem saat memasukkan dokumen. Tak ada mode yang perlu dipilih siapa pun.' },
     { t: 'Kenapa tak jadi saklar', d: 'Memilih mode retrieval menuntut penilaian yang pemilik data tak punya dasar untuk membuatnya, dan salah pilih berarti jawaban yang diam-diam kehilangan dokumen.' },
   ],
@@ -109,7 +110,7 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   capacity: [
     { t: 'Dasar perhitungan', d: '2.852 byte per potongan di tabel + ±804 byte indeksnya, diukur dengan pg_column_size pada data produksi setelah halfvec. Sisanya aritmetika.' },
     { t: 'Vercel Pro + Neon', d: 'Atap tertinggi Neon adalah 16 CU / 64 GB RAM. Mode langsung: ±40 juta potongan. Di atas itu tak ada paket yang lebih besar — harus pindah.' },
-    { t: 'On-premise 128 GB', d: 'Mode langsung ±80 juta potongan; mode bertingkat dibatasi disk, bukan RAM. Batasnya perangkat yang dibeli, dan bisa ditambah kapan saja.' },
+    { t: 'On-premise 64 GB', d: 'Mode langsung ±80 juta potongan; mode bertingkat dibatasi disk, bukan RAM. Batasnya perangkat yang dibeli, dan bisa ditambah kapan saja.' },
     { t: 'AWS RDS / Aurora', d: 'Instans memori besar mencapai 768 GB RAM — atap tertinggi dari ketiganya, dengan biaya bulanan yang juga tertinggi.' },
     { t: 'Mode bertingkat mengubah atapnya', d: 'Mode langsung dibatasi RAM; mode bertingkat dibatasi DISK. Dan disk jauh lebih murah dinaikkan daripada RAM.' },
     { t: 'Yang tidak berubah', d: 'Berapa pun besar korpusnya, biaya per pertanyaan tetap sama — pencarian tak memakai token model.' },
@@ -123,20 +124,20 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Yang belum punya jalan keluar', d: 'Atap Neon: di atas 16 CU tidak ada paket berikutnya. Melewatinya berarti pindah ke server sendiri atau ke AWS.' },
   ],
   storage: [
-    { t: 'Satu potongan = 8.228 byte', d: 'Diukur dengan pg_column_size pada data produksi, bukan diperkirakan.' },
-    { t: 'Vektornya 6.148 byte — 74,7%', d: '1.536 angka × 4 byte. Inilah yang memenuhi basis data, bukan teks dokumennya.' },
-    { t: 'Teksnya hanya 680 byte — 8,3%', d: 'Vektor sembilan kali lebih besar dari teks yang diwakilinya. Itulah biaya sebenarnya dari pencarian makna.' },
+    { t: 'Satu potongan = 2.852 byte', d: 'Diukur dengan pg_column_size pada data produksi setelah halfvec, bukan diperkirakan. Sebelumnya 8.228.' },
+    { t: 'Vektornya 776 byte — 27%', d: '384 angka × 2 byte. Dulu 6.148 byte alias 75% dari baris; itulah yang dulu memenuhi basis data.' },
+    { t: 'Teksnya 680 byte — 24%', d: 'Sekarang vektor dan teks nyaris seimbang. Sebelum halfvec, vektornya sembilan kali lebih besar dari teks yang diwakilinya.' },
     { t: '1 GB Drive → ±20 MB teks', d: 'Sekitar 2% dari berkas kantoran yang benar-benar jadi teks; sisanya gambar dan format.' },
-    { t: '→ ±29 ribu potongan → ±288 MB', d: 'Basis datanya justru LEBIH KECIL dari berkas sumbernya, tapi 14× lebih besar dari teksnya.' },
+    { t: '→ ±29 ribu potongan → ±108 MB', d: 'Basis datanya sepersepuluh berkas sumbernya, tapi masih 5× lebih besar dari teksnya.' },
     { t: 'Rasionya sangat bergantung jenis berkas', d: 'PDF hasil pindai mendekati 0%; CSV dan teks polos mendekati 100%. Rasio 2% adalah nilai tengah perkantoran.' },
   ],
   scale: [
-    { t: '1 GB → ±288 MB basis data', d: '±29 ribu potongan. RAM mode langsung ±46 MB.' },
-    { t: '100 GB → ±29 GB basis data', d: '±2,9 juta potongan. RAM mode langsung ±4,6 GB — masih nyaman di mana pun.' },
-    { t: '700 GB → ±202 GB basis data', d: '±20,6 juta potongan. RAM mode langsung ±32 GB. Ini korpus klien on-premise.' },
-    { t: '1 TB → ±288 GB basis data', d: '±29 juta potongan. RAM mode langsung 46–69 GB — melewati atap Neon.' },
+    { t: '1 GB → ±108 MB basis data', d: '±29 ribu potongan. RAM indeks mode langsung ±24 MB.' },
+    { t: '100 GB → ±11 GB basis data', d: '±2,9 juta potongan. RAM mode langsung ±2,4 GB, bertingkat ±236 MB.' },
+    { t: '700 GB → ±75 GB basis data', d: '±20,6 juta potongan. RAM mode langsung ±17 GB, bertingkat ±1,7 GB. Ini korpus klien on-premise.' },
+    { t: '1 TB → ±108 GB basis data', d: '±29 juta potongan. RAM mode langsung 24–35 GB — melewati atap Neon.' },
     { t: 'Dua rasio, dua kegunaan', d: '2% untuk memperkirakan, 3% untuk MERENCANAKAN server. Merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan memori enam bulan kemudian.' },
-    { t: 'Mode bertingkat memangkas sepersepuluh', d: 'Korpus 1 TB: dari 46–69 GB menjadi 4,6–6,9 GB. Korpusnya sama, memorinya sepersepuluh.' },
+    { t: 'Mode bertingkat memangkas sepersepuluh', d: 'Korpus 1 TB: dari 24–35 GB menjadi 2,4–3,5 GB. Korpusnya sama, memorinya sepersepuluh.' },
   ],
   dims: [
     { t: 'Vektor itu deretan angka', d: 'Satu potongan teks diubah jadi deretan angka yang menyandikan MAKNANYA. Dua teks bermakna mirip menghasilkan deretan yang berdekatan — itulah dasar pencariannya.' },
@@ -153,5 +154,29 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Penghematan terbesar bukan dari presisi', d: 'Melainkan dari berhenti memberi PADDING: model 384 dimensi dulu dipaksa disimpan sebagai 1.536, dan tiga perempatnya nol yang tetap dibayar penuh.' },
     { t: 'Kenapa dikerjakan sekarang', d: 'Mengubah tipe kolom setelah jutaan potongan masuk berarti menulis ulang seluruh tabel. Selagi datanya sedikit, biayanya nyaris nol.' },
     { t: 'Yang tak berubah', d: 'Operator, indeks, dan cara kerjanya sama persis. Hanya angkanya disimpan lebih pendek.' },
+  ],
+  ramShape: [
+    { t: 'Memorinya terbagi tiga, dan hanya SATU yang mengikuti jumlah pengguna', d: 'Membaca ketiganya sebagai satu angka adalah sebab paling lazim orang salah menaksir server — terlalu besar, atau terlalu kecil di bagian yang salah.' },
+    { t: 'Dasar sistem — ±2–3 GB, tetap', d: 'Sistem operasi, Postgres, aplikasi, dan model embedding 22 MB. Tak bergantung besar korpus maupun jumlah pengguna.' },
+    { t: 'Indeks penyaring — mengikuti KORPUS', d: '1,7 GB untuk korpus 700 GB pada mode bertingkat: satu vektor per DOKUMEN, bukan per potongan. Satu indeks ini melayani semua pengguna sekaligus.' },
+    { t: 'Per pertanyaan berjalan — ±1–3 MB', d: 'Muncul saat pertanyaan diproses, lalu dilepas. Angkanya sama untuk korpus 1 GB maupun 1 TB.' },
+    { t: 'Tangga korpus', d: '10 GB → 24 MB · 100 GB → 236 MB · 700 GB → 1,7 GB · 1 TB → 2,4 GB indeks residen.' },
+    { t: 'Dua jenis angka, dibedakan tegas', d: 'Byte per potongan dan per indeks TERUKUR dengan pg_column_size di produksi. Angka per-permintaan DITURUNKAN dari bentuk datanya, belum diukur di bawah beban — dan ditandai begitu, bukan disamarkan.' },
+  ],
+  ramQuery: [
+    { t: 'Vektor pertanyaan — 768 byte', d: '384 angka × 2 byte. Pertanyaannya sendiri nyaris tak berbiaya memori.' },
+    { t: 'Telusur indeks — ±30 KB', d: 'Kandidat dan jejak penelusuran, di dalam indeks yang SUDAH residen. Tidak menambah indeks baru ke memori.' },
+    { t: 'Baca potongan terpilih — ±1 MB', d: 'Bagian terbesar: potongan dokumen terpilih dibaca dari disk ke page cache. Inilah yang naik-turun mengikuti lalu lintas.' },
+    { t: 'Susun konteks — ±4 KB', d: 'Enam potongan yang benar-benar dikirim ke model bahasa.' },
+    { t: 'Menunggu jawaban model — ±0', d: 'Sebagian besar umur sebuah permintaan dihabiskan menunggu, bukan memakai memori atau CPU.' },
+    { t: 'Selesai menjawab → dilepas', d: 'Yang tersisa hanya page cache, dan itu memang gunanya: pertanyaan berikutnya jadi lebih cepat.' },
+  ],
+  ramUsers: [
+    { t: '100 pengguna bersamaan → ±4,5 GB', d: 'Dasar 2,5 GB + indeks 1,7 GB + koneksi basis data 140 MB + permintaan berjalan 200 MB. Korpus 700 GB.' },
+    { t: '500 pengguna bersamaan → ±5,3 GB', d: 'Yang bertambah dari 100 hanya bagian permintaan: 200 MB → 1 GB. Dasar dan indeksnya tidak bergerak sama sekali.' },
+    { t: '1.000 pengguna bersamaan → ±6,3 GB', d: 'Sepuluh kali penggunanya, memorinya naik ±1,8 GB. Bukan sepuluh kali lipat.' },
+    { t: 'Kenapa tak meledak — kolam koneksi', d: 'Berapa pun penggunanya, kueri yang benar-benar berjalan serentak dibatasi kolam koneksi basis data. Bagian ini punya ATAP, bukan pertumbuhan lurus.' },
+    { t: 'Kenapa tak meledak — sebagian besar hanya menunggu', d: 'Satu pertanyaan memakai ±15 milidetik kerja basis data di dalam rentang 3 detik menunggu jawaban model. Seribu pengguna bersamaan menuntut ±2 inti CPU, bukan seribu.' },
+    { t: 'Yang benar-benar tumbuh mengikuti pengguna adalah TAGIHAN', d: 'Dari 100 ke 1.000 pengguna, memorinya naik ±40%; biaya model bahasanya naik sepuluh kali lipat. Kapasitas dibayar sekali; menjawab dibayar tiap kali.' },
   ],
 };

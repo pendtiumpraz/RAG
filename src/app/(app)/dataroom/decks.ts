@@ -367,6 +367,9 @@ const business: Slide[] = [
 const BYTES_ROW_AWAL = 8_189;
 const BYTES_IDX_AWAL = 6_400;
 
+/** Keadaan ANTARA — tahap 1 saja (indeks berdimensi asli, baris belum halfvec). */
+const BYTES_IDX_TAHAP1 = 1_572;
+
 /** Keadaan SEKARANG, terukur di produksi setelah migrasi 0035. */
 const BYTES_ROW = 2_852;
 const BYTES_IDX = 804;
@@ -398,6 +401,19 @@ const ramFor2 = (gbText: number) => (chunksFor(gbText) * BYTES_IDX) / 1024 ** 3;
  */
 const ramTiered = (gbText: number) =>
   ((chunksFor(gbText) / 10) * BYTES_IDX) / 1024 ** 3;
+
+/** Keadaan antara — dipakai baris "tahap 1" di tabel arsitektur penyimpanan. */
+const ramTahap1 = (gbText: number) => (chunksFor(gbText) * BYTES_IDX_TAHAP1) / 1024 ** 3;
+const diskTahap1 = (gbText: number) =>
+  (chunksFor(gbText) * (BYTES_ROW_AWAL + BYTES_IDX_TAHAP1) * OVERHEAD) / 1024 ** 3;
+
+/**
+ * Perkiraan ATAS korpus 1 TB SharePoint — 30 GB teks terekstrak (rasio 3%,
+ * nilai perencanaan, bukan nilai tengah). Seluruh spesifikasi server di dek
+ * ini diturunkan dari angka ini, jadi ia ditulis sekali di sini dan tak
+ * pernah diketik ulang.
+ */
+const TEKS_ATAS = 30;
 
 const gb = (n: number) => `${Math.round(n).toLocaleString('id-ID')} GB`;
 const jt = (n: number) => `Rp ${n.toLocaleString('id-ID')} jt`;
@@ -451,23 +467,29 @@ const proposal: Slide[] = [
     small: true,
     headers: ['Komponen', 'Minimum', 'Direkomendasikan', 'Catatan'],
     rows: [
-      ['CPU', '16 core', '32 core', 'ingest awal & embedding memakai seluruh core'],
-      ['RAM', '64 GB', '128 GB', '64 GB cukup sampai ±25 GB teks; 128 GB menutup perkiraan atas (69 GB) dengan ruang lega'],
-      ['Disk data', '1 TB NVMe', '2 TB NVMe', 'bukan HDD: pencarian vektor sensitif pada IOPS acak'],
-      ['Disk backup', '2 TB', '4 TB (terpisah)', 'snapshot Postgres + WAL archive'],
+      ['CPU', '16 core', '32 core', 'ingest awal & embedding memakai seluruh core; menjawab hanya butuh 2–4'],
+      ['RAM', '32 GB', '64 GB',
+        `mode bertingkat butuh ${gb(ramTiered(TEKS_ATAS))} indeks + ±3 GB dasar sistem; ${gb(64)} memuat mode langsung (${gb(ramFor2(TEKS_ATAS))}) seutuhnya sebagai jalan mundur`],
+      ['Disk data', '512 GB NVMe', '1 TB NVMe', `perkiraan atas ${gb(diskFor2(TEKS_ATAS))}; bukan HDD — pencarian vektor sensitif pada IOPS acak`],
+      ['Disk backup', '1 TB', '2 TB (terpisah)', 'snapshot Postgres + WAL archive'],
       ['GPU (opsional)', 'tidak perlu', 'RTX 4090 24GB', 'hanya bila LLM ikut dijalankan lokal'],
       ['Jaringan', '1 Gbps internal', '10 Gbps', 'egress keluar hanya bila menarik dari SharePoint Online'],
       ['OS', 'Ubuntu 22.04 LTS', 'Ubuntu 24.04 LTS', 'Docker + docker-compose'],
     ],
-    note: 'Rekomendasi ini SUDAH memperhitungkan optimasi dimensi vektor di slide sebelumnya. Tanpa optimasi itu, perkiraan atas (30 GB teks) menuntut 288 GB RAM — karena itu optimasinya kami jadikan syarat, bukan pilihan. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API. Catatan yang disengaja: angka RAM di atas BELUM memperhitungkan mode bertingkat, walaupun mode itu sudah terpasang dan secara rancangan menurunkan indeks residen ke 1–3 GB. Kami menahannya sampai recall-nya terukur pada korpus sebesar milik Anda — menjual spesifikasi yang lebih murah di atas angka yang belum diukur bukan kebiasaan kami. Bila pengukuran itu sesuai harapan, kebutuhan RAM turun jauh dan selisihnya menjadi keuntungan Anda, bukan tagihan tambahan.' },
+    note: `SPESIFIKASI INI TURUN dari revisi sebelumnya (64/128 GB), dan sebabnya perlu dibaca terbuka. Angka lama diturunkan sebelum dua optimasi masuk; sesudahnya, perkiraan atas ${TEKS_ATAS} GB teks menuntut ${gb(ramFor2(TEKS_ATAS))} pada mode langsung dan hanya ${gb(ramTiered(TEKS_ATAS))} pada mode bertingkat — bukan ${gb(ramFor(TEKS_ATAS))} seperti sebelum optimasi. Kami menurunkan penawarannya alih-alih menyimpan selisihnya; itu keputusan yang disengaja. Yang tetap kami tulis apa adanya: KEBENARAN mode bertingkat sudah diuji pada basis data sungguhan (hasilnya identik dengan mode langsung), tetapi korpus ujinya kecil — yang terbukti adalah jalurnya benar, BUKAN berapa recall-nya di puluhan juta potongan. Karena itu 64 GB tetap kami rekomendasikan: ia memuat mode langsung seutuhnya, sehingga bila pengukuran pada korpus Anda mengecewakan, mode bertingkat tinggal dimatikan tanpa membeli perangkat lagi. Tanpa GPU pun berjalan penuh: embedding di CPU, LLM lewat API. Memori untuk MELAYANI pengguna tak masuk hitungan ini secara berarti — seribu pertanyaan bersamaan menambah sekitar 2 GB, dan itu sudah tertutup ruang di atas.` },
 
   { kind: 'table', kicker: 'ARSITEKTUR PENYIMPANAN', title: 'Tidak semua harus tinggal di memori',
     small: true,
     headers: ['Rancangan', 'Yang residen di RAM', 'RAM', 'Disk', 'Status'],
     rows: [
-      ['Datar 1.536 dim — sebelum optimasi', 'seluruh 47 jt vektor', '282 GB', '901 GB', 'ditinggalkan'],
-      ['Datar dimensi asli — TERPASANG', 'seluruh 47 jt vektor, 4× lebih kecil', '69 GB', '603 GB', 'berjalan hari ini'],
-      ['BERTINGKAT — indeks di level dokumen', 'hanya ±200 rb vektor dokumen', '1–3 GB', '603 GB', 'TERPASANG — menyala otomatis'],
+      ['Datar 1.536 dim fp32 — keadaan awal', 'seluruh 47 jt vektor, tiga perempatnya nol',
+        gb(ramFor(TEKS_ATAS)), gb(diskFor(TEKS_ATAS)), 'ditinggalkan'],
+      ['Datar dimensi asli — tahap 1', 'seluruh 47 jt vektor, indeksnya 4× lebih kecil',
+        gb(ramTahap1(TEKS_ATAS)), gb(diskTahap1(TEKS_ATAS)), 'dilewati'],
+      ['Datar halfvec — tahap 2', 'seluruh 47 jt vektor, 2 byte per angka tanpa padding',
+        gb(ramFor2(TEKS_ATAS)), gb(diskFor2(TEKS_ATAS)), 'jalan mundur bila perlu'],
+      ['BERTINGKAT — indeks di level dokumen', 'hanya ±4,7 jt vektor DOKUMEN, bukan potongan',
+        gb(ramTiered(TEKS_ATAS)), gb(diskFor2(TEKS_ATAS)), 'TERPASANG — menyala otomatis'],
     ],
     note: 'Berkas asli SELALU tinggal di SharePoint — tak pernah disalin. Yang dibahas di sini hanya indeks pencariannya. Pada mode bertingkat, pencarian menyaring di tingkat DOKUMEN lebih dulu (indeks kecil, residen), lalu potongan dokumen terpilih dibaca dari disk sesuai kebutuhan — jadi RAM tak lagi tumbuh mengikuti besar korpus. Modenya menyala SENDIRI begitu sebuah knowledge base melewati ±200 ribu potongan; tak ada yang perlu dipilih operator, karena memilih mode retrieval menuntut penilaian yang pemilik data tak punya dasar untuk membuatnya. Dua hal yang perlu dibaca apa adanya: (1) KEBENARANNYA sudah diuji pada basis data sungguhan — hasil mode bertingkat identik dengan mode datar; tapi korpus ujinya kecil, jadi yang terbukti adalah jalurnya benar, BUKAN berapa recall-nya di ratusan ribu dokumen. Pengukuran itu terjadwal sebelum go-live. (2) Tukar-tambahnya nyata: dokumen yang terlewat di tingkat pertama tak akan dibaca di tingkat kedua. Dua penahan sudah terpasang — kandidat diambil jauh lebih banyak dari yang dipakai, dan pencarian kata/nomor/nama persis TIDAK ikut disaring sama sekali, sehingga tetap menyapu seluruh korpus apa pun modenya.' },
 
@@ -508,17 +530,17 @@ const proposal: Slide[] = [
     small: true,
     headers: ['Jalur', 'Isi', 'Perkiraan harga', 'Pertimbangan'],
     rows: [
-      ['Baru bermerek', 'Dell PowerEdge / HPE ProLiant · 2×Xeon Gold 32c · 256 GB · 2 TB NVMe · dual PSU · garansi pabrik 3 thn',
-        bothRange(12_000, 18_000), 'paling aman utk pengadaan & audit; suku cadang terjamin'],
+      ['Baru bermerek', 'Dell PowerEdge / HPE ProLiant · 2×Xeon Gold 32c · 64 GB · 1 TB NVMe · dual PSU · garansi pabrik 3 thn',
+        bothRange(8_000, 12_000), 'paling aman utk pengadaan & audit; suku cadang terjamin'],
       ['Refurbished enterprise', 'Dell R740/R750 rekondisi · spesifikasi sama · garansi reseller 1 thn',
-        bothRange(4_000, 7_500), 'sepertiga harga; perlu vendor rekondisi yang jelas'],
-      ['Rakitan', 'AMD EPYC / Threadripper · 256 GB ECC · NVMe konsumen',
-        bothRange(4_500, 8_000), 'termurah per-performa; garansi terpisah per komponen'],
+        bothRange(2_800, 5_000), 'sepertiga harga; perlu vendor rekondisi yang jelas'],
+      ['Rakitan', 'AMD EPYC / Threadripper · 64 GB ECC · NVMe konsumen',
+        bothRange(3_000, 5_500), 'termurah per-performa; garansi terpisah per komponen'],
       ['GPU (opsional)', 'RTX 4090 24GB — hanya bila LLM ikut lokal',
         bothRange(2_000, 3_000), 'tak perlu bila model bahasa lewat API'],
       ['Pendukung', 'UPS, rack, jaringan, instalasi fisik', bothRange(1_500, 4_000), 'sering terlewat saat menyusun anggaran'],
     ],
-    note: `PERKIRAAN PASAR ${RATE_AT}, kurs Rp${USD_IDR.toLocaleString('id-ID')}/USD — WAJIB diverifikasi dengan penawaran resmi vendor sebelum masuk anggaran. Catatan penting: harga RAM server 2026 sedang tinggi, dan 256 GB adalah komponen termahal di konfigurasi ini. Setelah optimasi dimensi vektor, 128 GB sudah memadai untuk perkiraan atas — selisihnya besar, jadi tetapkan kapasitas setelah ukuran korpus nyata terukur pada minggu pertama.` },
+    note: `PERKIRAAN PASAR ${RATE_AT}, kurs Rp${USD_IDR.toLocaleString('id-ID')}/USD — WAJIB diverifikasi dengan penawaran resmi vendor sebelum masuk anggaran. ANGKA INI TURUN dari revisi sebelumnya karena spesifikasi RAM-nya turun, bukan karena vendornya berubah: konfigurasi lama 256 GB, sekarang 64 GB. Harga RAM server 2026 sedang tinggi, jadi justru di komponen itulah selisihnya paling terasa. Pilih slot RAM yang masih menyisakan ruang kosong: menambah kapasitas setelah ukuran korpus nyata terukur pada minggu pertama jauh lebih murah daripada membeli berlebih di depan, dan pada arsitektur bertingkat kemungkinan besar tak perlu ditambah sama sekali.` },
 
   { kind: 'twocol', kicker: 'RUANG LINGKUP', title: 'Yang termasuk — dan yang tidak',
     cols: [
@@ -663,7 +685,7 @@ const hla: Slide[] = [
 
   { kind: 'anim', kicker: 'PENYIMPANAN', scene: 'storage',
     title: '1 GB berkas Drive jadi berapa di basis data',
-    note: 'Yang memenuhi basis data BUKAN teks dokumennya, melainkan vektornya — 6.148 byte melawan 680 byte, sembilan kali lipat. Itulah harga sebenarnya dari pencarian yang memahami makna, dan itu pula sebabnya optimasi dimensi vektor berdampak begitu besar. Semua angka di slide ini diukur dengan pg_column_size pada data produksi.' },
+    note: 'Dulu yang memenuhi basis data BUKAN teks dokumennya melainkan vektornya — 6.148 byte melawan 680 byte, sembilan kali lipat. Setelah halfvec dan berhentinya padding, vektornya tinggal 776 byte dan keduanya nyaris seimbang. Itulah sebabnya optimasi dimensi vektor berdampak sebesar itu: yang dipangkas adalah bagian yang paling besar. Semua angka di slide ini diukur dengan pg_column_size pada data produksi.' },
 
   { kind: 'anim', kicker: 'PENYIMPANAN', scene: 'scale',
     title: 'Dari 1 GB sampai 1 TB',
@@ -676,6 +698,18 @@ const hla: Slide[] = [
   { kind: 'anim', kicker: 'KAPASITAS', scene: 'capacity',
     title: 'Berapa banyak yang muat — Vercel, on-premise, AWS',
     note: 'Semua angka diturunkan dari pengukuran nyata: 2.852 byte per potongan di tabel dan ±804 byte indeksnya, diukur dengan pg_column_size pada data produksi setelah migrasi halfvec. Yang perlu dibaca: mode langsung dibatasi RAM, mode bertingkat dibatasi disk — dan menaikkan disk jauh lebih murah daripada menaikkan RAM. Angka Neon dan AWS adalah atap paket tertinggi masing-masing, bukan yang dipakai hari ini.' },
+
+  { kind: 'anim', kicker: 'MEMORI', scene: 'ramShape',
+    title: 'Memori terbagi tiga — hanya satu yang mengikuti jumlah pengguna',
+    note: 'Slide ini menjawab pertanyaan yang selalu datang dan paling mudah dijawab keliru: "kalau korpusnya sebesar itu, RAM-nya berapa?" Membaca ketiga bagian sebagai satu angka adalah sebab paling lazim orang salah menaksir server — terlalu besar di bagian yang tak perlu, terlalu kecil di bagian yang menentukan. Dua jenis angka dibedakan tegas di sini: byte per potongan dan per indeks TERUKUR dengan pg_column_size pada data produksi; kebutuhan per permintaan DITURUNKAN dari bentuk datanya dan belum diukur di bawah beban. Mencampur keduanya akan membuat yang terukur ikut diragukan, jadi keduanya ditandai apa adanya.' },
+
+  { kind: 'anim', kicker: 'MEMORI', scene: 'ramQuery',
+    title: 'Saat dicari — apa yang bertambah, dan berapa lama',
+    note: 'Yang paling penting di slide ini bukan angka manapun, melainkan baris terakhirnya: setelah jawaban selesai, semuanya dilepas. Memori tidak menumpuk mengikuti jumlah pertanyaan yang pernah dijawab. Yang tersisa hanya page cache, dan itu memang gunanya — pertanyaan berikutnya jadi lebih cepat karena potongan yang sama sudah ada di sana. Perhatikan juga tahap terakhir: sebagian besar umur sebuah permintaan dihabiskan MENUNGGU jawaban model, tidak memakai memori maupun CPU. Itulah yang membuat slide berikutnya angkanya sekecil itu.' },
+
+  { kind: 'anim', kicker: 'MEMORI', scene: 'ramUsers',
+    title: '100 · 500 · 1.000 pengguna bersamaan',
+    note: 'Sepuluh kali penggunanya, memorinya naik ±40% — bukan sepuluh kali lipat. Dua batas struktural yang membuatnya begitu: kolam koneksi basis data memberi ATAP pada berapa kueri benar-benar berjalan serentak, dan satu pertanyaan hanya memakai ±15 milidetik kerja basis data di dalam rentang ±3 detik menunggu model. Seribu pengguna bersamaan menuntut sekitar dua inti CPU, bukan seribu. Yang perlu dibaca pemilik anggaran: yang tumbuh mengikuti pengguna bukan spesifikasi server, melainkan tagihan model bahasa — kapasitas dibayar sekali, menjawab dibayar tiap kali. "Bersamaan" di sini berarti pertanyaan yang sedang berjalan pada detik yang sama, bukan jumlah pengguna terdaftar; keduanya biasanya berbeda dua sampai tiga angka nol.' },
 
   { kind: 'anim', kicker: 'BATAS PLATFORM', scene: 'vercel',
     title: 'Batas Vercel yang benar-benar terasa',

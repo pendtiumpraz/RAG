@@ -27,9 +27,13 @@ const CHAR_PER_CHUNK = 680;
 /** Atap tiap pilihan infrastruktur — RAM menentukan mode langsung, disk mode bertingkat. */
 const ATAP = [
   { id: 'neon', t: 'Vercel Pro + Neon', ram: 64, disk: 2_000, n: 'atap tertinggi Neon: 16 CU' },
-  { id: 'onprem-64', t: 'On-premise 64 GB', ram: 64, disk: 2_000, n: 'server milik pelanggan — spesifikasi minimum proposal' },
-  { id: 'onprem-128', t: 'On-premise 128 GB', ram: 128, disk: 4_000, n: 'server milik pelanggan — spesifikasi yang direkomendasikan proposal' },
-  { id: 'onprem-256', t: 'On-premise 256 GB', ram: 256, disk: 8_000, n: 'server milik pelanggan — di atas rekomendasi' },
+  /* Turun satu tingkat sejak halfvec (0035): perkiraan atas korpus 1 TB
+     menuntut 35 GB pada mode langsung, bukan 69 GB, jadi spesifikasi proposal
+     ikut turun jadi 32/64 GB. Preset di sini mengikuti proposal — kalkulator
+     yang menawarkan spesifikasi yang tak lagi kami jual hanya membingungkan. */
+  { id: 'onprem-32', t: 'On-premise 32 GB', ram: 32, disk: 1_000, n: 'server milik pelanggan — spesifikasi minimum proposal' },
+  { id: 'onprem-64', t: 'On-premise 64 GB', ram: 64, disk: 2_000, n: 'server milik pelanggan — spesifikasi yang direkomendasikan proposal' },
+  { id: 'onprem-128', t: 'On-premise 128 GB', ram: 128, disk: 4_000, n: 'server milik pelanggan — di atas rekomendasi' },
   { id: 'aws', t: 'AWS memori besar', ram: 768, disk: 16_000, n: 'instans terbesar, biaya tertinggi' },
 ] as const;
 

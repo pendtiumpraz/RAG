@@ -260,34 +260,56 @@ export function SceneTiers() {
 
       {/* Perbandingan RAM — batang tumbuh, angkanya terukur */}
       <g className="an-in" style={{ ['--d' as string]: '2.5s' }}>
-        <line x1="400" y1="30" x2="400" y2="236" className="sc-line" />
+        <line x1="400" y1="30" x2="400" y2="244" className="sc-line" />
         <text x="424" y="48" className="sc-k">kebutuhan memori · korpus 1 TB</text>
       </g>
 
-      <g className="an-in" style={{ ['--d' as string]: '2.7s' }}>
-        <text x="424" y="76" className="sc-s">Datar, vektor berpadding</text>
-      </g>
-      <rect x="424" y="84" width="300" height="16" rx="3" fill={NAVY} opacity="0.15"
-        className="an-bar" style={{ ['--d' as string]: '2.8s' }} />
-      <text x="732" y="96" textAnchor="end" className="sc-t an-in" style={{ ['--d' as string]: '3.3s' }}>282 GB</text>
+      {/* EMPAT keadaan, bukan tiga: sejak halfvec ada dua tahap optimasi yang
+          berbeda sifatnya, dan menggabungkannya jadi satu batang akan
+          menyembunyikan bahwa penghematan terbesar datang dari berhenti
+          memberi padding — bukan dari mode bertingkat.
 
-      <g className="an-in" style={{ ['--d' as string]: '3.0s' }}>
-        <text x="424" y="126" className="sc-s">Datar, dimensi asli — terpasang</text>
-      </g>
-      <rect x="424" y="134" width="74" height="16" rx="3" fill={BIRU} opacity="0.75"
-        className="an-bar" style={{ ['--d' as string]: '3.1s' }} />
-      <text x="508" y="146" className="sc-t an-in" style={{ ['--d' as string]: '3.6s' }}>69 GB</text>
+          Lebar batang DIHITUNG dari byte indeksnya, tak diketik: batang yang
+          diketik tangan akan berbohong diam-diam pada optimasi berikutnya. */}
+      {(() => {
+        const POTONGAN_1TB = 47.4e6;          // 30 GB teks (rasio perencanaan 3%)
+        const W_MAX = 300;
+        const keadaan = [
+          { t: 'Datar, vektor 1.536 berpadding', b: 6_400, c: NAVY, o: 0.15, s: 'ditinggalkan' },
+          { t: 'Datar, dimensi asli', b: 1_572, c: NAVY, o: 0.4, s: 'tahap 1' },
+          { t: 'Datar, halfvec — terpasang', b: 804, c: BIRU, o: 0.75, s: 'tahap 2' },
+          { t: 'Bertingkat — terpasang', b: 804 / 10, c: HIJAU, o: 1, s: 'menyala sendiri' },
+        ];
+        const gib = (b: number) => (POTONGAN_1TB * b) / 1024 ** 3;
+        const maks = gib(keadaan[0].b);
+        return keadaan.map((k, i) => {
+          const yl = 72 + i * 38;
+          const w = Math.max(4, (gib(k.b) / maks) * W_MAX);
+          const nilai = gib(k.b);
+          return (
+            <g key={k.t}>
+              <g className="an-in" style={{ ['--d' as string]: `${2.7 + i * 0.3}s` }}>
+                <text x="424" y={yl} className="sc-s">{k.t}</text>
+                <text x="736" y={yl} textAnchor="end" className="sc-m" style={{ fontSize: 7.5 }}>{k.s}</text>
+              </g>
+              <rect x="424" y={yl + 6} width={w} height="15" rx="3" fill={k.c} opacity={k.o}
+                className="an-bar" style={{ ['--d' as string]: `${2.8 + i * 0.3}s`, transformOrigin: '424px center' }} />
+              {/* Batang terpanjang mengisi kolomnya habis, jadi angkanya
+                  dipindah KE DALAM — di luar ia akan meluber lewat x=760. */}
+              <text x={w > 240 ? 424 + w - 8 : 424 + w + 8} y={yl + 18}
+                textAnchor={w > 240 ? 'end' : 'start'}
+                className="sc-t an-in"
+                style={{ ['--d' as string]: `${3.1 + i * 0.3}s` }}>
+                {nilai >= 10 ? `${Math.round(nilai)} GB` : `${nilai.toFixed(1).replace('.', ',')} GB`}
+              </text>
+            </g>
+          );
+        });
+      })()}
 
-      <g className="an-in" style={{ ['--d' as string]: '3.3s' }}>
-        <text x="424" y="176" className="sc-s">Bertingkat — terpasang</text>
-      </g>
-      <rect x="424" y="184" width="5" height="16" rx="2" fill={HIJAU}
-        className="an-bar" style={{ ['--d' as string]: '3.4s' }} />
-      <text x="438" y="196" className="sc-t an-in" style={{ ['--d' as string]: '3.9s' }}>1–3 GB</text>
-
-      <g className="an-in" style={{ ['--d' as string]: '4.1s' }}>
-        <text x="424" y="224" className="sc-s">Angka bertingkat berasal dari rancangan;</text>
-        <text x="424" y="236" className="sc-s">pengukurannya pada korpus sebesar milik Anda menyusul.</text>
+      <g className="an-in" style={{ ['--d' as string]: '4.2s' }}>
+        <text x="424" y="230" className="sc-s">Ketiga optimasi sudah terpasang &amp; terukur pada data sungguhan;</text>
+        <text x="424" y="242" className="sc-s">recall mode bertingkat pada korpus sebesar milik Anda menyusul.</text>
       </g>
     </svg>
   );
@@ -509,6 +531,7 @@ import { SceneTokens, SceneCosts } from './scenes-cost';
 import { ScenePlans, SceneCapacity, SceneVercel } from './scenes-limits';
 import { SceneStorage, SceneScale } from './scenes-storage';
 import { SceneDims, SceneHalfvec } from './scenes-vector';
+import { SceneRamShape, SceneRamQuery, SceneRamUsers } from './scenes-ram';
 
 export const SCENES: Record<SceneId, () => React.ReactElement> = {
   ingest: SceneIngest,
@@ -528,4 +551,7 @@ export const SCENES: Record<SceneId, () => React.ReactElement> = {
   scale: SceneScale,
   dims: SceneDims,
   halfvec: SceneHalfvec,
+  ramShape: SceneRamShape,
+  ramQuery: SceneRamQuery,
+  ramUsers: SceneRamUsers,
 };

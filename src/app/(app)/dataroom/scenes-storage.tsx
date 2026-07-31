@@ -4,14 +4,16 @@
  * Semua angka DIUKUR pada data produksi dengan `pg_column_size`, bukan
  * diperkirakan:
  *
- *   rata-rata satu potongan  8.228 byte
- *     ├── vektor embedding   6.148 byte   (74,7%)
- *     ├── teks isinya          680 byte   ( 8,3%)
- *     └── sisanya            1.400 byte   (id, judul, metadata, indeks teks)
+ *   rata-rata satu potongan  2.852 byte   (sebelum halfvec: 8.228)
+ *     ├── vektor embedding     776 byte   (27,2%)  — dulu 6.148 (74,7%)
+ *     ├── teks isinya          680 byte   (23,8%)
+ *     └── sisanya            1.396 byte   (id, judul, metadata, indeks teks)
  *
  * Fakta yang paling sering mengejutkan orang, dan yang membuat adegan ini
- * layak jadi slide sendiri: yang memenuhi basis data BUKAN teks dokumennya,
- * melainkan vektornya — sembilan kali lebih besar dari teks yang diwakilinya.
+ * layak jadi slide sendiri: DULU yang memenuhi basis data bukan teks
+ * dokumennya melainkan vektornya — sembilan kali lebih besar dari teks yang
+ * diwakilinya. Justru karena bagian itulah yang terbesar, memangkasnya
+ * (halfvec + berhenti memberi padding) menurunkan seluruh barisnya 2,9×.
  */
 
 const BIRU = '#2563EB';
@@ -35,7 +37,7 @@ export function SceneStorage() {
   const sumber = 1e9;                                   // 1 GB
   const teks = sumber * RASIO_TEKS;                     // ±20 MB
   const potongan = teks / CHAR_PER_POTONGAN;            // ±29.400
-  const db = potongan * (BYTE_BARIS + BYTE_INDEKS);     // ±288 MB
+  const db = potongan * (BYTE_BARIS + BYTE_INDEKS);     // ±108 MB (dulu ±288)
 
   const bagian = [
     { t: 'Vektor embedding', b: BYTE_VEKTOR, c: BIRU, n: '384 angka × 2 byte (halfvec)' },
@@ -80,7 +82,9 @@ export function SceneStorage() {
 
       {/* apa isi satu potongan — inilah bagian yang mengejutkan */}
       <g className="an-in" style={{ ['--d' as string]: '1.4s' }}>
-        <text x="0" y="140" className="sc-k">isi satu potongan · 8.228 byte</text>
+        <text x="0" y="140" className="sc-k">
+          isi satu potongan · {BYTE_BARIS.toLocaleString('id-ID')} byte
+        </text>
       </g>
       {(() => {
         let x = 0;
@@ -145,7 +149,8 @@ export const SceneStorageDefault = SceneStorage;
  *
  * Merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan
  * memori enam bulan setelah pemasangan. Angka 3% inilah yang dipakai slide
- * proposal on-premise (69 GB RAM untuk 1 TB), jadi kedua dek tak berselisih.
+ * proposal on-premise (35 GB RAM mode langsung untuk 1 TB, 3,5 GB mode
+ * bertingkat), jadi kedua dek tak berselisih.
  */
 export function SceneScale() {
   const skala = [
@@ -213,16 +218,33 @@ export function SceneScale() {
         );
       })}
 
-      <g className="an-in" style={{ ['--d' as string]: '1.2s' }}>
-        <rect x="0" y="204" width="374" height="42" rx="6" fill="#EFF6FF" stroke={BIRU} strokeWidth="1.5" />
-        <text x="14" y="222" className="sc-t">Korpus 1 TB: 46–69 GB RAM mode langsung.</text>
-        <text x="14" y="237" className="sc-s">Melewati atap Neon — inilah yang menuntut server sendiri.</text>
-      </g>
-      <g className="an-in" style={{ ['--d' as string]: '1.4s' }}>
-        <rect x="386" y="204" width="374" height="42" rx="6" fill="#ECFDF5" stroke={HIJAU} strokeWidth="1.5" />
-        <text x="400" y="222" className="sc-t">Mode bertingkat: 4,6–6,9 GB.</text>
-        <text x="400" y="237" className="sc-s">Korpus yang sama, memori sepersepuluhnya.</text>
-      </g>
+      {/* Rentangnya DIHITUNG, tak diketik: sekali angka ini diketik tangan ia
+          akan basi diam-diam pada optimasi berikutnya — persis yang terjadi
+          pada versi sebelum halfvec. */}
+      {(() => {
+        const a = hitung(1e12, 0.02);
+        const c = hitung(1e12, 0.03);
+        const r = (lo: number, hi: number) =>
+          `${sz(lo).replace(' GB', '')}–${sz(hi)}`;
+        return (
+          <>
+            <g className="an-in" style={{ ['--d' as string]: '1.2s' }}>
+              <rect x="0" y="204" width="374" height="42" rx="6" fill="#EFF6FF" stroke={BIRU} strokeWidth="1.5" />
+              <text x="14" y="222" className="sc-t">
+                Korpus 1 TB: {r(a.ramDatar, c.ramDatar)} RAM mode langsung.
+              </text>
+              <text x="14" y="237" className="sc-s">Melewati atap Neon — inilah yang menuntut server sendiri.</text>
+            </g>
+            <g className="an-in" style={{ ['--d' as string]: '1.4s' }}>
+              <rect x="386" y="204" width="374" height="42" rx="6" fill="#ECFDF5" stroke={HIJAU} strokeWidth="1.5" />
+              <text x="400" y="222" className="sc-t">
+                Mode bertingkat: {r(a.ramTingkat, c.ramTingkat)}.
+              </text>
+              <text x="400" y="237" className="sc-s">Korpus yang sama, memori sepersepuluhnya.</text>
+            </g>
+          </>
+        );
+      })()}
     </svg>
   );
 }

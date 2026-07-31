@@ -6,7 +6,21 @@ process.env.DATABASE_URL ??= 'postgres://x:y@localhost:5432/z';
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= '0'.repeat(64);
 
 const DECKS = readFileSync('src/app/(app)/dataroom/decks.ts', 'utf8');
-const SCENES = readFileSync('src/app/(app)/dataroom/scenes.tsx', 'utf8');
+/**
+ * SELURUH berkas adegan, bukan scenes.tsx saja.
+ *
+ * Adegan sudah lama dipecah ke beberapa berkas (biaya, batas, penyimpanan,
+ * vektor, memori), tetapi tes ini masih membaca satu berkas — jadi pemeriksaan
+ * gradien, glow, dan aria-label diam-diam TIDAK berlaku pada adegan yang
+ * ditulis belakangan. Membaca semuanya menutup celah itu.
+ */
+const BERKAS_ADEGAN = [
+  'scenes.tsx', 'scenes-cost.tsx', 'scenes-limits.tsx',
+  'scenes-storage.tsx', 'scenes-vector.tsx', 'scenes-ram.tsx',
+];
+const SCENES = BERKAS_ADEGAN
+  .map((f) => readFileSync(`src/app/(app)/dataroom/${f}`, 'utf8'))
+  .join('\n');
 const EXPORT = readFileSync('src/app/(app)/dataroom/export.ts', 'utf8');
 const CSS = readFileSync('src/app/(app)/dataroom/dataroom.css', 'utf8');
 
@@ -28,8 +42,12 @@ test('tiap adegan punya komponen SVG DAN padanan teks', async () => {
 
 test('setiap slide anim menunjuk adegan yang benar-benar ada', async () => {
   const { SCENE_STEPS } = await load();
-  const dipakai = [...DECKS.matchAll(/scene: '([a-z]+)'/g)].map((m) => m[1]);
+  // [a-zA-Z], bukan [a-z]: pola lama diam-diam MELEWATI id camelCase seperti
+  // "ramShape", jadi slide yang menunjuk adegan tak terdaftar akan lolos tes
+  // tanpa suara. Tes yang tak menjaring apa-apa lebih buruk daripada tak ada.
+  const dipakai = [...DECKS.matchAll(/scene: '([a-zA-Z]+)'/g)].map((m) => m[1]);
   assert.ok(dipakai.length >= 8, 'dek HLA kehilangan slide ilustrasi');
+  assert.ok(dipakai.some((s) => /[A-Z]/.test(s)), 'pola penjaring tak lagi menangkap id camelCase');
   for (const s of dipakai) {
     assert.ok(s in SCENE_STEPS, `slide menunjuk adegan "${s}" yang tak terdaftar`);
   }
@@ -76,4 +94,68 @@ test('tiap adegan punya label aksesibilitas', () => {
   }
   const labels = [...SCENES.matchAll(/aria-label="/g)];
   assert.ok(labels.length >= svg.length, 'ada adegan tanpa aria-label');
+});
+
+/* ══ MEMORI — tiga slide yang paling mudah dibaca keliru ═══════════════ */
+
+const RAM = readFileSync('src/app/(app)/dataroom/scenes-ram.tsx', 'utf8');
+
+test('dek HLA memuat ketiga slide memori', async () => {
+  // Ketiganya menjawab satu pertanyaan bertingkat — apa yang tetap, apa yang
+  // bertambah saat mencari, dan berapa pada 100/500/1.000 pengguna. Hilang
+  // satu, sisanya berubah arti: tanpa yang pertama angka konkurensinya
+  // terbaca sebagai TOTAL, dan pembacanya akan menaksir server terlalu kecil.
+  const { SCENE_STEPS } = await load();
+  for (const id of ['ramShape', 'ramQuery', 'ramUsers'] as const) {
+    assert.ok(id in SCENE_STEPS, `padanan teks "${id}" hilang`);
+    assert.ok(DECKS.includes(`scene: '${id}'`), `slide "${id}" tak ada di dek`);
+  }
+});
+
+test('angka terukur dan angka turunan DIBEDAKAN, tidak dicampur', async () => {
+  // Mencampur keduanya membuat yang terukur ikut diragukan. Byte per potongan
+  // memang diukur dengan pg_column_size; kebutuhan per permintaan tidak —
+  // dan itu harus terbaca di slidenya sendiri, bukan cuma di komentar kode.
+  const { SCENE_STEPS } = await load();
+  assert.ok(/TERUKUR/.test(RAM) && /DITURUNKAN/.test(RAM),
+    'adegan memori tak lagi membedakan angka terukur dari angka turunan');
+  const teks = SCENE_STEPS.ramShape.map((s) => `${s.t} ${s.d}`).join(' ');
+  assert.ok(/belum diukur di bawah beban/i.test(teks),
+    'padanan teks memori tak menyebut batas angkanya — di PPTX peringatan itu hilang');
+});
+
+test('kebutuhan memori tidak tumbuh lurus mengikuti pengguna', async () => {
+  // Inilah isi slidenya, dan ia hanya benar selama kolam koneksi memberi ATAP
+  // pada kueri serentak. Bila suatu saat Math.min(n, KOLAM) diganti jadi n,
+  // angka di slide berbohong — dan tes ini yang menangkapnya.
+  assert.ok(/Math\.min\(n, KOLAM\)/.test(RAM),
+    'bagian basis data tak lagi dibatasi kolam koneksi — angka slide jadi salah');
+
+  const { SCENE_STEPS } = await load();
+  const gb = SCENE_STEPS.ramUsers
+    .map((s) => /±([\d,]+) GB/.exec(s.t)?.[1])
+    .filter(Boolean)
+    .map((v) => Number(v!.replace(',', '.')));
+  assert.equal(gb.length, 3, 'tiga skenario pengguna tak lagi menyebut angkanya');
+  const [seratus, , seribu] = gb;
+  assert.ok(seribu < seratus * 2,
+    `sepuluh kali pengguna menaikkan memori jadi ${seribu} GB dari ${seratus} GB — itu pertumbuhan lurus, periksa modelnya`);
+});
+
+test('spesifikasi server proposal menutup mode langsung, bukan cuma bertingkat', () => {
+  // Mode bertingkat sudah terpasang, tapi recall-nya BELUM diukur pada korpus
+  // sebesar milik klien. Selama itu belum terjadi, RAM yang direkomendasikan
+  // harus tetap memuat mode langsung seutuhnya — supaya mode bertingkat bisa
+  // dimatikan tanpa membeli perangkat lagi. Menjual 32 GB saja berarti
+  // menjanjikan sesuatu yang belum terukur.
+  const baris = /\['RAM', '(\d+) GB', '(\d+) GB'/.exec(DECKS);
+  assert.ok(baris, 'baris RAM di tabel spesifikasi server berubah bentuk');
+  const [, min, rekomendasi] = baris!;
+
+  // 47,4 jt potongan (30 GB teks, rasio perencanaan 3%) × 804 byte indeks.
+  const langsungGb = (47.4e6 * 804) / 1024 ** 3;
+  assert.ok(Number(rekomendasi) >= langsungGb,
+    `rekomendasi ${rekomendasi} GB tak memuat mode langsung (${langsungGb.toFixed(0)} GB)`);
+  assert.ok(Number(min) < Number(rekomendasi), 'minimum tak lagi di bawah rekomendasi');
+  assert.ok(!/'128 GB', '256 GB'/.test(DECKS), 'spesifikasi lama pra-halfvec masih terpasang');
 });

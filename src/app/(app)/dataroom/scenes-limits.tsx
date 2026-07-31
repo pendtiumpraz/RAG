@@ -154,8 +154,11 @@ export function SceneCapacity() {
       n: 'atap tertinggi Neon — di atasnya harus pindah',
     },
     {
-      t: 'On-premise', s: 'server 128 GB RAM · 2 TB NVMe',
-      ram: 128, disk: 2_000, c: HIJAU,
+      /* Turun dari 128 GB: setelah halfvec, perkiraan atas korpus 1 TB
+         menuntut 35 GB pada mode langsung — bukan 69 GB. Angka di proposal
+         ikut turun, jadi kedua dek tak boleh berselisih. */
+      t: 'On-premise', s: 'server 64 GB RAM · 1 TB NVMe',
+      ram: 64, disk: 1_000, c: HIJAU,
       n: 'batasnya perangkat, bukan paket — bisa ditambah',
     },
     {
