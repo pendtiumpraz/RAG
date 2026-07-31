@@ -36,6 +36,9 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
     // membuatnya duduk paling bawah dan terpotong di jendela pendek
     { href: '/dataroom', label: 'Dataroom', icon: 'book', superadmin: true },
     { href: '/settings', label: 'Settings', icon: 'gear' },
+    // Panduan diletakkan PALING BAWAH dan tanpa gerbang fitur: yang paling
+    // butuh membacanya adalah tenant paket gratis di hari pertama.
+    { href: '/bantuan', label: 'Panduan', icon: 'book' },
   ] },
 ];
 

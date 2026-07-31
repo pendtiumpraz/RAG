@@ -5,6 +5,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/modules/core/jobs';
 import { audit } from '@/modules/core/guardrails';
 import { periksaSync, terbitkanPeringatan } from '@/modules/core/alerts';
+import { TEXT_EXT, DOC_EXT } from './format';
 import { batasSync } from './sync-limits';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
@@ -539,8 +540,10 @@ async function connect(
 
 /* ── ekstraksi teks ───────────────────────────────────────────────── */
 
-const TEXT_EXT = ['.txt', '.md', '.markdown', '.csv', '.json', '.log', '.yaml', '.yml'];
-const DOC_EXT = ['.html', '.htm', '.pdf', '.docx'];
+/* Daftarnya tinggal di ./format supaya halaman bantuan membaca sumber yang
+   SAMA. Menyalinnya ke sana dengan tangan berarti janji kepada pengguna
+   berhenti benar begitu satu ekstensi ditambahkan di sini — tanpa ada yang
+   gagal, dan tanpa ada yang tahu. */
 
 /**
  * Bisakah file ini jadi teks? Dipakai SEBELUM download agar format tak
