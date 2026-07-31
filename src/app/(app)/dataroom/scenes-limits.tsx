@@ -5,9 +5,9 @@
  * kode, bukan diketik ulang di slide. Kalau kuotanya diubah, slide ikut, dan
  * presentasi tak pernah menjanjikan sesuatu yang produknya tak lakukan.
  *
- * Angka kapasitas server diturunkan dari SATU pengukuran nyata: 8.189 byte
- * per potongan di tabel (diukur dengan pg_column_size pada data produksi) dan
- * ±1.570 byte per potongan untuk indeks berdimensi asli. Semua sisanya
+ * Angka kapasitas server diturunkan dari dua angka terukur: 2.852 byte per
+ * potongan di tabel (pg_column_size pada data produksi, SETELAH halfvec) dan
+ * ±804 byte per potongan untuk indeks berdimensi asli. Semua sisanya
  * aritmetika dari dua angka itu — dan asumsinya ditulis di slide, bukan
  * disembunyikan.
  */
@@ -132,9 +132,9 @@ export function ScenePlans() {
 /* ── kapasitas infrastruktur ────────────────────────────────────────── */
 
 /** Diukur di produksi dengan pg_column_size — bukan perkiraan. */
-const BYTE_BARIS = 8_189;
-/** Indeks vektor berdimensi asli, per potongan (4,07× lebih kecil dari 1.536 dim). */
-const BYTE_INDEKS = 1_572;
+const BYTE_BARIS = 2_852;   // setelah halfvec (0035)
+/** Indeks vektor berdimensi asli + halfvec, per potongan. */
+const BYTE_INDEKS = 804;    // setelah halfvec (0035)
 /** Rata-rata potongan per dokumen pada korpus perkantoran. */
 const POTONGAN_PER_DOK = 10;
 
@@ -169,7 +169,7 @@ export function SceneCapacity() {
     <svg viewBox="0 0 760 278" role="img"
       aria-label="Kapasitas Vercel dengan Neon, on-premise, dan AWS dalam jumlah potongan dan dokumen">
       <text x="0" y="14" className="sc-k">
-        diturunkan dari 8.189 byte/potongan terukur · mode bertingkat mengubah atapnya sama sekali
+        diturunkan dari 2.852 byte/potongan terukur (setelah halfvec) · mode bertingkat mengubah atapnya sama sekali
       </text>
 
       {baris.map((b, i) => {

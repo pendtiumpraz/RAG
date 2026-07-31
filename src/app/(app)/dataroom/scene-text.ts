@@ -107,7 +107,7 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Kuota per POTONGAN, bukan per gigabyte', d: 'Potonganlah satuan biaya yang nyata. Dua pelanggan dengan berkas sama besar bisa menghabiskan jatah jauh berbeda: PDF hasil pindai nyaris tak berisi teks, CSV hampir seluruhnya teks.' },
   ],
   capacity: [
-    { t: 'Dasar perhitungan', d: '8.189 byte per potongan di tabel (diukur dengan pg_column_size pada data produksi) + ±1.570 byte indeks berdimensi asli. Sisanya aritmetika.' },
+    { t: 'Dasar perhitungan', d: '2.852 byte per potongan di tabel + ±804 byte indeksnya, diukur dengan pg_column_size pada data produksi setelah halfvec. Sisanya aritmetika.' },
     { t: 'Vercel Pro + Neon', d: 'Atap tertinggi Neon adalah 16 CU / 64 GB RAM. Mode langsung: ±40 juta potongan. Di atas itu tak ada paket yang lebih besar — harus pindah.' },
     { t: 'On-premise 128 GB', d: 'Mode langsung ±80 juta potongan; mode bertingkat dibatasi disk, bukan RAM. Batasnya perangkat yang dibeli, dan bisa ditambah kapan saja.' },
     { t: 'AWS RDS / Aurora', d: 'Instans memori besar mencapai 768 GB RAM — atap tertinggi dari ketiganya, dengan biaya bulanan yang juga tertinggi.' },

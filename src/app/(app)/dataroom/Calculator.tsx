@@ -13,8 +13,8 @@ const CHAR_PER_CHUNK = 680;
  * KALKULATOR KAPASITAS — simulasi "berapa penyewa yang muat".
  *
  * Semua rumusnya bertumpu pada DUA angka terukur, bukan perkiraan:
- *   • 8.189 byte per potongan di tabel (pg_column_size, data produksi)
- *   • ±1.570 byte per potongan untuk indeks vektor berdimensi asli
+ *   • 2.852 byte per potongan di tabel (pg_column_size, SETELAH halfvec 0035)
+ *   • ±804 byte per potongan untuk indeks vektor berdimensi asli + halfvec
  * dan pada kuota yang benar-benar ditegakkan di `core/limits.ts`. Kalau
  * kuotanya diubah, kalkulator ini ikut berubah — tak ada dua kebenaran.
  *
@@ -93,7 +93,7 @@ export default function Calculator() {
         <p className="desc">
           Geser jumlah penyewa tiap paket untuk melihat berapa yang muat sebelum
           infrastrukturnya harus naik. Dua angka dasarnya terukur di produksi:
-          <b> 8.189 byte per potongan</b> di tabel dan <b>±1.570 byte</b> untuk
+          <b> 2.852 byte per potongan</b> di tabel dan <b>±804 byte</b> untuk
           indeks vektornya. Kuota paket diambil langsung dari <code>core/limits.ts</code>.
         </p>
 

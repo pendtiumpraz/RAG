@@ -20,10 +20,10 @@ const HIJAU = '#059669';
 const ABU = '#94A3B8';
 
 /* Terukur di produksi. Diubah hanya bila diukur ulang, bukan diperkirakan. */
-const BYTE_VEKTOR = 6_148;
+const BYTE_VEKTOR = 776;    // halfvec 384 dim; sebelumnya 6.148 (vector 1536)
 const BYTE_TEKS = 680;
-const BYTE_BARIS = 8_228;
-const BYTE_INDEKS = 1_572;
+const BYTE_BARIS = 2_852;   // setelah halfvec (0035); sebelumnya 8.228
+const BYTE_INDEKS = 804;    // setelah halfvec; sebelumnya 1.572
 /** Potongan maju ±680 karakter (800 dikurangi tumpang tindih 120). */
 const CHAR_PER_POTONGAN = 680;
 /** Bagian berkas kantoran yang benar-benar jadi teks. Rentang lazim 1–3%. */
@@ -38,7 +38,7 @@ export function SceneStorage() {
   const db = potongan * (BYTE_BARIS + BYTE_INDEKS);     // ±288 MB
 
   const bagian = [
-    { t: 'Vektor embedding', b: BYTE_VEKTOR, c: BIRU, n: '1.536 angka × 4 byte' },
+    { t: 'Vektor embedding', b: BYTE_VEKTOR, c: BIRU, n: '384 angka × 2 byte (halfvec)' },
     { t: 'Sisanya', b: BYTE_BARIS - BYTE_VEKTOR - BYTE_TEKS, c: ABU, n: 'id, judul, metadata, indeks teks' },
     { t: 'Teks dokumennya', b: BYTE_TEKS, c: AMBER, n: '±680 karakter' },
   ];
@@ -104,10 +104,10 @@ export function SceneStorage() {
 
       <g className="an-in" style={{ ['--d' as string]: '2.5s' }}>
         <rect x="580" y="140" width="180" height="66" rx="6" fill="#EFF6FF" stroke={BIRU} strokeWidth="1.5" />
-        <text x="594" y="160" className="sc-t">Vektornya 9×</text>
-        <text x="594" y="174" className="sc-t">lebih besar dari</text>
-        <text x="594" y="188" className="sc-t">teks yang diwakili.</text>
-        <text x="594" y="200" className="sc-m">itulah biaya sebenarnya</text>
+        <text x="594" y="160" className="sc-t">Vektornya kini</text>
+        <text x="594" y="174" className="sc-t">27% dari baris,</text>
+        <text x="594" y="188" className="sc-t">dulu 75%.</text>
+        <text x="594" y="200" className="sc-m">halfvec + tanpa padding</text>
       </g>
 
       <g className="an-in" style={{ ['--d' as string]: '2.8s' }}>

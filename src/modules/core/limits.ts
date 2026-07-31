@@ -36,11 +36,22 @@ export interface PlanLimits {
 /**
  * Ukuran nyata satu potongan di basis data — diukur dengan pg_column_size
  * pada data produksi, bukan diperkirakan. Dipakai untuk MENERJEMAHKAN kuota
- * potongan jadi angka yang dimengerti manusia ("±160 MB teks").
+ * potongan jadi angka yang dimengerti manusia.
+ *
+ * TURUN DARI 8.228 SETELAH MIGRASI 0035 (halfvec tanpa batas dimensi):
+ * kolom vektornya sendiri 6.148 → 776 byte. Angka lama masih tersebar di
+ * catatan lama; yang berlaku adalah yang ini.
  */
-export const BYTES_PER_CHUNK = 8_189;
-/** Indeks vektor berdimensi asli, per potongan. Residen di RAM (mode datar). */
-export const INDEX_BYTES_PER_CHUNK = 1_572;
+export const BYTES_PER_CHUNK = 2_852;
+/**
+ * Indeks vektor per potongan — INILAH yang harus residen di RAM.
+ *
+ * Diturunkan dari komposisinya, bukan dibagi dari indeks kecil (indeks 34
+ * baris didominasi overhead tetap HNSW sehingga pembagiannya menyesatkan):
+ * indeks = vektor + overhead graf. Sebelum halfvec 1.544 + 28 = 1.572;
+ * sesudahnya 776 + 28 = 804.
+ */
+export const INDEX_BYTES_PER_CHUNK = 804;
 /** Rata-rata potongan per dokumen perkantoran (±800 karakter per potongan). */
 export const CHUNKS_PER_DOC = 10;
 

@@ -132,7 +132,7 @@ const listrik = (wattRata: number) =>
 const technical: Slide[] = [
   { kind: 'cover', kicker: 'TECHNICAL DECK · CONFIDENTIAL', title: 'Nalar',
     subtitle: 'Mesin RAG multi-tenant — reasoning, sourced. SaaS & on-premise dari satu codebase.',
-    foot: 'rag.sainskerta.net · PT Sainskerta Solusi Nusantara' },
+    foot: 'Nalar — RAG Nalar' },
 
   { kind: 'flow', kicker: 'ARSITEKTUR', title: 'Modular monolith — satu deploy, batas modul tegas',
     steps: [
@@ -196,7 +196,7 @@ const technical: Slide[] = [
     ],
     note: 'Kapasitas plan DB 512MB ±30rb chunk (±20MB teks bersih); partisi per-KB disiapkan bila mendekati 100rb.' },
 
-  { kind: 'table', kicker: 'SPESIFIKASI · SAAS', title: 'Infrastruktur produksi saat ini (rag.sainskerta.net)',
+  { kind: 'table', kicker: 'SPESIFIKASI · SAAS', title: 'Infrastruktur produksi saat ini',
     headers: ['Komponen', 'Spesifikasi', 'Catatan'],
     rows: [
       ['Compute', 'Vercel serverless · Node.js · ±2GB RAM/fungsi', 'maxDuration 60 dtk utk sync/memory'],
@@ -231,14 +231,14 @@ const technical: Slide[] = [
 
   { kind: 'closing', title: 'Reasoning, sourced.',
     subtitle: 'Satu codebase — SaaS multi-tenant dan on-premise penuh. Setiap klaim di deck ini bisa ditelusuri ke kode dan pengukuran produksinya.',
-    foot: 'rag.sainskerta.net · GET /api/openapi' },
+    foot: 'Nalar — GET /api/openapi' },
 ];
 
 /* ═══ DECK 2 · BUSINESS ═══════════════════════════════════════════════ */
 const business: Slide[] = [
   { kind: 'cover', kicker: 'BUSINESS DECK · CONFIDENTIAL', title: 'Nalar',
     subtitle: 'Tanya dokumen perusahaanmu sendiri — jawaban selalu menyebut sumbernya.',
-    foot: 'rag.sainskerta.net · PT Sainskerta Solusi Nusantara' },
+    foot: 'Nalar — RAG Nalar' },
 
   { kind: 'bullets', kicker: 'MASALAH', title: 'Pengetahuan perusahaan terkubur di dalam folder',
     bullets: [
@@ -319,7 +319,7 @@ const business: Slide[] = [
 
   { kind: 'stats', kicker: 'STATUS', title: 'Bukan rencana — sudah berjalan di produksi',
     stats: [
-      { v: 'LIVE', l: 'rag.sainskerta.net', n: 'SaaS multi-tenant di Vercel + Neon' },
+      { v: 'LIVE', l: 'SaaS multi-tenant', n: 'berjalan di Vercel + Neon' },
       { v: '14 / 8', l: 'model / provider LLM', n: '+ server LLM & embedding self-hosted' },
       { v: '5 lapis', l: 'guardrails keamanan', n: 'diuji unit + smoke di CI' },
       { v: '2 mode', l: 'SaaS & on-premise', n: 'satu codebase, docker-compose siap' },
@@ -336,20 +336,40 @@ const business: Slide[] = [
 
   { kind: 'closing', title: 'Dokumenmu. Jawabanmu. Servermu — kalau mau.',
     subtitle: 'Nalar menjual kepercayaan: jawaban yang selalu bisa ditelusuri ke sumbernya, di infrastruktur yang kamu pilih sendiri.',
-    foot: 'rag.sainskerta.net · demo tersedia' },
+    foot: 'Nalar — demo tersedia' },
 ];
 
 
 /* ═══ DECK 3 · PROPOSAL ON-PREMISE ════════════════════════════════════
    Untuk calon pelanggan dengan korpus SharePoint besar (±1 TB) yang WAJIB
    on-premise. Angka teknis di sini DITURUNKAN dari pengukuran nyata pada
-   basis data produksi (8.189 byte/potongan terukur lewat pg_column_size),
-   bukan taksiran — lihat catatan kaki tiap slide.                       */
+   basis data produksi (2.852 byte/potongan terukur lewat pg_column_size),
+   bukan taksiran — lihat catatan kaki tiap slide.
 
-/** Ukuran satu potongan di tabel `documents`, TERUKUR di produksi. */
-const BYTES_ROW = 8_189;
-/** Indeks HNSW menyimpan salinan vektornya lagi + tautan graf. */
-const BYTES_IDX = 6_400;
+   ANGKA DI BAWAH TURUN DRASTIS pada 2026-07-31 setelah migrasi 0035
+   (halfvec tanpa batas dimensi). Yang berubah bukan cara menghitungnya,
+   melainkan ukuran vektornya sendiri: 6.148 → 776 byte, dengan ketelitian
+   yang DIUKUR tetap sama (50/50 posisi peringkat identik). Karena itu
+   spesifikasi server yang ditawarkan ikut turun — dan selisihnya jadi
+   keuntungan pelanggan, bukan margin yang disimpan diam-diam.            */
+
+/* TIGA keadaan, bukan dua. Ditulis eksplisit karena dek ini memperbandingkan
+   "sebelum vs sesudah optimasi", dan sejak halfvec ada dua tahap optimasi:
+
+     awal      vector(1536) fp32, indeks penuh   8.189 + 6.400 byte
+     tahap 1   indeks berdimensi asli (0028)     8.189 + 1.572 byte
+     tahap 2   halfvec tanpa padding (0035)      2.852 +   804 byte   ← kini
+
+   Membaginya dengan satu faktor seperti versi sebelumnya akan menghasilkan
+   angka yang tak berarti begitu tahap keduanya masuk. */
+
+/** Keadaan AWAL — dipakai kolom "sebelum optimasi" di tabel perbandingan. */
+const BYTES_ROW_AWAL = 8_189;
+const BYTES_IDX_AWAL = 6_400;
+
+/** Keadaan SEKARANG, terukur di produksi setelah migrasi 0035. */
+const BYTES_ROW = 2_852;
+const BYTES_IDX = 804;
 /** Cadangan WAL, bloat, autovacuum — 40% adalah angka konservatif. */
 const OVERHEAD = 1.4;
 /** Karakter efektif per potongan (800 − overlap 120), terukur 676. */
@@ -357,16 +377,27 @@ const CHARS_PER_CHUNK = 680;
 
 /** GB teks → jumlah potongan. */
 const chunksFor = (gbText: number) => (gbText * 1024 ** 3) / CHARS_PER_CHUNK;
-/** GB teks → disk Postgres (tabel + indeks + cadangan), dalam GB. */
+/** Disk pada keadaan AWAL (tabel + indeks + cadangan), dalam GB. */
 const diskFor = (gbText: number) =>
-  (chunksFor(gbText) * (BYTES_ROW + BYTES_IDX) * OVERHEAD) / 1024 ** 3;
-/** GB teks → RAM yang dibutuhkan indeks HNSW agar tetap residen, dalam GB. */
-const ramFor = (gbText: number) => (chunksFor(gbText) * BYTES_IDX) / 1024 ** 3;
-/** Indeks berdimensi asli — TERUKUR 4,07x lebih kecil setelah migrasi 0028. */
-const BYTES_IDX_OPT = Math.round(BYTES_IDX / 4.07);
-/** Disk SESUDAH optimasi: indeksnya mengecil, kolomnya tidak. */
+  (chunksFor(gbText) * (BYTES_ROW_AWAL + BYTES_IDX_AWAL) * OVERHEAD) / 1024 ** 3;
+/** RAM pada keadaan AWAL — indeks HNSW harus residen agar cepat. */
+const ramFor = (gbText: number) => (chunksFor(gbText) * BYTES_IDX_AWAL) / 1024 ** 3;
+
+/** Disk SEKARANG: kolom vektornya ikut mengecil, bukan indeksnya saja. */
 const diskFor2 = (gbText: number) =>
-  (chunksFor(gbText) * (BYTES_ROW + BYTES_IDX_OPT) * OVERHEAD) / 1024 ** 3;
+  (chunksFor(gbText) * (BYTES_ROW + BYTES_IDX) * OVERHEAD) / 1024 ** 3;
+/** RAM SEKARANG pada mode langsung — seluruh potongan terindeks. */
+const ramFor2 = (gbText: number) => (chunksFor(gbText) * BYTES_IDX) / 1024 ** 3;
+/**
+ * RAM pada mode BERTINGKAT — hanya satu vektor per DOKUMEN yang residen.
+ *
+ * Inilah angka yang menentukan spesifikasi server, dan yang paling sering
+ * disalahpahami: ia bukan "vektor yang sedang dibaca", melainkan INDEKS
+ * PENYARING tahap pertama. Potongan dokumen terpilih dibaca dari disk
+ * sesudahnya, dan itu tak menuntut residensi.
+ */
+const ramTiered = (gbText: number) =>
+  ((chunksFor(gbText) / 10) * BYTES_IDX) / 1024 ** 3;
 
 const gb = (n: number) => `${Math.round(n).toLocaleString('id-ID')} GB`;
 const jt = (n: number) => `Rp ${n.toLocaleString('id-ID')} jt`;
@@ -374,7 +405,7 @@ const jt = (n: number) => `Rp ${n.toLocaleString('id-ID')} jt`;
 const proposal: Slide[] = [
   { kind: 'cover', kicker: 'PROPOSAL ON-PREMISE · CONFIDENTIAL', title: 'Nalar',
     subtitle: 'Mesin RAG untuk korpus SharePoint ±1 TB — terpasang penuh di server Anda. Tak ada dokumen yang keluar.',
-    foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
+    foot: 'Nalar — RAG Nalar' },
 
   { kind: 'bullets', kicker: 'KEBUTUHAN', title: 'Yang kami pahami dari kebutuhan Anda',
     bullets: [
@@ -404,17 +435,17 @@ const proposal: Slide[] = [
       ['20 GB', `${Math.round(chunksFor(20) / 1e6)} juta`, gb(diskFor(20)), gb(ramFor(20)), 'campuran dokumen Office + PDF teks'],
       ['30 GB', `${Math.round(chunksFor(30) / 1e6)} juta`, gb(diskFor(30)), gb(ramFor(30)), 'perkiraan atas 1 TB SharePoint'],
     ],
-    note: 'Dasar hitungan: 8.189 byte/potongan TERUKUR di basis data produksi (pg_column_size), + indeks HNSW 6,4 kB, + cadangan 40% utk WAL & autovacuum. Indeks harus residen di RAM agar pencarian tetap di bawah satu detik.' },
+    note: 'Angka pada tabel ini adalah keadaan AWAL, sebelum dua tahap optimasi — dipakai sebagai pembanding di slide berikutnya. Dasarnya 8.189 byte/potongan terukur di produksi + indeks HNSW 6,4 kB + cadangan 40% untuk WAL dan autovacuum. Indeks harus residen di RAM agar pencarian tetap di bawah satu detik; itulah sebabnya RAM, bukan disk, yang menentukan kelas server.' },
 
-  { kind: 'table', kicker: 'OPTIMASI TERPASANG', title: 'Indeks berdimensi asli — RAM 4× lebih kecil, hasil tak berubah sedikit pun',
+  { kind: 'table', kicker: 'OPTIMASI TERPASANG', title: 'Dua tahap optimasi — RAM turun 8×, hasil pencarian tak berubah',
     small: true,
-    headers: ['Teks', 'RAM sebelum', 'RAM sesudah', 'Disk sebelum', 'Disk sesudah'],
+    headers: ['Teks', 'RAM awal', 'RAM kini (langsung)', 'RAM kini (bertingkat)', 'Disk awal', 'Disk kini'],
     rows: [
-      ['10 GB', gb(ramFor(10)), gb(ramFor(10) / 4.07), gb(diskFor(10)), gb(diskFor2(10))],
-      ['20 GB', gb(ramFor(20)), gb(ramFor(20) / 4.07), gb(diskFor(20)), gb(diskFor2(20))],
-      ['30 GB', gb(ramFor(30)), gb(ramFor(30) / 4.07), gb(diskFor(30)), gb(diskFor2(30))],
+      ['10 GB', gb(ramFor(10)), gb(ramFor2(10)), gb(ramTiered(10)), gb(diskFor(10)), gb(diskFor2(10))],
+      ['20 GB', gb(ramFor(20)), gb(ramFor2(20)), gb(ramTiered(20)), gb(diskFor(20)), gb(diskFor2(20))],
+      ['30 GB', gb(ramFor(30)), gb(ramFor2(30)), gb(ramTiered(30)), gb(diskFor(30)), gb(diskFor2(30))],
     ],
-    note: 'SUDAH TERPASANG, bukan rencana. Model embedding menghasilkan 384 dimensi tetapi kolomnya berukuran tetap 1.536 — sisanya nol. Karena nol tak menyumbang apa pun pada perhitungan jarak, indeks cukup dibangun atas dimensi aslinya: hasil pencarian IDENTIK (diverifikasi selisih persis 0 terhadap data nyata), sementara indeksnya 4,07× lebih kecil. Perhatikan disk hanya turun ±1,5×: yang mengecil adalah indeksnya, sedangkan kolomnya masih menyimpan padding — itu memang disengaja, karena RAM-lah yang menentukan kelas server, dan disk jauh lebih murah daripada waktu re-embed jutaan potongan.' },
+    note: 'KEDUANYA SUDAH TERPASANG, bukan rencana. Tahap 1: model embedding menghasilkan 384 dimensi tetapi kolomnya berukuran tetap 1.536 — sisanya nol, dan nol tak menyumbang apa pun pada perhitungan jarak, jadi indeks cukup dibangun atas dimensi aslinya (4,07× lebih kecil, hasil identik, selisih persis 0). Tahap 2: presisi setengah (halfvec) DAN kolomnya berhenti diberi padding — 6.148 → 776 byte per vektor, dengan ketelitian yang diukur bukan diasumsikan: 50 dari 50 posisi peringkat teratas identik pada dokumen sungguhan. Kolom "bertingkat" adalah yang menentukan spesifikasi server: pada mode itu yang residen hanya SATU vektor per dokumen, bukan per potongan.' },
 
   { kind: 'table', kicker: 'SPESIFIKASI SERVER', title: 'Server yang kami rekomendasikan',
     small: true,
@@ -555,7 +586,7 @@ const proposal: Slide[] = [
 
   { kind: 'closing', title: 'Dokumen Anda. Jawaban Anda. Server Anda.',
     subtitle: 'Kami siap memulai dengan sesi teknis bersama tim IT Anda untuk memastikan spesifikasi server dan jalur akses SharePoint sebelum kontrak.',
-    foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
+    foot: 'Nalar — RAG Nalar' },
 ];
 
 /* ══════════════════════════════════════════════════════════════════
@@ -571,7 +602,7 @@ const proposal: Slide[] = [
 const hla: Slide[] = [
   { kind: 'cover', kicker: 'HIGH-LEVEL ARCHITECTURE', title: 'Cara Nalar Bekerja',
     subtitle: 'Dari berkas di SharePoint sampai jawaban bersitasi — setiap tahap, dan apa yang terjadi pada dokumen Anda di dalamnya.',
-    foot: 'PT Sainskerta Solusi Nusantara · dokumentasi arsitektur' },
+    foot: 'Nalar — dokumentasi arsitektur' },
 
   { kind: 'bullets', kicker: 'RINGKASAN', title: 'Dua jalur yang berbeda sama sekali',
     bullets: [
@@ -644,7 +675,7 @@ const hla: Slide[] = [
 
   { kind: 'anim', kicker: 'KAPASITAS', scene: 'capacity',
     title: 'Berapa banyak yang muat — Vercel, on-premise, AWS',
-    note: 'Semua angka diturunkan dari satu pengukuran nyata: 8.189 byte per potongan di tabel, diukur dengan pg_column_size pada data produksi. Yang perlu dibaca: mode langsung dibatasi RAM, mode bertingkat dibatasi disk — dan menaikkan disk jauh lebih murah daripada menaikkan RAM. Angka Neon dan AWS adalah atap paket tertinggi masing-masing, bukan yang dipakai hari ini.' },
+    note: 'Semua angka diturunkan dari pengukuran nyata: 2.852 byte per potongan di tabel dan ±804 byte indeksnya, diukur dengan pg_column_size pada data produksi setelah migrasi halfvec. Yang perlu dibaca: mode langsung dibatasi RAM, mode bertingkat dibatasi disk — dan menaikkan disk jauh lebih murah daripada menaikkan RAM. Angka Neon dan AWS adalah atap paket tertinggi masing-masing, bukan yang dipakai hari ini.' },
 
   { kind: 'anim', kicker: 'BATAS PLATFORM', scene: 'vercel',
     title: 'Batas Vercel yang benar-benar terasa',
@@ -663,7 +694,7 @@ const hla: Slide[] = [
 
   { kind: 'closing', title: 'Tak ada kotak hitam.',
     subtitle: 'Setiap jawaban bisa ditelusuri ke potongan dokumen yang melahirkannya, dan setiap tahap di dek ini berjalan di server yang Anda kendalikan.',
-    foot: 'PT Sainskerta Solusi Nusantara · rag.sainskerta.net' },
+    foot: 'Nalar — RAG Nalar' },
 ];
 
 export const DECKS: Deck[] = [
