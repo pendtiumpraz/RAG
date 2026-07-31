@@ -128,6 +128,54 @@ export const usdFmt = usd;
 const listrik = (wattRata: number) =>
   `Rp${Math.round((wattRata * 24 * 30 / 1000) * 1500 / 1000).toLocaleString('id-ID')} rb`;
 
+/* ── UKURAN PENYIMPANAN — satu sumber untuk SEMUA dek ────────────────
+ *
+ * Ditaruh di atas karena dek technical mengutipnya juga. Sebelumnya dek itu
+ * menulis "20GB SSD" tanpa menyebut korpus apa pun, dan "NVMe" tanpa
+ * kapasitas sama sekali — angka yang tak salah maupun benar karena tak ada
+ * yang bisa dibandingkan dengannya. Pembaca dengan 700 GB SharePoint membaca
+ * 20 GB dan menyimpulkan produknya tak paham skala mereka.
+ *
+ * Semua terukur di produksi dengan pg_column_size setelah migrasi 0035.
+ */
+/** Byte satu baris potongan (teks + vektor halfvec + metadata). */
+const BYTE_BARIS_UMUM = 2_852;
+/** Byte indeks vektor per potongan. */
+const BYTE_INDEKS_UMUM = 804;
+/** Karakter efektif per potongan (800 dikurangi tumpang tindih 120). */
+const CHAR_PER_POTONGAN_UMUM = 680;
+/** Cadangan WAL, bloat, autovacuum. 40% konservatif. */
+const OVERHEAD_UMUM = 1.4;
+/**
+ * Bagian berkas sumber yang benar-benar jadi teks.
+ *
+ * 3%, bukan 2%: yang ini dipakai MERENCANAKAN disk, dan merencanakan dengan
+ * nilai tengah adalah cara paling rapi untuk kehabisan ruang enam bulan
+ * setelah pemasangan.
+ */
+const RASIO_RENCANA = 0.03;
+
+/** Byte basis data (baris + indeks + cadangan) untuk sekian byte berkas sumber. */
+const diskDariSumber = (byteSumber: number) =>
+  ((byteSumber * RASIO_RENCANA) / CHAR_PER_POTONGAN_UMUM)
+  * (BYTE_BARIS_UMUM + BYTE_INDEKS_UMUM) * OVERHEAD_UMUM;
+
+/** Kapasitas NVMe wajar untuk korpus sebesar itu — dibulatkan ke atas ke
+ *  ukuran yang benar-benar dijual, dengan ruang tumbuh minimal 2×. */
+const nvmeUntuk = (byteSumber: number) => {
+  const perlu = (diskDariSumber(byteSumber) * 2) / 1e9;
+  const dijual = [50, 100, 250, 512, 1_000, 2_000, 4_000];
+  const pilih = dijual.find((d) => d >= perlu) ?? 8_000;
+  return pilih >= 1_000 ? `${pilih / 1_000} TB` : `${pilih} GB`;
+};
+
+/* Di bawah 1 GB tampil sebagai MB. Membulatkan 0,3 GB jadi "0 GB" membuat
+   baris korpus terkecil terbaca seolah tak memakan apa pun. */
+const gbBulat = (byte: number) =>
+  byte < 1e9
+    ? `${Math.round(byte / 1e6).toLocaleString('id-ID')} MB`
+    : `${Math.round(byte / 1e9).toLocaleString('id-ID')} GB`;
+
 /* ═══ DECK 1 · TECHNICAL ══════════════════════════════════════════════ */
 const technical: Slide[] = [
   { kind: 'cover', kicker: 'TECHNICAL DECK · CONFIDENTIAL', title: 'Nalar',
@@ -194,14 +242,14 @@ const technical: Slide[] = [
       { v: '4,5 ms', l: '3.000 chunk' },
       { v: '0,5 dtk', l: 'embedding query (warm)', n: 'MiniLM lokal di lambda · 3,8 dtk cold' },
     ],
-    note: 'Kapasitas plan DB 512MB ±30rb chunk (±20MB teks bersih); partisi per-KB disiapkan bila mendekati 100rb.' },
+    note: `Kapasitas plan DB 512 MB ±${Math.round(512e6 / (BYTE_BARIS_UMUM + BYTE_INDEKS_UMUM) / 1e3)} rb potongan setelah halfvec — sebelumnya ±30 rb, dan angka lama itu masih tersebar di catatan lama. Mode bertingkat menyala sendiri di 200 rb potongan per knowledge base.` },
 
   { kind: 'table', kicker: 'SPESIFIKASI · SAAS', title: 'Infrastruktur produksi saat ini',
     headers: ['Komponen', 'Spesifikasi', 'Catatan'],
     rows: [
       ['Compute', 'Vercel serverless · Node.js · ±2GB RAM/fungsi', 'maxDuration 60 dtk utk sync/memory'],
       ['Database', 'Neon Postgres 17 + pgvector 0.8', 'pool max:1 + prepare:false (serverless)'],
-      ['Vektor', 'HNSW · vector(1536) · zero-pad', 'model <1536d di-pad, cap 2000d pgvector'],
+      ['Vektor', 'HNSW · halfvec tanpa batas dimensi', 'padding dihapus (0035): 6.148 → 776 byte/vektor, peringkat identik'],
       ['Model host', 'Vercel Blob 10GB (publik)', 'bobot ONNX ditarik transformers.js'],
       ['Embedding berat', 'VPS terpisah (BGE-M3 2,16GB, transformers v3)', 'protokol OpenAI-compatible, wajib HTTPS'],
       ['Edge', 'embed.js statis + SSE streaming', 'rate limit 2 lapis + kuota bulanan'],
@@ -211,14 +259,36 @@ const technical: Slide[] = [
     small: true,
     headers: ['Komponen', 'Minimal', 'Direkomendasikan', 'Estimasi harga perangkat'],
     rows: [
-      ['App + Postgres', '2 vCPU · 4GB RAM · 20GB SSD', '4 vCPU · 8–16GB RAM · NVMe', bothRange(600, 1200)],
+      ['App + Postgres', `2 vCPU · 8 GB RAM · ${nvmeUntuk(50e9)} NVMe`,
+        `8 vCPU · 32 GB RAM · ${nvmeUntuk(700e9)} NVMe`, bothRange(600, 1200)],
       ['Embedding lokal (MiniLM/BGE-M3)', 'CPU 4 vCPU · 8GB', '8 vCPU · 16GB (atau GPU kecil)', 'menumpang server app'],
       ['LLM lokal 7–8B (Q4)', 'GPU 8GB VRAM (RTX 3060/4060)', 'RTX 4060 Ti 16GB', bothRange(300, 550)],
       ['LLM lokal 32B (Q4)', 'GPU 24GB (RTX 4090/A5000)', 'RTX 4090', bothRange(1800, 2200)],
       ['LLM lokal 70B (Q4)', '48GB VRAM (2×4090 / A6000)', 'A100 80GB', bothRange(4000, 15000)],
       ['Server LLM', 'Ollama / vLLM / LM Studio / LocalAI', 'protokol OpenAI-compatible — tinggal daftar URL', 'gratis (sumber terbuka)'],
     ],
-    note: `Tanpa GPU pun jalan penuh: LLM via API + embedding CPU lokal. GPU hanya utk LLM yang sepenuhnya on-prem. Harga perangkat = ESTIMASI pasar ${RATE_AT}, kurs asumsi Rp${USD_IDR.toLocaleString('id-ID')}/USD — verifikasi sebelum penawaran.` },
+    note: `Kolom minimum mengasumsikan korpus ±50 GB berkas sumber; kolom rekomendasi ±700 GB. DISK MENGIKUTI KORPUS — lihat tabel berikutnya, jangan pakai satu angka untuk semua ukuran. Tanpa GPU pun jalan penuh: LLM via API + embedding CPU lokal. GPU hanya utk LLM yang sepenuhnya on-prem. Harga perangkat = ESTIMASI pasar ${RATE_AT}, kurs asumsi Rp${USD_IDR.toLocaleString('id-ID')}/USD — verifikasi sebelum penawaran.` },
+
+  { kind: 'table', kicker: 'UKURAN DISK', title: 'Berapa NVMe yang cukup — mengikuti besar korpus, bukan satu angka',
+    small: true,
+    headers: ['Berkas sumber', 'Teks terekstrak', 'Potongan', 'Basis data', 'NVMe', 'RAM indeks (bertingkat)'],
+    rows: ([10e9, 100e9, 700e9, 1e12]).map((b) => {
+      const potongan = (b * RASIO_RENCANA) / CHAR_PER_POTONGAN_UMUM;
+      const ramTingkat = (potongan / 10) * BYTE_INDEKS_UMUM;
+      return [
+        b >= 1e12 ? '1 TB' : gbBulat(b),
+        gbBulat(b * RASIO_RENCANA),
+        potongan >= 1e6
+          ? `${(potongan / 1e6).toFixed(1).replace('.', ',')} jt`
+          : `${Math.round(potongan / 1e3)} rb`,
+        gbBulat(diskDariSumber(b)),
+        nvmeUntuk(b),
+        ramTingkat >= 1e9
+          ? `${(ramTingkat / 1e9).toFixed(1).replace('.', ',')} GB`
+          : `${Math.round(ramTingkat / 1e6)} MB`,
+      ];
+    }),
+    note: `Dasarnya ${BYTE_BARIS_UMUM.toLocaleString('id-ID')} byte per potongan + ${BYTE_INDEKS_UMUM} byte indeks (diukur pg_column_size di produksi setelah halfvec), rasio teks ${RASIO_RENCANA * 100}% dan cadangan ${Math.round((OVERHEAD_UMUM - 1) * 100)}% untuk WAL, bloat, dan autovacuum. Rasio 3% dipakai MERENCANAKAN, bukan memperkirakan — nilai tengah perkantoran 2%, dan merencanakan dengan nilai tengah adalah cara paling rapi untuk kehabisan ruang enam bulan setelah pemasangan. Kolom NVMe sudah menyisakan ruang tumbuh 2× dan dibulatkan ke kapasitas yang benar-benar dijual. BERKAS ASLINYA TIDAK DISALIN: yang disimpan hanya teks terekstrak beserta vektornya, jadi 700 GB SharePoint tidak menuntut 700 GB disk.` },
 
   { kind: 'bullets', kicker: 'KEAMANAN DATA', title: 'Data tenant tidak pernah telanjang',
     bullets: [
