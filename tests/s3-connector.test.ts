@@ -203,3 +203,89 @@ test('sumber S3 ikut diantre sync, bukan diam setelah dibuat', () => {
   assert.ok(daftar.includes("'s3'"), 's3 tak masuk daftar jenis yang diantre sync');
   assert.ok(!daftar.includes("'upload'"), 'upload ikut diantre — tak ada yang bisa disinkronkan');
 });
+
+/* ── lingkaran paginasi: celah yang meloloskan cacat pertama ─────────── */
+
+/**
+ * Uji versi pertama kartu ini hanya menyentuh parseDaftar() — fungsi murni
+ * yang memang benar — lalu MENGANDAIKAN lingkaran di sekelilingnya mewarisi
+ * kebenarannya. Ia tidak: `if (!hal.terpotong || !lanjutan) terpotong = false`
+ * menyetel "daftar lengkap" justru pada keadaan di mana penelusuran berhenti
+ * di tengah. Akibatnya persis yang paling ingin dihindari — planDelta
+ * memperlakukan berkas yang belum sempat terlihat sebagai terhapus.
+ *
+ * Karena itu bagian ini memalsukan `fetch`: satu-satunya cara memeriksa
+ * keputusan yang diambil ANTAR halaman.
+ */
+function palsukanFetch(halaman: string[]) {
+  const asli = globalThis.fetch;
+  let ke = 0;
+  const dipanggil: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    dipanggil.push(String(url));
+    const badan = halaman[Math.min(ke++, halaman.length - 1)];
+    return { ok: true, text: async () => badan } as unknown as Response;
+  }) as typeof fetch;
+  return { pulihkan: () => { globalThis.fetch = asli; }, dipanggil };
+}
+
+const halamanXml = (opts: { terpotong: boolean; token?: string; key: string }) =>
+  `<ListBucketResult><IsTruncated>${opts.terpotong}</IsTruncated>`
+  + (opts.token ? `<NextContinuationToken>${opts.token}</NextContinuationToken>` : '')
+  + `<Contents><Key>${opts.key}</Key><ETag>"e"</ETag><Size>10</Size></Contents></ListBucketResult>`;
+
+test('TERPOTONG TANPA TOKEN dilaporkan terpotong — bukan lengkap', async (t) => {
+  /* Cacat nyata dari versi pertama (31 Jul 2026, commit 88e2509). S3 bilang
+     masih ada sisa tapi tak memberi token lanjutan; penelusuran berhenti di
+     tengah. Melaporkannya lengkap = planDelta menghapus dokumen yang masih
+     hidup, dan baru ketahuan saat chatbot menjawab "tidak ada" untuk berkas
+     yang jelas ada di bucket. */
+  const { daftarObjek } = await import('../src/modules/knowledge/storage/s3');
+  const f = palsukanFetch([halamanXml({ terpotong: true, key: 'a.pdf' })]);
+  t.after(f.pulihkan);
+  const hasil = await daftarObjek(KRED, '', new Date(Date.UTC(2026, 6, 31)));
+  assert.equal(hasil.terpotong, true, 'berhenti di tengah tapi dilaporkan lengkap');
+  assert.equal(hasil.objek.length, 1);
+});
+
+test('daftar tuntas dilaporkan LENGKAP — penghapusan harus tetap bisa terjadi', async (t) => {
+  /* Sisi sebaliknya, dan sama pentingnya: kalau "terpotong" dibuat selalu
+     true demi aman, deteksi berkas terhapus mati selamanya dan dokumen yang
+     sudah dicabut pelanggan tetap dijawab chatbot. */
+  const { daftarObjek } = await import('../src/modules/knowledge/storage/s3');
+  const f = palsukanFetch([halamanXml({ terpotong: false, key: 'a.pdf' })]);
+  t.after(f.pulihkan);
+  assert.equal((await daftarObjek(KRED, '', new Date(Date.UTC(2026, 6, 31)))).terpotong, false);
+});
+
+test('token lanjutan diikuti sampai habis, lalu lengkap', async (t) => {
+  const { daftarObjek } = await import('../src/modules/knowledge/storage/s3');
+  const f = palsukanFetch([
+    halamanXml({ terpotong: true, token: 'tok1', key: 'a.pdf' }),
+    halamanXml({ terpotong: false, key: 'b.pdf' }),
+  ]);
+  t.after(f.pulihkan);
+  const hasil = await daftarObjek(KRED, '', new Date(Date.UTC(2026, 6, 31)));
+  assert.deepEqual(hasil.objek.map((o) => o.key), ['a.pdf', 'b.pdf']);
+  assert.equal(hasil.terpotong, false);
+  assert.ok(f.dipanggil[1].includes('continuation-token=tok1'), 'token tak dikirim di halaman kedua');
+});
+
+test('jatah halaman habis sementara S3 masih menyisakan → terpotong', async (t) => {
+  const { MAKS_HALAMAN: maks, daftarObjek } = await import('../src/modules/knowledge/storage/s3');
+  const f = palsukanFetch([halamanXml({ terpotong: true, token: 'terus', key: 'a.pdf' })]);
+  t.after(f.pulihkan);
+  const hasil = await daftarObjek(KRED, '', new Date(Date.UTC(2026, 6, 31)));
+  assert.equal(hasil.terpotong, true);
+  assert.equal(f.dipanggil.length, maks, 'jatah halaman tak ditegakkan — penelusuran tanpa ujung');
+});
+
+test('tiap halaman ditandatangani ULANG dengan waktunya sendiri', async () => {
+  /* Satu cap waktu untuk seluruh penelusuran akan menua selama berjalan, dan
+     bucket besar gagal di halaman terakhir dengan galat yang menuduh jam
+     server padahal jamnya benar. */
+  const src = readFileSync('src/modules/knowledge/storage/s3.ts', 'utf8');
+  const blok = src.slice(src.indexOf('for (let halaman'), src.indexOf('// Kehabisan jatah'));
+  assert.ok(/stempelAmz\(saat \?\? new Date\(\)\)/.test(blok),
+    'cap waktu dihitung di luar lingkaran — tanda tangan menua saat menelusuri');
+});

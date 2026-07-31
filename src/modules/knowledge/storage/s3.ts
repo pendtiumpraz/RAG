@@ -35,28 +35,43 @@ export interface HasilDaftarS3 {
 
 /** Telusuri isi bucket (dengan awalan opsional), mengikuti token lanjutan. */
 export async function daftarObjek(
-  kred: KredensialS3, prefix: string, saat: Date = new Date(),
+  kred: KredensialS3, prefix: string, saat?: Date,
 ): Promise<HasilDaftarS3> {
   const objek: ObjekS3[] = [];
   let lanjutan: string | null = null;
-  let terpotong = false;
 
   for (let halaman = 0; halaman < MAKS_HALAMAN; halaman++) {
     const params: Record<string, string> = { 'list-type': '2', 'max-keys': '1000' };
     if (prefix) params.prefix = prefix;
     if (lanjutan) params['continuation-token'] = lanjutan;
 
-    const t = tandatanganiGet(kred, '', params, stempelAmz(saat));
+    /* Tiap halaman ditandatangani ULANG dengan waktunya sendiri. S3 menolak
+       tanda tangan yang waktunya meleset lebih dari 15 menit, dan satu cap
+       waktu yang dipakai bersama seluruh halaman akan menua selama
+       penelusuran — bucket besar gagal di halaman terakhir dengan galat yang
+       menuduh jam server, padahal jamnya benar. `saat` hanya disuntik uji. */
+    const t = tandatanganiGet(kred, '', params, stempelAmz(saat ?? new Date()));
     const res = await fetch(t.url, { headers: t.headers, signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(galatS3(res.status, await res.text().catch(() => '')));
 
     const hal = parseDaftar(await res.text());
     objek.push(...hal.objek);
-    terpotong = hal.terpotong;
+
+    // Daftar tuntas — satu-satunya keadaan yang boleh dilaporkan lengkap.
+    if (!hal.terpotong) return { objek, terpotong: false };
+
+    /* Masih terpotong tapi S3 tak memberi token lanjutan: kita BERHENTI di
+       tengah. Melaporkannya lengkap berarti planDelta memperlakukan setiap
+       berkas di luar daftar sebagai terhapus — dan menghapus dokumen yang
+       masih hidup. Versi pertama kartu ini justru menyetel terpotong=false
+       di cabang ini; ujinya lolos karena hanya menguji pembaca XML-nya, bukan
+       lingkaran yang memakainya. */
+    if (!hal.lanjutan) return { objek, terpotong: true };
     lanjutan = hal.lanjutan;
-    if (!hal.terpotong || !lanjutan) { terpotong = false; break; }
   }
-  return { objek, terpotong };
+
+  // Kehabisan jatah halaman sementara S3 masih menyisakan objek.
+  return { objek, terpotong: true };
 }
 
 /** Unduh satu objek. */
