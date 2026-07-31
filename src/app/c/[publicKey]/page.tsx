@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import './chat-full.css';
+import { nilaiKeyakinan } from '@/modules/chat/confidence';
 
 /**
  * CHAT HALAMAN PENUH — PUBLIK, per chatbot: /c/{publicKey}
@@ -31,7 +32,13 @@ import './chat-full.css';
  */
 
 interface Cite { n: number; title: string | null; score: number }
-interface Msg { role: 'user' | 'assistant'; text: string; cites?: Cite[]; streaming?: boolean }
+interface Msg {
+  role: 'user' | 'assistant'; text: string; cites?: Cite[]; streaming?: boolean;
+  /* Keadaan jawaban. Sitasi pada sebuah PENOLAKAN tidak mendukung apa pun —
+     ia cuma daftar dokumen yang kebetulan paling dekat, dan menampilkannya
+     seperti bukti adalah kepercayaan salah tempat yang paling halus. */
+  status?: 'bersumber' | 'tak-ditemukan' | 'tanpa-rujukan';
+}
 interface Sesi { id: string; title: string; startedAt: string; lastAt: string | null; messages: number }
 
 interface Tema {
@@ -145,14 +152,24 @@ export default function ChatFullPage({ params }: { params: Promise<{ publicKey: 
         `/api/chat/${encodeURIComponent(publicKey)}/history`
         + `?conversationId=${encodeURIComponent(id)}&visitorId=${encodeURIComponent(vid.current)}`);
       const j = await r.json() as { messages: Array<{ role: string; content: string; citations?: Cite[] }> };
-      setMsgs((j.messages ?? []).map((m) => ({
+      setMsgs((j.messages ?? []).map<Msg>((m) => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         text: m.content,
         // Sitasi tersimpan tanpa nomor urut; nomornya adalah posisi tampil,
         // jadi diberikan di sini agar sama dengan yang dilihat pengunjung
         // saat jawabannya pertama kali mengalir.
         cites: m.citations?.map((c, i) => ({ n: i + 1, title: c.title ?? null, score: c.score })),
-      })));
+      })).map((m) => {
+        /* Status DIHITUNG ULANG dari teksnya, bukan disimpan di basis data.
+           Pendeteksinya murni, jadi hasilnya sama persis dengan yang dikirim
+           lewat SSE saat jawabannya pertama kali mengalir — dan riwayat lama
+           yang tersimpan sebelum fitur ini ada ikut terkoreksi tanpa migrasi.
+           Tanpa ini, penolakan di riwayat tetap tampil beserta enam chip
+           sitasi, persis kesalahan yang baru saja diperbaiki di jalur hidup. */
+        if (m.role !== 'assistant') return m;
+        const k = nilaiKeyakinan(m.text, m.cites?.length ?? 0);
+        return { ...m, status: k.status, ...(k.sitasiMendukung ? {} : { cites: undefined }) };
+      }));
     } catch { /* riwayat gagal dimuat → sesi tampil kosong, bukan halaman rusak */ }
   }
 
@@ -199,6 +216,10 @@ export default function ChatFullPage({ params }: { params: Promise<{ publicKey: 
           const data = JSON.parse(raw);
 
           if (ev === 'meta') { convBaru = data.conversationId; setConvId(data.conversationId); }
+          else if (ev === 'keyakinan') {
+            setMsgs((m) => m.map((x, i) => i === m.length - 1
+              ? { ...x, status: data.status, ...(data.sitasiMendukung ? {} : { cites: undefined }) } : x));
+          }
           else if (ev === 'sources') {
             setMsgs((m) => m.map((x, i) => i === m.length - 1 ? { ...x, cites: data as Cite[] } : x));
           } else if (ev === 'block') {
@@ -316,6 +337,13 @@ export default function ChatFullPage({ params }: { params: Promise<{ publicKey: 
                   {m.text || (m.streaming
                     ? <span className="cw-dots"><span /><span /><span /></span>
                     : null)}
+                  {m.status === 'tak-ditemukan' && (
+                    <div className="cw-cite">
+                      <span className="c" style={{ background: 'transparent', border: '1px dashed var(--cw-line)', color: 'var(--cw-mut)' }}>
+                        Tidak ditemukan di dokumen
+                      </span>
+                    </div>
+                  )}
                   {m.cites && m.cites.length > 0 && (
                     <div className="cw-cite">
                       {m.cites.map((c) => (

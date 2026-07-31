@@ -10,6 +10,7 @@ import { streamChat, type ChatMessage } from './llm';
 import {
   normalizePolicy, policyDirectives, policyReminder, samplingFor, type AnswerPolicy,
 } from './answer-policy';
+import { nilaiKeyakinan, type Keyakinan } from './confidence';
 import { estimateTokens } from '@/modules/core/limits';
 import { usageService } from '@/modules/usage/usage.service';
 import {
@@ -142,13 +143,18 @@ export interface ChatTurnCallbacks {
   /** Satu blok jawaban UTUH & sudah tervalidasi — dikirim client sebagai
    *  SSE `event: block` begitu tiba (jawaban muncul komponen demi komponen). */
   onBlock?: (block: AnswerBlock) => void;
+  /**
+   * Keadaan jawaban yang sudah jadi — dipakai UI memutuskan apakah sitasi
+   * boleh ditampilkan sebagai PENDUKUNG. Dipanggil sekali di akhir giliran.
+   */
+  onKeyakinan?: (k: Keyakinan) => void;
 }
 
 export async function chatTurn(
   input: ChatTurnInput,
   cb: ChatTurnCallbacks = {},
 ): Promise<void> {
-  const { onSources, onConversation, onBlock } = cb;
+  const { onSources, onConversation, onBlock, onKeyakinan } = cb;
   // Guardrail L1: sanitasi input (rate/kuota sudah di route).
   input.question = guardInput(input.question);
 
@@ -248,6 +254,15 @@ export async function chatTurn(
   redactedAny = redactedAny || finalPass.redacted;
   const cite = checkCitations(full, context.length > 0);
 
+  /* KEADAAN jawaban, bukan angka keyakinan. Diukur pada korpus produksi:
+     skor kemiripan TIDAK memisahkan pertanyaan berjawab dari yang jawabannya
+     tak ada (0,420–0,581 melawan 0,382–0,546, bertindih penuh), jadi angka
+     persen apa pun yang diturunkan darinya akan terlihat presisi sambil
+     menampilkan derau. Yang memisahkan adalah penolakan model itu sendiri —
+     dan itulah yang dipakai. Lihat chat/confidence.ts. */
+  const keyakinan = nilaiKeyakinan(full, context.length);
+  onKeyakinan?.(keyakinan);
+
   await withTenant(input.tenantId, (tx) =>
     convo.appendMessage(tx, {
       tenantId: input.tenantId,
@@ -268,6 +283,11 @@ export async function chatTurn(
       conversationId, model: llmModel, tokensIn, tokensOut,
       chunks: context.length,
       topScore: context[0]?.score ?? null,
+      /* Keadaan jawaban ikut dicatat. Skor teratas TETAP disimpan, tapi ia
+         terbukti TIDAK memisahkan berjawab dari tak-berjawab (0,420-0,581
+         melawan 0,382-0,546) — jadi yang layak dibaca saat menelusuri
+         keluhan adalah kolom ini, bukan skornya. */
+      keyakinan: keyakinan.status,
       guardrails: {
         l2InjectionFiltered: injectionFlagged,
         l3Truncated: truncated,

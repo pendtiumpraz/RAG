@@ -43,59 +43,15 @@ export const AMBANG_BAHASA_SALAH = 0.20;
 /* ── 1 · PENOLAKAN ──────────────────────────────────────────────────── */
 
 /**
- * Penanda bahwa jawaban MENOLAK menjawab karena dokumennya tak memuatnya.
+ * Pendeteksi penolakan tinggal di PRODUK (chat/confidence), bukan di sini.
  *
- * Dwibahasa karena kebijakan bahasa memang membolehkan jawaban Inggris.
- * Daftar ini sengaja menuntut frasa yang MENYEBUT sumbernya ("di dokumen",
- * "in the documents") — bukan sekadar "tidak tahu". Model yang menjawab
- * "saya tidak tahu" tanpa menyebut dokumen belum tentu menolak karena
- * groundingnya ketat; ia bisa saja sekadar bingung, dan itu perilaku lain.
+ * Arah ketergantungannya menentukan: produk MEMILIKI perilakunya, eval
+ * MENGUKUR. Kalau salinannya hidup di modul eval, keduanya akan menyimpang
+ * diam-diam — dan eval yang mengukur pendeteksi yang berbeda dari yang
+ * dipakai produksi adalah eval yang paling berbahaya justru saat hijau.
  */
-/**
- * DUA SINYAL DALAM SATU KALIMAT, bukan satu frasa utuh.
- *
- * Versi pertama berkas ini memakai regex berfrasa-utuh seperti
- * `/tidak\s+tersedia\s+(di|dalam|pada)\s+dokumen/`. Ia gagal pada jawaban
- * sungguhan yang berbunyi "Informasi mengenai gaji ... tidak tersedia DI
- * DALAM dokumen yang diberikan" — dua kata sisipan sudah cukup meleset, dan
- * penolakan yang benar dilaporkan sebagai KARANGAN. Kegagalan itu tak
- * terlihat sampai eval-nya benar-benar dijalankan terhadap model sungguhan.
- *
- * Sekarang penolakan dikenali bila SATU kalimat memuat keduanya:
- *   (a) pengingkaran KETERSEDIAAN — tidak/tak/belum + ada/tersedia/…
- *   (b) rujukan ke SUMBER — dokumen/berkas/konteks/document/context/…
- *
- * Menuntut keduanya menjaga ketajaman: "saya tidak tahu" saja tidak dihitung
- * menolak, karena ia belum tentu penolakan berbasis dokumen — bisa jadi
- * model sekadar bingung, dan itu perilaku lain yang tak boleh dicampur.
- */
-const INGKAR_ADA = /\b(tidak|tak|belum|bukan)\b[^.!?]{0,40}?\b(ada|tersedia|ditemukan|terdapat|tercantum|disebut\w*|dijelaskan|dimuat|memuat|menyebut\w*|berisi)\b/i;
-/* Bentuk kata kerja diberi akhiran bebas (\w*), bukan didaftar satu per satu.
-   Versi sebelumnya menulis `stated` dan meleset pada jawaban model yang
-   sungguhan: "The documents do not STATE the total number of employees" —
-   penolakan yang benar dilaporkan sebagai KARANGAN, dan gerbangnya berbunyi
-   palsu. Ini kegagalan yang sama persis dengan yang sudah diperbaiki di sisi
-   Indonesia; sisi Inggris terlewat karena contoh ujinya kebetulan memakai
-   bentuk lampau. */
-const INGKAR_ADA_EN = /\b(no|not|does\s?n[o']t|do\s?n[o']t|cannot|can[o']t|unable)\b[^.!?]{0,40}?\b(information|data|mention\w*|found|availab\w*|specif\w*|provid\w*|stat\w*|contain\w*|includ\w*|detail\w*|list\w*|indicat\w*|find)\b/i;
-const RUJUK_SUMBER = /\b(dokumen|berkas|konteks|sumber|document|documents|context|sources?|provided|given)\b/i;
-
-/** Pecah jadi kalimat. Kasar dengan sengaja — yang dibutuhkan hanya batas. */
-const kalimat = (t: string) => t.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
-
-/**
- * Apakah jawaban ini MENOLAK?
- *
- * Jawaban kosong dihitung MENOLAK: tak ada yang diklaim, jadi tak ada yang
- * bisa dikarang. Itu bukan jawaban yang baik, tapi bukan halusinasi — dan
- * kartu ini mengukur halusinasi.
- */
-export function deteksiPenolakan(jawaban: string): boolean {
-  const t = jawaban.trim();
-  if (!t) return true;
-  return kalimat(t).some((s) =>
-    (INGKAR_ADA.test(s) || INGKAR_ADA_EN.test(s)) && RUJUK_SUMBER.test(s));
-}
+import { deteksiPenolakan } from '@/modules/chat/confidence';
+export { deteksiPenolakan };
 
 /* ── 2 · BAHASA ─────────────────────────────────────────────────────── */
 

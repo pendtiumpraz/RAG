@@ -112,6 +112,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
           onSources: (s) => send('sources',
             s.map((c, i) => ({ n: i + 1, title: c.title, score: c.score }))),
           onBlock: (b) => send('block', b),
+          /* Keadaan jawaban dikirim SEBELUM 'done' supaya UI bisa
+             memutuskan apakah chip sitasi ditampilkan sebagai pendukung.
+             Tanpa ini, penolakan 'tidak ada di dokumen' tetap tampil
+             beserta enam chip sitasi — dan di layar itu terbaca sebagai
+             'jawaban ini bersumber dari enam dokumen'. */
+          onKeyakinan: (k) => send('keyakinan', k),
         });
         send('done', {});
       } catch (err) {
