@@ -61,3 +61,47 @@
 .nav-item[data-locked] .ico{ opacity:.55; }
 .nav-item[data-locked]:hover{ color:var(--muted); }
 .nav-lock{ margin-left:auto; display:inline-flex; color:var(--source); opacity:.85; }
+
+/* ── PONSEL (≤560px) ──────────────────────────────────────────────────
+   Sebelum ini seluruh design system hanya punya SATU titik henti, 920px —
+   ambang tablet. Di bawahnya tak ada apa pun, jadi layar 360px memakai tata
+   letak yang sama dengan layar 900px: kartu statistik dua kolom selebar 150px
+   memuat angka 30px, bantalan halaman 24px di kiri-kanan memakan sepertujuh
+   lebar layar, dan sel tabel berbantalan 16px membuat tabel tiga kolom pun
+   perlu digulir.
+
+   Yang diperbaiki di sini hanya soal RUANG. Semua yang bisa meluber sudah
+   punya wadah gulirnya sendiri (.table-wrap), jadi tak ada yang mendorong
+   halaman jadi lebih lebar dari layarnya. */
+@media (max-width:560px){
+  /* Dua kolom di 360px berarti 150px per kartu — angka 30px di dalamnya
+     terpotong atau membungkus jadi dua baris yang tak terbaca. */
+  .g4{ grid-template-columns:1fr; }
+
+  .content{ padding:var(--sp-4) var(--sp-3); }
+  .topbar{ padding:var(--sp-3) var(--sp-3); }
+
+  /* Judul halaman turun satu tingkat: 30px di 360px memakan dua baris penuh
+     sebelum satu kata pun dari isinya terlihat. */
+  .page-head h1, .topbar h1{ font-size:var(--fs-lg); }
+  .page-head{ align-items:flex-start; gap:var(--sp-3); }
+  .stat .num{ font-size:24px; }
+
+  /* Bantalan sel dipersempit — tabel yang muat tanpa digulir jauh lebih
+     berguna daripada tabel lapang yang harus digeser. */
+  table.table th, table.table td{ padding:var(--sp-2) var(--sp-3); }
+
+  /* Panel samping memenuhi layar: 94vw menyisakan 6% yang tak bisa dipakai
+     apa pun tapi tetap menampilkan tepi halaman di belakangnya. */
+  .drawer{ width:100vw; border-left:none; }
+
+  /* Baris aksi ikonik jangan ikut mengecil — 32px sudah di bawah anjuran
+     sasaran sentuh, dan di ponsel justru di sinilah orang menekan. */
+  .rowact .icon-btn{ width:40px; height:40px; }
+}
+
+/* Token panjang tanpa spasi — kunci publik cb_live_…, API key, URL webhook —
+   tak punya tempat untuk dipatahkan dan akan mendorong halamannya sendiri
+   melebihi lebar layar. Ini satu-satunya bentuk luberan yang tak tertolong
+   wadah gulir, karena yang meluber adalah teks di dalam paragraf biasa. */
+code, .mono{ overflow-wrap:anywhere; }

@@ -162,7 +162,7 @@ function TrenPemakaian({ bd }: { bd: ReturnType<typeof useApi<Breakdown>> }) {
             <EmptyState title="Belum ada aktivitas"
               hint="Rincian muncul setelah salah satu chatbot dipakai." />
           ) : (
-            <table className="table"><thead><tr>
+            <div className="table-wrap"><table className="table"><thead><tr>
               <th>Chatbot</th><th className="num">Pesan</th><th className="num">Token</th>
             </tr></thead><tbody>
               {bd.data.perChatbot.slice(0, 6).map((c) => (
@@ -172,7 +172,7 @@ function TrenPemakaian({ bd }: { bd: ReturnType<typeof useApi<Breakdown>> }) {
                   <td className="num">{fmt(c.tokensIn + c.tokensOut)}</td>
                 </tr>
               ))}
-            </tbody></table>
+            </tbody></table></div>
           )}
         </div>
       </div>

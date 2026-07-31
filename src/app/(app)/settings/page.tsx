@@ -63,7 +63,7 @@ export default function SettingsPage() {
             </div></div>
 
           <div className="card"><div className="panel-head"><span className="t">deployment</span></div>
-            <div className="card-pad"><table className="table"><tbody>
+            <div className="card-pad table-wrap"><table className="table"><tbody>
               <tr><td>Mode</td><td className="num"><span className="badge badge-source">SaaS</span></td></tr>
               <tr><td>Isolasi RLS</td><td className="num"><span className="badge badge-ok"><span className="led led-live" />aktif</span></td></tr>
               <tr><td>API docs</td><td className="num"><a href="/api/openapi" target="_blank">OpenAPI ↗</a></td></tr>

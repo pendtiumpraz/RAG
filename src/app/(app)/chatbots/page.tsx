@@ -57,7 +57,7 @@ export default function ChatbotsPage() {
           empty={<EmptyState title="Belum ada chatbot" hint="Buat chatbot pertamamu untuk mulai."
             action={<button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>Tambah Chatbot</button>} />}
           render={(rows) => (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Nama</th><th>Public Key</th><th>Status</th><th /></tr></thead>
               <tbody>
                 {rows.map((b) => (
@@ -73,13 +73,13 @@ export default function ChatbotsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )} />
       ) : (
         <ListCard state={trash}
           empty={<EmptyState title="Sampah kosong" hint="Chatbot yang dihapus muncul di sini dan bisa dipulihkan." />}
           render={(rows) => (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Nama</th><th>Dihapus</th><th /></tr></thead>
               <tbody>
                 {rows.map((b) => (
@@ -90,7 +90,7 @@ export default function ChatbotsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )} />
       )}
 

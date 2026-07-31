@@ -141,13 +141,13 @@ export default function TwoFactor() {
         {/* ── aktif ───────────────────────────────────────────────────── */}
         {data?.aktif && !cadangan && (
           <div className="stack gap-3">
-            <table className="table"><tbody>
+            <div className="table-wrap"><table className="table"><tbody>
               <tr><td>Kode cadangan tersisa</td><td className="num">
                 {data.sisaCadangan === 0
                   ? <span className="badge badge-warn">habis</span>
                   : <b>{data.sisaCadangan}</b>}
               </td></tr>
-            </tbody></table>
+            </tbody></table></div>
             <div className="cluster gap-2" style={{ alignItems: 'flex-end' }}>
               <Field label="Matikan — masukkan kata sandi" style={{ flex: 1, maxWidth: 280 }}><input className="input" type="password" autoComplete="current-password"
                   value={sandi} onChange={(e) => setSandi(e.target.value)} /></Field>
