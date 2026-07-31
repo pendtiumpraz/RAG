@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { google } from 'googleapis';
+import { oauthAppService } from '@/modules/auth/oauth-app.service';
 
 /**
  * Two distinct Google Drive roles in this system:
@@ -42,18 +43,26 @@ export async function downloadSuperadminDriveFile(fileName: string, destDir: str
   await fs.writeFile(path.join(destDir, fileName), Buffer.from(res.data as ArrayBuffer));
 }
 
-/** Per-user OAuth client from stored tokens (see auth flow). */
-export function userDrive(accessToken: string, refreshToken?: string) {
-  const oauth = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  );
+/**
+ * Per-user OAuth client from stored tokens (see auth flow).
+ *
+ * KREDENSIALNYA DARI DATABASE, sama seperti alur connect dan refresh. Versi
+ * sebelumnya membaca process.env langsung, padahal sejak D10 kredensial
+ * aplikasi OAuth hidup di tabel `oauth_apps` dan env hanya cadangan. Efeknya
+ * halus tapi nyata: googleapis memakai clientId/secret ini untuk memperbarui
+ * token SENDIRI di tengah panggilan panjang, dan dengan keduanya undefined
+ * pembaruan itu gagal diam-diam — sync berhenti di tengah jalan tanpa sebab
+ * yang terlihat pada korpus yang butuh lebih dari satu jam.
+ */
+export async function userDrive(accessToken: string, refreshToken?: string) {
+  const app = await oauthAppService.get('google');
+  const oauth = new google.auth.OAuth2(app?.clientId, app?.clientSecret);
   oauth.setCredentials({ access_token: accessToken, refresh_token: refreshToken });
   return google.drive({ version: 'v3', auth: oauth });
 }
 
 export async function listUserDriveFiles(accessToken: string, folderId: string) {
-  const drive = userDrive(accessToken);
+  const drive = await userDrive(accessToken);
   const res = await drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
     fields: 'files(id,name,mimeType,modifiedTime,size)',
@@ -83,7 +92,7 @@ export async function crawlUserDrive(
   accessToken: string,
   opts: { scope: 'all' | 'folder'; folderId?: string; maxFiles?: number },
 ): Promise<DriveFile[]> {
-  const drive = userDrive(accessToken);
+  const drive = await userDrive(accessToken);
   const max = opts.maxFiles ?? 2000;
   const out: DriveFile[] = [];
 
@@ -138,7 +147,7 @@ export async function crawlUserDrive(
 export async function getUserDriveFilesMeta(
   accessToken: string, fileIds: string[],
 ): Promise<DriveFile[]> {
-  const drive = userDrive(accessToken);
+  const drive = await userDrive(accessToken);
   const out: DriveFile[] = [];
   for (const fileId of fileIds) {
     try {
@@ -156,7 +165,7 @@ export async function getUserDriveFilesMeta(
 }
 
 export async function downloadUserDriveFile(accessToken: string, fileId: string): Promise<Buffer> {
-  const drive = userDrive(accessToken);
+  const drive = await userDrive(accessToken);
   const res = await drive.files.get(
     { fileId, alt: 'media' },
     { responseType: 'arraybuffer' },
@@ -193,7 +202,7 @@ export function googleNativeExportMime(mimeType?: string): string | null {
 export async function exportUserDriveFile(
   accessToken: string, fileId: string, exportMime: string,
 ): Promise<Buffer> {
-  const drive = userDrive(accessToken);
+  const drive = await userDrive(accessToken);
   const res = await drive.files.export(
     { fileId, mimeType: exportMime },
     { responseType: 'arraybuffer' },

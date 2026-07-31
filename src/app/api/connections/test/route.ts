@@ -38,15 +38,24 @@ export async function POST(req: NextRequest) {
     )).limit(1))[0]);
   if (!conn) return NextResponse.json({ error: 'Koneksi tidak ditemukan' }, { status: 404 });
 
-  // Ini juga sekaligus menguji jalur REFRESH: getAccessToken memperbarui token
-  // yang hampir kedaluwarsa, jadi kegagalan refresh muncul di sini alih-alih
-  // di tengah sync.
-  const token = await connectionService.getAccessToken(
+  // Ini juga sekaligus menguji jalur REFRESH: probeAccessToken memperbarui
+  // token yang hampir kedaluwarsa, jadi kegagalan refresh muncul di sini
+  // alih-alih di tengah sync — dan MENYEBUT sebabnya.
+  const { token, failure, detail } = await connectionService.probeAccessToken(
     user.tenantId, user.id, conn.provider as 'google' | 'microsoft', conn.accountEmail);
   if (!token) {
+    /* Menyuruh menyambung ulang pada kegagalan KONFIGURASI adalah saran yang
+       mustahil dijalankan: alur connect memakai kredensial database dan akan
+       berhasil, lalu satu jam kemudian refresh gagal lagi persis sama.
+       Pesannya harus menunjuk orang yang benar-benar bisa memperbaikinya. */
     return NextResponse.json({
       ok: false,
-      reason: 'Token tak bisa diperbarui. Sambungkan ulang akun ini.',
+      fatal: failure === 'config',
+      reason: failure === 'config'
+        ? `Kredensial aplikasi OAuth ${conn.provider} bermasalah (${detail ?? 'tak diketahui'}) — menyambung ulang akun TIDAK akan menolong. Superadmin perlu memeriksa Client ID/Secret di Pengaturan → OAuth.`
+        : failure === 'network'
+          ? `Gagal menghubungi penyedia saat memperbarui token (${detail ?? '—'}). Coba lagi sebentar; akunnya sendiri kemungkinan sehat.`
+          : 'Token ditolak penyedia. Sambungkan ulang akun ini.',
     });
   }
 
