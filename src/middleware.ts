@@ -32,6 +32,10 @@ export const config = {
     '/branding/:path*',
     '/conversations/:path*',
     '/analytics/:path*',
+    '/categories/:path*',
+    '/documents/:path*',
+    '/bantuan',
+    '/kuitansi/:path*',
     '/team/:path*',
     '/billing/:path*',
     '/observability/:path*',
@@ -64,6 +68,13 @@ export const config = {
     // verifikasi signature. Halaman bayar ikut '/billing/:path*' di atas.
     '/api/entitlements',
     '/api/payments',
+    // Ditulis per-pola dan BUKAN ':path*'. ':path*' memang menutup
+    // /api/payments/<id>/kuitansi yang tadinya luput, tapi ia juga menyeret
+    // /api/payments/callback/<provider> — webhook gateway yang HARUS tetap
+    // publik karena otentikasinya verifikasi signature, bukan sesi.
+    // Melindunginya berarti setiap pemberitahuan pembayaran dialihkan ke
+    // halaman login dan tak satu pun tagihan pernah ditandai lunas.
     '/api/payments/:id',
+    '/api/payments/:id/kuitansi',
   ],
 };
