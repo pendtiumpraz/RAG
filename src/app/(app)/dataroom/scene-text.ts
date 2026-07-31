@@ -16,7 +16,7 @@
 export type SceneId =
   | 'ingest' | 'dedupe' | 'legs' | 'tiers' | 'policy' | 'guardrails' | 'rls' | 'memory'
   | 'tokens' | 'costs' | 'plans' | 'capacity' | 'vercel' | 'storage' | 'scale' | 'dims' | 'halfvec'
-  | 'ramShape' | 'ramQuery' | 'ramUsers';
+  | 'ramShape' | 'ramQuery' | 'ramUsers' | 'vercelBesar';
 
 export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
   ingest: [
@@ -178,5 +178,14 @@ export const SCENE_STEPS: Record<SceneId, Array<{ t: string; d: string }>> = {
     { t: 'Kenapa tak meledak — kolam koneksi', d: 'Berapa pun penggunanya, kueri yang benar-benar berjalan serentak dibatasi kolam koneksi basis data. Bagian ini punya ATAP, bukan pertumbuhan lurus.' },
     { t: 'Kenapa tak meledak — sebagian besar hanya menunggu', d: 'Satu pertanyaan memakai ±15 milidetik kerja basis data di dalam rentang 3 detik menunggu jawaban model. Seribu pengguna bersamaan menuntut ±2 inti CPU, bukan seribu.' },
     { t: 'Yang benar-benar tumbuh mengikuti pengguna adalah TAGIHAN', d: 'Dari 100 ke 1.000 pengguna, memorinya naik ±40%; biaya model bahasanya naik sepuluh kali lipat. Kapasitas dibayar sekali; menjawab dibayar tiap kali.' },
+  ],
+  vercelBesar: [
+    { t: 'Jawabannya terbelah — dan satu kata akan menyesatkan', d: 'Korpus 700 GB kini bisa DILAYANI dari Vercel + Neon, tetapi tidak bisa DIMASUKKAN lewat sana. Menjawab "tidak bisa" mengulang batas yang sudah tidak ada; menjawab "bisa" menjanjikan sesuatu yang gagal setelah kontrak ditandatangani.' },
+    { t: 'Melayani — sudah muat', d: 'Indeks residen 2,5 GB pada mode bertingkat, jauh di bawah atap Neon 64 GB. Mode langsung (25 GB) pun masih muat sebagai jalan mundur. Waktu jawab ±15 ms, dan biaya per pertanyaan tidak naik mengikuti besar korpus.' },
+    { t: 'Memasukkan — 20.589 kali jalan', d: '150 berkas per putaran, batas 60 detik per lambda. Dipicu cron tiap menit dan setiap putaran sukses penuh sekalipun, itu ±14 hari nonstop.' },
+    { t: 'Jendela listing 2.000 dari 3,1 juta dokumen', d: 'Sync tak akan pernah melihat seluruh drive sekaligus, jadi deteksi berkas terhapus permanen dilewati — penahan yang disengaja supaya tak ada yang salah dihapus, tapi artinya penghapusan tak pernah tersinkron.' },
+    { t: '700 GB harus mengalir lewat lambda', d: 'Untuk diekstrak jadi teks. Itu ±70% jatah transfer Vercel Pro sebulan, habis dalam satu kali ingest awal.' },
+    { t: 'Yang menghalangi bukan kapasitas', d: 'Lambda dibekukan begitu respons terkirim; tak ada proses latar yang hidup terus. RAM dan disknya sendiri sudah cukup — inilah sebabnya jawaban "kurang besar" salah alamat.' },
+    { t: 'Jalan tengahnya: pisahkan pemicunya', d: 'Ingest dijalankan dari VPS murah yang menulis ke basis data yang sama; penyajian tetap di Vercel. Di VPS tak ada batas 60 detik dan transfernya tak lewat Vercel. Satu basis kode, yang berbeda hanya pemicunya.' },
   ],
 };

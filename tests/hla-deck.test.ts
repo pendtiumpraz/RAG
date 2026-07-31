@@ -17,6 +17,7 @@ const DECKS = readFileSync('src/app/(app)/dataroom/decks.ts', 'utf8');
 const BERKAS_ADEGAN = [
   'scenes.tsx', 'scenes-cost.tsx', 'scenes-limits.tsx',
   'scenes-storage.tsx', 'scenes-vector.tsx', 'scenes-ram.tsx',
+  'scenes-vercel-besar.tsx',
 ];
 const SCENES = BERKAS_ADEGAN
   .map((f) => readFileSync(`src/app/(app)/dataroom/${f}`, 'utf8'))

@@ -791,6 +791,10 @@ const hla: Slide[] = [
     title: 'Batas Vercel yang benar-benar terasa',
     note: 'Bukan daftar spesifikasi — hanya empat batas yang benar-benar menyentuh produk ini, dan semuanya sudah punya jalan keluar hari ini. Satu yang belum: atap Neon di 16 CU. Melewatinya bukan soal membayar lebih, melainkan harus pindah ke server sendiri atau ke AWS.' },
 
+  { kind: 'anim', kicker: 'BATAS PLATFORM', scene: 'vercelBesar',
+    title: 'Korpus 700 GB di Vercel — yang sudah muat, dan yang belum',
+    note: 'Slide ini ada karena jawabannya TERBELAH, dan menjawabnya dengan satu kata akan menyesatkan ke dua arah sekaligus. Setelah halfvec dan mode bertingkat, korpus 700 GB benar-benar bisa DILAYANI dari Vercel + Neon — indeksnya tinggal 2,5 GB, jauh di bawah atap Neon 64 GB. Menjawab "tidak bisa" hari ini berarti mengulang batas yang sudah tidak ada lagi. Tetapi MEMASUKKAN 700 GB tetap tak bisa lewat sana, dan penghalangnya sama sekali bukan kapasitas melainkan tak adanya proses latar yang hidup terus: lambda dibekukan begitu respons terkirim. Ketiga angka penghalangnya dibaca dari kode produksi, bukan diperkirakan — bila batasnya suatu saat dinaikkan, angka di slide ini ikut berubah dengan sendirinya. Jalan tengahnya bukan tambalan: basis datanya memang sama, jadi menjalankan ingest dari VPS sementara penyajian tetap di Vercel tak menuntut satu baris kode baru.' },
+
   { kind: 'flow', kicker: 'RANGKUMAN', title: 'Satu pertanyaan, ujung ke ujung',
     steps: [
       { t: 'Pertanyaan masuk', d: 'widget, API, atau dashboard' },

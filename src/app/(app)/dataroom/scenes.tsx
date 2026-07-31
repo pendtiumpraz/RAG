@@ -543,6 +543,7 @@ import { ScenePlans, SceneCapacity, SceneVercel } from './scenes-limits';
 import { SceneStorage, SceneScale } from './scenes-storage';
 import { SceneDims, SceneHalfvec } from './scenes-vector';
 import { SceneRamShape, SceneRamQuery, SceneRamUsers } from './scenes-ram';
+import { SceneVercelBesar } from './scenes-vercel-besar';
 
 export const SCENES: Record<SceneId, () => React.ReactElement> = {
   ingest: SceneIngest,
@@ -565,4 +566,5 @@ export const SCENES: Record<SceneId, () => React.ReactElement> = {
   ramShape: SceneRamShape,
   ramQuery: SceneRamQuery,
   ramUsers: SceneRamUsers,
+  vercelBesar: SceneVercelBesar,
 };
