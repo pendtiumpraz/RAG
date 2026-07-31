@@ -11,28 +11,17 @@ import { contentFingerprint, fingerprintable, nameSizeKey } from './dedupe';
 import { BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
 import { limitsFor } from '@/modules/core/limits-server';
 
-/** Chunker naif tapi solid: ~800 char, overlap ~120, pecah di batas kalimat. */
-export function chunkText(text: string, size = 800, overlap = 120): string[] {
-  const clean = text.replace(/\r\n/g, '\n').trim();
-  if (clean.length <= size) return clean ? [clean] : [];
-  const chunks: string[] = [];
-  let start = 0;
-  while (start < clean.length) {
-    let end = Math.min(start + size, clean.length);
-    const slice = clean.slice(start, end);
-    const brk = Math.max(slice.lastIndexOf('\n\n'), slice.lastIndexOf('. '));
-    if (brk > size * 0.5 && end < clean.length) end = start + brk + 1;
-    chunks.push(clean.slice(start, end).trim());
-    // Chunk terakhir sudah menyentuh ujung teks → SELESAI. Tanpa break ini,
-    // `start = end - overlap` mundur ke posisi yang sama dan loop berputar
-    // selamanya untuk SEMUA teks > `size` — heap penuh potongan 120 karakter
-    // yang identik (4GB lalu OOM; di lambda: mati sunyi, sync macet
-    // 'syncing'). Tak pernah ketahuan karena semua uji memakai teks pendek.
-    if (end >= clean.length) break;
-    start = end - overlap;
-  }
-  return chunks.filter(Boolean);
-}
+/**
+ * Pemotong teks — pindah ke `./chunker` (D-a-chunk, 31 Jul 2026).
+ *
+ * Diekspor ulang dari sini karena `chunkText` sudah jadi nama yang dipakai
+ * pemanggil dan tes; memindahkannya sekaligus mengganti jalur impor akan
+ * mencampur dua perubahan dalam satu langkah, dan yang satu menyamarkan yang
+ * lain. Isinya sendiri kini modul sendiri supaya bisa diuji tanpa menyeret
+ * seluruh service beserta basis datanya.
+ */
+import { chunkText } from './chunker';
+export { chunkText };
 
 
 /* ── lapisan pertama retrieval bertingkat ─────────────────────────────
