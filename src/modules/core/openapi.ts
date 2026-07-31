@@ -605,8 +605,15 @@ export const openApiSpec = {
         parameters: [
           { name: 'chatbotId', in: 'query', required: true, schema: uuid },
           { name: 'days', in: 'query', required: false, schema: { type: 'integer' } },
+          // Rentang kustom: keduanya wajib bersamaan, `sampai` INKLUSIF.
+          { name: 'dari', in: 'query', required: false, schema: { type: 'string', format: 'date' } },
+          { name: 'sampai', in: 'query', required: false, schema: { type: 'string', format: 'date' } },
+          { name: 'format', in: 'query', required: false, schema: { type: 'string', enum: ['json', 'csv'] } },
         ],
-        responses: { 200: err('totals, topQuestions, topKeywords, topDocuments, daily') } },
+        responses: {
+          200: err('totals, topQuestions, topKeywords, topDocuments, daily, range — atau text/csv bila format=csv'),
+          400: err('rentang tak sah (terbalik, satu ujung, atau melewati 365 hari)'),
+        } },
     },
     /* Kontrak SSE kedua endpoint chat (internal & publik):
        event meta {conversationId} → sources [] (internal saja) →

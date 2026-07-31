@@ -9,6 +9,7 @@ import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
 interface Chatbot { id: string; name: string }
 interface Analytics {
   days: number;
+  range: { from: string; to: string };
   totals: { conversations: number; questions: number; withCitation: number };
   unanswered: number;
   topQuestions: Array<{ question: string; count: number }>;
@@ -23,9 +24,19 @@ function AnalyticsPageInner() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const [id, setId] = useState('');
   const [days, setDays] = useState(30);
+  /* Rentang kustom KOSONG secara bawaan, dan selama kosong preset hari yang
+     dipakai. Menyalakan keduanya sekaligus akan membuat dua kontrol
+     memperebutkan jendela yang sama, dan pengguna tak bisa tahu mana yang
+     menang. */
+  const [dari, setDari] = useState('');
+  const [sampai, setSampai] = useState('');
+  const kustom = Boolean(dari && sampai);
+  const kueri = id
+    ? `chatbotId=${id}&${kustom ? `dari=${dari}&sampai=${sampai}` : `days=${days}`}`
+    : '';
 
   useEffect(() => { if (bots.data?.[0] && !id) setId(bots.data[0].id); }, [bots.data, id]);
-  const a = useApi<Analytics>(id ? `/api/analytics?chatbotId=${id}&days=${days}` : null);
+  const a = useApi<Analytics>(kueri ? `/api/analytics?${kueri}` : null);
 
   if (bots.error) return <div className="card"><ErrorState message={bots.error} onRetry={bots.refetch} /></div>;
   if (bots.loading || !bots.data) return <div className="card"><Skeleton rows={4} /></div>;
@@ -42,11 +53,25 @@ function AnalyticsPageInner() {
           <Select style={{ width: 190 }} value={id} onChange={(e) => setId(e.target.value)}>
             {bots.data.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
-          <Select style={{ width: 150 }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <Select style={{ width: 150 }} value={days} disabled={kustom}
+            onChange={(e) => setDays(Number(e.target.value))}>
             <option value={7}>7 hari</option>
             <option value={30}>30 hari</option>
             <option value={90}>90 hari</option>
           </Select>
+          <input className="input mono" type="date" style={{ width: 148 }} value={dari}
+            aria-label="Tanggal awal" max={sampai || undefined}
+            onChange={(e) => setDari(e.target.value)} />
+          <span style={{ color: 'var(--muted)' }}>s/d</span>
+          <input className="input mono" type="date" style={{ width: 148 }} value={sampai}
+            aria-label="Tanggal akhir" min={dari || undefined}
+            onChange={(e) => setSampai(e.target.value)} />
+          {kustom && <button className="btn" onClick={() => { setDari(''); setSampai(''); }}>Reset</button>}
+          {/* Unduhan lewat tautan biasa, bukan fetch+blob: berkasnya datang
+              dari endpoint yang sama dengan angka di layar, dan peramban
+              sudah tahu cara menyimpannya. */}
+          <a className="btn" href={kueri ? `/api/analytics?${kueri}&format=csv` : undefined}
+            aria-disabled={!kueri} download>Unduh CSV</a>
         </div>
       </div>
 

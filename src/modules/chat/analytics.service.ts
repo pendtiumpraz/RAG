@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@/modules/core/db/tenant-context';
+import { type Rentang, awalTampil } from './rentang';
 
 /**
  * ANALITIK PER CHATBOT.
@@ -19,6 +20,8 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 
 export interface ChatbotAnalytics {
   days: number;
+  /** Rentang yang BENAR-BENAR dipakai — bukan yang diminta. */
+  range: { from: string; to: string };
   totals: { conversations: number; questions: number; withCitation: number };
   topQuestions: Array<{ question: string; count: number }>;
   topKeywords: Array<{ word: string; count: number }>;
@@ -60,8 +63,14 @@ function keywords(texts: string[], top = 12): Array<{ word: string; count: numbe
 const rowsOf = <T>(r: unknown): T[] => (r as unknown as T[]) ?? [];
 
 export const analyticsService = {
-  async forChatbot(tenantId: string, chatbotId: string, days = 30): Promise<ChatbotAnalytics> {
-    const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  async forChatbot(tenantId: string, chatbotId: string, rentang: Rentang): Promise<ChatbotAnalytics> {
+    /* Jendela DUA SISI. Sebelumnya hanya `>= since`, yang benar selama
+       ujung atasnya selalu "sekarang". Begitu pengguna boleh memilih rentang
+       yang berakhir di masa lalu, tanpa batas atas laporannya diam-diam ikut
+       memuat seluruh data sesudahnya — dan angkanya terlihat wajar. */
+    const since = rentang.awal;
+    const until = rentang.akhir;
+    const days = rentang.hari;
 
     return withTenant(tenantId, async (tx) => {
       const totals = rowsOf<{ conversations: string; questions: string; with_citation: string }>(
@@ -69,15 +78,15 @@ export const analyticsService = {
           select
             (select count(*)::int from conversations c
               where c.chatbot_id = ${chatbotId} and c.deleted_at is null
-                and c.started_at >= ${since})                                   as conversations,
+                and c.started_at >= ${since} and c.started_at < ${until})                                   as conversations,
             (select count(*)::int from messages m
               join conversations c on c.id = m.conversation_id
               where c.chatbot_id = ${chatbotId} and m.role = 'user'
-                and m.deleted_at is null and m.created_at >= ${since})           as questions,
+                and m.deleted_at is null and m.created_at >= ${since} and m.created_at < ${until})           as questions,
             (select count(*)::int from messages m
               join conversations c on c.id = m.conversation_id
               where c.chatbot_id = ${chatbotId} and m.role = 'assistant'
-                and m.deleted_at is null and m.created_at >= ${since}
+                and m.deleted_at is null and m.created_at >= ${since} and m.created_at < ${until}
                 and jsonb_array_length(coalesce(m.citations, '[]'::jsonb)) > 0)  as with_citation
         `));
 
@@ -87,7 +96,7 @@ export const analyticsService = {
         select count(*)::int as n from messages m
         join conversations c on c.id = m.conversation_id
         where c.chatbot_id = ${chatbotId} and m.role = 'assistant'
-          and m.deleted_at is null and m.created_at >= ${since}
+          and m.deleted_at is null and m.created_at >= ${since} and m.created_at < ${until}
           and jsonb_array_length(coalesce(m.citations, '[]'::jsonb)) = 0
       `));
 
@@ -96,7 +105,7 @@ export const analyticsService = {
         from messages m
         join conversations c on c.id = m.conversation_id
         where c.chatbot_id = ${chatbotId} and m.role = 'user'
-          and m.deleted_at is null and m.created_at >= ${since}
+          and m.deleted_at is null and m.created_at >= ${since} and m.created_at < ${until}
         group by 1 having count(*) > 1
         order by n desc limit 10
       `));
@@ -107,7 +116,7 @@ export const analyticsService = {
         select m.content from messages m
         join conversations c on c.id = m.conversation_id
         where c.chatbot_id = ${chatbotId} and m.role = 'user'
-          and m.deleted_at is null and m.created_at >= ${since}
+          and m.deleted_at is null and m.created_at >= ${since} and m.created_at < ${until}
         order by m.created_at desc limit 2000
       `));
 
@@ -123,7 +132,7 @@ export const analyticsService = {
           cross join lateral jsonb_array_elements(coalesce(m.citations, '[]'::jsonb)) cit
           left join documents d on d.id = (cit->>'documentId')::uuid
           where c.chatbot_id = ${chatbotId} and m.deleted_at is null
-            and m.created_at >= ${since}
+            and m.created_at >= ${since} and m.created_at < ${until}
           group by 1 order by hits desc limit 10
         `));
 
@@ -133,12 +142,13 @@ export const analyticsService = {
         from messages m
         join conversations c on c.id = m.conversation_id
         where c.chatbot_id = ${chatbotId} and m.role = 'user'
-          and m.deleted_at is null and m.created_at >= ${since}
+          and m.deleted_at is null and m.created_at >= ${since} and m.created_at < ${until}
         group by 1 order by 1
       `));
 
       return {
         days,
+        range: { from: awalTampil(rentang), to: rentang.akhirTampil },
         totals: {
           conversations: Number(totals[0]?.conversations ?? 0),
           questions: Number(totals[0]?.questions ?? 0),
