@@ -5,6 +5,7 @@ import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { QuotaBar } from '../../_components/quota-bar';
 
 interface Chatbot { id: string; name: string }
 /** Ringkasan run delta terakhir — ditulis sync.service ke config.lastSync. */
@@ -91,6 +92,12 @@ export default function KnowledgePage() {
   const [creatingKb, setCreatingKb] = useState(false);
   const [assigning, setAssigning] = useState<Kb | null>(null);
   const toast = useToast();
+  /* Dinaikkan sesudah tiap tindakan yang mengubah pemakaian penyimpanan.
+     Tanpa ini bilah kuota menampilkan angka SEBELUM sync padahal sync-nya
+     sudah selesai — dan orang mengira masih punya sisa yang sebenarnya
+     sudah terpakai. */
+  const [kuotaTick, setKuotaTick] = useState(0);
+  const segarkanKuota = () => setKuotaTick((n) => n + 1);
 
   async function createKb(name: string, description: string) {
     const kb = await api<Kb>('/api/knowledge-bases', {
@@ -120,7 +127,7 @@ export default function KnowledgePage() {
     try {
       await api(`/api/sources/${id}/sync${full ? '?full=1' : ''}`, { method: 'POST' });
       toast(full ? 'Sync penuh dijalankan' : 'Sync dijalankan (hanya perubahan)');
-      sources.refetch();
+      sources.refetch(); segarkanKuota();
     } catch (e) { toast((e as Error).message, 'error'); }
   }
   async function disconnect(id: string) {
@@ -157,7 +164,14 @@ export default function KnowledgePage() {
     <>
       <div className="page-head">
         <div><h1>Knowledge Base</h1><p className="sub">KB berdiri sendiri — satu KB (mis. satu folder Drive) bisa dipakai banyak chatbot lewat Assign. Di-ingest sekali, dipakai semua.</p></div>
-        <button className="btn btn-primary" onClick={() => setCreatingKb(true)}><Icon name="plus" size={16} /> Buat KB</button>
+        {/* Sisa kuota di KEPALA halaman, bukan terkubur di bawah: ini halaman
+            tempat orang menekan tombol yang MEMAKAI kuota, dan peringatan
+            yang harus digulir untuk ditemukan tak pernah dibaca sebelum
+            tombolnya ditekan. */}
+        <div className="cluster" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <QuotaBar compact refreshKey={kuotaTick} />
+          <button className="btn btn-primary" onClick={() => setCreatingKb(true)}><Icon name="plus" size={16} /> Buat KB</button>
+        </div>
       </div>
 
       {/* daftar KB + assignment */}
@@ -312,7 +326,7 @@ export default function KnowledgePage() {
 
       {adding && kbId && <SourceDrawer knowledgeBaseId={kbId} accounts={conns.data ?? []}
         providers={oauthReady.data ?? null} onClose={() => setAdding(false)}
-        onSaved={() => { setAdding(false); sources.refetch(); kbs.refetch(); }} />}
+        onSaved={() => { setAdding(false); sources.refetch(); kbs.refetch(); segarkanKuota(); }} />}
       {creatingKb && <KbDrawer onClose={() => setCreatingKb(false)} onSave={createKb} />}
       {assigning && <AssignDrawer kb={assigning} bots={bots.data ?? []}
         onClose={() => setAssigning(null)}
