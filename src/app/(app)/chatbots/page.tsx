@@ -13,6 +13,8 @@ interface Chatbot {
      Opsional karena baris pra-migrasi 0030 belum memilikinya. */
   temperature?: number; maxTokens?: number; languageMode?: string;
   tone?: string; grounding?: string; answerRules?: string | null;
+  /** Rahasia identitas pengunjung sudah dinyalakan (migrasi 0042)? */
+  visitorSecret?: string | null;
   /** Divisi pemilik (migrasi 0040). null = tak dibatasi. */
   divisionId?: string | null;
 }
@@ -196,6 +198,8 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
             </p>
           </Field>
 
+          {!isNew && bot && <IdentitasPengunjung bot={bot} />}
+
           {/* D11: konteks kepemilikan divisi — masuk system prompt chatbot ini saja */}
           <Field label="Konteks divisi / persona"><textarea className="input" rows={3} value={context} onChange={(e) => setContext(e.target.value)}
               placeholder="Chatbot divisi HR. Menjawab kebijakan karyawan, cuti, dan benefit. Gaya formal dan ringkas." />
@@ -281,5 +285,91 @@ function ChatbotDrawer({ chatbot, onClose, onSaved }:
         </div>
       </Drawer>
     </>
+  );
+}
+
+/* ── identitas pengunjung yang disuntik situs pelanggan ──────────────
+   Penanda pengunjung lahir dari Math.random() di localStorage, jadi riwayat
+   chat mati bersama perambannya: tanya di ponsel pagi hari, buka laptop siang
+   hari, percakapannya hilang. Pelanggan yang situsnya sudah punya login bisa
+   menyebutkan sendiri penanda penggunanya — di halaman DALAM aplikasi mereka,
+   bukan di landing publik. */
+function IdentitasPengunjung({ bot }: { bot: Chatbot }) {
+  const [nyala, setNyala] = useState(!!bot.visitorSecret);
+  const [rahasia, setRahasia] = useState<string | null>(null);
+  const [contoh, setContoh] = useState<Array<{ id: string; label: string; berkas: string; kode: string }>>([]);
+  const [bahasa, setBahasa] = useState('php');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  async function ubah(mau: boolean) {
+    if (!mau && !confirm('Matikan identitas pengunjung? Widget yang memakai tanda tangan akan ditolak, dan riwayat lintas perangkat berhenti bekerja.')) return;
+    if (mau && nyala && !confirm('Putar rahasia? SEMUA tanda tangan lama langsung ditolak sampai server Anda memakai rahasia baru.')) return;
+    setBusy(true);
+    try {
+      const r = await api<{ rahasia: string | null; contoh: typeof contoh }>(
+        `/api/chatbots/${bot.id}/visitor-secret`,
+        { method: 'POST', body: JSON.stringify({ nyala: mau }) });
+      setNyala(mau); setRahasia(r.rahasia); setContoh(r.contoh ?? []);
+      toast(mau ? 'Rahasia dibuat — salin sekarang' : 'Identitas pengunjung dimatikan');
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  const aktif = contoh.find((c) => c.id === bahasa) ?? contoh[0];
+
+  return (
+    <Field label="Identitas pengunjung dari situs Anda">
+      <div className="cluster gap-2">
+        <button className={`btn btn-sm${nyala ? '' : ' btn-primary'}`} disabled={busy}
+          onClick={() => void ubah(!nyala)}>
+          {nyala ? 'Matikan' : 'Nyalakan'}
+        </button>
+        {nyala && (
+          <button className="btn btn-sm" disabled={busy} onClick={() => void ubah(true)}>
+            Putar rahasia
+          </button>
+        )}
+        <span className="badge">{nyala ? 'AKTIF' : 'MATI'}</span>
+      </div>
+
+      <p className="microlabel" style={{ marginTop: 6 }}>
+        UNTUK HALAMAN DI DALAM APLIKASI ANDA YANG PENGGUNANYA SUDAH LOGIN — BUKAN LANDING PUBLIK.
+        RIWAYAT CHAT LALU MENGIKUTI ORANGNYA KE PERANGKAT MANA PUN. TANPA INI, RIWAYAT TETAP
+        HIDUP PER PERAMBAN SEPERTI SEBELUMNYA.
+      </p>
+
+      {rahasia && (
+        <div className="stack gap-2" style={{ marginTop: 10 }}>
+          <span className="microlabel" style={{ color: 'var(--source)' }}>
+            SALIN SEKARANG — RAHASIA INI TIDAK BISA DILIHAT LAGI SETELAH LAYAR INI DITUTUP
+          </span>
+          <code className="mono" style={{
+            display: 'block', padding: 10, background: 'var(--card-2)',
+            border: '1px solid var(--line)', borderRadius: 7, wordBreak: 'break-all', fontSize: 12,
+          }}>{rahasia}</code>
+          <p className="microlabel">
+            SIMPAN SEBAGAI ENV DI SERVER ANDA (NALAR_VISITOR_SECRET). JANGAN PERNAH MENARUHNYA
+            DI KODE YANG DIKIRIM KE PERAMBAN — SIAPA PUN YANG MEMBACANYA BISA MENIRU IDENTITAS
+            SETIAP PENGGUNA ANDA.
+          </p>
+        </div>
+      )}
+
+      {aktif && (
+        <div className="stack gap-2" style={{ marginTop: 10 }}>
+          <div className="cluster gap-2" style={{ flexWrap: 'wrap' }}>
+            {contoh.map((c) => (
+              <button key={c.id} className={`btn btn-sm${c.id === (aktif.id) ? ' btn-primary' : ''}`}
+                onClick={() => setBahasa(c.id)}>{c.label}</button>
+            ))}
+          </div>
+          <span className="microlabel">{aktif.berkas}</span>
+          <pre className="mono" style={{
+            margin: 0, padding: 12, background: 'var(--card-2)', border: '1px solid var(--line)',
+            borderRadius: 7, overflowX: 'auto', fontSize: 12, lineHeight: 1.55,
+          }}>{aktif.kode}</pre>
+        </div>
+      )}
+    </Field>
   );
 }

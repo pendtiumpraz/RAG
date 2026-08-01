@@ -9,6 +9,8 @@ import { dispatch } from '@/modules/core/events';
 import { usageService } from '@/modules/usage/usage.service';
 import { chatbotRepository as repo } from './chatbot.repository';
 import { bolehLihat, lintasDivisi, PESAN_DILUAR_DIVISI, type AktorDivisi } from './divisi';
+import { encryptSecret } from '@/modules/core/crypto';
+import { rahasiaPengunjungBaru } from '@/modules/chat/visitor-identity';
 
 export class ValidationError extends Error {}
 
@@ -27,12 +29,29 @@ export class AksesDitolakError extends Error {
  * Controller (route) hanya memanggil service; service tidak tahu HTTP.
  */
 export const chatbotService = {
-  list(tenantId: string, aktor: AktorDivisi) {
-    return withTenant(tenantId, (tx) => repo.listActive(tx, tenantId, aktor));
+  /**
+   * Buang rahasia dari baris yang akan meninggalkan server.
+   *
+   * `repo.listActive` memakai `select()` tanpa kolom eksplisit, jadi SETIAP
+   * kolom baru otomatis ikut terkirim ke peramban — termasuk
+   * `visitor_secret`. Ia memang terenkripsi, tapi ciphertext yang beredar di
+   * klien adalah bahan yang tak pernah perlu ada di sana: satu kebocoran
+   * kunci enkripsi kelak mengubahnya jadi rahasia terbuka, dan tak ada satu
+   * pun layar yang membutuhkannya. Yang dibutuhkan UI cuma NYALA atau tidak.
+   */
+  tanpaRahasia<T extends { visitorSecret?: string | null }>(row: T) {
+    const { visitorSecret, ...sisa } = row;
+    return { ...sisa, visitorSecret: visitorSecret ? true : null };
   },
 
-  listTrashed(tenantId: string, aktor: AktorDivisi) {
-    return withTenant(tenantId, (tx) => repo.listTrashed(tx, tenantId, aktor));
+  async list(tenantId: string, aktor: AktorDivisi) {
+    const rows = await withTenant(tenantId, (tx) => repo.listActive(tx, tenantId, aktor));
+    return rows.map((r) => this.tanpaRahasia(r));
+  },
+
+  async listTrashed(tenantId: string, aktor: AktorDivisi) {
+    const rows = await withTenant(tenantId, (tx) => repo.listTrashed(tx, tenantId, aktor));
+    return rows.map((r) => this.tanpaRahasia(r));
   },
 
   async create(tenantId: string, aktor: AktorDivisi, input: {
@@ -183,6 +202,34 @@ export const chatbotService = {
         .where(eq(conversations.chatbotId, id));
       await dispatch('chatbot.restored', { tenantId, chatbotId: id });
       return restored;
+    });
+  },
+
+  /**
+   * Nyalakan / putar / matikan rahasia identitas pengunjung.
+   *
+   * Rahasianya dikembalikan SATU KALI, saat dibuat. Sesudah itu ia hanya ada
+   * dalam bentuk terenkripsi dan tak pernah bisa dibaca lagi — sama seperti
+   * kunci API di mana pun. Menyimpannya agar bisa "dilihat lagi" berarti
+   * seluruh riwayat pelanggan bergantung pada satu layar dasbor yang bisa
+   * dibuka siapa pun yang sempat duduk di kursi yang salah.
+   *
+   * MEMUTAR RAHASIA MEMUTUS SEMUA TANDA TANGAN LAMA seketika: widget yang
+   * masih memakai tanda tangan lama akan ditolak sampai server pelanggan
+   * memakai rahasia baru. Itu memang gunanya — rahasia diputar justru ketika
+   * yang lama diduga bocor.
+   */
+  async setRahasiaPengunjung(tenantId: string, aktor: AktorDivisi, id: string, nyala: boolean) {
+    return withTenant(tenantId, async (tx) => {
+      await this.pastikanBoleh(tx, id, aktor);
+      const rahasia = nyala ? rahasiaPengunjungBaru() : null;
+      const updated = await repo.update(tx, id, {
+        visitorSecret: rahasia ? encryptSecret(rahasia) : null,
+      });
+      if (!updated) throw new ValidationError('Chatbot tidak ditemukan');
+      /* Yang polos dikembalikan, yang tersimpan terenkripsi. Pemanggilnya
+         wajib menampilkannya sekali lalu melupakannya. */
+      return { rahasia };
     });
   },
 

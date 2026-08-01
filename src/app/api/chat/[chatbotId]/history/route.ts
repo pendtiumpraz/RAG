@@ -4,6 +4,8 @@ import { conversations, messages } from '@/modules/core/db';
 import { resolveChatbotByPublicKey } from '@/modules/core/db/tenant-context';
 import { withTenant } from '@/modules/core/db/tenant-context';
 
+import { penandaSah } from '@/modules/chat/visitor-guard';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +47,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chatbotId: 
 
   const q = req.nextUrl.searchParams;
   const conversationId = q.get('conversationId');
-  const visitorId = q.get('visitorId');
+  /* Penanda dikanonkan lewat jalur yang SAMA dengan chat & sessions: kalau
+     situs pelanggan menyuntikkan identitas, tanda tangannya diperiksa dan
+     penandanya masuk ruang nama terpisah. Penanda yang ditolak dijawab
+     daftar KOSONG — sengaja tak dibedakan dari "tak ada", supaya endpoint
+     ini tak bisa dipakai memastikan sebuah penanda itu nyata. */
+  const visitorId = penandaSah(bot, q.get('visitorId'), q.get('visitorSig'));
   if (!conversationId || !visitorId) {
     return Response.json({ messages: [] }, { headers: { 'Access-Control-Allow-Origin': cors } });
   }

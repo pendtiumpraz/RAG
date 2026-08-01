@@ -6,6 +6,8 @@ import { usageService } from '@/modules/usage/usage.service';
 import { PESAN_KUOTA, PESAN_LAJU } from '@/modules/chat/pesan-batas';
 import { ensureIntegrations } from '../../_wire';
 
+import { penandaSah } from '@/modules/chat/visitor-guard';
+
 export const runtime = 'nodejs';
 
 /** Laju per-IP (lapis kedua, lintas chatbot) — konservatif. */
@@ -102,6 +104,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
 
   const body = await req.json().catch(() => ({}));
   const question: string = body.message ?? '';
+
+  /* Identitas pengunjung dikanonkan sebelum apa pun disimpan. Di sini
+     penolakan dijawab 403 dan BUKAN didiamkan seperti di history/sessions:
+     di sana diam melindungi (endpointnya tak bisa dipakai menebak penanda),
+     di sini diam justru menyesatkan — pemasangan yang tanda tangannya salah
+     akan tampak bekerja sambil menulis riwayat ke penanda yang keliru, dan
+     baru ketahuan berminggu-minggu kemudian saat riwayatnya dicari. */
+  const visitorId = penandaSah(bot, body.visitorId, body.visitorSig);
+  if (body.visitorId && !visitorId) {
+    return new Response(
+      JSON.stringify({ error: 'Identitas pengunjung ditolak: tanda tangan tidak cocok atau penanda tak sah.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': cors } },
+    );
+  }
   if (!question.trim()) return new Response('Empty message', { status: 400 });
   if (question.length > 4000) return new Response('Message too long', { status: 413 });
 
@@ -116,7 +132,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
           tenantId: bot.tenant_id,
           chatbotId: bot.id,
           conversationId: body.conversationId,
-          visitorId: body.visitorId,
+          /* null hanya mungkin bila widget memang tak mengirim penanda —
+             pengunjung pertama kali, sebelum localStorage terisi. */
+          visitorId: visitorId ?? undefined,
           question,
         }, {
           onConversation: (id) => send('meta', { conversationId: id }),

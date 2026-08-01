@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { resolveChatbotByPublicKey, withTenant } from '@/modules/core/db/tenant-context';
 
+import { penandaSah } from '@/modules/chat/visitor-guard';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +58,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ chatbotId: 
   const cors = corsFor(req.headers.get('origin'), bot.allowed_origins ?? []);
   if (!cors) return new Response('Origin not allowed', { status: 403 });
 
-  const visitorId = req.nextUrl.searchParams.get('visitorId');
+  /* Dikanonkan lewat jalur yang sama dengan chat & history — tiga salinan
+     aturan keamanan adalah tiga tempat untuk lupa. */
+  const visitorId = penandaSah(bot, req.nextUrl.searchParams.get('visitorId'),
+    req.nextUrl.searchParams.get('visitorSig'));
   const kosong = () => Response.json({ sessions: [] }, {
     headers: { 'Access-Control-Allow-Origin': cors, 'Cache-Control': 'no-store' },
   });

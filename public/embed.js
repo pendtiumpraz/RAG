@@ -70,7 +70,28 @@
     return;
   }
 
-  var visitorId = localStorage.getItem('nalar_visitor') ||
+  /* IDENTITAS PENGUNJUNG — dua jalur, dan jalur lama TIDAK dihapus.
+
+     data-visitor + data-visitor-sig: situs pelanggan yang penggunanya sudah
+     LOGIN menyebutkan sendiri penanda penggunanya, dan server mereka
+     menandatanganinya. Riwayat lalu mengikuti orangnya ke perangkat mana pun.
+     Dipasang di halaman DALAM aplikasi, bukan di landing publik.
+
+     Tanpa keduanya: penanda acak di localStorage, seperti sebelumnya —
+     riwayat per peramban. Setiap widget yang sudah terpasang hari ini tetap
+     bekerja persis sama. */
+  var injVisitor = script.getAttribute('data-visitor');
+  var injSig = script.getAttribute('data-visitor-sig');
+  /* Tanda tangan TANPA penanda, atau sebaliknya, adalah pemasangan setengah
+     jadi — dan diam-diam jatuh ke penanda acak akan membuatnya tampak
+     bekerja sambil menulis riwayat ke tempat yang salah, ketahuan
+     berminggu-minggu kemudian saat riwayatnya dicari. */
+  if ((injVisitor && !injSig) || (!injVisitor && injSig)) {
+    console.error('[nalar] data-visitor dan data-visitor-sig harus ada berdua');
+    injVisitor = null; injSig = null;
+  }
+  var visitorSig = injSig || null;
+  var visitorId = injVisitor || localStorage.getItem('nalar_visitor') ||
     (function () { var v = 'v_' + Math.random().toString(36).slice(2); localStorage.setItem('nalar_visitor', v); return v; })();
   /* Sesi disimpan PER CHATBOT: satu situs bisa memasang dua widget, dan
      memakai satu kunci bersama akan membuat keduanya saling menimpa
@@ -249,7 +270,8 @@
       if (!conversationId) { done(false); return; }
       fetch(host + '/api/chat/' + encodeURIComponent(key) + '/history'
         + '?conversationId=' + encodeURIComponent(conversationId)
-        + '&visitorId=' + encodeURIComponent(visitorId))
+        + '&visitorId=' + encodeURIComponent(visitorId)
+        + (visitorSig ? '&visitorSig=' + encodeURIComponent(visitorSig) : ''))
         .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
         .then(function (j) {
           var list = (j && j.messages) || [];
@@ -327,7 +349,8 @@
       }
       fetch(host + '/api/chat/' + encodeURIComponent(key), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: v, conversationId: conversationId, visitorId: visitorId })
+        body: JSON.stringify({ message: v, conversationId: conversationId,
+          visitorId: visitorId, visitorSig: visitorSig })
       }).then(function (res) {
         /* 429 dipakai DUA batas yang berbeda, dan dulu keduanya dijawab
            "coba lagi sebentar". Untuk rate limit itu benar; untuk kuota

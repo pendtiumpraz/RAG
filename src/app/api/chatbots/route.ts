@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
       ownerId: user.id, ...parsed.data,
       themeConfig: parsed.data.themeConfig as never,
     });
-    return NextResponse.json({ chatbot, snippet: chatbotService.embedSnippet(chatbot.publicKey) }, { status: 201 });
+    /* Ciphertext rahasia tak pernah meninggalkan server — lihat tanpaRahasia(). */
+    return NextResponse.json({ chatbot: chatbotService.tanpaRahasia(chatbot),
+      snippet: chatbotService.embedSnippet(chatbot.publicKey) }, { status: 201 });
   } catch (e) {
     if (e instanceof AksesDitolakError) return NextResponse.json({ error: e.message }, { status: 403 });
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });

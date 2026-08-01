@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   try {
     const updated = await chatbotService.update(
       user.tenantId, await divisionService.aktor(user), id, parsed.data as never);
-    return NextResponse.json(updated);
+    return NextResponse.json(chatbotService.tanpaRahasia(updated));
   } catch (e) {
     if (e instanceof AksesDitolakError) return NextResponse.json({ error: e.message }, { status: 403 });
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 404 });

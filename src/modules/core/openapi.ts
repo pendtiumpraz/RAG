@@ -438,6 +438,22 @@ export const openApiSpec = {
         responses: { 200: err('{ why }'), 400: err('catatan kosong / terlalu panjang'),
           404: err('kartu tidak ditemukan') } },
     },
+    '/api/chatbots/{id}/visitor-secret': {
+      post: { summary: 'Nyalakan / putar / matikan identitas pengunjung dari situs pelanggan',
+        security: [sessionAuth],
+        description: 'Penanda pengunjung lahir dari Math.random() di localStorage, jadi riwayat '
+          + 'chat mati bersama perambannya. Situs pelanggan yang penggunanya sudah LOGIN bisa '
+          + 'menyebutkan penanda penggunanya sendiri lewat `data-visitor` + `data-visitor-sig` '
+          + '(HMAC-SHA256 hex atas penanda mentah, dihitung SERVER pelanggan). '
+          + 'Rahasianya dikembalikan SATU KALI di sini dan tak pernah bisa dibaca lagi — tak ada '
+          + 'endpoint GET untuknya, dan ciphertext-nya tak pernah ikut ke peramban. '
+          + 'Memutar rahasia MEMUTUS semua tanda tangan lama seketika, dan itu memang gunanya. '
+          + 'Balasannya menyertakan contoh kode lima bahasa (PHP, Node, Python, Go, Java).',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ nyala: { type: 'boolean' } }, ['nyala'])),
+        responses: { 200: err('{ rahasia, contoh }'), 403: err('chatbot milik divisi lain'),
+          404: err('chatbot tidak ditemukan') } },
+    },
     '/api/divisions': {
       get: { summary: 'Daftar divisi + jumlah anggota & chatbotnya', security: [sessionAuth],
         description: 'Boleh dibaca SEMUA anggota tenant, bukan hanya admin: form chatbot dan ' +

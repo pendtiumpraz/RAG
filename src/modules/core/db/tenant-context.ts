@@ -24,6 +24,11 @@ export interface EmbedChatbot {
   id: string; tenant_id: string; enabled: boolean;
   allowed_origins: string[]; theme_config: unknown; greeting: string | null;
   has_logo: boolean;
+  /** Rahasia identitas pengunjung, MASIH TERENKRIPSI (migrasi 0042).
+   *  null = chatbot ini belum menyalakan identitas suntikan. Didekripsi
+   *  hanya di sisi server saat memverifikasi tanda tangan; tak pernah
+   *  meninggalkan proses. */
+  visitor_secret: string | null;
 }
 
 /**
@@ -44,6 +49,7 @@ export async function resolveChatbotByPublicKey(publicKey: string): Promise<Embe
     await sql`select set_config('app.embed_context', 'public_key', true)`;
     return sql`
       select id, tenant_id, enabled, allowed_origins, theme_config, greeting,
+             visitor_secret,
              (logo is not null) as has_logo
       from chatbots
       where public_key = ${publicKey} and deleted_at is null

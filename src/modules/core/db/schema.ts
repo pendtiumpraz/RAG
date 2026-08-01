@@ -342,9 +342,23 @@ export const chatbots = pgTable('chatbots', {
    * Penyaringannya ada di chatbot.repository (klausaDivisi) — bukan di UI.
    */
   divisionId: uuid('division_id'),
+  /**
+   * Rahasia penanda tangan identitas pengunjung (migrasi 0042), TERENKRIPSI.
+   *
+   * NULL = fitur belum dinyalakan, dan itu keadaan awal seluruh chatbot yang
+   * sudah ada — jalur lama (penanda acak di localStorage) tetap hidup.
+   *
+   * TIDAK boleh memakai `publicKey`: kunci itu memang dirancang untuk disebar
+   * di halaman pelanggan, jadi rahasia yang menjaga riwayat orang tak boleh
+   * sama dengannya.
+   */
+  visitorSecret: text('visitor_secret'),
   ...stamps,
 }, (t) => ({
   tenantIdx: index('idx_chatbots_tenant_id').on(t.tenantId),
+  /* NAMA SAMA dengan migrasi 0042, parsial persis seperti di sana. */
+  visitorSecretIdx: index('idx_chatbots_visitor_secret').on(t.tenantId)
+    .where(sql`visitor_secret IS NOT NULL AND deleted_at IS NULL`),
   ownerIdx: index('idx_chatbots_owner_id').on(t.ownerId),
   delIdx: index('idx_chatbots_deleted_at').on(t.deletedAt),
   /** Lookup embed publik (migrasi 0013) — versi parsial agar publicKey bisa

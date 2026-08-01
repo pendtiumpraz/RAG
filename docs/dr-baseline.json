@@ -49,6 +49,7 @@
     "idx_chatbots_division",
     "idx_chatbots_owner_id",
     "idx_chatbots_tenant_id",
+    "idx_chatbots_visitor_secret",
     "idx_ckb_chatbot",
     "idx_ckb_deleted_at",
     "idx_ckb_kb",
