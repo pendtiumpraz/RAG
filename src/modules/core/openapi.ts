@@ -454,6 +454,36 @@ export const openApiSpec = {
         responses: { 200: err('{ rahasia, contoh }'), 403: err('chatbot milik divisi lain'),
           404: err('chatbot tidak ditemukan') } },
     },
+    '/api/sso': {
+      get: { summary: 'Koneksi SSO organisasi + preset penyedia + URL callback', security: [sessionAuth],
+        description: 'Client secret TIDAK pernah ikut, bahkan ciphertextnya. `callbackUrl` disusun '
+          + 'server: satu huruf beda membuat IdP menolak dengan galat yang tak menyebut sebabnya.',
+        responses: { 200: err('{ connections, presets, callbackUrl }') } },
+      post: { summary: 'Daftarkan identity provider milik organisasi (D16)', security: [sessionAuth],
+        description: 'Kredensial milik PELANGGAN — kita tak mendaftarkan aplikasi apa pun. '
+          + 'Isian `isian` berbeda per jenis: Directory (tenant) ID untuk entra, domain Workspace '
+          + 'untuk google, URL organisasi untuk okta, issuer penuh untuk oidc. Domain email wajib '
+          + 'unik SECARA GLOBAL — dua tenant yang mengaku memiliki domain sama membuat perutean '
+          + 'login tak bisa ditentukan, dan menebaknya berarti mengirim karyawan satu perusahaan '
+          + 'ke IdP perusahaan lain.',
+        requestBody: json(obj({ kind: str, isian: str, clientId: str, clientSecret: str, domain: str },
+          ['kind', 'isian', 'clientId', 'clientSecret', 'domain'])),
+        responses: { 201: err('koneksi dibuat'), 422: err('konfigurasi ditolak / domain sudah dipakai') } },
+      delete: { summary: 'Cabut koneksi SSO (soft delete, Rule #3)', security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'query', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }'), 404: err('tidak ditemukan') } },
+    },
+    '/api/auth/sso/lookup': {
+      post: { summary: 'PUBLIK: apakah domain email ini punya SSO?',
+        description: 'Dipanggil halaman masuk sebelum ada sesi. Jawabannya SENGAJA cuma '
+          + '{ sso: boolean } — nama tenant, jenis IdP, dan issuer tak pernah dikirim; semuanya '
+          + 'struktur internal pelanggan, dan tak satu pun dibutuhkan peramban untuk melanjutkan. '
+          + 'Koneksi yang cocok disimpan di KUKI, bukan URL, karena panggilan balik OAuth kembali '
+          + 'tanpa parameter kueri kita. Dibatasi laju per IP: endpoint yang menjawab "domain ini '
+          + 'punya SSO" adalah alat pemetaan pelanggan bila bisa ditanyai tanpa batas.',
+        requestBody: json(obj({ email: str }, ['email'])),
+        responses: { 200: err('{ sso }'), 429: err('terlalu banyak percobaan') } },
+    },
     '/api/divisions': {
       get: { summary: 'Daftar divisi + jumlah anggota & chatbotnya', security: [sessionAuth],
         description: 'Boleh dibaca SEMUA anggota tenant, bukan hanya admin: form chatbot dan ' +

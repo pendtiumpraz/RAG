@@ -1068,3 +1068,38 @@ export const rateBuckets = pgTable('rate_buckets', {
      itu — parsial tak berguna karena ambangnya bergerak mengikuti waktu. */
   lastIdx: index('idx_rate_buckets_last_at').on(t.lastAt),
 }));
+
+/**
+ * SSO ENTERPRISE (D16, migrasi 0043) — identity provider milik pelanggan.
+ *
+ * Tenant menyalakan dan mengisi kredensial IdP-nya sendiri; kita tak
+ * mendaftarkan aplikasi apa pun. `client_secret` TERENKRIPSI — siapa pun yang
+ * membacanya bisa menukar kode otorisasi atas nama pelanggan.
+ *
+ * `domain` unik SECARA GLOBAL (indeks parsial di migrasi): dua tenant yang
+ * sama-sama mengaku memiliki satu domain membuat perutean login tak bisa
+ * ditentukan, dan menebaknya berarti mengirim karyawan satu perusahaan ke IdP
+ * perusahaan lain.
+ */
+export const ssoConnections = pgTable('sso_connections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),          // tanpa FK (Rule #2)
+  /** 'entra' | 'google' | 'okta' | 'oidc' */
+  kind: text('kind').notNull(),
+  /** Issuer OIDC yang SUDAH diturunkan — jalur login tak pernah menurunkannya ulang. */
+  issuer: text('issuer').notNull(),
+  clientId: text('client_id').notNull(),
+  /** TERENKRIPSI (core/crypto). */
+  clientSecret: text('client_secret').notNull(),
+  domain: text('domain').notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_sso_connections_tenant').on(t.tenantId)
+    .where(sql`deleted_at IS NULL`),
+  /* NAMA SAMA dengan migrasi 0043. Parsial + global: lihat kotak alasan di
+     sana — pemeriksaan di aplikasi berjalan di bawah RLS dan tak pernah bisa
+     melihat baris tenant lain, jadi ia akan selalu bilang "domain bebas". */
+  domainUnik: uniqueIndex('uq_sso_connections_domain').on(sql`lower(domain)`)
+    .where(sql`deleted_at IS NULL AND enabled`),
+})).enableRLS();

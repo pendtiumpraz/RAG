@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, useToast, Field } from '../../_components/ui';
+import { Select } from '../../_components/select';
 import Integrations from './Integrations';
 import TwoFactor from './TwoFactor';
 import { toggleTheme } from '../../providers';
@@ -75,6 +76,7 @@ export default function SettingsPage() {
 
       <TwoFactor />
 
+      <PanelSso />
       {session?.user?.role === 'superadmin' && <MailSettings />}
     </>
   );
@@ -173,6 +175,128 @@ function MailSettings() {
           undangan anggota tim, dan <b>reset password</b>. Selama belum diisi,
           verifikasi email tidak dipaksakan dan undangan dibagikan manual.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── SSO enterprise (D16) ─────────────────────────────────────────────
+   Tenant menyalakan dan mengisi kredensial identity provider MILIKNYA
+   sendiri; kita tak mendaftarkan aplikasi apa pun. Perutean login memakai
+   domain email, dan domain wajib unik secara global — dua organisasi yang
+   mengaku memiliki domain sama berarti karyawan satu perusahaan dikirim ke
+   IdP perusahaan lain. */
+interface KoneksiSso {
+  id: string; kind: string; issuer: string; clientId: string; domain: string; enabled: boolean;
+}
+interface DataSso {
+  connections: KoneksiSso[];
+  presets: Array<{ jenis: string; label: string; labelIssuer: string; petunjuk: string }>;
+  callbackUrl: string;
+}
+
+function PanelSso() {
+  const { data, loading, refetch } = useApi<DataSso>('/api/sso');
+  const [kind, setKind] = useState('entra');
+  const [f, setF] = useState({ isian: '', clientId: '', clientSecret: '', domain: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const toast = useToast();
+
+  const preset = data?.presets.find((p) => p.jenis === kind);
+
+  async function tambah() {
+    setBusy(true); setErr(null);
+    try {
+      await api('/api/sso', { method: 'POST', body: JSON.stringify({ kind, ...f }) });
+      setF({ isian: '', clientId: '', clientSecret: '', domain: '' });
+      toast('Identity provider terdaftar'); refetch();
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
+
+  async function cabut(id: string, domain: string) {
+    if (!confirm(`Cabut SSO untuk ${domain}? Orang yang biasa masuk lewat direktori perusahaan akan kehilangan jalan masuknya.`)) return;
+    try { await api(`/api/sso?id=${id}`, { method: 'DELETE' }); toast('Koneksi dicabut'); refetch(); }
+    catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">SSO organisasi</span>
+        <span className="microlabel">{data?.connections.length ?? 0} TERDAFTAR</span></div>
+      <div className="card-pad stack gap-4">
+        {loading ? <Skeleton rows={3} /> : (
+          <>
+            {(data?.connections.length ?? 0) > 0 && (
+              <div className="table-wrap"><table className="table">
+                <thead><tr><th>Domain</th><th>Penyedia</th><th>Issuer</th><th /></tr></thead>
+                <tbody>
+                  {data!.connections.map((c) => (
+                    <tr key={c.id}>
+                      <td><b>{c.domain}</b></td>
+                      <td><span className="badge">{c.kind}</span></td>
+                      <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{c.issuer}</td>
+                      <td><button className="btn btn-sm btn-ghost" onClick={() => void cabut(c.id, c.domain)}>Cabut</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table></div>
+            )}
+
+            <Field label="Penyedia">
+              <Select value={kind} onChange={(e) => setKind(e.target.value)}
+                items={(data?.presets ?? []).map((p) => ({ value: p.jenis, label: p.label }))} />
+              {preset && <p className="microlabel" style={{ marginTop: 6 }}>{preset.petunjuk}</p>}
+            </Field>
+
+            <Field label={preset?.labelIssuer ?? 'Issuer'}>
+              <input className="input" value={f.isian} onChange={(e) => setF({ ...f, isian: e.target.value })} />
+            </Field>
+            <Field label="Domain email organisasi">
+              <input className="input" value={f.domain} placeholder="perusahaan.co.id"
+                onChange={(e) => setF({ ...f, domain: e.target.value })} />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                ORANG YANG MENGETIK EMAIL DI DOMAIN INI AKAN DIARAHKAN KE IDENTITY PROVIDER ANDA.
+                SATU DOMAIN HANYA BOLEH MENUNJUK SATU IDP — DI SELURUH NALAR, BUKAN CUMA DI
+                ORGANISASI INI.
+              </p>
+            </Field>
+            <Field label="Client ID">
+              <input className="input" value={f.clientId} autoComplete="off"
+                onChange={(e) => setF({ ...f, clientId: e.target.value })} />
+            </Field>
+            <Field label="Client secret">
+              <input className="input" type="password" value={f.clientSecret} autoComplete="off"
+                onChange={(e) => setF({ ...f, clientSecret: e.target.value })} />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                DISIMPAN TERENKRIPSI DAN TAK PERNAH DIKIRIM BALIK KE PERAMBAN — TERMASUK KE LAYAR INI.
+              </p>
+            </Field>
+
+            <Field label="URL callback untuk didaftarkan di IdP Anda">
+              <code className="mono" style={{
+                display: 'block', padding: 10, background: 'var(--card-2)',
+                border: '1px solid var(--line)', borderRadius: 7, fontSize: 12, wordBreak: 'break-all',
+              }}>{data?.callbackUrl}</code>
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                SALIN PERSIS. SATU HURUF BEDA MEMBUAT IDP MENOLAK DENGAN GALAT YANG TAK MENYEBUT SEBABNYA.
+              </p>
+            </Field>
+
+            {err && <span className="error">{err}</span>}
+            <div>
+              <button className={`btn btn-primary${busy ? ' is-loading' : ''}`}
+                disabled={busy || !f.isian.trim() || !f.clientId.trim() || !f.clientSecret || !f.domain.trim()}
+                onClick={() => void tambah()}>Daftarkan identity provider</button>
+            </div>
+
+            <p className="microlabel">
+              PENGGUNA YANG MASUK LEWAT SSO TETAP MENUNGGU PERSETUJUAN SEBELUM BISA MASUK — SAMA
+              SEPERTI JALUR PENDAFTARAN LAIN. DIREKTORI PERUSAHAAN MEMBUKTIKAN SIAPA ORANGNYA,
+              BUKAN BAHWA IA BOLEH MELIHAT ISI WORKSPACE INI.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

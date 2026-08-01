@@ -2,6 +2,8 @@ import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import AzureADProvider from 'next-auth/providers/azure-ad';
+import { ssoService } from './sso.service';
+import { emailCocokKoneksi, urlPenemuan } from './sso';
 import { authService } from './auth.service';
 import { connectionService } from '@/modules/connections/connection.service';
 import { oauthAppService, googleLoginScope } from './oauth-app.service';
@@ -77,6 +79,26 @@ export const authOptions: NextAuthOptions = {
       if (!account || account.provider === 'credentials') return true;
       const email = (profile?.email ?? user?.email ?? '').trim().toLowerCase();
       if (!email) return '/auth?error=oauth_no_email';
+
+      /* SSO enterprise (D16) — pengguna masuk ke tenant PEMILIK KONEKSI,
+         bukan tenant baru miliknya sendiri. */
+      const sso = user as { ssoTenantId?: string; ssoDomain?: string } | undefined;
+      if (account.provider === 'sso' && sso?.ssoTenantId && sso.ssoDomain) {
+        /* Domain diperiksa ULANG di sini, sesudah IdP menjawab. IdP menjamin
+           orangnya memegang akun di direktori mereka; ia TIDAK menjamin
+           alamat yang dipulangkan ada di domain kita. IdP yang salah
+           konfigurasi — atau sengaja dibuat begitu — bisa memulangkan alamat
+           di domain lain, dan orang itu akan mendarat di tenant yang bukan
+           miliknya. */
+        if (!emailCocokKoneksi(email, sso.ssoDomain)) return '/auth?error=sso_domain';
+        const s = await authService.findOrCreateFromSso({
+          email, name: profile?.name ?? user?.name, tenantId: sso.ssoTenantId,
+        });
+        if (s.status === 'rejected') return '/auth?error=rejected';
+        if (s.status !== 'active') return '/auth?error=pending';
+        return true;
+      }
+
       const u = await authService.findOrCreateFromOAuth({ email, name: profile?.name ?? user?.name });
       if (u.status === 'rejected') return '/auth?error=rejected';
       if (u.status !== 'active') return '/auth?error=pending';
@@ -93,9 +115,19 @@ export const authOptions: NextAuthOptions = {
       // OAuth sign-in pertama: provisioning / lookup user Nalar by email,
       // lalu simpan token storage (Drive/OneDrive) utk sync worker.
       if (account && account.provider !== 'credentials' && token.email) {
-        const u = await authService.findOrCreateFromOAuth({
-          email: token.email, name: token.name,
-        });
+        const sso = user as { ssoTenantId?: string } | undefined;
+        /* Jalur SSO memakai findOrCreateFromSso supaya penggunanya mendarat
+           di tenant pemilik koneksi. Kalau ia jatuh ke findOrCreateFromOAuth,
+           tiap karyawan pelanggan akan lahir dengan tenant BARU sendiri —
+           dan pelanggannya melihat lima puluh workspace kosong alih-alih satu
+           workspace berisi lima puluh orang. */
+        const u = account.provider === 'sso' && sso?.ssoTenantId
+          ? await authService.findOrCreateFromSso({
+            email: token.email, name: token.name, tenantId: sso.ssoTenantId,
+          })
+          : await authService.findOrCreateFromOAuth({
+            email: token.email, name: token.name,
+          });
         token.userId = u.id; token.tenantId = u.tenantId; token.role = u.role;
 
         if (account.access_token) {
@@ -133,7 +165,7 @@ export const authOptions: NextAuthOptions = {
  * Biayanya kecil: oauthAppService men-cache hasilnya ±30 detik, jadi
  * permintaan berturut-turut tidak memukul database.
  */
-export async function buildAuthOptions(): Promise<NextAuthOptions> {
+export async function buildAuthOptions(koneksiSsoId?: string | null): Promise<NextAuthOptions> {
   const providers = [...authOptions.providers];
 
   const google = await oauthAppService.get('google');
@@ -171,5 +203,56 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
     }));
   }
 
+  /* SSO enterprise (D16) — provider hanya dipasang bila permintaan ini
+     memang membawa koneksi yang sudah dipilih lewat domain email. Memasang
+     seluruh koneksi tenant di setiap permintaan akan membocorkan daftar
+     pelanggan lewat halaman signin bawaan NextAuth. */
+  if (koneksiSsoId) {
+    const p = await providerSso(koneksiSsoId);
+    if (p) providers.push(p);
+  }
+
   return { ...authOptions, providers };
+}
+
+/**
+ * Provider SSO enterprise (D16) — satu koneksi, dibangun per permintaan.
+ *
+ * Endpoint tidak ditulis tangan: kita hanya menyebut `wellKnown`, dan
+ * NextAuth menemukan authorization/token/userinfo dari metadata IdP. Itu
+ * bukan kemalasan — endpoint yang ditulis tangan akan menua diam-diam saat
+ * IdP memindahkannya, dan gagalnya baru terlihat pada orang yang sedang
+ * mencoba masuk.
+ *
+ * `profile()` MEMBAWA tenantId koneksi ke dalam objek user. Callback signIn
+ * dan jwt tidak menerima request, jadi tanpa titipan ini mereka tak punya
+ * cara tahu tenant mana yang dituju — dan pengguna SSO akan mendarat di
+ * tenant baru miliknya sendiri alih-alih tenant perusahaannya.
+ */
+async function providerSso(koneksiId: string) {
+  const k = await ssoService.resolveById(koneksiId);
+  if (!k) return null;
+
+  return {
+    id: 'sso',
+    name: 'SSO organisasi',
+    type: 'oauth' as const,
+    wellKnown: urlPenemuan(k.issuer),
+    clientId: k.clientId,
+    clientSecret: k.clientSecret,
+    idToken: true,
+    checks: ['pkce', 'state'] as Array<'pkce' | 'state'>,
+    authorization: { params: { scope: 'openid email profile' } },
+    profile(p: { sub: string; email?: string; name?: string; preferred_username?: string }) {
+      const email = (p.email ?? p.preferred_username ?? '').trim().toLowerCase();
+      return {
+        id: p.sub,
+        email,
+        name: p.name ?? email.split('@')[0],
+        /* Dititipkan ke callback lewat objek user — lihat catatan di atas. */
+        ssoTenantId: k.tenantId,
+        ssoDomain: k.domain,
+      } as never;
+    },
+  };
 }

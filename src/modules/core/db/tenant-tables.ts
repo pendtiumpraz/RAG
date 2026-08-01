@@ -23,6 +23,10 @@ export const TENANT_TABLES = [
   'users',
   'tenant_settings',
   'invitations',
+  /* Koneksi SSO ikut pindah bersama tenantnya: kalau tertinggal, pelanggan
+     yang dipindahkan kehilangan jalan masuk lewat direktori perusahaannya
+     sendiri — dan gagalnya baru terlihat saat orang mencoba login. */
+  'sso_connections',
   'provider_credentials',
   'document_categories',
 

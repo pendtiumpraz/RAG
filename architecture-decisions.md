@@ -404,9 +404,50 @@ kelak berkas asli atau hasil ekspor ikut disimpan di sana.
 **Status:** tingkat 1, 2, 4 berjalan. Tingkat 3 menunggu permintaan pelanggan
 nyata — dikerjakan saat ada yang meminta, bukan dipajang sebagai fitur.
 
+## D16 — SSO enterprise: penyedia dipilih pelanggan, gerbang tetap berlaku
+
+**Keputusan (1 Agu 2026, pemilik produk):** SSO dipasang sebagai KEMAMPUAN,
+dan tiap tenant menyalakan serta mengisi kredensial identity provider miliknya
+sendiri — *"kasih pilihan aja semua SSO, biar dipilih user dewe"*. Kita tak
+mendaftarkan aplikasi apa pun; polanya sama dengan kunci API penyedia LLM dan
+kunci S3. Yang disediakan: Microsoft Entra ID, Google Workspace, Okta, dan
+OIDC generik (mencakup Keycloak, Authentik, Auth0). SAML 2.0 sengaja TIDAK —
+ia menuntut sertifikat, metadata XML, dan pustaka tambahan, dan belum ada yang
+memintanya.
+
+**Gerbang pendaftaran:** pengguna yang masuk lewat SSO tetap `pending` sampai
+superadmin menyetujui, sama seperti jalur Google/Microsoft hari ini. Keempat
+penyedia di atas melayani direktori raksasa; "langsung aktif" berarti siapa pun
+yang punya akun di direktori pelanggan bisa masuk tanpa satu pun mata manusia
+melihatnya.
+
+**Konteks — kekhawatiran yang ternyata sudah terjawab.** Kartu ini lama
+tertahan karena NextAuth memasang daftar provider secara statis saat modul
+dimuat, sementara SSO multi-tenant menuntut resolusi IdP per permintaan.
+Ternyata seam itu SUDAH ada: `buildAuthOptions()` memang dibangun
+per-permintaan sejak kredensial Google/Microsoft dipindah ke basis data. Jadi
+tak ada perombakan arsitektur; yang ditambahkan hanya satu provider lagi yang
+endpoint-nya diisi dari koneksi SSO tenant.
+
+**Bagaimana tenant dikenali saat masuk.** Dari DOMAIN EMAIL. Pengguna mengetik
+emailnya di halaman masuk, domainnya dicocokkan ke koneksi SSO yang aktif, dan
+koneksi itu disimpan di kuki pendek sebelum dialihkan ke IdP — kuki, karena
+panggilan balik OAuth kembali tanpa parameter kueri kita. Domain wajib unik
+SECARA GLOBAL (indeks unik di basis data): dua tenant yang mengaku memiliki
+domain yang sama membuat perutean tak bisa ditentukan, dan menebaknya berarti
+mengirim karyawan satu perusahaan ke IdP perusahaan lain.
+
+**Yang TIDAK bisa dibuktikan dari sini:** tak ada IdP sungguhan di lingkungan
+pengembangan, jadi alur ujung-ke-ujung tak pernah dijalankan. Yang diuji adalah
+bagian yang deterministik — penurunan endpoint tiap penyedia, pencocokan
+domain, dan penolakan konfigurasi yang tak aman.
+
+**Status:** disetujui, dikerjakan.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-08-01 | D16 = SSO enterprise: Entra/Google/Okta/OIDC generik, kredensial milik tenant, gerbang pending tetap berlaku, perutean lewat domain email | User |
 | 2026-07-30 | D15 = basis data tak terikat penyedia + pemindahan bertingkat; TLS tak lagi ditebak dari nama host; BYODB per tenant ditunda sampai diminta | User |
 | 2026-07-30 | D14 = kebijakan jawaban per chatbot (bahasa/nada/kepatuhan/temperature) + mode retrieval bertingkat menyala otomatis, bukan dipilih | User |
 | 2026-07-28 | D12 = pembayaran QRIS (Midtrans/Tripay/Xendit, satu aktif, config di DB) + mode deploy di DB (onprem=unlimited) + halaman bayar sendiri | User |

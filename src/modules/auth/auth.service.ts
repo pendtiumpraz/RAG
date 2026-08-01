@@ -123,6 +123,51 @@ export const authService = {
    * OAuth (Google/Microsoft): user lama → pakai tenant-nya;
    * email baru → provisioning tenant baru (signup implisit).
    */
+  /**
+   * Pengguna yang masuk lewat SSO enterprise (D16).
+   *
+   * Bedanya dengan findOrCreateFromOAuth cuma satu, dan itu yang menentukan:
+   * penggunanya mendarat di tenant PEMILIK KONEKSI, bukan di tenant baru
+   * miliknya sendiri. Kalau salah, pelanggan melihat lima puluh workspace
+   * kosong alih-alih satu workspace berisi lima puluh orang — dan tak ada
+   * jalan mudah menggabungkannya kembali.
+   *
+   * Perannya `member`, bukan `admin`: orang yang masuk lewat direktori
+   * perusahaan adalah KARYAWAN, dan yang pertama kali masuk bukan berarti
+   * pemilik. Sebaliknya di findOrCreateFromOAuth, yang mendaftar memang
+   * membuat workspace-nya sendiri.
+   *
+   * Statusnya tetap `pending` (bawaan kolom) — keputusan pemilik produk,
+   * 1 Agu 2026. Keempat penyedia yang didukung melayani direktori raksasa;
+   * "langsung aktif" berarti siapa pun yang punya akun di direktori pelanggan
+   * bisa masuk tanpa satu pun mata manusia melihatnya.
+   */
+  async findOrCreateFromSso(profile: {
+    email: string; name?: string | null; tenantId: string;
+  }): Promise<AuthUser> {
+    const email = profile.email.trim().toLowerCase();
+    const existing = await findByEmailForAuth(email);
+    if (existing) {
+      return {
+        id: existing.id, tenantId: existing.tenantId, email: existing.email,
+        name: existing.name, role: existing.role, status: existing.status,
+      };
+    }
+    const display = profile.name?.trim() || email.split('@')[0];
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`select set_config('app.current_tenant', ${profile.tenantId}, true)`);
+      const [user] = await tx.insert(users).values({
+        tenantId: profile.tenantId, email, name: display, role: 'member', passwordHash: null,
+        // IdP perusahaan sudah membuktikan kepemilikan alamatnya.
+        emailVerifiedAt: new Date(),
+      }).returning();
+      return {
+        id: user.id, tenantId: user.tenantId, email: user.email,
+        name: user.name, role: user.role, status: user.status,
+      };
+    });
+  },
+
   async findOrCreateFromOAuth(profile: { email: string; name?: string | null }): Promise<AuthUser> {
     const email = profile.email.trim().toLowerCase();
     const existing = await findByEmailForAuth(email);
