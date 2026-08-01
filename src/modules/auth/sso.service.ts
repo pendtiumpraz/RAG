@@ -55,7 +55,7 @@ export const ssoService = {
       throw new ValidationError('Client ID dan client secret wajib diisi');
     }
 
-    return withTenant(tenantId, async (tx) => {
+    const dibuat = await withTenant(tenantId, async (tx) => {
       try {
         const [row] = await tx.insert(ssoConnections).values({
           tenantId, kind: input.kind, issuer,
@@ -63,8 +63,7 @@ export const ssoService = {
           clientSecret: encryptSecret(input.clientSecret),
           domain, enabled: true,
         }).returning();
-        await audit(tenantId, aktorId, 'sso.connection_created', 'auth', { kind: input.kind, domain });
-        return tampak(row);
+        return row;
       } catch (e) {
         /* Indeks unik GLOBAL yang menolak. Pesannya harus menyebut sebab
            sebenarnya: pemeriksaan di aplikasi tak pernah bisa melihat baris
@@ -77,6 +76,10 @@ export const ssoService = {
         throw e;
       }
     });
+
+    /* audit() membuka withTenant SENDIRI — di luar transaksi, selalu. */
+    await audit(tenantId, aktorId, 'sso.connection_created', 'auth', { kind: input.kind, domain });
+    return tampak(dibuat);
   },
 
   async hapus(tenantId: string, aktorId: string, id: string): Promise<void> {

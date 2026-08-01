@@ -126,8 +126,15 @@ test('batas paket dihitung SE-TENANT, bukan lewat daftar yang tersaring', () => 
      gratis dengan lima divisi diam-diam punya lima kali batasnya. Cacat ini
      nyaris tertulis — `this.list(tenantId)` yang lama tinggal ditambahi
      aktor dan semuanya tetap terkompilasi. */
+  /* Diiris antar-BATAS FUNGSI, bukan dengan jendela sekian ratus karakter.
+     Jendela 900 karakter yang lama menaruh `repo.countActive` di posisi 882 —
+     lulus dengan akhiran baris LF, GAGAL begitu berkasnya ditulis ulang
+     dengan CRLF (satu byte per baris cukup untuk mendorongnya keluar). Tes
+     yang hasilnya bergantung pada akhiran baris tidak menjaga apa pun; ia
+     cuma menunggu giliran untuk membohongi orang, ke arah mana pun. */
   const iC = SVC.indexOf('async create(');
-  const blok = SVC.slice(iC, iC + 900);
+  const iBerikut = SVC.indexOf('\n  async ', iC + 1);
+  const blok = SVC.slice(iC, iBerikut > 0 ? iBerikut : undefined);
   assert.ok(/repo\.countActive\(tx, tenantId\)/.test(blok),
     'jumlah chatbot dihitung dari daftar yang tersaring divisi');
   assert.ok(!/this\.list\(tenantId/.test(blok));

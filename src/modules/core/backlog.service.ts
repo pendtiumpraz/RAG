@@ -400,7 +400,7 @@ export const backlogService = {
    * mencabut kesempatan memutuskan beberapa kartu dulu, baru menjalankannya.
    */
   async setPilihan(actor: Actor, id: string, indeks: number, pilih: boolean): Promise<string> {
-    return db.transaction(async (tx) => {
+    const why = await db.transaction(async (tx) => {
       const rows = await tx.select({ why: backlogItems.why }).from(backlogItems)
         .where(and(eq(backlogItems.id, id), isNull(backlogItems.deletedAt))).limit(1);
       if (!rows[0]) throw new ValidationError('Kartu tidak ditemukan');
@@ -408,10 +408,13 @@ export const backlogService = {
       const why = centang(rows[0].why ?? '', indeks, pilih);
       await tx.update(backlogItems).set({ why, updatedAt: new Date() })
         .where(eq(backlogItems.id, id));
-      await audit(actor.tenantId, actor.id, 'platform.backlog_pilihan', 'platform',
-        { id, indeks, pilih });
       return why;
     });
+
+    /* audit() membuka withTenant SENDIRI — di luar transaksi, selalu. */
+    await audit(actor.tenantId, actor.id, 'platform.backlog_pilihan', 'platform',
+      { id, indeks, pilih });
+    return why;
   },
 
   /**
@@ -428,7 +431,7 @@ export const backlogService = {
    * membuang salah satunya tanpa jejak.
    */
   async tambahCatatan(actor: Actor, id: string, teks: string): Promise<string> {
-    return db.transaction(async (tx) => {
+    const why = await db.transaction(async (tx) => {
       const rows = await tx.select({ why: backlogItems.why }).from(backlogItems)
         .where(and(eq(backlogItems.id, id), isNull(backlogItems.deletedAt))).limit(1);
       if (!rows[0]) throw new ValidationError('Kartu tidak ditemukan');
@@ -436,10 +439,13 @@ export const backlogService = {
       const why = tempelCatatan(rows[0].why ?? '', teks, new Date());
       await tx.update(backlogItems).set({ why, updatedAt: new Date() })
         .where(eq(backlogItems.id, id));
-      await audit(actor.tenantId, actor.id, 'platform.backlog_catatan', 'platform',
-        { id, panjang: teks.length });
       return why;
     });
+
+    /* audit() membuka withTenant SENDIRI — di luar transaksi, selalu. */
+    await audit(actor.tenantId, actor.id, 'platform.backlog_catatan', 'platform',
+      { id, panjang: teks.length });
+    return why;
   },
 
   async create(actor: Actor, input: {

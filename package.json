@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --import tsx --test tests/*.test.ts",
+    "audit:koneksi": "node scripts/audit-koneksi.mjs",
     "smoke": "node --env-file=.env --import tsx scripts/smoke.ts",
     "bench": "node --env-file=.env --import tsx scripts/bench-retrieval.ts",
     "eval": "node --env-file=.env --import tsx scripts/eval.ts",

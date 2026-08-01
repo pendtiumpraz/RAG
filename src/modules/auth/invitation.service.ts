@@ -73,12 +73,12 @@ export const invitationService = {
    * (tak ada yang bisa mengelola chatbot/KB/tim).
    */
   async setMemberRole(tenantId: string, actorId: string, userId: string, role: 'admin' | 'member') {
-    return withTenant(tenantId, async (tx) => {
+    const hasil = await withTenant(tenantId, async (tx) => {
       const target = (await tx.select().from(users)
         .where(and(eq(users.id, userId), isNull(users.deletedAt))).limit(1))[0];
       if (!target) throw new ValidationError('Anggota tidak ditemukan');
       if (target.role === 'superadmin') throw new ValidationError('Peran superadmin dikelola platform, bukan tenant');
-      if (target.role === role) return { id: target.id, role };
+      if (target.role === role) return { id: target.id, role, sebelum: null };
 
       if (target.role === 'admin' && role === 'member') {
         const admins = await tx.select({ id: users.id }).from(users).where(and(
@@ -86,15 +86,21 @@ export const invitationService = {
         if (admins.length <= 1) throw new ValidationError('Admin terakhir tidak boleh diturunkan');
       }
       await tx.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId));
-      await audit(tenantId, actorId, 'team.role_changed', userId, { from: target.role, to: role });
-      return { id: userId, role };
+      return { id: userId, role, sebelum: target.role };
     });
+
+    /* audit() membuka withTenant SENDIRI — di luar transaksi, selalu. Lihat
+       catatan panjang di chatbot.service.create(). */
+    if (hasil.sebelum) {
+      await audit(tenantId, actorId, 'team.role_changed', userId, { from: hasil.sebelum, to: role });
+    }
+    return { id: hasil.id, role: hasil.role };
   },
 
   /** Keluarkan anggota (soft delete — bisa dipulihkan platform bila keliru). */
   async removeMember(tenantId: string, actorId: string, userId: string) {
     if (actorId === userId) throw new ValidationError('Tidak bisa mengeluarkan diri sendiri');
-    return withTenant(tenantId, async (tx) => {
+    const hasil = await withTenant(tenantId, async (tx) => {
       const target = (await tx.select().from(users)
         .where(and(eq(users.id, userId), isNull(users.deletedAt))).limit(1))[0];
       if (!target) throw new ValidationError('Anggota tidak ditemukan');
@@ -105,9 +111,11 @@ export const invitationService = {
         if (admins.length <= 1) throw new ValidationError('Admin terakhir tidak boleh dikeluarkan');
       }
       await tx.update(users).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(users.id, userId));
-      await audit(tenantId, actorId, 'team.member_removed', userId, { email: target.email });
-      return { id: userId };
+      return { id: userId, email: target.email };
     });
+
+    await audit(tenantId, actorId, 'team.member_removed', userId, { email: hasil.email });
+    return { id: hasil.id };
   },
 
   async listInvitations(tenantId: string): Promise<InvitationView[]> {
