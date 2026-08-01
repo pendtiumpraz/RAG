@@ -4,7 +4,7 @@ import { requireRole } from '@/modules/core/auth';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { testProviderKey } from '@/modules/settings/key-test.service';
 import { ALL_PROVIDERS, type Provider } from '@/modules/core/registry';
-import { rateLimit } from '@/modules/core/limits';
+import { rateLimitBersama } from '@/modules/core/limits-bersama';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +22,7 @@ const Body = z.object({ provider: z.string().min(1) });
 export async function POST(req: NextRequest) {
   const user = await requireRole('superadmin', 'admin');
 
-  const rl = rateLimit(`test-key:${user.tenantId}`, 10, 10 / 60);
+  const rl = await rateLimitBersama(`test-key:${user.tenantId}`, 10, 10 / 60);
   if (!rl.ok) {
     return NextResponse.json({ ok: false, message: 'Terlalu sering menguji. Coba lagi sebentar lagi.' },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } });

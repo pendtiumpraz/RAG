@@ -119,8 +119,11 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
   const patokan = JSON.parse(readFileSync('docs/dr-baseline.json', 'utf8')) as
     { tabel: string[]; indeks: string[]; kebijakan: string[]; rlsAktif: string[] };
   const terakhir = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort().at(-1)!;
-  assert.equal(terakhir, '0040_divisions.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+  assert.equal(terakhir, '0041_rate_buckets.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
+  assert.ok(patokan.tabel.includes('rate_buckets'));
+  assert.ok(!patokan.rlsAktif.includes('rate_buckets'),
+    'rate_buckets ber-RLS padahal tanpa tenant_id — kebijakan yang tak menjaga apa pun');
   assert.ok(patokan.rlsAktif.includes('divisions'), 'divisions tercatat tanpa RLS aktif');
   assert.ok(patokan.kebijakan.includes('divisions.divisions_tenant_isolation'));
   for (const i of ['idx_divisions_tenant', 'uq_divisions_tenant_name', 'idx_users_division', 'idx_chatbots_division']) {

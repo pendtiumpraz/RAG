@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { resolveChatbotByPublicKey } from '@/modules/core/db/tenant-context';
 import { chatTurn } from '@/modules/chat/chat.service';
-import { rateLimit } from '@/modules/core/limits';
+import { rateLimitBersama } from '@/modules/core/limits-bersama';
 import { usageService } from '@/modules/usage/usage.service';
 import { PESAN_KUOTA, PESAN_LAJU } from '@/modules/chat/pesan-batas';
 import { ensureIntegrations } from '../../_wire';
@@ -72,8 +72,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
   // Lapis 1: per chatbot (burst/refill sesuai plan tenant).
   // Lapis 2: per IP pengunjung (konservatif, lintas chatbot).
   const usage = await usageService.snapshot(bot.tenant_id);
-  const rlBot = rateLimit(`chat:${publicKey}`, usage.limits.chatBurst, usage.limits.chatRefillPerSec);
-  const rlIp = rateLimit(`ip:${clientIp(req)}`, IP_BURST, IP_REFILL);
+  const rlBot = await rateLimitBersama(`chat:${publicKey}`, usage.limits.chatBurst, usage.limits.chatRefillPerSec);
+  const rlIp = await rateLimitBersama(`ip:${clientIp(req)}`, IP_BURST, IP_REFILL);
   const rl = !rlBot.ok ? rlBot : rlIp;
   if (!rl.ok) {
     return Response.json(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authService } from '@/modules/auth/auth.service';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
-import { rateLimit } from '@/modules/core/limits';
+import { rateLimitBersama } from '@/modules/core/limits-bersama';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +25,7 @@ const Body = z.object({
 export async function POST(req: NextRequest) {
   // Anti-abuse: maks ~5 signup/menit per IP.
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const rl = rateLimit(`signup:${ip}`, 5, 5 / 60);
+  const rl = await rateLimitBersama(`signup:${ip}`, 5, 5 / 60);
   if (!rl.ok) {
     return NextResponse.json({ error: 'Terlalu banyak percobaan. Coba lagi nanti.' },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } });

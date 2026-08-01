@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   pgTable, uuid, text, timestamp, jsonb, index, uniqueIndex, boolean, real, integer, smallint, bigint,
+  doublePrecision,
   customType,
 } from 'drizzle-orm/pg-core';
 
@@ -1021,3 +1022,35 @@ export const memoryEdges = pgTable('memory_edges', {
   scopeIdx: index('idx_memory_edges_scope').on(t.tenantId, t.chatbotId),
   delIdx: index('idx_memory_edges_deleted_at').on(t.deletedAt),
 })).enableRLS();
+
+/**
+ * EMBER TOKEN BERSAMA (migrasi 0041) — rate limit yang benar-benar membatasi.
+ *
+ * Penghitung laju sebelumnya hidup di memori tiap lambda, jadi batasnya
+ * berlipat sebanyak instance yang hidup: burst 5 yang dijanjikan paket gratis
+ * jadi 50 saat sepuluh lambda melayani bersamaan. Yang paling terluka bukan
+ * chat melainkan endpoint AUTH — perlindungan tebak-sandi yang N kali lebih
+ * longgar dari yang tertulis adalah lubang keamanan, bukan kuota meleset.
+ *
+ * SATU-SATUNYA TABEL TANPA `deleted_at` dari 32 yang ada, dan itu pengecualian
+ * yang disetujui pemilik produk (1 Agu 2026). Ember kedaluwarsa tak punya
+ * nilai informasi satu detik pun setelah lewat — ia keadaan sesaat sebuah
+ * penghitung, bukan data pelanggan. Menyimpannya membuat tabel tumbuh tanpa
+ * batas dan memperlambat justru hal yang ia jaga. Pemangkasannya FISIK,
+ * berkala, di core/limits-bersama.ts.
+ *
+ * TANPA `tenant_id` dan tanpa RLS, juga disengaja: penghitung berjalan di
+ * jalur PUBLIK sebelum tenant diketahui — kunci `ip:1.2.3.4` di endpoint
+ * signup tak dimiliki tenant mana pun.
+ */
+export const rateBuckets = pgTable('rate_buckets', {
+  /** 'chat:cb_live_…' | 'ip:1.2.3.4' — kunci yang sama dipakai ember memori. */
+  key: text('key').primaryKey(),
+  /** Pecahan: laju 0,2/detik tak akan pernah terisi kalau dibulatkan. */
+  tokens: doublePrecision('tokens').notNull(),
+  lastAt: timestamp('last_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  /* NAMA SAMA dengan migrasi 0041. Melayani pemangkasan berkala dan hanya
+     itu — parsial tak berguna karena ambangnya bergerak mengikuti waktu. */
+  lastIdx: index('idx_rate_buckets_last_at').on(t.lastAt),
+}));

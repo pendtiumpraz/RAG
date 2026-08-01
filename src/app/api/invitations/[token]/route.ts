@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { invitationService } from '@/modules/auth/invitation.service';
-import { rateLimit } from '@/modules/core/limits';
+import { rateLimitBersama } from '@/modules/core/limits-bersama';
 
 export const runtime = 'nodejs';
 
@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
  */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const rl = rateLimit(`invite-peek:${ip}`, 20, 20 / 60);
+  const rl = await rateLimitBersama(`invite-peek:${ip}`, 20, 20 / 60);
   if (!rl.ok) {
     return NextResponse.json({ error: 'Terlalu banyak percobaan' },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } });
