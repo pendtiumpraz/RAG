@@ -83,7 +83,6 @@ export default function KnowledgePage() {
   const kbs = useApi<Kb[]>('/api/knowledge-bases');
   const [kbId, setKbId] = useState('');
   useEffect(() => { if (kbs.data?.[0] && !kbId) setKbId(kbs.data[0].id); }, [kbs.data, kbId]);
-  const activeKb = kbs.data?.find((k) => k.id === kbId) ?? null;
 
   const sources = useApi<Source[]>(kbId ? `/api/sources?knowledgeBaseId=${kbId}` : null);
   const conns = useApi<Conn[]>('/api/connections');
@@ -307,7 +306,20 @@ export default function KnowledgePage() {
 
       <div className="card">
         <div className="panel-head">
-          <span className="t">sumber data {activeKb ? `· ${activeKb.name}` : ''}</span>
+          {/* Nama KB-nya DAPAT DIGANTI dari sini, bukan cuma dibaca. Sebelum
+              ini ia teks mati, jadi satu-satunya cara berpindah adalah naik ke
+              daftar KB di atas — dan orang yang sedang menambah sumber justru
+              sedang menatap panel ini. Menyatukan "sedang di KB mana" dengan
+              "pindah ke KB mana" menghapus satu langkah yang tak pernah punya
+              alasan untuk ada. */}
+          <span className="t">sumber data ·</span>
+          <Select className="select-sm" style={{ width: 'auto', minWidth: 160 }}
+            value={kbId} onChange={(e) => setKbId(e.target.value)}
+            aria-label="Knowledge base yang sedang dibuka">
+            {(kbs.data ?? []).map((k) => (
+              <option key={k.id} value={k.id}>{k.name}</option>
+            ))}
+          </Select>
           {kbId && <button className="btn btn-sm" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Tambah sumber</button>}
         </div>
         {!kbId ? <EmptyState title="Pilih atau buat KB dulu" hint="Sumber data menempel pada knowledge base." />

@@ -20,7 +20,13 @@ const CreateBody = z.object({
   greeting: z.string().optional(),
   themeConfig: z.record(z.unknown()).optional(),
   /** D11: konteks divisi/persona chatbot. */
-  context: z.string().max(2000).optional(),
+  /* NULLABLE, bukan cuma optional. Form mengirim `context: null` setiap kali
+     kolom Konteks dibiarkan kosong — dan itu keadaan NORMAL untuk chatbot
+     baru. Tanpa .nullable(), setiap pembuatan chatbot polos ditolak 400, dan
+     galat zod-nya sampai ke layar sebagai "[object Object]": pesan yang tak
+     menyebutkan apa pun tentang sebabnya. PatchBody sudah nullable sejak awal;
+     yang ini tertinggal. */
+  context: z.string().max(2000).nullable().optional(),
   /* Divisi PEMILIK (migrasi 0040) — beda dari `context` di atas, yang cuma
      prosa untuk system prompt. Hanya dihormati bila pembuatnya berperan
      lintas divisi; member selalu mengikuti divisinya sendiri. */

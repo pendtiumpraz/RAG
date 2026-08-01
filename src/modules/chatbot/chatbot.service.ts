@@ -57,8 +57,10 @@ export const chatbotService = {
   async create(tenantId: string, aktor: AktorDivisi, input: {
     ownerId: string; name: string; allowedOrigins?: string[];
     greeting?: string; themeConfig?: ThemeConfig;
-    /** D11: konteks kepemilikan/persona (divisi) — masuk system prompt bot ini. */
-    context?: string;
+    /** D11: konteks kepemilikan/persona (divisi) — masuk system prompt bot ini.
+     *  NULLABLE: form mengirim null saat kolomnya kosong, dan itu keadaan
+     *  normal untuk chatbot baru. */
+    context?: string | null;
     /** Divisi pemilik. NULL = tak dibatasi; hanya admin yang boleh memilihnya. */
     divisionId?: string | null;
   }) {

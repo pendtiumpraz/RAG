@@ -10,7 +10,7 @@ export async function api<T = unknown>(path: string, init?: RequestInit): Promis
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(body.error ?? `HTTP ${res.status}`, res.status);
+    throw new ApiError(pesanGalat(body.error, res.status), res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -36,4 +36,43 @@ export function useApi<T>(path: string | null) {
 
   useEffect(() => { void refetch(); }, [refetch]);
   return { data, loading, error, refetch, setData };
+}
+
+/**
+ * Ubah `error` apa pun dari server jadi kalimat yang bisa dibaca orang.
+ *
+ * SEBABNYA NYATA, bukan kerapian. Rute yang menolak validasi membalas
+ * `{ error: parsed.error.issues }` — sebuah ARRAY objek zod. Dilempar apa
+ * adanya ke `new Error(...)`, ia jadi string "[object Object]", dan itulah
+ * yang dilihat pengguna: pesan yang tak menyebutkan apa pun tentang sebabnya.
+ * Satu bug nyata (kolom Konteks kosong ditolak POST /api/chatbots) tersembunyi
+ * di baliknya sampai skemanya diperiksa satu per satu.
+ *
+ * Yang diambil dari tiap isu: NAMA MEDANNYA. Tanpa itu pesannya jadi
+ * "Expected string, received null" — benar, tapi tak memberi tahu medan mana,
+ * dan pada form berisi belasan kolom itu sama tak bergunanya dengan
+ * "[object Object]".
+ */
+export function pesanGalat(error: unknown, status: number): string {
+  if (typeof error === 'string' && error.trim()) return error;
+
+  if (Array.isArray(error)) {
+    const bagian = error.map((it) => {
+      const o = it as { path?: unknown[]; message?: string };
+      const medan = Array.isArray(o.path) ? o.path.filter(Boolean).join('.') : '';
+      const pesan = o.message ?? 'tidak valid';
+      return medan ? `${medan}: ${pesan}` : pesan;
+    }).filter(Boolean);
+    if (bagian.length) return bagian.join('; ');
+  }
+
+  if (error && typeof error === 'object') {
+    const o = error as { message?: unknown };
+    if (typeof o.message === 'string' && o.message.trim()) return o.message;
+    /* Objek yang tak dikenal bentuknya TIDAK di-JSON.stringify ke layar:
+       ia bisa memuat apa saja, termasuk hal yang tak pantas dilihat
+       pengguna. Statusnya sendiri lebih menolong daripada isi yang acak. */
+  }
+
+  return `Permintaan gagal (HTTP ${status})`;
 }

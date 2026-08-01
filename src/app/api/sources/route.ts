@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { dataSources } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { getCurrentUser, requireRole } from '@/modules/core/auth';
@@ -8,6 +8,7 @@ import { syncService } from '@/modules/knowledge/sync.service';
 import { jobsSettled } from '@/modules/core/jobs';
 import { encryptSecret } from '@/modules/core/crypto';
 import { konektorService } from '@/modules/knowledge/konektor.service';
+import { AMBANG_MANDEK_DETIK, PESAN_MANDEK } from '@/modules/knowledge/sync-mandek';
 import { ensureIntegrations } from '../_wire';
 
 export const runtime = 'nodejs';
@@ -20,10 +21,36 @@ export async function GET(req: NextRequest) {
   const knowledgeBaseId = req.nextUrl.searchParams.get('knowledgeBaseId');
   if (!knowledgeBaseId) return NextResponse.json({ error: 'knowledgeBaseId wajib' }, { status: 400 });
 
-  const rows = await withTenant(user.tenantId, (tx) =>
-    tx.select().from(dataSources).where(and(
+  const rows = await withTenant(user.tenantId, async (tx) => {
+    /* LEPASKAN yang MANDEK sebelum menjawab.
+
+       Fungsi sync dibatasi 60 detik; sumber berisi ratusan berkas dibunuh di
+       tengah jalan, dan sebelum ini tak ada yang mengembalikan statusnya.
+       Barisnya tinggal 'syncing' SELAMANYA: tombol Sync mati, dan halaman
+       terus menyegarkan diri menunggu kabar yang tak akan pernah datang.
+       Terjadi di produksi 1 Agu 2026 — pemiliknya menunggu 18 menit, dan
+       satu-satunya jalan keluar saat itu mengubah baris lewat SQL.
+
+       Dikerjakan di sini, di jalur yang MEMANG sudah dipanggil tiap 2,5 detik
+       oleh halaman yang sedang menunggu — jadi tak perlu penjadwal, dan yang
+       paling butuh pembebasan adalah yang paling sering memanggilnya. */
+    await tx.update(dataSources)
+      .set({
+        status: 'error',
+        config: sql`coalesce(${dataSources.config}, '{}'::jsonb) || jsonb_build_object('lastSync', jsonb_build_object('message', ${PESAN_MANDEK}::text))`,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(dataSources.knowledgeBaseId, knowledgeBaseId),
+        eq(dataSources.status, 'syncing'),
+        isNull(dataSources.deletedAt),
+        sql`${dataSources.updatedAt} < now() - make_interval(secs => ${AMBANG_MANDEK_DETIK})`,
+      ));
+
+    return tx.select().from(dataSources).where(and(
       eq(dataSources.knowledgeBaseId, knowledgeBaseId), isNull(dataSources.deletedAt),
-    )));
+    ));
+  });
   return NextResponse.json(rows.map((r) => ({
     ...r, jobStatus: syncService.status(r.id),
   })));
