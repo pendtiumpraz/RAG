@@ -454,6 +454,17 @@ export const openApiSpec = {
         responses: { 200: err('{ rahasia, contoh }'), 403: err('chatbot milik divisi lain'),
           404: err('chatbot tidak ditemukan') } },
     },
+    '/api/graf': {
+      get: { summary: 'Simpul & sisi peta pengetahuan: chatbot ↔ knowledge base',
+        security: [sessionAuth],
+        description: 'TIDAK menyimpulkan hubungan apa pun — sisinya adalah baris '
+          + '`chatbot_knowledge_bases` apa adanya. Graf yang menyimpulkan akan memajang garis '
+          + 'yang tak pernah ada, dan orang mempercayainya justru karena ia digambar. '
+          + 'Disaring divisi: chatbot yang tak boleh dilihat pemanggil tak muncul, dan SISI '
+          + 'miliknya ikut dibuang — sisi yang tersisa akan menunjuk id yang tak ada di daftar, '
+          + 'dan dari situ jumlah chatbot tenant tetap bisa dihitung.',
+        responses: { 200: err('{ chatbot, kb, sisi }') } },
+    },
     '/api/connectors': {
       get: { summary: 'Konektor sumber data yang BOLEH dipakai tenant ini', security: [sessionAuth],
         description: 'Yang dimatikan superadmin tak ikut sama sekali — bukan ditandai nonaktif: '

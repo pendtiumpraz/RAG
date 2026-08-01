@@ -20,6 +20,10 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/chatbots', label: 'Chatbots', icon: 'bot' },
     { href: '/knowledge', label: 'Knowledge Base', icon: 'book' },
     { href: '/documents', label: 'Dokumen', icon: 'search' },
+    /* Tepat sesudah Knowledge & Dokumen: peta ini menjawab pertanyaan yang
+       lahir DARI keduanya — chatbot mana memakai apa, dan mana yang dipakai
+       bersama. */
+    { href: '/graf', label: 'Graf Pengetahuan', icon: 'graph' },
     { href: '/conversations', label: 'Conversations', icon: 'chat' },
     { href: '/analytics', label: 'Analitik', icon: 'pulse', feature: 'analytics' },
     { href: '/memory', label: 'Memory', icon: 'graph', feature: 'memory' },

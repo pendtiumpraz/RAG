@@ -27,6 +27,7 @@ export const config = {
     '/chat/:path*',
     '/chatbots/:path*',
     '/knowledge/:path*',
+    '/graf/:path*',
     '/memory/:path*',
     '/models/:path*',
     '/branding/:path*',
