@@ -1,0 +1,15 @@
+-- 0045 — SAKLAR KONEKTOR: superadmin memilih mana yang boleh dipakai
+--
+-- Diminta pemilik produk (1 Agu 2026): "dari admin bisa diaktifkan dan bisa
+-- tidak, kalau tidak diaktifkan maka inputan koneksinya gak boleh
+-- ditampilkan".
+--
+-- Peta jenis -> boolean. Kunci yang HILANG berarti "pakai bawaan" (lihat
+-- knowledge/konektor.ts), bukan "mati": kalau yang hilang berarti mati,
+-- migrasi ini akan mematikan SELURUH konektor pada detik ia dijalankan —
+-- setiap sumber yang sudah ada berhenti bisa ditambah, dan tak ada satu pun
+-- galat yang menjelaskan sebabnya.
+--
+-- NULL pada kolomnya juga berarti "semua pakai bawaan", jadi baris
+-- platform_settings yang sudah ada tak perlu disentuh sama sekali.
+alter table platform_settings add column if not exists connectors_enabled jsonb;

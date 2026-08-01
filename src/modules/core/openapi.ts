@@ -454,6 +454,29 @@ export const openApiSpec = {
         responses: { 200: err('{ rahasia, contoh }'), 403: err('chatbot milik divisi lain'),
           404: err('chatbot tidak ditemukan') } },
     },
+    '/api/connectors': {
+      get: { summary: 'Konektor sumber data yang BOLEH dipakai tenant ini', security: [sessionAuth],
+        description: 'Yang dimatikan superadmin tak ikut sama sekali — bukan ditandai nonaktif: '
+          + 'pilihan yang terlihat tapi tak bisa dipilih membuat orang mengira produknya rusak, '
+          + 'dan yang bisa dipilih lalu ditolak lebih buruk lagi. Keterangan internal '
+          + '(butuh aplikasi OAuth kita, alasan belum tersedia) tak ikut — itu bahan keputusan '
+          + 'platform, bukan informasi yang berguna bagi pemilik knowledge base.',
+        responses: { 200: err('{ konektor: [{ jenis, label }] }') } },
+    },
+    '/api/admin/connectors': {
+      get: { summary: 'SUPERADMIN: daftar konektor + saklarnya + berapa sumber masih memakainya',
+        security: [sessionAuth],
+        description: 'Jumlah sumber aktif ikut karena mematikan konektor TIDAK menghentikan '
+          + 'sumber yang sudah ada — ia hanya menutup pembuatan yang baru. Tanpa angka itu, '
+          + 'superadmin mengira mematikan Drive berarti Drive berhenti disinkronkan.',
+        responses: { 200: err('{ konektor: [{ jenis, label, nyala, tersedia, sumberAktif, … }] }') } },
+      put: { summary: 'SUPERADMIN: nyalakan/matikan konektor', security: [sessionAuth],
+        description: 'Kunci tak dikenal dibuang, dan konektor yang belum tersedia dipaksa mati '
+          + 'di sisi tulis — keadaan tak sah tak boleh sempat tersimpan. Penegakannya sendiri di '
+          + 'POST /api/sources (422), bukan di UI: menyembunyikan pilihan di layar bukan penegakan.',
+        requestBody: json(obj({ konektor: { type: 'object' } }, ['konektor'])),
+        responses: { 200: err('{ konektor }'), 400: err('input tidak valid') } },
+    },
     '/api/demo': {
       get: { summary: 'PUBLIK: apakah landing boleh menampilkan demo sekarang?',
         description: 'Dipanggil halaman depan tanpa sesi. Yang dikembalikan cuma kunci publik '

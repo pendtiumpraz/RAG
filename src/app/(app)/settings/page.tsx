@@ -77,6 +77,7 @@ export default function SettingsPage() {
       <TwoFactor />
 
       <PanelSso />
+      {session?.user?.role === 'superadmin' && <PanelKonektor />}
       {session?.user?.role === 'superadmin' && <PanelDemo />}
       {session?.user?.role === 'superadmin' && <MailSettings />}
     </>
@@ -381,6 +382,80 @@ function PanelDemo() {
             <div>
               <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy}
                 onClick={() => void simpan()}>Simpan pengaturan demo</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── saklar konektor (superadmin) ────────────────────────────────────
+   Diminta pemilik produk: admin memilih konektor mana yang boleh dipakai,
+   dan yang dimatikan tak boleh muncul sebagai pilihan. Penegakannya di
+   server (api/sources menolak 422) — menyembunyikan pilihan di layar saja
+   bukan penegakan. */
+interface BarisKonektor {
+  jenis: string; label: string; nyala: boolean; tersedia: boolean;
+  butuhAplikasiKita: boolean; keterangan: string; sumberAktif: number;
+}
+
+function PanelKonektor() {
+  const { data, loading, refetch } = useApi<{ konektor: BarisKonektor[] }>('/api/admin/connectors');
+  const [nyala, setNyala] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (data) setNyala(Object.fromEntries(data.konektor.map((k) => [k.jenis, k.nyala])));
+  }, [data]);
+
+  async function simpan() {
+    setBusy(true);
+    try {
+      await api('/api/admin/connectors', { method: 'PUT', body: JSON.stringify({ konektor: nyala }) });
+      toast('Saklar konektor tersimpan'); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">konektor sumber data (superadmin)</span></div>
+      <div className="card-pad stack gap-3">
+        {loading ? <Skeleton rows={4} /> : (
+          <>
+            {(data?.konektor ?? []).map((k) => (
+              <label key={k.jenis} className="cluster gap-3"
+                style={{
+                  padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8,
+                  alignItems: 'flex-start', cursor: k.tersedia ? 'pointer' : 'not-allowed',
+                  opacity: k.tersedia ? 1 : 0.6,
+                }}>
+                <input type="checkbox" style={{ marginTop: 3 }}
+                  checked={!!nyala[k.jenis]} disabled={!k.tersedia || busy}
+                  onChange={(e) => setNyala({ ...nyala, [k.jenis]: e.target.checked })} />
+                <span style={{ flex: 1 }}>
+                  <b>{k.label}</b>
+                  {!k.tersedia && <span className="badge" style={{ marginLeft: 8 }}>BELUM TERSEDIA</span>}
+                  {k.sumberAktif > 0 && (
+                    <span className="badge badge-source" style={{ marginLeft: 8 }}>
+                      {k.sumberAktif} SUMBER AKTIF
+                    </span>
+                  )}
+                  <span className="microlabel" style={{ display: 'block', marginTop: 4 }}>{k.keterangan}</span>
+                </span>
+              </label>
+            ))}
+
+            <p className="microlabel">
+              MEMATIKAN KONEKTOR HANYA MENUTUP PEMBUATAN SUMBER BARU — SUMBER YANG SUDAH ADA
+              TETAP DISINKRONKAN. ITU SEBABNYA JUMLAH SUMBER AKTIF DITAMPILKAN DI SINI: KALAU
+              INGIN BENAR-BENAR BERHENTI, SUMBERNYA HARUS DIHAPUS DI MASING-MASING KNOWLEDGE BASE.
+            </p>
+
+            <div>
+              <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy}
+                onClick={() => void simpan()}>Simpan saklar konektor</button>
             </div>
           </>
         )}

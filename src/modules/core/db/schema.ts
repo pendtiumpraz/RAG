@@ -667,6 +667,14 @@ export const platformSettings = pgTable('platform_settings', {
    * NOL berarti MATI TOTAL, bukan tanpa batas.
    */
   demoLimitPerMonth: integer('demo_limit_per_month').default(1000),
+  /**
+   * Saklar konektor (migrasi 0045): peta jenis -> boolean.
+   *
+   * Kunci yang HILANG berarti 'pakai bawaan' (knowledge/konektor.ts), bukan
+   * 'mati' — kalau yang hilang berarti mati, kolom ini akan mematikan
+   * seluruh konektor pada detik ia lahir. NULL = semua pakai bawaan.
+   */
+  connectorsEnabled: jsonb('connectors_enabled').$type<Record<string, boolean>>(),
   ...stamps,
 });
 

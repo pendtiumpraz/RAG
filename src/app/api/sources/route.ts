@@ -7,6 +7,7 @@ import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { syncService } from '@/modules/knowledge/sync.service';
 import { jobsSettled } from '@/modules/core/jobs';
 import { encryptSecret } from '@/modules/core/crypto';
+import { konektorService } from '@/modules/knowledge/konektor.service';
 import { ensureIntegrations } from '../_wire';
 
 export const runtime = 'nodejs';
@@ -58,6 +59,15 @@ export async function POST(req: NextRequest) {
   const user = await requireRole('superadmin', 'admin');
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+
+  /* PENEGAKAN, bukan sekadar menyembunyikan pilihan di layar. Kalau hanya UI
+     yang menyaring, satu permintaan HTTP langsung tetap bisa membuat sumber
+     dari konektor yang sengaja dimatikan — dan saklarnya akan terlihat
+     bekerja sambil tak menahan apa pun. */
+  if (!(await konektorService.boleh(parsed.data.kind))) {
+    return NextResponse.json(
+      { error: 'Jenis sumber ini sedang dimatikan administrator.' }, { status: 422 });
+  }
 
   const created = await withTenant(user.tenantId, async (tx) =>
     (await tx.insert(dataSources).values({

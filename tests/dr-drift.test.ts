@@ -119,7 +119,7 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
   const patokan = JSON.parse(readFileSync('docs/dr-baseline.json', 'utf8')) as
     { tabel: string[]; indeks: string[]; kebijakan: string[]; rlsAktif: string[] };
   const terakhir = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort().at(-1)!;
-  assert.equal(terakhir, '0044_demo_publik.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+  assert.equal(terakhir, '0045_saklar_konektor.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
   assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),

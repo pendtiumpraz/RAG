@@ -574,6 +574,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
 
   // Tiga jenis sumber tak butuh akun sama sekali.
   const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload' || kind === 's3';
+  const konektor = useApi<{ konektor: Array<{ jenis: string; label: string }> }>('/api/connectors');
   const [s3, setS3] = useState({ bucket: '', region: '', prefix: '', accessKeyId: '', secretAccessKey: '', endpoint: '', gayaPath: false });
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
   const providerAccounts = noAuth ? [] : accounts.filter((a) => a.provider === provider);
@@ -724,13 +725,14 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
         <div className="dh"><h3>Tambah sumber</h3><button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button></div>
         <div className="db stack gap-4">
           <Field label="Jenis sumber"><Select value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="gdrive">Google Drive (akun tersambung)</option>
-              <option value="gdrive_public">Google Drive — URL folder publik (tanpa login)</option>
-              <option value="onedrive">OneDrive</option>
-              <option value="sharepoint">SharePoint (situs / tautan berbagi)</option>
-              <option value="upload">Unggah berkas dari komputer</option>
-              <option value="url">Halaman web (URL)</option>
-              <option value="s3">S3 / penyimpanan objek (MinIO, R2, Wasabi)</option>
+              {/* Daftarnya datang dari SERVER (saklar superadmin), bukan ditulis
+                  tetap di sini. Konektor yang dimatikan tak ikut sama sekali —
+                  bukan ditandai nonaktif: pilihan yang terlihat tapi tak bisa
+                  dipilih membuat orang mengira produknya rusak, dan yang bisa
+                  dipilih lalu ditolak lebih buruk lagi. */}
+              {(konektor.data?.konektor ?? []).map((k) => (
+                <option key={k.jenis} value={k.jenis}>{k.label}</option>
+              ))}
             </Select></Field>
 
           {/* S3 tak memakai OAuth: pelanggan memasok kuncinya sendiri, persis
