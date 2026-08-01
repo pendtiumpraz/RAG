@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
-import { db } from '@/modules/core/db';
+import { db, ukurSambungPertama } from '@/modules/core/db';
 import { log } from '@/modules/core/observability';
 
 export const runtime = 'nodejs';
@@ -18,6 +18,11 @@ export const dynamic = 'force-dynamic';
  * 200 dengan "ok: false" akan terbaca sehat oleh kebanyakan monitor.
  */
 export async function GET() {
+  /* Ukur biaya MENYAMBUNG, bukan biaya kueri. Endpoint inilah yang paling
+     sering diketuk monitor, jadi ia yang paling sering menemui lambda dingin
+     — dan karena itu paling mungkin merekam kejadian 57 detik berikutnya. */
+  void ukurSambungPertama();
+
   const t0 = Date.now();
   let dbOk = false;
   let dbLatencyMs: number | null = null;
