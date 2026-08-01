@@ -18,6 +18,8 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db, backlogItems } from './db';
 import { audit } from './guardrails';
+import { centang } from './pilihan';
+import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
 /** Cukup identitas untuk audit — pemeriksaan peran sudah di `superadminRoute`. */
 export type Actor = { id: string; tenantId: string };
@@ -382,6 +384,34 @@ export const backlogService = {
       .set({ priority, updatedAt: new Date() })
       .where(and(eq(backlogItems.id, id), isNull(backlogItems.deletedAt)));
     await audit(actor.tenantId, actor.id, 'platform.backlog_priority', 'platform', { id, priority });
+  },
+
+  /**
+   * Centang satu pilihan pada kartu — inilah cara keputusan pemilik produk
+   * MENDARAT di papan, bukan menguap di percakapan.
+   *
+   * Dibaca-lalu-ditulis di dalam satu transaksi. Kolom `why` memuat catatan
+   * panjang yang mahal ditulis; dua centang yang datang berbarengan tanpa
+   * transaksi akan membuat yang kedua menimpa teks versi lama dan membuang
+   * centang pertama tanpa jejak.
+   *
+   * TIDAK memindahkan kartu ke 'doing' sendiri. Mencentang berarti "sudah
+   * kuputuskan", bukan "kerjakan sekarang" — dan menggabungkan keduanya
+   * mencabut kesempatan memutuskan beberapa kartu dulu, baru menjalankannya.
+   */
+  async setPilihan(actor: Actor, id: string, indeks: number, pilih: boolean): Promise<string> {
+    return db.transaction(async (tx) => {
+      const rows = await tx.select({ why: backlogItems.why }).from(backlogItems)
+        .where(and(eq(backlogItems.id, id), isNull(backlogItems.deletedAt))).limit(1);
+      if (!rows[0]) throw new ValidationError('Kartu tidak ditemukan');
+
+      const why = centang(rows[0].why ?? '', indeks, pilih);
+      await tx.update(backlogItems).set({ why, updatedAt: new Date() })
+        .where(eq(backlogItems.id, id));
+      await audit(actor.tenantId, actor.id, 'platform.backlog_pilihan', 'platform',
+        { id, indeks, pilih });
+      return why;
+    });
   },
 
   async create(actor: Actor, input: {

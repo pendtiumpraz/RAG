@@ -455,3 +455,27 @@
   .calc-row{ grid-template-columns:1fr; gap:6px; }
   .calc-num{ width:100%; }
 }
+
+/* ── pilihan yang bisa dicentang di detail kartu ─────────────────────
+   Keputusan produk mendarat DI KARTUNYA, bukan di percakapan yang menguap.
+   Dibuat besar dan berjarak lega dengan sengaja: ini kendali yang mengubah
+   arah pekerjaan berhari-hari, bukan centang setuju syarat & ketentuan. */
+.kb-why{ display:flex; flex-direction:column; gap:2px; }
+.kb-opt{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:9px 11px; margin:1px 0;
+  border:1px solid var(--line); border-radius:8px;
+  background:var(--card-2);
+  font-size:14px; line-height:1.55; color:var(--ink);
+  cursor:pointer;
+}
+.kb-opt:hover{ border-color:var(--line-strong); }
+.kb-opt input{ margin-top:3px; flex:0 0 auto; width:15px; height:15px; cursor:pointer; }
+/* Yang sudah dipilih harus terbaca sekilas dari seberang ruangan — papan ini
+   dipindai cepat, dan pilihan yang samar sama saja dengan belum diputuskan. */
+.kb-opt:has(input:checked){
+  border-color:var(--signal); background:color-mix(in srgb, var(--signal) 7%, transparent);
+  font-weight:600;
+}
+.kb-opt input:disabled{ cursor:progress; }
+.kb-opt:has(input:disabled){ opacity:.6; }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast, Field, Drawer, useDialogFokus } from '../../_components/ui';
 import { Select } from '../../_components/select';
+import { bacaPilihan } from '@/modules/core/pilihan';
 
 /**
  * KANBAN BACKLOG (D15) — papan sisa pekerjaan di Dataroom.
@@ -299,6 +300,13 @@ export default function Kanban() {
               toast((e as Error).message, 'error');
             }
           }}
+          /* `why` yang baru datang dari SERVER, tidak ditebak di sini.
+             Pada pilihan tunggal, mencentang satu melepas saudaranya —
+             tebakan lokal akan menampilkan dua centang sampai dimuat ulang. */
+          onWhy={(why) => {
+            setDetail({ ...detail, why });
+            setItems((v) => (v ?? []).map((i) => (i.id === detail.id ? { ...i, why } : i)));
+          }}
         />
       )}
     </div>
@@ -310,9 +318,11 @@ export default function Kanban() {
    lengkap, kepentingan, dan penyanderanya dibaca di sini. Dari sini pula
    status & prioritas bisa diubah tanpa menyeret apa pun — jalur yang jauh
    lebih mudah di ponsel. */
-function Detail({ row, no, onClose, onStatus, onPriority }: {
+function Detail({ row, no, onClose, onStatus, onPriority, onWhy }: {
   row: Row; no: number; onClose: () => void;
   onStatus: (s: Status) => void; onPriority: (p: Pri) => void;
+  /** Dipanggil setelah satu pilihan dicentang — `why` baru dari server. */
+  onWhy: (why: string) => void;
 }) {
   // Esc menutup — kebiasaan dialog yang selalu dicoba orang lebih dulu.
   useEffect(() => {
@@ -344,7 +354,10 @@ function Detail({ row, no, onClose, onStatus, onPriority }: {
 
         <div className="kb-mbody">
           <h3>{row.title}</h3>
-          <p className="why">{row.why}</p>
+          {/* Prosa dan pilihan dipisah: baris berpilihan dirender sebagai
+              kendali, sisanya tetap teks. Kalau seluruhnya teks, keputusan
+              yang menunggu tak bisa dibedakan dari catatan biasa. */}
+          <Alasan row={row} onWhy={onWhy} />
 
           {row.blocked && (
             <div className="kb-mblock">
@@ -450,5 +463,69 @@ function AddCard({ track, onClose, onSaved }: {
         </div>
       </Drawer>
     </>
+  );
+}
+
+/* ── alasan kartu + pilihan yang bisa dicentang ──────────────────────
+   Sembilan kartu pernah berhenti bergerak berjam-jam bukan karena
+   pekerjaannya sulit, melainkan karena jawabannya hidup di kepala pemilik
+   produk dan tak punya tempat mendarat. Menjawab lewat percakapan berarti
+   keputusannya menguap bersama percakapan itu; di sini ia tertulis di
+   kartunya, terbaca besok, dan terbaca juga oleh agen yang membaca papan
+   lewat SQL. */
+function Alasan({ row, onWhy }: { row: Row; onWhy: (why: string) => void }) {
+  const [sibuk, setSibuk] = useState<number | null>(null);
+  const toast = useToast();
+  const opsi = useMemo(() => bacaPilihan(row.why), [row.why]);
+
+  async function pilih(indeks: number, nilai: boolean) {
+    setSibuk(indeks);
+    try {
+      const r = await fetch('/api/admin/backlog/pilihan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, indeks, pilih: nilai }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? 'Gagal menyimpan pilihan');
+      onWhy(j.why);
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setSibuk(null); }
+  }
+
+  if (!opsi.length) return <p className="why">{row.why}</p>;
+
+  /* Baris opsi dikeluarkan dari prosa supaya tak tampil dua kali. Nomor
+     barisnya dipakai apa adanya — sama seperti yang dipakai server menulis
+     ulang, jadi tak mungkin bergeser di antara keduanya. */
+  const barisOpsi = new Set(opsi.map((o) => o.baris));
+  const baris = row.why.split('\n');
+
+  return (
+    <div className="kb-why">
+      {baris.map((teks, i) => {
+        if (!barisOpsi.has(i)) {
+          return teks.trim()
+            ? <p key={i} className="why">{teks}</p>
+            : <div key={i} style={{ height: 6 }} />;
+        }
+        const o = opsi.find((x) => x.baris === i)!;
+        return (
+          <label key={i} className="kb-opt">
+            <input
+              type={o.tunggal ? 'radio' : 'checkbox'}
+              name={o.tunggal ? `blok-${row.id}-${o.blok}` : undefined}
+              checked={o.dipilih}
+              disabled={sibuk !== null}
+              /* Radio yang sudah tercentang tak memancarkan onChange lagi,
+                 jadi "batal memilih" ditangani lewat klik. Tanpa ini,
+                 keputusan yang terlanjur salah tak bisa dicabut sama sekali
+                 kecuali lewat SQL. */
+              onClick={() => { if (o.tunggal && o.dipilih) void pilih(o.indeks, false); }}
+              onChange={(e) => void pilih(o.indeks, e.target.checked)}
+            />
+            <span>{o.teks}</span>
+          </label>
+        );
+      })}
+    </div>
   );
 }

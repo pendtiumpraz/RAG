@@ -411,6 +411,21 @@ export const openApiSpec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
         responses: { 200: err('{ ok, softDeleted }'), 422: err('penampung tak bisa dihapus') } },
     },
+    '/api/admin/backlog/pilihan': {
+      post: { summary: 'SUPERADMIN: centang / lepas satu pilihan pada kartu backlog',
+        security: [sessionAuth],
+        description: 'Keputusan produk mendarat DI KARTUNYA, bukan di percakapan yang menguap. '
+          + 'Opsi ditulis di dalam `why` bergaya daftar tugas Markdown: kurung bulat `- ( )` '
+          + 'saling meniadakan dalam satu blok PILIHAN, kurung siku `- [ ]` boleh banyak. '
+          + 'Rute TERPISAH dari PATCH (antrean) dan PUT (prioritas) supaya satu seretan kartu '
+          + 'tak pernah diam-diam menulis ulang jawaban yang dipikirkan lama. Balasannya berisi '
+          + '`why` yang baru — pada opsi tunggal, mencentang satu melepas saudaranya, dan klien '
+          + 'yang menebak sendiri akan menampilkan dua centang sampai dimuat ulang.',
+        requestBody: json(obj({ id: uuid, indeks: { type: 'integer' }, pilih: { type: 'boolean' } },
+          ['id', 'indeks', 'pilih'])),
+        responses: { 200: err('{ why }'), 404: err('kartu tidak ditemukan'),
+          409: err('indeks bergeser — papan sudah berubah, muat ulang') } },
+    },
     '/api/divisions': {
       get: { summary: 'Daftar divisi + jumlah anggota & chatbotnya', security: [sessionAuth],
         description: 'Boleh dibaca SEMUA anggota tenant, bukan hanya admin: form chatbot dan ' +
