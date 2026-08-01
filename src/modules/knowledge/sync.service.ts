@@ -7,6 +7,7 @@ import { audit } from '@/modules/core/guardrails';
 import { periksaSync, terbitkanPeringatan } from '@/modules/core/alerts';
 import { TEXT_EXT, DOC_EXT } from './format';
 import { batasSync } from './sync-limits';
+import { masihMuat } from './anggaran-sync';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService, QuotaError } from './knowledge.service';
@@ -181,6 +182,12 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
     }
   };
 
+  /* Awal putaran — anggaran waktu dihitung dari SINI, bukan dari awal
+     lingkaran ingest: pendaftaran berkas (listing) juga memakan tenggat yang
+     sama, dan mengabaikannya membuat anggaran berbohong pada sumber yang
+     daftarnya panjang. */
+  const mulaiMs = Date.now();
+
   await setStatus('syncing');
 
   try {
@@ -234,7 +241,15 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
     let diproses = 0;
     await kabarProgres(0, batch.length);
 
+    /* Berhenti karena ANGGARAN WAKTU, bukan karena dibunuh. Bedanya: yang
+       ini melaporkan sisa yang benar dan menutup statusnya rapi. */
+    let berhentiWaktu = 0;
+
     for (const f of batch) {
+      if (!masihMuat({ mulaiMs, sekarangMs: Date.now(), sudahDiproses: diproses })) {
+        berhentiWaktu = batch.length - diproses;
+        break;
+      }
       try {
         /* LAPIS 1 — nama + ukuran, SEBELUM mengunduh apa pun.
            Ini satu-satunya lapisan yang bisa menghemat unduhan; sidik jari isi
@@ -323,7 +338,13 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
       // didukung" dan "dilewati karena kembar" menuntut tindakan yang berbeda
       // dari pemilik data, dan menggabungkannya menyembunyikan keduanya.
       duplicates,
-      skipped, noText, failed, pending, at: new Date().toISOString(),
+      skipped, noText, failed,
+      /* Sisa = yang tak muat di batas berkas per jalan DITAMBAH yang tak muat
+         di anggaran waktu. Melaporkan salah satunya saja membuat orang
+         mengira sync sudah tuntas padahal belum. */
+      pending: pending + berhentiWaktu,
+      ...(berhentiWaktu ? { berhentiKarenaWaktu: berhentiWaktu } : {}),
+      at: new Date().toISOString(),
       // Disebut TERPISAH: kuota habis menuntut tindakan yang sama sekali
       // berbeda dari berkas yang gagal diproses.
       ...(quotaStop ? { quotaExceeded: quotaStop } : {}),

@@ -11,7 +11,9 @@ interface Chatbot { id: string; name: string }
 /** Ringkasan run delta terakhir — ditulis sync.service ke config.lastSync. */
 interface LastSync { ingested?: number; updated?: number; removed?: number; unchanged?: number;
   skipped?: number; noText?: number; duplicates?: number;
-  failed?: number; pending?: number; message?: string; quotaExceeded?: string }
+  failed?: number; pending?: number; message?: string; quotaExceeded?: string;
+  /** Berhenti karena anggaran waktu, bukan karena batas jumlah berkas. */
+  berhentiKarenaWaktu?: number }
 interface Source { id: string; kind: string; status: string; config: Record<string, unknown>;
   lastSyncedAt: string | null; jobStatus: { state: string } | null }
 /** Koneksi akun + APA YANG BENAR-BENAR DIIZINKAN token-nya (bukan mode aktif). */
@@ -343,7 +345,11 @@ export default function KnowledgePage() {
                         : String(s.config.folderId ?? s.config.folderPath ?? 'folder')
                     }</td>
                     <td><StatusBadge s={s} /><SyncProgress s={s} /></td>
-                    <td><DeltaSummary last={s.config.lastSync as LastSync | undefined} /></td>
+                    <td>
+                      <DeltaSummary last={s.config.lastSync as LastSync | undefined} />
+                      <LanjutkanSync source={s} onSync={(id) => resync(id)}
+                        sisa={(s.config.lastSync as LastSync | undefined)?.pending ?? 0} />
+                    </td>
                     <td className="mono" style={{ color: 'var(--muted)' }}>{s.lastSyncedAt?.slice(0, 16).replace('T', ' ') ?? '—'}</td>
                     <td>
                       <div className="cluster gap-2">
@@ -966,5 +972,65 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
         </div>
       </Drawer>
     </>
+  );
+}
+
+/* ── melanjutkan sync yang belum tuntas ──────────────────────────────
+   Satu putaran dibatasi tenggat fungsi 60 detik. Korpus besar karena itu
+   selalu menyisakan antrean — dan sebelum ini tak ada apa pun di layar yang
+   memberi tahu bahwa menekan Sync lagi MEMANG melanjutkan, bukan mengulang
+   dari nol. Orang menyimpulkan sync-nya rusak, padahal ia cuma belum selesai.
+
+   DUA MODE, dan bawaannya yang jujur:
+     B (bawaan) — tombol "Lanjutkan" dengan sisa yang tertulis. Orangnya yang
+       menekan, tapi ia tahu persis harus menekan berapa kali lagi.
+     A (opsional) — melanjutkan sendiri SELAMA HALAMAN INI TERBUKA. Batas itu
+       disebut terus terang di labelnya: lanjut otomatis di latar belakang
+       menuntut cron atau antrean yang selamat dari matinya lambda, dan
+       menjanjikannya tanpa membangunnya berarti sync berhenti diam-diam
+       begitu tab ditutup. */
+const KUNCI_AUTO = 'nalar_sync_auto';
+
+function LanjutkanSync({ source, sisa, onSync }: {
+  source: Source; sisa: number; onSync: (id: string) => Promise<void>;
+}) {
+  const [auto, setAuto] = useState(false);
+  const [jalan, setJalan] = useState(false);
+
+  useEffect(() => { setAuto(localStorage.getItem(KUNCI_AUTO) === '1'); }, []);
+
+  const berjalan = (source.jobStatus?.state ?? source.status) === 'syncing'
+    || source.jobStatus?.state === 'running';
+
+  /* Pemicu otomatis: hanya saat ADA sisa DAN tak ada yang sedang berjalan.
+     Tanpa syarat kedua, tiap penyegaran daftar (2,5 detik sekali) akan
+     memicu putaran baru di atas yang masih berjalan — dan dua sync serentak
+     pada sumber yang sama membakar kuota dua kali untuk pekerjaan yang sama. */
+  useEffect(() => {
+    if (!auto || !sisa || berjalan || jalan) return;
+    setJalan(true);
+    void onSync(source.id).finally(() => setJalan(false));
+  }, [auto, sisa, berjalan, jalan, source.id, onSync]);
+
+  if (!sisa) return null;
+
+  return (
+    <div className="cluster gap-3" style={{ flexWrap: 'wrap', marginTop: 6 }}>
+      <button className={`btn btn-sm btn-primary${jalan ? ' is-loading' : ''}`}
+        disabled={jalan || berjalan}
+        onClick={() => { setJalan(true); void onSync(source.id).finally(() => setJalan(false)); }}>
+        Lanjutkan — {sisa} berkas tersisa
+      </button>
+      <label className="cluster gap-2" style={{ cursor: 'pointer' }}>
+        <input type="checkbox" checked={auto}
+          onChange={(e) => {
+            setAuto(e.target.checked);
+            localStorage.setItem(KUNCI_AUTO, e.target.checked ? '1' : '0');
+          }} />
+        <span className="microlabel">
+          LANJUTKAN OTOMATIS — HANYA SELAMA HALAMAN INI TERBUKA
+        </span>
+      </label>
+    </div>
   );
 }
