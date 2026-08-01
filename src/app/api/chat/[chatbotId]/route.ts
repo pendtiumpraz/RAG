@@ -7,6 +7,7 @@ import { PESAN_KUOTA, PESAN_LAJU } from '@/modules/chat/pesan-batas';
 import { ensureIntegrations } from '../../_wire';
 
 import { penandaSah } from '@/modules/chat/visitor-guard';
+import { demoService } from '@/modules/core/demo.service';
 
 export const runtime = 'nodejs';
 
@@ -86,7 +87,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ chatbotId:
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec), 'Access-Control-Allow-Origin': cors } },
     );
   }
-  if (usage.messages >= usage.limits.messagesPerMonth) {
+  /* DEMO PUBLIK (migrasi 0044) — remnya sendiri, menggantikan kuota tenant.
+     Chatbot demo dititipkan di sebuah tenant, dan kuota tenant itu bukan
+     ukuran yang tepat: kalau ia paket gratis, demonya mati di pesan
+     kesepuluh; kalau ia enterprise, remnya 50× lebih longgar dari yang
+     dimaksudkan. Yang membatasi demo harus angka demo. */
+  const demo = await demoService.putusan(bot.id, bot.tenant_id);
+  if (demo && !demo.boleh) {
+    /* 429 dengan kode tersendiri: widget membedakannya dari kuota pelanggan,
+       dan Retry-After sengaja tak dikirim — kuota bulanan tak pulih dalam
+       hitungan detik, dan header yang menjanjikan sebaliknya membuat klien
+       mencoba ulang sepanjang sisa bulan. */
+    return Response.json(
+      { error: demo.pesan, kode: 'demo' },
+      { status: 429, headers: { 'Access-Control-Allow-Origin': cors } },
+    );
+  }
+  if (!demo && usage.messages >= usage.limits.messagesPerMonth) {
     /* Pesannya NETRAL dan tanpa angka. Sebelum ini endpoint publik ini
        membalas "Kuota pesan bulan ini habis (5.000 pesan). Upgrade plan untuk
        lanjut." kepada pengunjung anonim mana pun — membocorkan kuota persis

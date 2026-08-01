@@ -454,6 +454,29 @@ export const openApiSpec = {
         responses: { 200: err('{ rahasia, contoh }'), 403: err('chatbot milik divisi lain'),
           404: err('chatbot tidak ditemukan') } },
     },
+    '/api/demo': {
+      get: { summary: 'PUBLIK: apakah landing boleh menampilkan demo sekarang?',
+        description: 'Dipanggil halaman depan tanpa sesi. Yang dikembalikan cuma kunci publik '
+          + 'chatbot demo dan boleh-tidaknya ia dipakai — kunci itu memang dirancang untuk '
+          + 'disebar. Sisa kuota TIDAK ikut: pengunjung tak bisa berbuat apa-apa dengannya, '
+          + 'sementara menyebutkannya memberi tahu penyerang persis berapa permintaan lagi yang '
+          + 'diperlukan untuk mematikan demo bulan berikutnya. Saat kuota habis, jawabannya '
+          + '{ aktif: false } TANPA kunci — mengirim kunci sambil bilang "tak boleh" membuat '
+          + 'landing memasang widget yang setiap pertanyaannya ditolak, dan itu terbaca sebagai '
+          + 'produk rusak alih-alih demo yang sedang istirahat.',
+        responses: { 200: err('{ aktif, publicKey? , pesan? }') } },
+    },
+    '/api/admin/demo': {
+      get: { summary: 'SUPERADMIN: chatbot demo publik + sisa kuota bulan ini', security: [sessionAuth],
+        responses: { 200: err('{ pengaturan, status, publicKey, chatbots }') } },
+      put: { summary: 'SUPERADMIN: tunjuk chatbot demo & setel remnya', security: [sessionAuth],
+        description: 'Rem yang dipilih pemilik produk: matikan otomatis saat kuota bulanan habis. '
+          + 'Bawaan 1.000 pesan/bulan — seperlima paket Pro. NOL berarti MATI TOTAL, bukan tanpa '
+          + 'batas; "matikan demo" adalah cara paling wajar orang menuliskannya, dan kebalikannya '
+          + 'akan membuka keran lebar-lebar tepat saat seseorang bermaksud menutupnya.',
+        requestBody: json(obj({ chatbotId: uuid, batas: { type: 'integer' } }, ['chatbotId', 'batas'])),
+        responses: { 200: err('{ ok }'), 400: err('input tidak valid') } },
+    },
     '/api/sso': {
       get: { summary: 'Koneksi SSO organisasi + preset penyedia + URL callback', security: [sessionAuth],
         description: 'Client secret TIDAK pernah ikut, bahkan ciphertextnya. `callbackUrl` disusun '

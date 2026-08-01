@@ -59,9 +59,19 @@ test('kedua batas membawa kode mesin, dan statusnya TIDAK diubah', () => {
      bersifat aditif: pembaca lama tetap melihat 429 dan pesan yang benar. */
   assert.ok(/kode: 'kuota'/.test(RUTE), 'balasan kuota tak membawa kode mesin');
   assert.ok(/kode: 'laju'/.test(RUTE), 'balasan rate limit tak membawa kode mesin');
+  /* Batas KETIGA sejak migrasi 0044: kuota demo publik. Ia berdiri sendiri
+     karena chatbot demo tak memakai kuota tenant pemiliknya — dan tanpa kode
+     sendiri, widget tak bisa membedakan "demo sedang istirahat" dari "kuota
+     pelanggan habis", dua keadaan yang jalan keluarnya berbeda sama sekali. */
+  assert.ok(/kode: 'demo'/.test(RUTE), 'balasan kuota demo tak membawa kode mesin');
   assert.ok(!/status: 402/.test(RUTE), 'status diubah — kontrak widget terpasang ikut berubah');
   const jumlah429 = (RUTE.match(/status: 429/g) ?? []).length;
-  assert.equal(jumlah429, 2, `harusnya tepat dua balasan 429, ditemukan ${jumlah429}`);
+  assert.equal(jumlah429, 3, `harusnya tepat tiga balasan 429, ditemukan ${jumlah429}`);
+  /* Ketiganya wajib punya kode yang BERBEDA: kode yang sama membuat widget
+     menampilkan jalan keluar yang salah, dan itu lebih menyesatkan daripada
+     tak menampilkan apa pun. */
+  const kode = [...RUTE.matchAll(/kode: '(\w+)'/g)].map((m) => m[1]);
+  assert.equal(new Set(kode).size, kode.length, `kode batas kembar: ${kode.join(', ')}`);
 });
 
 test('Retry-After hanya dikirim pada batas yang MEMANG pulih', () => {

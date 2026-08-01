@@ -77,6 +77,7 @@ export default function SettingsPage() {
       <TwoFactor />
 
       <PanelSso />
+      {session?.user?.role === 'superadmin' && <PanelDemo />}
       {session?.user?.role === 'superadmin' && <MailSettings />}
     </>
   );
@@ -295,6 +296,92 @@ function PanelSso() {
               SEPERTI JALUR PENDAFTARAN LAIN. DIREKTORI PERUSAHAAN MEMBUKTIKAN SIAPA ORANGNYA,
               BUKAN BAHWA IA BOLEH MELIHAT ISI WORKSPACE INI.
             </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── demo publik di landing (D-demo, migrasi 0044) ───────────────────
+   Pengunjung boleh mencoba tanpa mendaftar — orang perlu melihat produknya
+   bekerja sebelum membuat akun. Remnya: matikan otomatis saat kuota bulanan
+   habis, karena tiap jawaban demo dibayar dengan token yang tak pernah jadi
+   pendapatan dan pengunjungnya anonim: tak ada yang bisa ditagih. */
+interface DataDemo {
+  pengaturan: { chatbotId: string | null; batas: number };
+  status: { keadaan: string; terpakai: number; batas: number };
+  publicKey: string | null;
+  chatbots: Array<{ id: string; name: string }>;
+}
+
+function PanelDemo() {
+  const { data, loading, refetch } = useApi<DataDemo>('/api/admin/demo');
+  const [chatbotId, setChatbotId] = useState('');
+  const [batas, setBatas] = useState('1000');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (!data) return;
+    setChatbotId(data.pengaturan.chatbotId ?? '');
+    setBatas(String(data.pengaturan.batas));
+  }, [data]);
+
+  async function simpan() {
+    setBusy(true);
+    try {
+      await api('/api/admin/demo', {
+        method: 'PUT',
+        body: JSON.stringify({ chatbotId: chatbotId || null, batas: Number(batas) || 0 }),
+      });
+      toast(chatbotId ? 'Demo publik diperbarui' : 'Demo publik dimatikan'); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  const s = data?.status;
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">demo publik di landing (superadmin)</span>
+        {s && <span className="microlabel">{s.terpakai} / {s.batas} PESAN BULAN INI</span>}</div>
+      <div className="card-pad stack gap-4">
+        {loading ? <Skeleton rows={3} /> : (
+          <>
+            <Field label="Chatbot yang dipakai demo">
+              <Select value={chatbotId} onChange={(e) => setChatbotId(e.target.value)} items={[
+                { value: '', label: 'Tidak ada — demo dimatikan' },
+                ...(data?.chatbots ?? []).map((c) => ({ value: c.id, label: c.name })),
+              ]} />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                ISI KNOWLEDGE BASE CHATBOT INI AKAN BISA DITANYAI SIAPA PUN TANPA MENDAFTAR.
+                PILIH YANG MEMANG BERISI DOKUMEN CONTOH — BUKAN DOKUMEN PELANGGAN.
+              </p>
+            </Field>
+
+            <Field label="Rem: batas pesan per bulan">
+              <input className="input" type="number" min={0} value={batas}
+                onChange={(e) => setBatas(e.target.value)} />
+              <p className="microlabel" style={{ marginTop: 6 }}>
+                DEMO MATI SENDIRI SAAT ANGKA INI TERCAPAI, DAN HIDUP LAGI AWAL BULAN BERIKUTNYA.
+                NOL BERARTI MATI TOTAL, BUKAN TANPA BATAS. BAWAAN 1.000 — SEPERLIMA PAKET PRO.
+              </p>
+            </Field>
+
+            {s && s.keadaan === 'kuota-habis' && (
+              <p className="microlabel" style={{ color: 'var(--source)' }}>
+                KUOTA BULAN INI SUDAH HABIS — LANDING TIDAK MENAMPILKAN DEMO SAMPAI BULAN DEPAN.
+              </p>
+            )}
+            {data?.publicKey && (
+              <p className="microlabel">
+                TAUTAN DEMO: /demo/{data.publicKey}
+              </p>
+            )}
+
+            <div>
+              <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy}
+                onClick={() => void simpan()}>Simpan pengaturan demo</button>
+            </div>
           </>
         )}
       </div>

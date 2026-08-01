@@ -55,6 +55,7 @@
     "idx_ckb_deleted_at",
     "idx_ckb_kb",
     "idx_conversations_chatbot_id",
+    "idx_conversations_chatbot_started",
     "idx_conversations_deleted_at",
     "idx_conversations_tenant_id",
     "idx_data_sources_deleted_at",

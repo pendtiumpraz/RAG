@@ -652,6 +652,21 @@ export const platformSettings = pgTable('platform_settings', {
   billingIdentity: jsonb('billing_identity').$type<{
     legalName?: string; address?: string; npwp?: string; email?: string; phone?: string;
   }>(),
+  /**
+   * DEMO PUBLIK (migrasi 0044). NULL = tak ada demo, dan itu keadaan awalnya:
+   * bagian demo di landing tak muncul sama sekali sampai superadmin menunjuk
+   * chatbot mana yang jadi demo. Sengaja — chatbot demo berisi dokumen contoh
+   * yang harus dipilih manusia, dan menebaknya berarti memajang isi knowledge
+   * base pelanggan pertama yang kebetulan ditemukan query.
+   */
+  demoChatbotId: uuid('demo_chatbot_id'),
+  /**
+   * Rem yang dicentang pemilik produk: matikan otomatis saat habis. 1.000
+   * pesan/bulan — seperlima paket Pro, cukup untuk ratusan pengunjung, dan
+   * biayanya setara satu pelanggan Pro walau dipakai sepanjang bulan.
+   * NOL berarti MATI TOTAL, bukan tanpa batas.
+   */
+  demoLimitPerMonth: integer('demo_limit_per_month').default(1000),
   ...stamps,
 });
 

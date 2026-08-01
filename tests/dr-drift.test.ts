@@ -119,9 +119,11 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
   const patokan = JSON.parse(readFileSync('docs/dr-baseline.json', 'utf8')) as
     { tabel: string[]; indeks: string[]; kebijakan: string[]; rlsAktif: string[] };
   const terakhir = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort().at(-1)!;
-  assert.equal(terakhir, '0043_sso_connections.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+  assert.equal(terakhir, '0044_demo_publik.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
+  assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),
+    'indeks penghitung demo belum masuk patokan');
   assert.ok(patokan.rlsAktif.includes('sso_connections'),
     'sso_connections tanpa RLS aktif — koneksi IdP tenant lain ikut terbaca');
   assert.ok(patokan.indeks.includes('idx_chatbots_visitor_secret'),
