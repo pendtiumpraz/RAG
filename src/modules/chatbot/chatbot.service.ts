@@ -73,7 +73,7 @@ export const chatbotService = {
       throw new ValidationError(`Plan ${usage.plan} maksimal ${usage.limits.maxChatbots} chatbot. Upgrade untuk menambah.`);
     }
 
-    return withTenant(tenantId, async (tx) => {
+    const created = await withTenant(tenantId, async (tx) => {
       // Integritas referensial di aplikasi: owner harus user aktif tenant ini.
       const owner = await tx.select({ id: users.id }).from(users)
         .where(and(eq(users.id, input.ownerId), isNull(users.deletedAt))).limit(1);
@@ -99,9 +99,28 @@ export const chatbotService = {
         context: input.context?.trim() || null,
         divisionId,
       });
-      await dispatch('chatbot.created', { tenantId, chatbotId: created.id, ownerId: input.ownerId });
       return created;
     });
+
+    /* DISPATCH DI LUAR TRANSAKSI — dan ini bukan kerapian, melainkan
+       perbaikan kebuntuan yang nyata.
+
+       Di Vercel kolam koneksi dipatok `max: 1`. Selama transaksi di atas
+       terbuka, ia MEMEGANG satu-satunya koneksi. Handler webhook memanggil
+       `fanout()`, yang membuka `withTenant` KEDUA — dan permintaan koneksi
+       kedua itu menunggu koneksi pertama dilepas, sementara yang pertama
+       menunggu dispatch selesai. Keduanya menunggu selamanya.
+
+       Gejalanya persis seperti yang dilaporkan pemilik produk (1 Agu 2026):
+       "tambah chatbot muter2 terus" — bukan galat, bukan lambat, tapi
+       menggantung tanpa ujung. Tak terlihat di mesin pengembangan karena di
+       sana `max: 10`, jadi koneksi kedua selalu tersedia.
+
+       Peristiwa memang tak perlu ikut di dalam transaksi: ia memberitahu
+       DUNIA LUAR bahwa sesuatu SUDAH terjadi, dan sesuatu itu baru benar
+       terjadi setelah transaksinya commit. */
+    await dispatch('chatbot.created', { tenantId, chatbotId: created.id, ownerId: input.ownerId });
+    return created;
   },
 
   /**
@@ -177,7 +196,7 @@ export const chatbotService = {
    * yang ikut terhapus hanya ASSIGNMENT-nya dan percakapan chatbot ini.
    */
   async softDelete(tenantId: string, aktor: AktorDivisi, id: string) {
-    return withTenant(tenantId, async (tx) => {
+    const deleted = await withTenant(tenantId, async (tx) => {
       await this.pastikanBoleh(tx, id, aktor);
       const deleted = await repo.softDelete(tx, id);
       if (!deleted) throw new ValidationError('Chatbot tidak ditemukan');
@@ -186,14 +205,16 @@ export const chatbotService = {
         .where(and(eq(chatbotKnowledgeBases.chatbotId, id), isNull(chatbotKnowledgeBases.deletedAt)));
       await tx.update(conversations).set({ deletedAt: now, updatedAt: now })
         .where(and(eq(conversations.chatbotId, id), isNull(conversations.deletedAt)));
-      await dispatch('chatbot.deleted', { tenantId, chatbotId: id });
       return deleted;
     });
+    // Di luar transaksi — lihat catatan panjang di create(). max:1 di Vercel.
+    await dispatch('chatbot.deleted', { tenantId, chatbotId: id });
+    return deleted;
   },
 
   /** Restore chatbot + kaskade kebalikannya (assignment & percakapan). */
   async restore(tenantId: string, aktor: AktorDivisi, id: string) {
-    return withTenant(tenantId, async (tx) => {
+    const restored = await withTenant(tenantId, async (tx) => {
       await this.pastikanBoleh(tx, id, aktor, { withTrashed: true });
       const restored = await repo.restore(tx, id);
       if (!restored) throw new ValidationError('Chatbot tidak ada di Sampah');
@@ -202,9 +223,11 @@ export const chatbotService = {
         .where(eq(chatbotKnowledgeBases.chatbotId, id));
       await tx.update(conversations).set({ deletedAt: null, updatedAt: now })
         .where(eq(conversations.chatbotId, id));
-      await dispatch('chatbot.restored', { tenantId, chatbotId: id });
       return restored;
     });
+    // Di luar transaksi — lihat catatan panjang di create(). max:1 di Vercel.
+    await dispatch('chatbot.restored', { tenantId, chatbotId: id });
+    return restored;
   },
 
   /**

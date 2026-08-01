@@ -399,12 +399,19 @@ export const knowledgeService = {
   },
 
   async softDeleteDocument(tenantId: string, id: string) {
-    return withTenant(tenantId, async (tx) => {
+    const del = await withTenant(tenantId, async (tx) => {
       const del = await docs.softDelete(tx, id);
       if (!del) throw new ValidationError('Dokumen tidak ditemukan');
-      await dispatch('document.deleted', { tenantId, knowledgeBaseId: del.knowledgeBaseId, documentId: id });
       return del;
     });
+    /* DI LUAR transaksi. Di Vercel kolam koneksi `max: 1`; handler webhook
+       membuka `withTenant` kedua, dan koneksi kedua itu menunggu yang pertama
+       dilepas sementara yang pertama menunggu dispatch selesai — buntu tanpa
+       ujung. Lihat catatan panjang di chatbot.service.create(). */
+    await dispatch('document.deleted', {
+      tenantId, knowledgeBaseId: del.knowledgeBaseId, documentId: id,
+    });
+    return del;
   },
 
   async restoreDocument(tenantId: string, id: string) {

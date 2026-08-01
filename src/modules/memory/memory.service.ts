@@ -40,7 +40,7 @@ export const memoryService = {
   }) {
     const linksTo = extractWikilinks(input.contentMd);
 
-    return withTenant(tenantId, async (tx) => {
+    const noteId = await withTenant(tenantId, async (tx) => {
       const existing = await tx.select({ id: memoryNotes.id }).from(memoryNotes)
         .where(and(
           eq(memoryNotes.tenantId, tenantId),
@@ -93,9 +93,17 @@ export const memoryService = {
         }
       }
 
-      await dispatch('memory.note.upserted', { tenantId, chatbotId: input.chatbotId, noteId, slug: input.slug });
       return noteId;
     });
+
+    /* DI LUAR transaksi. Di Vercel kolam koneksi max:1; handler webhook
+       membuka withTenant kedua, dan koneksi kedua itu menunggu yang pertama
+       dilepas sementara yang pertama menunggu dispatch selesai — buntu tanpa
+       ujung. Lihat catatan panjang di chatbot.service.create(). */
+    await dispatch('memory.note.upserted', {
+      tenantId, chatbotId: input.chatbotId, noteId, slug: input.slug,
+    });
+    return noteId;
   },
 
   /** Graph untuk halaman Memory (nodes + edges aktif). */
