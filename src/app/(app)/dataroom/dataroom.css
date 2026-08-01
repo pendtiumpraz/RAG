@@ -479,3 +479,28 @@
 }
 .kb-opt input:disabled{ cursor:progress; }
 .kb-opt:has(input:disabled){ opacity:.6; }
+
+/* Penanda keputusan di kartu ringkas — papan dipindai sekilas, jadi kartu
+   yang menunggu keputusan harus terlihat SEBAGAI itu, bukan sebagai kartu
+   biasa yang kebetulan panjang catatannya. Sekaligus jalan masuk ke tempat
+   centangnya berada; tanpa ini satu-satunya jalan adalah mengklik judul, dan
+   tak ada yang menduga itu. */
+.kb-dec{
+  display:block; width:100%; margin-top:8px; padding:7px 10px;
+  border:1px solid var(--line); border-radius:7px; background:var(--card-2);
+  font:600 10.5px/1.4 var(--font-mono); letter-spacing:.06em; text-align:left;
+  color:var(--muted); cursor:pointer;
+}
+.kb-dec:hover{ border-color:var(--line-strong); color:var(--ink); }
+.kb-dec.wait{
+  border-color:var(--source); color:var(--source);
+  background:color-mix(in srgb, var(--source) 9%, transparent);
+}
+
+/* Kotak catatan bebas — ada di SETIAP kartu, bukan hanya yang berpilihan:
+   sebagian keputusan punya parameter yang tak muat jadi centangan. */
+.kb-note{
+  margin-top:16px; padding:12px; border:1px dashed var(--line-strong);
+  border-radius:9px; display:flex; flex-direction:column; gap:8px;
+}
+.kb-note textarea{ resize:vertical; min-height:64px; font-size:13.5px; }

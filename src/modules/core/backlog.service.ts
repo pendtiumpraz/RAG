@@ -18,7 +18,7 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db, backlogItems } from './db';
 import { audit } from './guardrails';
-import { centang } from './pilihan';
+import { centang, tempelCatatan } from './pilihan';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
 /** Cukup identitas untuk audit — pemeriksaan peran sudah di `superadminRoute`. */
@@ -410,6 +410,34 @@ export const backlogService = {
         .where(eq(backlogItems.id, id));
       await audit(actor.tenantId, actor.id, 'platform.backlog_pilihan', 'platform',
         { id, indeks, pilih });
+      return why;
+    });
+  },
+
+  /**
+   * Tempelkan catatan bebas ke kartu.
+   *
+   * Ada karena mencentang saja tidak selalu cukup: sebagian keputusan punya
+   * parameter (angka batas, nama penyedia, alasan memilih yang tak biasa),
+   * dan memaksanya masuk ke daftar opsi berarti menebak-nebak bentuk jawaban
+   * yang belum tentu terpikirkan. Kotak kosong lebih jujur daripada opsi
+   * yang salah tebak.
+   *
+   * Transaksi dan alasannya sama dengan setPilihan: baca-lalu-tulis pada
+   * kolom teks yang sama, dan dua tulisan berbarengan tanpa transaksi
+   * membuang salah satunya tanpa jejak.
+   */
+  async tambahCatatan(actor: Actor, id: string, teks: string): Promise<string> {
+    return db.transaction(async (tx) => {
+      const rows = await tx.select({ why: backlogItems.why }).from(backlogItems)
+        .where(and(eq(backlogItems.id, id), isNull(backlogItems.deletedAt))).limit(1);
+      if (!rows[0]) throw new ValidationError('Kartu tidak ditemukan');
+
+      const why = tempelCatatan(rows[0].why ?? '', teks, new Date());
+      await tx.update(backlogItems).set({ why, updatedAt: new Date() })
+        .where(eq(backlogItems.id, id));
+      await audit(actor.tenantId, actor.id, 'platform.backlog_catatan', 'platform',
+        { id, panjang: teks.length });
       return why;
     });
   },

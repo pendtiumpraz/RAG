@@ -426,6 +426,18 @@ export const openApiSpec = {
         responses: { 200: err('{ why }'), 404: err('kartu tidak ditemukan'),
           409: err('indeks bergeser — papan sudah berubah, muat ulang') } },
     },
+    '/api/admin/backlog/catatan': {
+      post: { summary: 'SUPERADMIN: tempelkan catatan bebas ke kartu backlog',
+        security: [sessionAuth],
+        description: 'Mencentang saja tidak selalu cukup: sebagian keputusan punya parameter '
+          + '(angka batas, nama penyedia, alasan yang tak biasa), dan memaksanya masuk daftar '
+          + 'opsi berarti menebak bentuk jawaban yang belum tentu terpikirkan. Catatan '
+          + 'DITAMBAHKAN di bawah dengan tanggalnya, tak pernah menimpa — riwayat '
+          + 'pertimbangan itulah yang menjelaskan kenapa sebuah kartu berbelok.',
+        requestBody: json(obj({ id: uuid, teks: str }, ['id', 'teks'])),
+        responses: { 200: err('{ why }'), 400: err('catatan kosong / terlalu panjang'),
+          404: err('kartu tidak ditemukan') } },
+    },
     '/api/divisions': {
       get: { summary: 'Daftar divisi + jumlah anggota & chatbotnya', security: [sessionAuth],
         description: 'Boleh dibaca SEMUA anggota tenant, bukan hanya admin: form chatbot dan ' +

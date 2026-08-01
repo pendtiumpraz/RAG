@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { bacaPilihan, centang, ringkasPilihan } from '../src/modules/core/pilihan';
+import { bacaPilihan, centang, ringkasPilihan, tanpaPilihan, tempelCatatan } from '../src/modules/core/pilihan';
 
 /**
  * PILIHAN DI KARTU BACKLOG.
@@ -157,4 +157,60 @@ test('rute pilihan TERPISAH dari rute antrean & prioritas', () => {
   assert.ok(/status: 409/.test(route), 'indeks bergeser tak dijawab 409 — orang mengira salah klik');
   const utama = readFileSync('src/app/api/admin/backlog/route.ts', 'utf8');
   assert.ok(!/pilihan|indeks/.test(utama), 'jalur pilihan bocor ke rute antrean/prioritas');
+});
+
+/* ── judul yang membungkus ke baris kedua ────────────────────────────── */
+
+test('judul PANJANG yang membungkus tidak membuang bloknya sendiri', () => {
+  /* Cacat nyata di kartu a-landing-demo: judul bloknya panjang dan membungkus
+     ke baris kedua, baris kedua itu prosa, dan prosa memutus blok — jadi
+     seluruh opsi di bawahnya jatuh ke blok 0 dan berhenti saling meniadakan.
+     Prosa kini hanya memutus SETELAH blok itu punya opsi. */
+  const t = [
+    'PILIHAN (boleh lebih dari satu) — pagar biayanya, karena "sementara"',
+    'perlu punya rem yang nyata:',
+    '- [ ] Batas per hari',
+    '- [ ] Batas per bulan',
+  ].join('\n');
+  const p = bacaPilihan(t);
+  assert.equal(p.length, 2);
+  assert.ok(p[0].blok > 0 && p[0].blok === p[1].blok,
+    `opsi jatuh ke luar blok: ${JSON.stringify(p.map((x) => x.blok))}`);
+});
+
+/* ── pratinjau kartu ringkas ─────────────────────────────────────────── */
+
+test('pratinjau membuang baris pilihan DAN judul bloknya', () => {
+  /* Kartu ringkas dulu menampilkan `why` apa adanya, jadi "- ( ) Tunggu
+     Redis" muncul sebagai teks mati yang persis terlihat seperti pilihan.
+     Orang mengkliknya, tak terjadi apa-apa, dan menyimpulkan produknya
+     rusak — kendali yang tak bisa dipakai lebih buruk daripada tak ada. */
+  const p = tanpaPilihan(KARTU);
+  assert.ok(!p.includes('- ( )') && !p.includes('- (x)'), 'baris opsi masih tampil');
+  assert.ok(!/PILIHAN/.test(p), 'judul blok tanpa opsinya — menggantung tanpa arti');
+  assert.ok(p.startsWith('Batas per-lambda'), 'prosa pembuka ikut terbuang');
+  assert.ok(p.includes('Catatan panjang yang mahal ditulis'), 'prosa penutup ikut terbuang');
+  assert.ok(!/\n{3,}/.test(p), 'lubang baris kosong bekas opsi tak dirapikan');
+});
+
+/* ── catatan bebas ───────────────────────────────────────────────────── */
+
+test('catatan DITAMBAHKAN, tak pernah menimpa', () => {
+  /* Riwayat pertimbangan itulah yang menjelaskan kenapa sebuah kartu
+     berbelok; catatan yang saling menimpa menghapus justru bagian itu. */
+  const satu = tempelCatatan(KARTU, 'Batas 50 pesan per hari.', new Date(Date.UTC(2026, 7, 1)));
+  assert.ok(satu.startsWith(KARTU.trimEnd()), 'catatan lama termakan');
+  assert.ok(satu.includes('CATATAN PEMILIK PRODUK (2026-08-01):'));
+  const dua = tempelCatatan(satu, 'Ralat: 30 saja.', new Date(Date.UTC(2026, 7, 2)));
+  assert.ok(dua.includes('Batas 50 pesan per hari.'), 'catatan pertama hilang');
+  assert.ok(dua.includes('Ralat: 30 saja.'));
+  assert.equal((dua.match(/CATATAN PEMILIK PRODUK/g) ?? []).length, 2);
+});
+
+test('catatan kosong DITOLAK, dan pilihan tetap terbaca sesudahnya', () => {
+  assert.throws(() => tempelCatatan(KARTU, '   \n  ', new Date()), RangeError);
+  // Menempel catatan tak boleh menggeser indeks opsi — kalau bergeser,
+  // centang berikutnya akan memutuskan hal yang lain.
+  const sesudah = tempelCatatan(KARTU, 'catatan', new Date(Date.UTC(2026, 7, 1)));
+  assert.deepEqual(bacaPilihan(sesudah).map((p) => p.teks), bacaPilihan(KARTU).map((p) => p.teks));
 });

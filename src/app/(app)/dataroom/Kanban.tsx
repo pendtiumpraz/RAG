@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast, Field, Drawer, useDialogFokus } from '../../_components/ui';
 import { Select } from '../../_components/select';
-import { bacaPilihan } from '@/modules/core/pilihan';
+import { bacaPilihan, ringkasPilihan, tanpaPilihan } from '@/modules/core/pilihan';
 
 /**
  * KANBAN BACKLOG (D15) — papan sisa pekerjaan di Dataroom.
@@ -256,7 +256,14 @@ export default function Kanban() {
                       <button className="kb-x" aria-label="Hapus kartu" onClick={() => void remove(row)}>×</button>
                     </div>
                     <b onClick={() => setDetail(row)}>{row.title}</b>
-                    {row.why && <p>{row.why}</p>}
+                    {/* Baris pilihan DIBUANG dari pratinjau. Sebelumnya `why`
+                        tampil apa adanya, jadi "- ( ) Tunggu Redis" muncul
+                        sebagai teks mati yang persis terlihat seperti pilihan;
+                        orang mengkliknya dan tak terjadi apa-apa. Kendali yang
+                        tak bisa dipakai lebih buruk daripada tak ada kendali —
+                        yang pertama membuat orang mengira produknya rusak. */}
+                    {row.why && <p>{tanpaPilihan(row.why)}</p>}
+                    <TombolKeputusan row={row} onOpen={() => setDetail(row)} />
                     <span className="kb-more">KLIK JUDUL UNTUK DETAIL</span>
                     {row.blocked && <span className="kb-bl">MENUNGGU: {row.blocked}</span>}
                     <div className="kb-move">
@@ -491,7 +498,18 @@ function Alasan({ row, onWhy }: { row: Row; onWhy: (why: string) => void }) {
     } catch (e) { toast((e as Error).message, 'error'); } finally { setSibuk(null); }
   }
 
-  if (!opsi.length) return <p className="why">{row.why}</p>;
+  /* Kotak catatan ADA DI SETIAP KARTU, bukan hanya yang berpilihan.
+     Sebagian keputusan punya parameter — angka batas, nama penyedia, alasan
+     memilih yang tak biasa — dan memaksanya masuk daftar opsi berarti
+     menebak bentuk jawaban yang belum tentu terpikirkan. */
+  if (!opsi.length) {
+    return (
+      <>
+        <p className="why">{row.why}</p>
+        <KotakCatatan row={row} onWhy={onWhy} />
+      </>
+    );
+  }
 
   /* Baris opsi dikeluarkan dari prosa supaya tak tampil dua kali. Nomor
      barisnya dipakai apa adanya — sama seperti yang dipakai server menulis
@@ -526,6 +544,71 @@ function Alasan({ row, onWhy }: { row: Row; onWhy: (why: string) => void }) {
           </label>
         );
       })}
+      <KotakCatatan row={row} onWhy={onWhy} />
     </div>
+  );
+}
+
+/* ── catatan bebas pemilik produk ────────────────────────────────────
+   Mencentang saja tidak selalu cukup: sebagian keputusan punya parameter —
+   angka batas, nama penyedia, alasan memilih yang tak biasa — dan memaksanya
+   masuk daftar opsi berarti menebak bentuk jawaban yang belum tentu
+   terpikirkan. Kotak kosong lebih jujur daripada opsi yang salah tebak. */
+function KotakCatatan({ row, onWhy }: { row: Row; onWhy: (why: string) => void }) {
+  const [teks, setTeks] = useState('');
+  const [sibuk, setSibuk] = useState(false);
+  const toast = useToast();
+
+  async function simpan() {
+    if (!teks.trim()) return;
+    setSibuk(true);
+    try {
+      const r = await fetch('/api/admin/backlog/catatan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, teks }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? 'Gagal menyimpan catatan');
+      onWhy(j.why); setTeks(''); toast('Catatan tersimpan di kartu');
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setSibuk(false); }
+  }
+
+  return (
+    <div className="kb-note">
+      <span className="microlabel">CATATAN UNTUK KARTU INI</span>
+      <textarea
+        className="input" rows={3} value={teks} disabled={sibuk}
+        onChange={(e) => setTeks(e.target.value)}
+        placeholder="Angka, nama, syarat, atau alasan — apa pun yang tak muat jadi centangan."
+      />
+      <div className="cluster gap-2" style={{ justifyContent: 'space-between' }}>
+        <span className="microlabel">
+          DITAMBAHKAN DI BAWAH CATATAN LAMA, TIDAK MENIMPA — RIWAYATNYA IKUT TERBACA
+        </span>
+        <button className={`btn btn-sm btn-primary${sibuk ? ' is-loading' : ''}`}
+          disabled={!teks.trim() || sibuk} onClick={() => void simpan()}>Simpan catatan</button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Penanda keputusan di kartu ringkas.
+ *
+ * Papan dipindai sekilas; kartu yang menunggu keputusan harus terlihat
+ * SEBAGAI kartu yang menunggu keputusan, bukan sebagai kartu biasa yang
+ * kebetulan panjang catatannya. Sekaligus jalan masuk ke tempat centangnya
+ * berada — tanpa ini satu-satunya jalan adalah mengklik judul, dan tak ada
+ * yang menduga itu.
+ */
+function TombolKeputusan({ row, onOpen }: { row: Row; onOpen: () => void }) {
+  const r = ringkasPilihan(row.why);
+  if (!r.total) return null;
+  return (
+    <button className={`kb-dec${r.menunggu ? ' wait' : ''}`} onClick={onOpen}>
+      {r.menunggu
+        ? `${r.total - r.terjawab} KEPUTUSAN MENUNGGU — KLIK UNTUK MEMILIH`
+        : `${r.total} KEPUTUSAN SUDAH DIAMBIL`}
+    </button>
   );
 }

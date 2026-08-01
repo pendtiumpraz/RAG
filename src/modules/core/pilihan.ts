@@ -64,17 +64,22 @@ export function bacaPilihan(why: string | null | undefined): Pilihan[] {
   let blok = 0;
   let didalamBlok = false;
 
+  let adaOpsiDiBlok = false;
+
   for (let i = 0; i < baris.length; i++) {
-    if (JUDUL.test(baris[i])) { blok++; didalamBlok = true; continue; }
+    if (JUDUL.test(baris[i])) { blok++; didalamBlok = true; adaOpsiDiBlok = false; continue; }
     const m = POLA.exec(baris[i]);
     if (!m) {
       /* Baris kosong TIDAK memutus blok — daftar opsi sering diberi jarak.
-         Yang memutus adalah prosa: begitu ada kalimat lagi, blok berikutnya
-         harus dimulai judul baru, kalau tidak dua keputusan berbeda akan
-         saling meniadakan tanpa ada yang menyadarinya. */
-      if (baris[i].trim() !== '') didalamBlok = false;
+         Prosa memutus, tapi HANYA setelah blok itu punya opsi: judul yang
+         terlalu panjang membungkus ke baris kedua, dan baris kedua itu prosa.
+         Tanpa syarat ini, tiap judul yang membungkus akan membuang bloknya
+         sendiri — opsi di bawahnya jatuh ke blok 0 dan berhenti saling
+         meniadakan, persis yang terjadi pada kartu a-landing-demo. */
+      if (baris[i].trim() !== '' && adaOpsiDiBlok) didalamBlok = false;
       continue;
     }
+    adaOpsiDiBlok = true;
     out.push({
       indeks: out.length,
       baris: i,
@@ -139,4 +144,39 @@ export function ringkasPilihan(why: string | null | undefined): {
     if (semua.some((p) => p.blok === b && p.dipilih)) terjawab++;
   }
   return { total: blok.size, terjawab, menunggu: terjawab < blok.size };
+}
+
+/**
+ * Teks kartu TANPA baris pilihan dan tanpa judul bloknya.
+ *
+ * Dipakai kartu ringkas di papan. Sebelum ini kartu ringkas menampilkan
+ * `why` apa adanya, jadi baris "- ( ) Tunggu Redis" muncul sebagai teks
+ * mati yang PERSIS terlihat seperti pilihan — orang mengkliknya dan tak
+ * terjadi apa-apa. Kendali yang tak bisa dipakai lebih buruk daripada tak
+ * ada kendali: yang pertama membuat orang mengira produknya rusak.
+ */
+export function tanpaPilihan(why: string | null | undefined): string {
+  if (!why) return '';
+  const opsi = new Set(bacaPilihan(why).map((p) => p.baris));
+  return why.split('\n')
+    .filter((b, i) => !opsi.has(i) && !JUDUL.test(b))
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Awalan penanda catatan bebas dari pemilik produk. */
+export const AWALAN_CATATAN = 'CATATAN PEMILIK PRODUK';
+
+/**
+ * Tempelkan catatan bebas ke kartu.
+ *
+ * DITAMBAHKAN DI BAWAH, tak pernah menimpa: catatan yang saling menimpa
+ * membuat riwayat pertimbangan hilang, dan justru riwayat itulah yang
+ * menjelaskan kenapa sebuah kartu berbelok. Bertanggal supaya urutannya
+ * terbaca tanpa perlu tabel terpisah.
+ */
+export function tempelCatatan(why: string, teks: string, saat: Date): string {
+  const bersih = teks.trim();
+  if (!bersih) throw new RangeError('Catatan kosong');
+  const tanggal = saat.toISOString().slice(0, 10);
+  return `${why.trimEnd()}\n\n${AWALAN_CATATAN} (${tanggal}):\n${bersih}\n`;
 }
