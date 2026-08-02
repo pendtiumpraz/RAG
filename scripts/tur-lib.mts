@@ -38,6 +38,15 @@ export interface DefLangkah {
 }
 export interface DefAdegan {
   id: string; fitur: string; jalur: string; butuhLogin: boolean; langkah: DefLangkah[];
+  /**
+   * Langkah tambahan yang baru bisa disusun SETELAH halamannya terbuka.
+   *
+   * Ada karena jumlah panel per halaman bukan pengetahuan yang boleh ditulis
+   * tangan: begitu satu panel ditambahkan di kode, daftar tangan itu diam-diam
+   * jadi bohong — dan bukti yang bohong lebih buruk daripada tak ada bukti.
+   * Panelnya dihitung dari halaman yang sedang dibuka, saat itu juga.
+   */
+  perluas?: (page: Page) => Promise<DefLangkah[]>;
 }
 
 /**
@@ -85,7 +94,25 @@ export function siapkanKeluaran() {
 export async function jalankanAdegan(page: Page, mata: Pengintai, def: DefAdegan): Promise<Adegan> {
   const langkah: Langkah[] = [];
   let n = 0;
-  for (const L of def.langkah) {
+  const antre = [...def.langkah];
+  let sudahDiperluas = false;
+  /* Perluasan dicoba di TIAP putaran, bukan hanya saat idx===1.
+     Versi pertama memeriksa `idx === 1` di dalam syarat lanjut perulangan —
+     dan adegan berlangkah SATU tak pernah sampai ke sana, jadi Dashboard (5
+     panel) dan Models (7 panel) diam-diam hanya dapat satu potret sementara
+     lognya tampak sehat. Kegagalan yang paling sepi: bukan galat, cuma bukti
+     yang hilang. */
+  for (let idx = 0; idx <= antre.length; idx += 1) {
+    if (!sudahDiperluas && def.perluas && idx >= 1) {
+      /* Disisipkan SETELAH langkah pertama (buka halaman) supaya panelnya
+         dihitung dari halaman yang benar-benar sudah termuat. */
+      sudahDiperluas = true;
+      try {
+        antre.splice(1, 0, ...await def.perluas(page));
+      } catch { /* halamannya tak terbuka — biarkan langkah pertama yang melaporkan */ }
+    }
+    const L = antre[idx];
+    if (!L) break;                    // penjaga: idx boleh menyentuh panjangnya
     n += 1;
     const t0 = Date.now();
     if (L.butuhTulis && !TULIS) {
@@ -153,10 +180,39 @@ export const bukaTunggu = (jalur: string, penanda: string) => async (page: Page)
   return { http: r?.status() ?? 0, penanda };
 };
 
+/**
+ * Susun satu langkah untuk TIAP panel di halaman yang sedang terbuka.
+ *
+ * Judul langkahnya diambil dari `.panel-head .t` — yaitu nama yang ditulis
+ * produknya sendiri untuk panel itu. Sengaja bukan nama karangan saya:
+ * kalau panelnya berganti nama di kode, bukti ikut berganti nama, dan tak ada
+ * satu pun tempat yang perlu diingat untuk diperbarui.
+ */
+export async function sapuPanel(page: Page): Promise<DefLangkah[]> {
+  const judul = await page.locator('.panel-head .t').allInnerTexts().catch(() => []);
+  return judul.map((t, i) => ({
+    nama: `Panel: ${t.trim()}`,
+    jalankan: async (p: Page) => {
+      const el = p.locator('.panel-head .t').nth(i);
+      await el.scrollIntoViewIfNeeded({ timeout: 10_000 });
+      await p.waitForTimeout(400);
+      return { catatan: '' };
+    },
+  }));
+}
+
 /** Adegan "buka halaman lalu potret" — bentuk paling sering dipakai. */
 export const adeganHalaman = (
   id: string, fitur: string, jalur: string, penanda: string, butuhLogin = true,
 ): DefAdegan => ({
   id, fitur, jalur, butuhLogin,
   langkah: [{ nama: `Buka ${jalur}`, jalankan: bukaTunggu(jalur, penanda) }],
+});
+
+/** Halaman + satu potret untuk tiap panel di dalamnya. */
+export const adeganHalamanPanel = (
+  id: string, fitur: string, jalur: string, penanda: string,
+): DefAdegan => ({
+  ...adeganHalaman(id, fitur, jalur, penanda),
+  perluas: sapuPanel,
 });

@@ -26,7 +26,21 @@ export type Slide =
   | { kind: 'anim'; kicker: string; title: string; scene: SceneId; note?: string }
   | { kind: 'closing'; title: string; subtitle: string; foot: string };
 
-export interface Deck { id: 'hla' | 'technical' | 'business' | 'proposal'; label: string; slides: Slide[] }
+export interface Deck {
+  id: 'hla' | 'technical' | 'business' | 'proposal';
+  /** Judul lengkap — dipakai judul dokumen & nama berkas ekspor PPTX. */
+  label: string;
+  /**
+   * Label pendek untuk chip tab.
+   *
+   * Terpisah dari `label` karena keduanya punya tugas berbeda: judul PPTX
+   * harus berdiri sendiri di luar aplikasi ("Pitch Deck — Technical"),
+   * sedangkan chip tab hidup di deretan berisi delapan dan hanya perlu
+   * membedakan. Menyamakannya membuat teks di dalam tab membungkus dua baris.
+   */
+  tab: string;
+  slides: Slide[];
+}
 
 /* ── skenario biaya (dipakai SEMUA provider — apples to apples) ─────── */
 /** Per giliran chat RAG: ±3.000 token masuk (konteks retrieval + riwayat +
@@ -812,8 +826,8 @@ const hla: Slide[] = [
 ];
 
 export const DECKS: Deck[] = [
-  { id: 'hla', label: 'HLA — Cara Nalar Bekerja', slides: hla },
-  { id: 'technical', label: 'Pitch Deck — Technical', slides: technical },
-  { id: 'business', label: 'Pitch Deck — Business', slides: business },
-  { id: 'proposal', label: 'Proposal — On-Premise 1 TB', slides: proposal },
+  { id: 'hla', label: 'HLA — Cara Nalar Bekerja', tab: 'HLA', slides: hla },
+  { id: 'technical', label: 'Pitch Deck — Technical', tab: 'Technical', slides: technical },
+  { id: 'business', label: 'Pitch Deck — Business', tab: 'Business', slides: business },
+  { id: 'proposal', label: 'Proposal — On-Premise 1 TB', tab: 'Proposal', slides: proposal },
 ];

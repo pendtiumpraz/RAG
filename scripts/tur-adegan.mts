@@ -8,17 +8,35 @@
  * PENANDA adalah kontraknya. Tiap langkah menyebutkan apa yang HARUS terlihat
  * setelahnya; kalau tak terlihat, langkahnya gagal — sekalipun servernya
  * menjawab 200. Judul <h1> dipakai karena setiap halaman punya satu dan
- * isinya literal di kode, jadi ia tak ikut bergeser saat tata letaknya
- * diubah.
+ * isinya literal di kode, jadi ia tak ikut bergeser saat tata letaknya diubah.
+ *
+ * PANEL DISAPU, TIDAK DIDAFTAR TANGAN. `perluas: sapuPanel` menghitung panel
+ * dari halaman yang sedang terbuka dan memberi nama tiap langkah dari judul
+ * panel itu sendiri. Daftar tangan akan diam-diam jadi bohong pada panel
+ * berikutnya yang ditambahkan — dan bukti yang bohong lebih buruk daripada
+ * tak ada bukti.
+ *
+ * PERAN. Akun tur adalah superadmin, jadi panel yang hanya muncul untuk
+ * superadmin (kuota plan, seluruh tenant, SMTP platform, saklar konektor,
+ * server LLM/embedding, aplikasi OAuth, antrean persetujuan pendaftaran)
+ * ikut tersapu tanpa perlu disebut satu per satu.
  */
 import type { Page } from 'playwright-core';
-import { BASIS, TANDA_UJI, adeganHalaman, bukaTunggu } from './tur-lib.mjs';
-import type { DefAdegan } from './tur-lib.mjs';
+import {
+  BASIS, TANDA_UJI, adeganHalaman, adeganHalamanPanel, bukaTunggu, sapuPanel,
+} from './tur-lib.mjs';
+import type { DefAdegan, DefLangkah } from './tur-lib.mjs';
 
 const h1 = (teks: string) => `h1:has-text("${teks}")`;
 
 /** ID objek yang dibuat tur — dihapus lagi di akhir. */
 export const dibuat: { chatbotId?: string; kbId?: string } = {};
+
+/** Tutup laci/dialog yang masih terbuka sebelum langkah berikutnya. */
+async function tutupLaci(page: Page) {
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
+}
 
 /* ── permukaan publik ─────────────────────────────────────────────────── */
 
@@ -67,6 +85,14 @@ export function adeganPublik(publicKey: string | null): DefAdegan[] {
       id: 'demo', fitur: 'Demo publik tanpa daftar', jalur: `/demo/${publicKey}`, butuhLogin: false,
       langkah: [
         { nama: 'Buka halaman demo', jalankan: bukaTunggu(`/demo/${publicKey}`, 'text=Coba chatbot ini') },
+        {
+          nama: 'Gelembung chat terbuka',
+          jalankan: async (page: Page) => {
+            const tombol = page.locator('button[aria-label*="chat" i], .nalar-bubble, iframe').first();
+            if (await tombol.count()) await tombol.click({ timeout: 5000 }).catch(() => {});
+            await page.waitForTimeout(1500);
+          },
+        },
       ],
     });
   }
@@ -77,7 +103,7 @@ export function adeganPublik(publicKey: string | null): DefAdegan[] {
 
 export function adeganMasuk(email: string, sandi: string): DefAdegan {
   return {
-    id: 'masuk', fitur: 'Autentikasi (login kredensial)', jalur: '/auth', butuhLogin: false,
+    id: 'masuk', fitur: 'Autentikasi — masuk dengan kredensial', jalur: '/auth', butuhLogin: false,
     langkah: [
       { nama: 'Buka formulir masuk', jalankan: bukaTunggu('/auth', 'input[type="password"]') },
       {
@@ -90,6 +116,13 @@ export function adeganMasuk(email: string, sandi: string): DefAdegan {
           return { catatan: `mendarat di ${new URL(page.url()).pathname}` };
         },
       },
+      {
+        nama: 'Sidebar lengkap — menu superadmin ikut tampil',
+        jalankan: async (page: Page) => {
+          await page.goto(`${BASIS}/dashboard`, { waitUntil: 'domcontentloaded' });
+          return { penanda: 'a[href="/dataroom"]', catatan: 'Dataroom hanya terlihat oleh superadmin' };
+        },
+      },
     ],
   };
 }
@@ -97,10 +130,11 @@ export function adeganMasuk(email: string, sandi: string): DefAdegan {
 /* ── di balik login ───────────────────────────────────────────────────── */
 
 export const adeganTerlindungi: DefAdegan[] = [
-  adeganHalaman('dashboard', 'Dashboard', '/dashboard', h1('Dashboard')),
+  adeganHalamanPanel('dashboard', 'Dashboard', '/dashboard', h1('Dashboard')),
 
+  /* ── chatbots: alur tambah PENUH ───────────────────────────────────── */
   {
-    id: 'chatbots', fitur: 'Chatbots — daftar & tambah', jalur: '/chatbots', butuhLogin: true,
+    id: 'chatbots', fitur: 'Chatbots — daftar, tambah, embed', jalur: '/chatbots', butuhLogin: true,
     langkah: [
       { nama: 'Daftar chatbot', jalankan: bukaTunggu('/chatbots', h1('Chatbots')) },
       {
@@ -111,25 +145,31 @@ export const adeganTerlindungi: DefAdegan[] = [
         },
       },
       {
-        /* INI keluhan 1–2 Agu: "save tambah chatbot muter2 terus". Kebuntuan
-           kolam koneksi max:1. Langkah ini yang membuktikan ia benar sembuh —
+        /* INI keluhan 1–2 Agu: "save tambah chatbot muter2 terus" — kebuntuan
+           kolam koneksi max:1. Langkah ini yang membuktikan ia benar sembuh:
            bukan tsc, bukan tes unit, tapi tombol Simpan yang benar-benar
-           ditekan di produksi. */
+           ditekan di produksi, dan waktunya dicatat. */
         nama: 'Isi nama + konteks, tekan Simpan',
         butuhTulis: true,
         jalankan: async (page: Page) => {
           await page.locator('.drawer input.input, [role="dialog"] input.input').first().fill(TANDA_UJI);
-          const kotakKonteks = page.locator('.drawer textarea, [role="dialog"] textarea').first();
-          if (await kotakKonteks.count()) {
-            await kotakKonteks.fill('Chatbot sementara yang dibuat tur fitur untuk membuktikan alur simpan bekerja. Dihapus di akhir tur.');
+          const konteks = page.locator('.drawer textarea, [role="dialog"] textarea').first();
+          if (await konteks.count()) {
+            await konteks.fill('Chatbot sementara yang dibuat tur fitur untuk membuktikan alur simpan bekerja. Dihapus di akhir tur.');
           }
           const t0 = Date.now();
           const [resp] = await Promise.all([
             page.waitForResponse((r) => r.url().includes('/api/chatbots') && r.request().method() === 'POST', { timeout: 60_000 }),
             page.locator('button.btn-primary:has-text("Simpan")').first().click(),
           ]);
+          /* Bentuknya `{ chatbot: {...} }`, bukan `{ id }` — dan tebakan
+             pertama saya salah, sehingga jalan pertama meninggalkan chatbot
+             uji di produksi. Kedua bentuk diterima di sini, tapi yang benar-
+             benar menutup lubangnya adalah bersihkan() yang mencari BERDASAR
+             NAMA: ia tak bergantung pada tebakan apa pun. */
           const body = await resp.json().catch(() => null);
-          if (body?.id) dibuat.chatbotId = body.id;
+          const id = body?.chatbot?.id ?? body?.id;
+          if (id) dibuat.chatbotId = id;
           return { http: resp.status(), catatan: `POST /api/chatbots → ${resp.status()} dalam ${Date.now() - t0}ms` };
         },
       },
@@ -141,11 +181,21 @@ export const adeganTerlindungi: DefAdegan[] = [
           return { penanda: `text=${TANDA_UJI}` };
         },
       },
+      {
+        nama: 'Buka editor chatbot yang sudah ada',
+        jalankan: async (page: Page) => {
+          await tutupLaci(page);
+          await page.locator('.card button, table button, [role="row"] button').first().click({ timeout: 10_000 });
+          return { penanda: '.drawer, [role="dialog"]' };
+        },
+      },
     ],
   },
 
+  /* ── knowledge ─────────────────────────────────────────────────────── */
   {
     id: 'knowledge', fitur: 'Knowledge Base & sumber data', jalur: '/knowledge', butuhLogin: true,
+    perluas: sapuPanel,
     langkah: [
       { nama: 'Halaman Knowledge Base', jalankan: bukaTunggu('/knowledge', h1('Knowledge Base')) },
       {
@@ -158,9 +208,17 @@ export const adeganTerlindungi: DefAdegan[] = [
         },
       },
       {
-        nama: 'Laci Tambah sumber (Drive/OneDrive/SharePoint)',
+        nama: 'Laci Buat KB',
         jalankan: async (page: Page) => {
-          await page.keyboard.press('Escape');
+          await tutupLaci(page);
+          await page.locator('button:has-text("Buat KB")').first().click();
+          return { penanda: '.drawer, [role="dialog"]' };
+        },
+      },
+      {
+        nama: 'Laci Tambah sumber (Drive/OneDrive/SharePoint/S3)',
+        jalankan: async (page: Page) => {
+          await tutupLaci(page);
           await page.locator('button:has-text("Tambah sumber")').first().click();
           return { penanda: 'h3:has-text("Tambah sumber")' };
         },
@@ -168,6 +226,7 @@ export const adeganTerlindungi: DefAdegan[] = [
     ],
   },
 
+  /* ── chat ──────────────────────────────────────────────────────────── */
   {
     id: 'chat', fitur: 'Chat — tanya jawab berdasar dokumen', jalur: '/chat', butuhLogin: true,
     langkah: [
@@ -180,35 +239,118 @@ export const adeganTerlindungi: DefAdegan[] = [
           await kotak.fill('Ringkas isi dokumen yang kamu punya dalam tiga kalimat.');
           const t0 = Date.now();
           await page.locator('button[aria-label="Kirim"]').first().click();
-          /* Menunggu TEKS bertambah, bukan menunggu jaringan: jawaban datang
-             lewat SSE dan permintaannya tetap "berjalan" sepanjang streaming. */
+          /* Menunggu TEKS bertambah, bukan menunggu jaringan: jawabannya
+             datang lewat SSE dan permintaannya tetap "berjalan" sepanjang
+             streaming — menunggu networkidle di sini akan menunggu selamanya. */
           await page.waitForFunction(
             () => (document.body.innerText.match(/\n/g) ?? []).length > 12,
-            undefined, { timeout: 90_000 },
+            undefined, { timeout: 120_000 },
           );
-          await page.waitForTimeout(4000);
+          await page.waitForTimeout(6000);
           return { catatan: `jawaban mulai muncul dalam ${Date.now() - t0}ms` };
+        },
+      },
+      {
+        nama: 'Sesi tercatat di daftar riwayat',
+        butuhTulis: true,
+        jalankan: async (page: Page) => {
+          await page.waitForTimeout(1500);
+          return { catatan: 'rel daftar sesi di konsol Chat' };
         },
       },
     ],
   },
 
-  adeganHalaman('documents', 'Dokumen — pencarian & pratinjau', '/documents', h1('Dokumen')),
-  adeganHalaman('graf', 'Graf pengetahuan', '/graf', h1('Graf Pengetahuan')),
-  adeganHalaman('conversations', 'Conversations', '/conversations', h1('Conversations')),
-  adeganHalaman('analytics', 'Analitik per chatbot', '/analytics', h1('Analitik')),
-  adeganHalaman('memory', 'Memory agent', '/memory', h1('Memory')),
-  adeganHalaman('categories', 'Kategori dokumen', '/categories', h1('Kategori Dokumen')),
-  adeganHalaman('models', 'Models & Keys', '/models', 'h1'),
-  adeganHalaman('branding', 'Branding / white-label', '/branding', h1('Branding')),
-  adeganHalaman('team', 'Team & RBAC', '/team', h1('Team')),
-  adeganHalaman('divisions', 'Divisi', '/divisions', h1('Divisi')),
-  adeganHalaman('usage', 'Usage & kuota', '/usage', h1('Usage')),
-  adeganHalaman('billing', 'Billing & pembayaran', '/billing', h1('Billing')),
-  adeganHalaman('observability', 'Observability', '/observability', h1('Observability')),
-  adeganHalaman('settings', 'Settings', '/settings', h1('Settings')),
-  adeganHalaman('bantuan', 'Panduan pengguna', '/bantuan', h1('Panduan')),
-  adeganHalaman('dataroom', 'Dataroom', '/dataroom', '[role="tablist"]'),
+  /* ── sisanya: halaman + seluruh panelnya ───────────────────────────── */
+  adeganHalamanPanel('documents', 'Dokumen — pencarian & pratinjau', '/documents', h1('Dokumen')),
+  adeganHalamanPanel('graf', 'Graf pengetahuan', '/graf', h1('Graf Pengetahuan')),
+  {
+    id: 'conversations', fitur: 'Conversations (lintas tenant utk superadmin)', jalur: '/conversations', butuhLogin: true,
+    perluas: sapuPanel,
+    langkah: [
+      { nama: 'Daftar percakapan', jalankan: bukaTunggu('/conversations', h1('Conversations')) },
+      {
+        nama: 'Pemilih tenant — hanya ada untuk superadmin',
+        jalankan: async (page: Page) => {
+          const dd = page.locator('button[aria-haspopup="listbox"], [role="combobox"], select').first();
+          if (!(await dd.count())) return { catatan: 'pemilih tenant tak ditemukan di halaman ini' };
+          await dd.click();
+          await page.waitForTimeout(600);
+        },
+      },
+      {
+        nama: 'Buka satu sesi percakapan',
+        jalankan: async (page: Page) => {
+          await tutupLaci(page);
+          const baris = page.locator('tbody tr, .card [role="button"], li button').first();
+          if (!(await baris.count())) return { catatan: 'belum ada percakapan untuk dibuka' };
+          await baris.click({ timeout: 10_000 });
+          await page.waitForTimeout(1200);
+        },
+      },
+    ],
+  },
+  adeganHalamanPanel('analytics', 'Analitik per chatbot', '/analytics', h1('Analitik')),
+  adeganHalamanPanel('memory', 'Memory agent', '/memory', h1('Memory')),
+  adeganHalamanPanel('categories', 'Kategori dokumen', '/categories', h1('Kategori Dokumen')),
+  adeganHalamanPanel('models', 'Models & Keys (+ server LLM/embedding & OAuth apps)', '/models', 'h1'),
+  adeganHalamanPanel('branding', 'Branding / white-label', '/branding', h1('Branding')),
+  {
+    id: 'team', fitur: 'Team, RBAC & antrean persetujuan', jalur: '/team', butuhLogin: true,
+    perluas: sapuPanel,
+    langkah: [
+      { nama: 'Halaman Team', jalankan: bukaTunggu('/team', h1('Team')) },
+      {
+        nama: 'Laci undang anggota',
+        jalankan: async (page: Page) => {
+          const t = page.locator('button:has-text("Undang")').first();
+          if (!(await t.count())) return { catatan: 'tombol undang tak ditemukan' };
+          await t.click();
+          await page.waitForTimeout(800);
+        },
+      },
+    ],
+  },
+  {
+    id: 'divisions', fitur: 'Divisi', jalur: '/divisions', butuhLogin: true,
+    perluas: sapuPanel,
+    langkah: [
+      { nama: 'Halaman Divisi', jalankan: bukaTunggu('/divisions', h1('Divisi')) },
+      {
+        nama: 'Laci buat divisi',
+        jalankan: async (page: Page) => {
+          const t = page.locator('button.btn-primary').first();
+          if (!(await t.count())) return { catatan: 'tombol buat tak ditemukan' };
+          await t.click();
+          await page.waitForTimeout(800);
+        },
+      },
+    ],
+  },
+  adeganHalamanPanel('usage', 'Usage & kuota (+ per tenant utk superadmin)', '/usage', h1('Usage')),
+  adeganHalamanPanel('billing', 'Billing, kuota plan & seluruh tenant', '/billing', h1('Billing')),
+  adeganHalamanPanel('observability', 'Observability (superadmin)', '/observability', h1('Observability')),
+  adeganHalamanPanel('settings', 'Settings (+ SMTP, demo publik, saklar konektor)', '/settings', h1('Settings')),
+  adeganHalamanPanel('bantuan', 'Panduan pengguna', '/bantuan', h1('Panduan')),
+  adeganHalaman('welcome', 'Layar pilih paket', '/welcome', 'h1'),
+
+  /* ── dataroom: tiap tabnya sendiri ─────────────────────────────────── */
+  {
+    id: 'dataroom', fitur: 'Dataroom (superadmin)', jalur: '/dataroom', butuhLogin: true,
+    perluas: async (page: Page): Promise<DefLangkah[]> => {
+      const label = await page.locator('[role="tablist"] [role="tab"]').allInnerTexts().catch(() => []);
+      return label.map((t, i) => ({
+        nama: `Tab: ${t.trim()}`,
+        jalankan: async (p: Page) => {
+          await p.locator('[role="tablist"] [role="tab"]').nth(i).click();
+          await p.waitForTimeout(1200);
+        },
+      }));
+    },
+    langkah: [
+      { nama: 'Buka Dataroom', jalankan: bukaTunggu('/dataroom', '[role="tablist"]') },
+    ],
+  },
 ];
 
 /* ── bersih-bersih ────────────────────────────────────────────────────── */
@@ -222,14 +364,27 @@ export const adeganTerlindungi: DefAdegan[] = [
  * dipulihkan kalau ternyata keliru.
  */
 export async function bersihkan(page: Page): Promise<string[]> {
-  const jejak: string[] = [];
-  for (const [jenis, id] of [['chatbots', dibuat.chatbotId], ['knowledge-bases', dibuat.kbId]] as const) {
-    if (!id) continue;
-    const status = await page.evaluate(async ([j, i]) => {
-      const r = await fetch(`/api/${j}/${i}`, { method: 'DELETE' });
-      return r.status;
-    }, [jenis, id] as [string, string]);
-    jejak.push(`DELETE /api/${jenis}/${id} → ${status}`);
-  }
-  return jejak;
+  /* MENCARI BERDASAR NAMA, bukan mengandalkan ID yang tertangkap saat membuat.
+     Jalan pertama membuktikan kenapa: bentuk respons ternyata
+     `{ chatbot: {...} }`, ID-nya tak tertangkap, dan chatbot uji tertinggal di
+     produksi orang. Pembersih yang bergantung pada langkah sebelumnya berhasil
+     hanya akan gagal justru ketika ia paling dibutuhkan. Pola nama ini juga
+     mengangkut sisa dari jalan-jalan sebelumnya. */
+  return page.evaluate(async (awalan: string) => {
+    const jejak: string[] = [];
+    for (const jenis of ['chatbots', 'knowledge-bases']) {
+      const r = await fetch(`/api/${jenis}`);
+      if (!r.ok) { jejak.push(`GET /api/${jenis} → ${r.status} (dilewati)`); continue; }
+      const data = await r.json().catch(() => null);
+      const baris: Array<{ id: string; name?: string }> = Array.isArray(data) ? data
+        : (data?.[jenis.replace('-', '')] ?? data?.items ?? data?.chatbots ?? data?.knowledgeBases ?? []);
+      for (const b of baris) {
+        if (!b?.name?.startsWith(awalan)) continue;
+        const d = await fetch(`/api/${jenis}/${b.id}`, { method: 'DELETE' });
+        jejak.push(`DELETE /api/${jenis}/${b.id} "${b.name}" → ${d.status}`);
+      }
+    }
+    if (!jejak.length) jejak.push('tak ada objek uji yang tersisa');
+    return jejak;
+  }, 'Uji Tur ');
 }

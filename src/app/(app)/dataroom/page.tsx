@@ -153,7 +153,7 @@ export default function DataroomPage() {
           <button key={d.id} role="tab" aria-selected={d.id === deckId}
             className={`dr-tab${d.id === deckId ? ' on' : ''}`}
             onClick={() => { setDeckId(d.id); setI(0); }}>
-            {d.label}
+            {d.tab}
           </button>
         ))}
         <button role="tab" aria-selected={isAssess}
@@ -169,12 +169,12 @@ export default function DataroomPage() {
         <button role="tab" aria-selected={isCalc}
           className={`dr-tab${isCalc ? ' on' : ''}`}
           onClick={() => setDeckId('calculator')}>
-          Kalkulator Kapasitas
+          Kalkulator
         </button>
         <button role="tab" aria-selected={isUpdates}
           className={`dr-tab${isUpdates ? ' on' : ''}`}
           onClick={() => setDeckId('updates')}>
-          Update &amp; Backlog
+          Backlog
         </button>
       </div>
 

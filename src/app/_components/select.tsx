@@ -129,10 +129,23 @@ export function Select({
   }, [open, val, opts, enabledIdx]);
 
   // Gulir opsi aktif ke dalam pandangan saat berpindah dengan papan ketik.
+  //
+  // scrollTop LANGSUNG, bukan scrollIntoView. scrollIntoView boleh menggulir
+  // leluhur mana pun — termasuk halaman — dan gulir halaman itulah yang
+  // dianggap "pengguna menggulir" oleh penutup di bawah. Hasilnya dropdown
+  // menutup dirinya sendiri sepersekian detik setelah dibuka, tepat ketika
+  // nilai terpilihnya berada di luar 280px pertama daftar. Terlihat di
+  // produksi pada "model chat aktif" (14 model); dropdown embedding yang cuma
+  // 6 opsi tak pernah menunjukkannya, karena tak pernah perlu menggulir.
   useEffect(() => {
     if (!open) return;
-    listRef.current?.querySelector<HTMLElement>('[data-active="1"]')
-      ?.scrollIntoView({ block: 'nearest' });
+    const pop = listRef.current;
+    const el = pop?.querySelector<HTMLElement>('[data-active="1"]');
+    if (!pop || !el) return;
+    const atas = el.offsetTop;
+    const bawah = atas + el.offsetHeight;
+    if (atas < pop.scrollTop) pop.scrollTop = atas;
+    else if (bawah > pop.scrollTop + pop.clientHeight) pop.scrollTop = bawah - pop.clientHeight;
   }, [active, open]);
 
   // Tutup saat klik di luar, atau saat halaman digulir/diubah ukurannya —
@@ -143,14 +156,25 @@ export function Select({
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const close = () => setOpen(false);
+    /* Gulir DI DALAM popup tidak menutupnya. Daftar opsi memang bisa digulir
+       (max-height 280px), jadi menutup pada gulir apa pun berarti daftar
+       panjang mustahil dijelajahi dengan roda tetikus — dan lebih buruk lagi,
+       menutup dirinya sendiri saat dibuka pada nilai yang letaknya jauh. Yang
+       harus menutup popup adalah halaman yang bergerak DI BAWAHNYA, karena
+       posisinya dipatok ke pemicu. */
+    const onScroll = (e: Event) => {
+      const t = e.target as Node | null;
+      if (t && listRef.current && (listRef.current === t || listRef.current.contains(t))) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
     window.addEventListener('resize', close);
     // capture: menangkap gulir dari kontainer mana pun, bukan hanya window
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       window.removeEventListener('resize', close);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 

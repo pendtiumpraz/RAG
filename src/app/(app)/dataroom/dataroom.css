@@ -5,10 +5,17 @@
    slide 16:9 tampil proporsional dari kartu dashboard sampai fullscreen
    tanpa satu media query pun. */
 
-.dr-tabs{ display:flex; gap:6px; margin-bottom:var(--sp-4); border-bottom:1px solid var(--line); }
-.dr-tab{ appearance:none; background:none; border:none; cursor:pointer; padding:10px 16px;
+/* Delapan tab. Tanpa `nowrap` + `flex:none` mereka saling menjepit sampai
+   teks DI DALAM satu tab membungkus dua baris — dan deretan tab setinggi dua
+   baris terbaca seperti kesalahan tata letak, bukan navigasi. Kalau tetap tak
+   muat (layar sempit), digulir mendatar: menyembunyikan tab lebih buruk lagi.
+   Label pendeknya sendiri ada di `Deck.tab`, terpisah dari judul dokumen. */
+.dr-tabs{ display:flex; gap:6px; margin-bottom:var(--sp-4); border-bottom:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:thin; }
+.dr-tab{ appearance:none; background:none; border:none; cursor:pointer; padding:10px 14px;
   font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--muted);
-  border-bottom:2px solid transparent; margin-bottom:-1px; }
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  white-space:nowrap; flex:none; }
 .dr-tab.on{ color:var(--signal); border-bottom-color:var(--signal); }
 .dr-tab:hover{ color:var(--ink); }
 
