@@ -5,6 +5,9 @@ import { embed, embeddingDims } from '@/modules/knowledge/embeddings';
 import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusion';
 import { lexicalTsquery } from './lexical-query';
 import { pasangUlangSkala, porsiKandidat, terapkanRerank } from './rerank';
+import { layakBiner, porsiSaring } from './kuantisasi';
+import { platformSettings } from '@/modules/core/db/schema';
+import { db } from '@/modules/core/db';
 import { cariRerank, nilaiUlang } from './rerank-penyedia';
 import { log } from '@/modules/core/observability';
 import { tenantSettings } from '@/modules/core/db/schema';
@@ -190,6 +193,32 @@ async function mungkinRerank(
   }
 }
 
+/**
+ * Saklar kuantisasi biner, di-cache pendek.
+ *
+ * Dibaca sekali per beberapa detik, bukan tiap pertanyaan: ia berubah
+ * paling-paling beberapa kali seumur pemasangan, dan satu query tambahan di
+ * jalur terpanas produk untuk membaca boolean yang praktis tak pernah berubah
+ * adalah biaya yang tak dibeli siapa pun.
+ */
+let cacheSaklar: { nilai: boolean; sampai: number } | null = null;
+
+async function saklarBiner(): Promise<boolean> {
+  if (cacheSaklar && Date.now() < cacheSaklar.sampai) return cacheSaklar.nilai;
+  try {
+    const rows = await db.select({ v: platformSettings.binaryQuantize })
+      .from(platformSettings).limit(1);
+    const nilai = Boolean(rows[0]?.v);
+    cacheSaklar = { nilai, sampai: Date.now() + 30_000 };
+    return nilai;
+  } catch {
+    /* Gagal membaca saklar TIDAK boleh mengubah perilaku retrieval. Jatuh ke
+       MATI, yaitu jalur satu tahap yang sudah terbukti — bukan ke jalur baru
+       yang kebetulan sedang diuji. */
+    return false;
+  }
+}
+
 export const retrievalService = {
   async retrieve(
     tenantId: string,
@@ -225,6 +254,22 @@ export const retrievalService = {
       ? sql`subvector(d.embedding, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
       : sql`d.embedding <=> ${vecLiteral}::halfvec`;
     const dimsFilter = useSub ? sql`and d.embedding_dims = ${dims}` : sql``;
+
+    /* Jarak Hamming atas bentuk biner — dan jarak eksak yang sama persis,
+       tapi dibaca dari CTE penyaring alih-alih dari tabel. Keduanya disusun
+       di sini supaya bentuk ekspresinya tak pernah menyimpang antara tahap
+       satu dan tahap dua: dua ekspresi jarak yang ditulis terpisah adalah dua
+       ekspresi yang suatu hari berbeda. */
+    const kolomBiner = useSub
+      ? sql`binary_quantize(subvector(d.embedding, 1, ${dims}))::bit(${sql.raw(String(dims))})`
+      : sql`binary_quantize(d.embedding)::bit(1536)`;
+    const kueriBiner = useSub
+      ? sql`binary_quantize(subvector(${vecLiteral}::halfvec, 1, ${dims}))::bit(${sql.raw(String(dims))})`
+      : sql`binary_quantize(${vecLiteral}::halfvec)::bit(1536)`;
+    const binerDist = sql`${kolomBiner} <~> ${kueriBiner}`;
+    const distSaring = useSub
+      ? sql`subvector(s.embedding, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
+      : sql`s.embedding <=> ${vecLiteral}::halfvec`;
 
     /**
      * Jarak untuk kaki Memory — memakai subvector dengan alasan yang BERBEDA
@@ -274,6 +319,13 @@ export const retrievalService = {
       return Boolean((r as unknown as Array<{ ada: boolean }>)[0]?.ada);
     });
 
+    /* Saklar kuantisasi biner — keputusan PEMASANGAN (superadmin), dan hanya
+       berlaku bila korpusnya memang besar. Sinyal "besar" memakai `tiered`
+       yang SUDAH dihitung di atas, bukan COUNT baru: menambah satu hitungan
+       baris di jalur terpanas produk untuk memutuskan sebuah pengoptimalan
+       adalah cara membayar ongkos yang hendak dihemat. */
+    const biner = layakBiner(await saklarBiner(), tiered);
+
     /**
      * Pada mode bertingkat, kaki vektor dibatasi ke potongan milik dokumen
      * yang lolos penyaringan. Kandidat dokumen diambil JAUH lebih banyak dari
@@ -311,7 +363,34 @@ export const retrievalService = {
           limit ${TIER1_DOCS})`
       : sql``;
 
+    /**
+     * KUANTISASI BINER — dua tahap, dan tahap pertama TIDAK menentukan urutan
+     * apa pun.
+     *
+     * Jarak Hamming hanya mempersempit kandidat; jarak eksak di CTE `vec`
+     * yang memutuskan. Presisi 1 bit membuang seluruh besaran dan menyisakan
+     * tanda tiap dimensi, jadi dua vektor yang arahnya mirip tapi panjangnya
+     * jauh berbeda bisa berjarak Hamming sama persis — memakai peringkatnya
+     * apa adanya berarti menyerahkan pilihan dokumen pada informasi yang
+     * justru sudah dibuang.
+     *
+     * Kalau saklarnya mati, SQL-nya persis seperti sebelum kartu ini: satu
+     * tahap, tanpa CTE tambahan, tanpa satu pun biaya. Jalur yang sudah
+     * terbukti tak boleh ikut membayar percobaan yang belum.
+     */
     const rows = await withTenant(tenantId, async (tx) => {
+      if (biner) {
+        /* ef_search HARUS ikut naik bersama batas penyaring.
+           HNSW tak pernah mengembalikan lebih dari ef_search kandidat, BERAPA
+           PUN limit yang ditulis — jadi `limit 480` dengan ef_search bawaan
+           (40) diam-diam menyaring jadi 40, dan 440 sisanya tak pernah ada.
+           Justru di korpus besar — satu-satunya tempat lapisan ini dimaksudkan
+           bekerja — kehilangan itu paling parah. Ketahuan saat mengukur, bukan
+           saat menulis: pengukurannya sempat menyalahkan kuantisasi bit atas
+           kehilangan yang sebenarnya milik parameter indeks.
+           SET LOCAL, jadi ia hanya berlaku di transaksi ini. */
+        await tx.execute(sql`set local hnsw.ef_search = ${sql.raw(String(Math.max(40, porsiSaring(pool))))}`);
+      }
       // SATU perjalanan ke database untuk kedua kaki. Menjalankannya sebagai
       // dua query berarti dua kali latensi jaringan pada jalur terpanas produk.
       const res = await tx.execute(sql`
@@ -320,6 +399,26 @@ export const retrievalService = {
           from chatbot_knowledge_bases a
           where a.chatbot_id = ${chatbotId} and a.deleted_at is null
         ),
+        ${biner ? sql`
+        -- KUANTISASI BINER, tahap 1 dari 2. Penyaring saja; lihat komentar TS.
+        saring as (
+          select d.id, d.embedding
+          from documents d
+          where d.knowledge_base_id in (select id from kb)
+            and d.embedding_model = ${embeddingModel}
+            and d.deleted_at is null
+            and d.embedding is not null
+            ${dimsFilter}
+            ${tierFilter}
+          order by ${binerDist}
+          limit ${porsiSaring(pool)}
+        ),
+        vec as (
+          select s.id, row_number() over (order by ${distSaring}) as rnk
+          from saring s
+          order by ${distSaring}
+          limit ${pool}
+        ),` : sql`
         vec as (
           select d.id, row_number() over (order by ${dist}) as rnk
           from documents d
@@ -331,7 +430,7 @@ export const retrievalService = {
             ${tierFilter}
           order by ${dist}
           limit ${pool}
-        ),
+        ),`}
         /* to_tsquery atas kuery ber-OR yang dibangun lexicalTsquery(), BUKAN
            plainto_tsquery atas pertanyaan mentah.
 

@@ -34,7 +34,8 @@
     "dr:verify": "node --env-file=.env --import tsx scripts/dr-verify.ts",
     "eval:leksikal": "node --import tsx scripts/eval-leksikal.ts",
     "tur": "node --env-file=.env --import tsx scripts/tur-fitur.mts",
-    "dr:drill": "node --env-file=.env --import tsx scripts/dr-drill.ts"
+    "dr:drill": "node --env-file=.env --import tsx scripts/dr-drill.ts",
+    "bench:biner": "node --env-file=.env --import tsx scripts/bench-biner.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.66.0",

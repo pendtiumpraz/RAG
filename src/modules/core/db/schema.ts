@@ -646,6 +646,15 @@ export const platformSettings = pgTable('platform_settings', {
   /** Harga plan IDR/bulan, diedit superadmin: { pro: 299000, enterprise: … } */
   planPrices: jsonb('plan_prices').$type<Record<string, number>>()
     .default({ pro: 299000, enterprise: 1499000 }).notNull(),
+  /**
+   * Lapisan penyaring KUANTISASI BINER (migrasi 0047). Bawaan MATI.
+   *
+   * Keputusan pemasangan, bukan per-tenant: yang ditukar adalah waktu lawan
+   * ketepatan pada infrastruktur bersama. Berlaku hanya pada korpus yang
+   * memang besar — pada korpus kecil ia merugikan, dan syarat itu ditegakkan
+   * di src/modules/chat/kuantisasi.ts, bukan diserahkan pada yang menyalakan.
+   */
+  binaryQuantize: boolean('binary_quantize').default(false).notNull(),
   /** D13 — SMTP: { host, port, secure, user, fromName, fromEmail }. */
   smtpConfig: jsonb('smtp_config').$type<Record<string, string | number | boolean>>(),
   /** App password SMTP (AES-256-GCM) — tak pernah dibaca balik ke browser. */
