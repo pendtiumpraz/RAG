@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { irisBlok } from './_iris';
+
 import {
   bolehLihat, lintasDivisi, PERAN_LINTAS_DIVISI, PESAN_DILUAR_DIVISI,
   type AktorDivisi,
@@ -112,13 +114,13 @@ test('operasi ber-ID dijaga, bukan hanya daftarnya', () => {
   for (const op of ['update', 'softDelete', 'restore']) {
     const i = SVC.indexOf(`async ${op}(tenantId: string, aktor: AktorDivisi`);
     assert.ok(i > 0, `${op} tak menerima aktor`);
-    const blok = SVC.slice(i, i + 600);
+    const blok = irisBlok(SVC, `async ${op}(tenantId: string, aktor: AktorDivisi`);
     assert.ok(/this\.pastikanBoleh\(tx, id, aktor/.test(blok), `${op} tak memanggil pastikanBoleh`);
   }
   // restore bekerja pada baris yang SUDAH terhapus lunak — tanpa withTrashed
   // pemeriksaannya menjawab "tidak ditemukan" dan tak pernah menguji divisi.
-  const iR = SVC.indexOf('async restore(tenantId: string, aktor: AktorDivisi');
-  assert.ok(/pastikanBoleh\(tx, id, aktor, \{ withTrashed: true \}\)/.test(SVC.slice(iR, iR + 400)));
+  assert.ok(/pastikanBoleh\(tx, id, aktor, \{ withTrashed: true \}\)/.test(
+    irisBlok(SVC, 'async restore(tenantId: string, aktor: AktorDivisi')));
 });
 
 test('batas paket dihitung SE-TENANT, bukan lewat daftar yang tersaring', () => {
@@ -126,15 +128,9 @@ test('batas paket dihitung SE-TENANT, bukan lewat daftar yang tersaring', () => 
      gratis dengan lima divisi diam-diam punya lima kali batasnya. Cacat ini
      nyaris tertulis — `this.list(tenantId)` yang lama tinggal ditambahi
      aktor dan semuanya tetap terkompilasi. */
-  /* Diiris antar-BATAS FUNGSI, bukan dengan jendela sekian ratus karakter.
-     Jendela 900 karakter yang lama menaruh `repo.countActive` di posisi 882 —
-     lulus dengan akhiran baris LF, GAGAL begitu berkasnya ditulis ulang
-     dengan CRLF (satu byte per baris cukup untuk mendorongnya keluar). Tes
-     yang hasilnya bergantung pada akhiran baris tidak menjaga apa pun; ia
-     cuma menunggu giliran untuk membohongi orang, ke arah mana pun. */
-  const iC = SVC.indexOf('async create(');
-  const iBerikut = SVC.indexOf('\n  async ', iC + 1);
-  const blok = SVC.slice(iC, iBerikut > 0 ? iBerikut : undefined);
+  /* Diiris antar-BATAS FUNGSI — lihat tests/_iris.ts untuk kejadian yang
+     melahirkan aturan itu. */
+  const blok = irisBlok(SVC, 'async create(');
   assert.ok(/repo\.countActive\(tx, tenantId\)/.test(blok),
     'jumlah chatbot dihitung dari daftar yang tersaring divisi');
   assert.ok(!/this\.list\(tenantId/.test(blok));

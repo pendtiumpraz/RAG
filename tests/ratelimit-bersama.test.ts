@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 
+import { irisBlok } from './_iris';
+
 process.env.DATABASE_URL ??= 'postgres://x:y@localhost:5432/z';
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= '0'.repeat(64);
 
@@ -196,7 +198,7 @@ test('tabel dideklarasi di schema.ts dengan nama indeks yang SAMA', () => {
   assert.ok(/pgTable\('rate_buckets'/.test(s), 'tabel tak dideklarasi — db:push akan menghapusnya');
   assert.ok(s.includes("index('idx_rate_buckets_last_at')"), 'nama indeks tak cocok dengan migrasi');
   const i = s.indexOf("pgTable('rate_buckets'");
-  const blok = s.slice(i, i + 900);
+  const blok = irisBlok(s, "pgTable('rate_buckets'");
   assert.ok(!/tenant_id/.test(blok), 'punya tenant_id tapi tanpa RLS — isolasi bohong');
   assert.ok(!/\.\.\.stamps/.test(blok), 'memakai stamps — deleted_at ikut masuk');
 });

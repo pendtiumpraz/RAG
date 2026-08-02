@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { irisAturanCss } from './_iris';
+
 /**
  * DROPDOWN TIDAK BOLEH MENUTUP DIRINYA SENDIRI.
  *
@@ -83,8 +85,7 @@ test('sebab hulunya masih ada: popup memang bisa digulir', () => {
      mustahil terjadi dan aturan di berkas ini boleh ditinjau ulang. Aturan
      yang alasannya sudah hilang adalah aturan yang dilanggar orang berikutnya
      — dan seharusnya memang boleh dilanggar. */
-  const i = DS.indexOf('.nsel-pop{');
-  const blok = DS.slice(i, i + 400);
+  const blok = irisAturanCss(DS, '.nsel-pop{');
   assert.ok(/max-height:\s*\d+px/.test(blok) && /overflow-y:\s*auto/.test(blok),
     'popup tak lagi dibatasi & digulir — tinjau ulang penjagaan di tests/select-dropdown.test.ts');
 });

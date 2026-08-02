@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { irisAntara } from './_iris';
+
 import {
   KONEKTOR, bersihkanPengaturan, daftarKonektor, konektor, konektorBoleh,
 } from '../src/modules/knowledge/konektor';
@@ -86,7 +88,8 @@ test('SERVER menolak konektor yang dimatikan — bukan hanya UI', () => {
   const iCek = route.indexOf('konektorService.boleh');
   const iInsert = route.indexOf('tx.insert(dataSources)');
   assert.ok(iCek > 0 && iCek < iInsert, 'sumber tersimpan SEBELUM saklar diperiksa');
-  assert.ok(/status: 422/.test(route.slice(iCek, iCek + 300)), 'penolakan saklar tak dijawab 422');
+  assert.ok(/status: 422/.test(irisAntara(route, 'konektorService.boleh', 'tx.insert(dataSources)')),
+    'penolakan saklar tak dijawab 422');
 });
 
 test('daftar jenis tidak lagi ditulis tetap di halaman Knowledge', () => {

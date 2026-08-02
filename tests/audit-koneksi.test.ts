@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { irisBlok } from './_iris';
+
 import { pindai } from '../scripts/audit-koneksi.mjs';
 
 /**
@@ -95,7 +97,6 @@ test('audit() MEMANG membuka transaksinya sendiri', () => {
 
 test('fanout MEMANG membuka transaksi sendiri — itu sebab dispatch dilarang', () => {
   const wh = readFileSync('src/modules/integrations/webhook.service.ts', 'utf8');
-  const i = wh.indexOf('async fanout(');
-  assert.ok(/withTenant\(/.test(wh.slice(i, i + 500)),
+  assert.ok(/withTenant\(/.test(irisBlok(wh, 'async fanout(')),
     'fanout tak lagi menyentuh basis data — tinjau ulang larangan dispatch-dalam-transaksi');
 });
