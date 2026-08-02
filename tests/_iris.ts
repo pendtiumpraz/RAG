@@ -43,6 +43,7 @@ const BATAS = [
   /\n {2}useEffect\(/,
   /\nexport /,                                  // deklarasi tingkat atas berikutnya
   /\n\}[)\]]*;/,                                // penutup blok tingkat atas: `}));` `};`
+  /\n\}(?:\r?\n|$)/,                            // `}` sendirian — penutup fungsi tingkat atas
 ];
 
 /**

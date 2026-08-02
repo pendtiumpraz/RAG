@@ -161,16 +161,32 @@ berbahaya.
 
 - **Latihan pemulihan sungguhan belum pernah dijalankan.** Prosedur di bagian 2
   disusun dari kemampuan Neon dan bentuk sistem ini, bukan dari percobaan.
-  Tidak ada kredensial Neon API di lingkungan pengembangan, dan memulihkan ke
-  produksi jelas bukan cara mengujinya. **"Pemulihan yang belum pernah dicoba
-  bukan pemulihan"** — kalimat itu masih berlaku untuk dokumen ini.
+  **"Pemulihan yang belum pernah dicoba bukan pemulihan"** — kalimat itu masih
+  berlaku untuk dokumen ini.
 - Yang sudah dibuktikan hanyalah bahwa **bentuk**nya bisa dibangun ulang dari
   repo (`dr:verify`, nol selisih pada 31 Juli 2026). Bahwa **datanya** bisa
   dipulihkan belum dibuktikan siapa pun.
-- **Cara mengujinya tanpa risiko**: buat branch Neon dari titik waktu kemarin,
-  arahkan salinan aplikasi ke sana, jalankan `npm run smoke`, lalu hapus
-  branch-nya. Butuh akses Neon Console — itu langkah manusia, bukan langkah
-  yang bisa diotomasi dari repo ini.
+- **Cara menjalankannya, satu perintah** (2 Agustus 2026):
+
+  ```bash
+  NEON_API_KEY=… NEON_PROJECT_ID=… npm run dr:drill
+  ```
+
+  Ia membuat branch dari titik waktu 24 jam lalu, memeriksa bentuknya,
+  memeriksa **isinya** (tabel yang kalau kosong berarti pemulihannya tak
+  membawa apa pun), memastikan RLS masih menempel di tiap tabel ber-`tenant_id`,
+  lalu menghapus branch-nya — berhasil maupun gagal.
+
+  > Versi sebelumnya dokumen ini menulis "butuh akses Neon Console — itu
+  > langkah manusia, bukan langkah yang bisa diotomasi dari repo ini". **Itu
+  > keliru**, dan berbahaya justru karena terdengar masuk akal: ia
+  > menghentikan pembacanya sebelum sempat memeriksa. Neon punya REST API
+  > untuk ketiga langkahnya. Prosedur yang hanya hidup sebagai langkah manual
+  > adalah prosedur yang tak pernah dijalankan.
+
+  Yang masih dibutuhkan hanyalah **kunci API Neon** — dan itu memang tak ada di
+  lingkungan pengembangan, jadi latihannya tetap belum pernah benar-benar
+  dijalankan sampai seseorang menjalankannya dengan kunci sungguhan.
 - **Yang tidak dicakup**: berkas model embedding di Vercel Blob (bisa diunggah
   ulang dengan `npm run models:push`), dan rahasia di env Vercel — termasuk
   `CREDENTIALS_ENCRYPTION_KEY`, yang **hilangnya tak bisa dipulihkan dari
