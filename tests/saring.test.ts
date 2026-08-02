@@ -191,3 +191,28 @@ test('API pencarian menerima penyaring lewat pembersih yang SAMA', () => {
   assert.ok(/retrieve\([\s\S]{0,120}saring\)/.test(route), 'penyaring tak diteruskan ke retrieve');
   assert.ok(/status: 400/.test(route), 'tanggal ngawur tak ditolak dengan jujur');
 });
+
+/* ── batas antara konsol internal dan widget publik ───────────────────── */
+
+test('penyaring dibuka di konsol internal, TIDAK di endpoint widget', () => {
+  /* Bukan kelalaian — keputusan. Pengunjung situs pelanggan tak punya dasar
+     untuk memilih folder, dan membuka penyaring folder di sana memberi cara
+     memetakan struktur folder pelanggan dari luar: satu permintaan per
+     tebakan nama, dan jawabannya berbeda antara folder yang ada dan yang
+     tidak. */
+  const internal = readFileSync('src/app/api/chat/internal/route.ts', 'utf8');
+  assert.ok(/bersihkanSaring\(body\.saring\)/.test(internal),
+    'konsol internal tak meneruskan penyaring');
+
+  const publik = readFileSync('src/app/api/chat/[chatbotId]/route.ts', 'utf8');
+  assert.ok(!/saring/.test(publik),
+    'endpoint widget publik menerima penyaring — struktur folder pelanggan jadi bisa dipetakan dari luar');
+});
+
+test('konsol Chat punya kontrolnya, bukan cuma API-nya', () => {
+  /* Kemampuan yang hanya bisa dipakai lewat curl bukan kemampuan yang dipakai
+     siapa pun. */
+  const page = readFileSync('src/app/(app)/chat/page.tsx', 'utf8');
+  assert.ok(/setSaringExt/.test(page) && /setSaringFolder/.test(page), 'kontrol penyaring tak ada');
+  assert.ok(/saring: \{ ext: saringExt/.test(page), 'kontrolnya tak ikut terkirim ke server');
+});

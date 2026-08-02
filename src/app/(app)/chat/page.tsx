@@ -18,6 +18,12 @@ interface Msg { role: 'user' | 'assistant'; text?: string; blocks?: AnswerBlock[
 /** Konsol Chat internal + panel Citations — replika PRODUCT UI resmi, data nyata. */
 export default function ChatPage() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
+  /* Penyaring metadata — mempersempit RUANG CARI sebelum pencarian vektor,
+     bukan menyaring hasilnya sesudahnya. Di korpus kecil bedanya tak terasa;
+     ia dibangun untuk korpus tempat 120 dokumen kandidat jadi 0,003% isi. */
+  const [saringExt, setSaringExt] = useState<string[]>([]);
+  const [saringFolder, setSaringFolder] = useState('');
+  const [saringBuka, setSaringBuka] = useState(false);
   const [chatbotId, setChatbotId] = useState('');
   useEffect(() => { if (bots.data?.[0] && !chatbotId) setChatbotId(bots.data[0].id); }, [bots.data, chatbotId]);
 
@@ -125,7 +131,15 @@ export default function ChatPage() {
     try {
       const res = await fetch('/api/chat/internal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatbotId, message: q, ...(convId ? { conversationId: convId } : {}) }),
+        body: JSON.stringify({
+          chatbotId, message: q,
+          ...(convId ? { conversationId: convId } : {}),
+          /* Penyaring metadata. Dikirim HANYA dari konsol internal — endpoint
+             widget publik tak menerimanya sama sekali. */
+          ...(saringExt.length || saringFolder.trim()
+            ? { saring: { ext: saringExt, folder: saringFolder.trim() || undefined } }
+            : {}),
+        }),
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) throw new Error('Gagal memulai chat');
@@ -271,6 +285,36 @@ export default function ChatPage() {
         </div>
 
         <div className="composer">
+          {/* PENYARING — mempersempit ruang cari SEBELUM pencarian vektor.
+              Ditaruh di konsol internal saja: pengunjung widget tak punya
+              dasar untuk memilih folder, dan membukanya di sana berarti
+              membuka cara memetakan struktur folder pelanggan dari luar. */}
+          <div className="cluster gap-2" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-sm" onClick={() => setSaringBuka((v) => !v)}>
+              Penyaring
+              {(saringExt.length > 0 || saringFolder.trim())
+                && ` · ${[saringFolder.trim(), ...saringExt].filter(Boolean).join(', ')}`}
+            </button>
+            {saringBuka && (
+              <>
+                {['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'md'].map((e) => (
+                  <button key={e} type="button"
+                    className={`btn btn-sm${saringExt.includes(e) ? ' btn-primary' : ''}`}
+                    onClick={() => setSaringExt((x) => (
+                      x.includes(e) ? x.filter((y) => y !== e) : [...x, e]))}>
+                    {e}
+                  </button>
+                ))}
+                <input className="input" style={{ width: 200 }} value={saringFolder}
+                  placeholder="folder, mis. kebijakan/2026"
+                  onChange={(e) => setSaringFolder(e.target.value)} />
+                {(saringExt.length > 0 || saringFolder.trim()) && (
+                  <button type="button" className="btn btn-sm btn-ghost"
+                    onClick={() => { setSaringExt([]); setSaringFolder(''); }}>Bersihkan</button>
+                )}
+              </>
+            )}
+          </div>
           <div className="box">
             <input placeholder="Tanyakan sesuatu…" value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') send(); }} disabled={busy} />

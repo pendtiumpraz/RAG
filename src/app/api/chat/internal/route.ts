@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getCurrentUser } from '@/modules/core/auth';
 import { chatTurn, type ChatSource } from '@/modules/chat/chat.service';
 import { ensureIntegrations } from '../../_wire';
+import { bersihkanSaring } from '@/modules/knowledge/saring';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest) {
         await chatTurn({
           tenantId: user.tenantId, chatbotId, conversationId: body.conversationId,
           visitorId: `user:${user.id}`, question: message,
+          /* Penyaring metadata HANYA di konsol internal.
+             Endpoint widget publik (/api/chat/[chatbotId]) sengaja TIDAK
+             menerimanya: pengunjung situs pelanggan tak punya dasar untuk
+             memilih folder, dan membuka penyaring di sana berarti membuka
+             cara memetakan struktur folder pelanggan dari luar. */
+          saring: bersihkanSaring(body.saring),
         }, {
           onConversation: (id) => send('meta', { conversationId: id }),
           onSources: (s: ChatSource[]) => send('sources', s),

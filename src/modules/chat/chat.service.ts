@@ -1,3 +1,4 @@
+import type { SaringDokumen } from '@/modules/knowledge/saring';
 import { eq } from 'drizzle-orm';
 import { tenantSettings, chatbots } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
@@ -94,6 +95,15 @@ export interface ChatTurnInput {
   conversationId?: string;
   visitorId?: string;
   question: string;
+  /**
+   * Penyaring metadata (folder / ekstensi / rentang waktu ubah).
+   *
+   * Diisi HANYA oleh konsol internal. Endpoint widget publik sengaja tak
+   * pernah mengisinya: pengunjung situs pelanggan tak punya dasar untuk
+   * memilih folder, dan membukanya di sana berarti membuka cara memetakan
+   * struktur folder pelanggan dari luar — satu permintaan per tebakan nama.
+   */
+  saring?: SaringDokumen;
 }
 
 /**
@@ -192,7 +202,8 @@ export async function chatTurn(
   const embeddingModel = settings?.activeEmbeddingModel ?? 'all-MiniLM-L6-v2';
   const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';
 
-  const context = await retrievalService.retrieve(input.tenantId, input.chatbotId, embeddingModel, input.question);
+  const context = await retrievalService.retrieve(
+    input.tenantId, input.chatbotId, embeddingModel, input.question, undefined, input.saring);
   // Beri tahu pemanggil sumber yang ditemukan (utk panel Citations) SEBELUM streaming.
   onSources?.(context.map((c) => ({ documentId: c.documentId, title: c.title, score: c.score, content: c.content.slice(0, 240) })));
   // Guardrail L2: konteks dikeraskan (dokumen = data, injeksi disaring).
