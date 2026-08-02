@@ -1,16 +1,16 @@
-node_modules/
-.next/
+
+# Fase 05 build artifacts
+# TS incremental build cache
+*.log
+.DS_Store
 .env
 .env.local
 .model-cache/
-*.log
-.DS_Store
-next-env.d.ts
-
-# Fase 05 build artifacts
 .next/
+next-env.d.ts
+node_modules/
+scripts/_*.mts
+scripts/_papan-tmp.mts
 server*.log
-
-# TS incremental build cache
-tsconfig.tsbuildinfo
 services/embedding-server/node_modules/
+tsconfig.tsbuildinfo
