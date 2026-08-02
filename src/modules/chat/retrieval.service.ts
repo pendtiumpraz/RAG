@@ -4,6 +4,7 @@ import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { embed, embeddingDims } from '@/modules/knowledge/embeddings';
 import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusion';
 import { lexicalTsquery } from './lexical-query';
+import { adaSaring, type SaringDokumen } from '@/modules/knowledge/saring';
 import { pasangUlangSkala, porsiKandidat, terapkanRerank } from './rerank';
 import { layakBiner, porsiSaring } from './kuantisasi';
 import { platformSettings } from '@/modules/core/db/schema';
@@ -226,6 +227,15 @@ export const retrievalService = {
     embeddingModel: string,
     query: string,
     k = 6,
+    /**
+     * Penyaring metadata — folder, ekstensi, rentang waktu ubah.
+     *
+     * DITERAPKAN DI KETIGA TEMPAT, dan itu yang menentukan. Menerapkannya
+     * hanya di kaki potongan berarti lapisan pertama tetap memilih 120
+     * dokumennya TANPA memperhatikan penyaring — dan ke-120 itu bisa habis
+     * tersaring semuanya, sehingga jawabannya kosong padahal dokumennya ada.
+     */
+    saring?: SaringDokumen,
   ): Promise<RetrievedChunk[]> {
     const getApiKey = apiKeyResolver(tenantId);
     const [qVec] = await embed(embeddingModel, [query], { tenantId, getApiKey });
@@ -254,6 +264,36 @@ export const retrievalService = {
       ? sql`subvector(d.embedding, 1, ${dims})::halfvec(${sql.raw(String(dims))}) <=> subvector(${vecLiteral}::halfvec, 1, ${dims})::halfvec(${sql.raw(String(dims))})`
       : sql`d.embedding <=> ${vecLiteral}::halfvec`;
     const dimsFilter = useSub ? sql`and d.embedding_dims = ${dims}` : sql``;
+
+    /**
+     * Penyaring metadata, dirakit SEKALI untuk dipakai di ketiga tempat.
+     *
+     * Satu perakit, bukan tiga potongan SQL yang ditulis terpisah: tiga
+     * salinan syarat yang sama adalah tiga kesempatan untuk menyimpang, dan
+     * yang menyimpang di lapisan pertama tak menghasilkan galat — cuma
+     * jawaban yang kosong tanpa sebab yang bisa dilihat.
+     *
+     * `alias` ada karena tabelnya berbeda di tiap tempat: `d` untuk documents,
+     * `v` untuk document_vectors.
+     */
+    const saringSql = (alias: string) => {
+      if (!adaSaring(saring)) return sql``;
+      const a = sql.raw(alias);
+      const bagian = [
+        saring!.ext?.length
+          ? sql`and ${a}.ext = any(${sql`array[${sql.join(saring!.ext.map((e) => sql`${e}`), sql`, `)}]::text[]`})`
+          : sql``,
+        /* PREFIKS, dan `folder = x OR folder LIKE 'x/%'` — bukan LIKE 'x%'.
+           Tanpa pemisah eksplisit, penyaring folder "kebijakan" ikut menyapu
+           "kebijakan-lama/", yaitu folder yang berbeda sama sekali. */
+        saring!.folder
+          ? sql`and (${a}.folder = ${saring!.folder} or ${a}.folder like ${`${saring!.folder}/%`})`
+          : sql``,
+        saring!.sejak ? sql`and ${a}.modified_at >= ${saring!.sejak}` : sql``,
+        saring!.sampai ? sql`and ${a}.modified_at <= ${saring!.sampai}` : sql``,
+      ];
+      return sql.join(bagian, sql` `);
+    };
 
     /* Jarak Hamming atas bentuk biner — dan jarak eksak yang sama persis,
        tapi dibaca dari CTE penyaring alih-alih dari tabel. Keduanya disusun
@@ -358,6 +398,7 @@ export const retrievalService = {
             and v.deleted_at is null
             and v.knowledge_base_id in (select id from kb)
             ${useSub ? sql`and v.embedding_dims = ${dims}` : sql``}
+            ${saringSql('v')}
           group by v.doc_ref
           order by min(${jarakTier1})
           limit ${TIER1_DOCS})`
@@ -410,6 +451,7 @@ export const retrievalService = {
             and d.embedding is not null
             ${dimsFilter}
             ${tierFilter}
+            ${saringSql('d')}
           order by ${binerDist}
           limit ${porsiSaring(pool)}
         ),
@@ -428,6 +470,7 @@ export const retrievalService = {
             and d.embedding is not null
             ${dimsFilter}
             ${tierFilter}
+            ${saringSql('d')}
           order by ${dist}
           limit ${pool}
         ),`}

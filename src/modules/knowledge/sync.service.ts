@@ -97,6 +97,15 @@ export interface RemoteFile {
   /** Ukuran byte bila upstream melaporkannya — kaki murah pencocokan kembar
    *  yang bisa melewati berkas SEBELUM diunduh. */
   size?: number;
+  /**
+   * Jalur upstream lengkap, bila konektornya memang tahu hierarkinya.
+   *
+   * Dari sinilah kolom `documents.folder` diturunkan. Sengaja OPSIONAL:
+   * Notion & Slack tak punya folder, dan konektor yang mengarang jalur akan
+   * membuat penyaring folder membuang dokumen yang sebenarnya cocok —
+   * kegagalan yang lebih buruk daripada penyaring yang jujur kosong.
+   */
+  path?: string;
 }
 
 export interface SyncPlan {
@@ -300,6 +309,13 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
           sourceId,
           externalId: f.externalId,
           externalVersion: f.version,
+          /* Jalur upstream, dipakai menurunkan kolom `folder`.
+             HANYA konektor yang memang TAHU hierarkinya yang mengisi ini —
+             S3 lewat kunci objek, Drive publik lewat penelusuran folder.
+             Notion & Slack tak punya folder sama sekali, dan mengarang jalur
+             untuk keduanya akan membuat penyaring folder membuang dokumen
+             yang sebenarnya cocok. */
+          path: f.path,
           metadata: { syncedFrom: source.kind },
         });
         // ingest() mengembalikan 0 bila LAPIS 2 (sidik jari isi) menemukan
@@ -593,6 +609,8 @@ async function connect(
     return {
       files: objek.map((o) => ({
         externalId: o.key,
+        /* Kunci S3 SUDAH berupa jalur — tak ada yang perlu ditebak. */
+        path: o.key,
         /* Nama berkasnya saja untuk judul; kunci penuh tetap jadi externalId
            supaya dua berkas bernama sama di folder berbeda tak saling
            menimpa di manifest. */

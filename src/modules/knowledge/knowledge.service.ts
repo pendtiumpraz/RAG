@@ -1,4 +1,5 @@
 import { eq, and, isNull, sql } from 'drizzle-orm';
+import { ekstensi, folderDari, waktuUbah } from './saring';
 import { tenantSettings, knowledgeBases, documentDuplicates } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { dispatch } from '@/modules/core/events';
@@ -303,6 +304,12 @@ export const knowledgeService = {
     externalId?: string; externalVersion?: string;
     /** Ukuran berkas asal (byte) — kaki murah pencocokan kembar. */
     sizeBytes?: number;
+    /**
+     * Jalur upstream lengkap (mis. `kebijakan/2026/sop.pdf`) bila konektornya
+     * memang tahu hierarkinya. Dari sinilah kolom `folder` diturunkan — bukan
+     * dari `title`, yang hanya nama berkasnya.
+     */
+    path?: string;
   }): Promise<number> {
     const modelId = await withTenant(tenantId, async (tx) => {
       const kb = await tx.select({ id: knowledgeBases.id }).from(knowledgeBases)
@@ -366,6 +373,14 @@ export const knowledgeService = {
     // Dicatat per potongan, bukan disimpulkan dari nama model saat query.
     const dims = await embeddingDims(modelId);
 
+    /* Diturunkan SEKALI, di luar perulangan potongan. Nilainya sama untuk
+       seluruh potongan satu dokumen, dan menghitungnya ulang per potongan
+       cuma membakar CPU pada dokumen tebal — yang justru paling banyak
+       potongannya. */
+    const saringExt = ekstensi(input.path ?? input.title);
+    const saringFolder = folderDari(input.path);
+    const saringWaktu = waktuUbah(input.externalVersion);
+
     const inserted = await withTenant(tenantId, (tx) =>
       docs.insertChunks(tx, chunks.map((content, i) => ({
         tenantId,
@@ -382,6 +397,12 @@ export const knowledgeService = {
         // pencarian kembar jadi satu kueri berindeks tanpa tabel tambahan.
         contentHash: hash,
         sizeBytes: input.sizeBytes,
+        /* PENYARING (migrasi 0048). Nilainya sama untuk seluruh potongan satu
+           dokumen — disimpan per potongan supaya penyaring jadi satu WHERE
+           berindeks di tabel yang sama dengan vektornya, tanpa join. */
+        ext: saringExt,
+        folder: saringFolder,
+        modifiedAt: saringWaktu,
         metadata: { ...input.metadata, chunk: i },
       }))),
     );

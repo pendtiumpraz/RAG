@@ -123,13 +123,11 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
      baru menggagalkan tes ini sampai seseorang benar-benar menjalankan
      `npm run dr:verify` terhadap produksi dan menyegarkan patokannya.
      Menaikkan angkanya tanpa melakukan itu berarti mencabut kawatnya.
-     0047 (kuantisasi biner) diperiksa 2 Agu 2026. Pemeriksaannya SEMPAT
-     melaporkan tiga indeks liar, dan itu bukan alarm palsu yang boleh
-     diabaikan: migrasinya membuat ketiganya lewat FOREACH + format(), jadi
-     namanya tak pernah muncul sebagai teks yang bisa dicocokkan pemeriksa —
-     kelas positif-palsu yang sama dengan migrasi 0017. Migrasinya ditulis
-     ulang literal, bukan pemeriksanya yang dilonggarkan. */
-  assert.equal(terakhir, '0047_kuantisasi_biner.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+     0048 (penyaring metadata) diperiksa 2 Agu 2026: 5 objek baru, SEMUANYA
+     terjelaskan migrasi ter-commit, nol hanyutan liar. Pelajaran dari 0047
+     terpakai — indeksnya ditulis literal sejak awal, bukan lewat FOREACH +
+     format() yang membuat namanya tak pernah muncul sebagai teks. */
+  assert.equal(terakhir, '0048_saring_metadata.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
   assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),

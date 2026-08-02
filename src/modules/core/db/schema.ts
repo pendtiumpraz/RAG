@@ -450,6 +450,21 @@ export const documents = pgTable('documents', {
    */
   embeddingDims: smallint('embedding_dims'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+  /**
+   * METADATA YANG BISA DISARING (migrasi 0048) — kolom, bukan jsonb.
+   *
+   * Penyaring di atas `metadata->>` tak bisa digabung dengan pra-penyaringan
+   * indeks vektor: Postgres tak punya statistik yang bisa dipercaya untuknya,
+   * dan rencananya jatuh ke pemindaian penuh persis di korpus tempat
+   * penyaring ini seharusnya menolong.
+   *
+   * Ketiganya NULLABLE dengan sengaja — Notion & Slack tak punya folder, dan
+   * eTag Graph / ETag S3 bukan waktu. Kolom yang dipaksa terisi akan berisi
+   * tebakan, dan penyaring di atas tebakan membuang dokumen yang cocok.
+   */
+  ext: text('ext'),
+  folder: text('folder'),
+  modifiedAt: timestamp('modified_at', { withTimezone: true }),
   /** Delta sync: id file di storage asal (Drive fileId / Graph itemId). */
   externalId: text('external_id'),
   /** Versi upstream (Drive modifiedTime / Graph eTag) — pembanding delta sync. */
@@ -499,6 +514,13 @@ export const documents = pgTable('documents', {
      satu-satunya alasan baris ini ada. Definisi sebenarnya di migrasi. */
   dimsIdx: index('idx_documents_dims').on(t.embeddingDims),
   docRefIdx: index('idx_documents_doc_ref').on(t.knowledgeBaseId, t.docRef).where(sql`deleted_at IS NULL`),
+  /* Penyaring metadata (migrasi 0048). Dideklarasikan dengan NAMA YANG SAMA
+     seperti migrasinya — itulah yang membuat db:push tak menghapusnya diam-diam.
+     Catatan: text_pattern_ops di migrasi tak punya padanan di Drizzle; yang
+     dijaga di sini keberadaan & namanya, kelas operatornya milik migrasi. */
+  extIdx: index('idx_documents_ext').on(t.knowledgeBaseId, t.ext).where(sql`deleted_at IS NULL`),
+  folderIdx: index('idx_documents_folder').on(t.knowledgeBaseId, t.folder).where(sql`deleted_at IS NULL`),
+  modIdx: index('idx_documents_modified_at').on(t.knowledgeBaseId, t.modifiedAt).where(sql`deleted_at IS NULL`),
   hashIdx: index('idx_documents_content_hash').on(t.knowledgeBaseId, t.contentHash)
     .where(sql`deleted_at IS NULL AND content_hash IS NOT NULL`),
   nameSizeIdx: index('idx_documents_name_size').on(t.knowledgeBaseId, t.title, t.sizeBytes)
@@ -558,6 +580,13 @@ export const documentVectors = pgTable('document_vectors', {
   embeddingModel: text('embedding_model').notNull(),
   embeddingDims: smallint('embedding_dims'),
   centroid: halfvec('centroid'),
+  /** Salinan penyaring dari `documents` (migrasi 0048). Data TURUNAN, sama
+   *  derajatnya dengan centroid: dibangun ulang dari documents, dan ada supaya
+   *  penyaring bisa bekerja SEBELUM tier-1 memilih 120 dokumennya — bukan
+   *  sesudah, yang bisa menghabiskan seluruh pilihan itu. */
+  ext: text('ext'),
+  folder: text('folder'),
+  modifiedAt: timestamp('modified_at', { withTimezone: true }),
   chunks: integer('chunks').default(0).notNull(),
   /**
    * BAGIAN dokumen yang diwakili vektor ini (migrasi 0037).
@@ -572,6 +601,10 @@ export const documentVectors = pgTable('document_vectors', {
   segment: smallint('segment').default(0).notNull(),
   ...stamps,
 }, (t) => ({
+  /* Penyaring metadata di lapisan pertama (migrasi 0048) — nama sama dengan
+     migrasinya, supaya db:push tak menghapusnya. */
+  extIdx: index('idx_document_vectors_ext').on(t.knowledgeBaseId, t.ext).where(sql`deleted_at IS NULL`),
+  folderIdx: index('idx_document_vectors_folder').on(t.knowledgeBaseId, t.folder).where(sql`deleted_at IS NULL`),
   tenantIdx: index('idx_document_vectors_tenant').on(t.tenantId),
   delIdx: index('idx_document_vectors_deleted_at').on(t.deletedAt),
   /* NAMA SAMA dengan migrasi 0037 — kalau berbeda, db:push akan membuat

@@ -66,7 +66,7 @@ export const documentVectorsService = {
     const rows = await withTenant(tenantId, (tx) => tx.execute(sql`
       insert into document_vectors
         (tenant_id, knowledge_base_id, doc_ref, title, embedding_model, embedding_dims,
-         centroid, chunks, segment)
+         centroid, chunks, segment, ext, folder, modified_at)
       select d.tenant_id, d.knowledge_base_id, d.doc_ref,
              max(d.title), d.embedding_model, max(d.embedding_dims),
              avg(d.embedding), count(*)::int,
@@ -76,7 +76,12 @@ export const documentVectorsService = {
                 pengelompokan jadi satu baris per potongan — lapisan pertama
                 berubah jadi salinan tabel potongan, persis hal yang ia ada
                 untuk hindari. */
-             ${bagianExpr}
+             ${bagianExpr},
+             /* PENYARING ikut didenormalkan (migrasi 0048). max() dipakai
+                karena nilainya sama untuk seluruh potongan satu dokumen —
+                bukan karena yang terbesar berarti apa-apa; ia sekadar
+                agregat yang sah di GROUP BY ini. */
+             max(d.ext), max(d.folder), max(d.modified_at)
       from documents d
       where d.knowledge_base_id = ${knowledgeBaseId}
         and d.embedding_model = ${embeddingModel}
@@ -91,6 +96,9 @@ export const documentVectorsService = {
         chunks = excluded.chunks,
         title = excluded.title,
         embedding_dims = excluded.embedding_dims,
+        ext = excluded.ext,
+        folder = excluded.folder,
+        modified_at = excluded.modified_at,
         updated_at = now()
       returning id
     `));
