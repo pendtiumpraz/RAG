@@ -130,3 +130,27 @@ test('indeks binernya berpasangan dengan indeks halfvec', () => {
   assert.ok(/bit_hamming_ops/.test(mig), 'indeksnya bukan indeks Hamming');
   assert.ok(/IF NOT EXISTS/.test(mig), 'migrasi tak idempoten');
 });
+
+/* ── saklarnya benar-benar ada di layar ───────────────────────────────── */
+
+test('saklar kuantisasi punya panel superadmin, bukan cuma kolom', () => {
+  /* Kolom basis data tanpa layar yang mengubahnya adalah fitur yang hanya
+     bisa dinyalakan lewat psql — dan panduan on-premise yang menjanjikan
+     "Settings → kuantisasi biner" akan berbohong kepada yang memasangnya.
+     Ini bukan hipotetis: dokumennya sempat ditulis lebih dulu daripada
+     panelnya. */
+  const page = readFileSync('src/app/(app)/settings/page.tsx', 'utf8');
+  assert.ok(/function PanelRetrieval\(\)/.test(page), 'panel retrieval tak ada');
+  assert.ok(/'\/api\/admin\/retrieval'/.test(page), 'panel tak tersambung ke rutenya');
+  assert.ok(/role === 'superadmin' && <PanelRetrieval \/>/.test(page),
+    'panel tak dibatasi superadmin — ini keputusan pemasangan, bukan per-tenant');
+});
+
+test('rutenya UPSERT, bukan update — baris platform bisa belum ada', () => {
+  /* Update yang tak mengenai baris mana pun BERHASIL DENGAN DIAM. Saklarnya
+     lalu tampak tersimpan sambil tak pernah tersimpan, dan tak ada satu pun
+     galat yang menjelaskannya. */
+  const route = readFileSync('src/app/api/admin/retrieval/route.ts', 'utf8');
+  assert.ok(/onConflictDoUpdate/.test(route), 'bukan upsert');
+  assert.ok(/superadminRoute/.test(route), 'rute tak dijaga peran superadmin');
+});

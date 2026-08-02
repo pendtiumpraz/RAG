@@ -108,30 +108,162 @@ bug nyata, dan `npm run db:setup-role` ada untuk mencegahnya terulang.
 
 ## Menjalankan
 
-### On-premise (docker-compose)
+Satu basis kode, dua cara pasang. Yang membedakan hanya **di mana Postgres
+berada** dan **siapa yang memegang kunci model** — bukan fiturnya.
 
-```bash
-cp .env.example .env          # isi CREDENTIALS_ENCRYPTION_KEY & DATABASE_URL
-docker compose up -d
-```
+|                          | SaaS (Vercel + Neon)              | On-premise (docker compose)          |
+| ------------------------ | --------------------------------- | ------------------------------------ |
+| Postgres                 | Neon / Vercel Postgres            | kontainer `pgvector/pgvector:pg17`   |
+| Kolam koneksi            | `max: 1` (lambda)                 | `max: 10`                            |
+| Login                    | NextAuth (kredensial / Google / Microsoft / SSO) | sama, atau dilewati (`DEPLOYMENT_MODE=onprem`) |
+| Kuota & pembayaran       | aktif                             | **mati** — semua tak terbatas        |
+| Bobot model embedding    | Vercel Blob                       | volume `modelcache`                  |
+| LLM                      | API penyedia                      | API penyedia **atau** server sendiri |
+| Internet                 | wajib                             | opsional (lihat §air-gapped)         |
 
-Aplikasi, Postgres+pgvector, dan penyiapan basis datanya berjalan berurutan.
-Untuk LLM sepenuhnya lokal, arahkan ke Ollama / vLLM / LM Studio — semuanya
-berprotokol OpenAI-compatible, cukup didaftarkan URL-nya di **Models & Keys**.
+### A · Pengembangan lokal
 
-Panduan lengkapnya — variabel yang wajib diubah, cara MEMBUKTIKAN isolasi
-tenant benar-benar menyala, kebutuhan disk, dan apa yang belum tercakup — ada
-di **[docs/ONPREM.md](docs/ONPREM.md)**.
-
-### Pengembangan lokal
+Postgres apa pun yang punya `pgvector` — termasuk kontainer `db` dari
+`docker-compose.yml`.
 
 ```bash
 npm install
-npm run db:setup-role        # role nalar_app (NOBYPASSRLS) — RLS hanya jalan lewat role ini
-npm run db:push              # skema — HANYA untuk database baru/dev (lihat peringatan)
-npm run db:migrate           # pgvector, RLS, policy — WAJIB setelah db:push
+cp .env.example .env
+```
+
+Isi tiga yang wajib di `.env`:
+
+```bash
+# Basis data. Untuk DDL pakai endpoint NON-pooling.
+DATABASE_URL=postgres://nalar_app:PW@localhost:5432/rag
+DATABASE_URL_UNPOOLED=postgres://rag:rag@localhost:5432/rag
+
+# Rahasia sesi NextAuth — buat baru, jangan pakai contoh.
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+
+# Kunci enkripsi kunci API penyedia (AES-256-GCM, 64 hex).
+# HILANG = seluruh kunci API tersimpan berubah jadi data acak. Cadangkan.
+CREDENTIALS_ENCRYPTION_KEY=$(openssl rand -hex 32)
+```
+
+Lalu siapkan basis datanya — **urutannya menentukan**:
+
+```bash
+npm run db:push          # skema. HANYA untuk basis data BARU (lihat peringatan)
+npm run db:migrate       # pgvector, RLS, policy — WAJIB setelah db:push
+npm run db:setup-role    # peran nalar_app (NOBYPASSRLS)
 npm run dev
 ```
+
+`db:setup-role` terakhir karena grant hanya berlaku untuk tabel yang sudah
+ada. Menjalankannya lebih dulu menghasilkan peran yang tak bisa membaca
+apa pun, dan galatnya muncul jauh dari sebabnya.
+
+Akun pertama:
+
+```bash
+npm run demo:account     # superadmin; sandi dicetak SEKALI di layar
+```
+
+### B · SaaS (Vercel + Neon)
+
+**1. Basis data.** Buat proyek Neon (atau Vercel Postgres). Ambil **dua**
+connection string: yang *pooled* untuk aplikasi, yang *non-pooling* untuk DDL.
+
+**2. Siapkan skema dari mesinmu**, bukan dari Vercel — DDL menuntut peran
+pemilik, dan lambda tak pernah punya itu:
+
+```bash
+DATABASE_URL=<non-pooling> npm run db:push
+DATABASE_URL=<non-pooling> npm run db:migrate
+DATABASE_URL=<non-pooling> npm run db:setup-role
+```
+
+**3. Environment variables di Vercel** (Settings → Environment Variables):
+
+```bash
+DATABASE_URL=postgres://nalar_app:...@...neon.tech/db?sslmode=require
+DATABASE_URL_UNPOOLED=<non-pooling, peran pemilik>
+NEXTAUTH_SECRET=<openssl rand -base64 32>
+NEXTAUTH_URL=https://domainmu.com
+CREDENTIALS_ENCRYPTION_KEY=<openssl rand -hex 32>
+
+# Opsional
+GOOGLE_CLIENT_ID= / GOOGLE_CLIENT_SECRET=      # login Google + sync Drive
+MS_CLIENT_ID= / MS_CLIENT_SECRET= / MS_TENANT_ID=
+EMBEDDING_MODEL_SOURCE=blob                     # bobot model dari Vercel Blob
+BLOB_READ_WRITE_TOKEN=
+```
+
+> **`DATABASE_URL` wajib memakai peran `nalar_app`.** Postgres **melewati
+> seluruh kebijakan RLS untuk pemilik tabel** — diam-diam, tanpa galat, tanpa
+> jejak di log. Menyambung sebagai pemilik berarti isolasi tenant mati
+> sepenuhnya sementara aplikasinya tampak sehat. Ini bug nyata yang pernah
+> terjadi di sini.
+
+**4. Unggah bobot model** (sekali, dari mesinmu — fungsi serverless tak bisa,
+Vercel membatasi badan permintaan di ±4,5 MB):
+
+```bash
+npm run models:push
+npm run models:verify    # membuktikan jalur baca tanpa menyentuh blob asli
+```
+
+**5. Deploy.** `npm run build` adalah gerbang typecheck-nya sekaligus.
+
+Batasan serverless yang wajib dibaca — kolam koneksi `max: 1`, `after(jobsSettled)`,
+rate limit yang tak berbagi antar-lambda — ada di
+**[docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md)**.
+
+### C · On-premise (docker compose)
+
+```bash
+cp .env.example .env
+# WAJIB ubah: NEXTAUTH_SECRET, CREDENTIALS_ENCRYPTION_KEY, NEXTAUTH_URL, APP_PW
+docker compose up -d
+```
+
+Tiga layanan berjalan berurutan, bukan dua:
+
+1. **`db`** — `pgvector/pgvector:pg17`, volume `pgdata`.
+2. **`setup`** — `db:push` → `db:migrate` → `db:setup-role`, lalu **berhenti
+   sendiri**. Idempoten, jadi aman terulang tiap `up`. Tanpa layanan ini
+   aplikasinya menyala di atas basis data kosong.
+3. **`app`** — tersambung sebagai **`nalar_app`**, bukan sebagai pemilik.
+
+Buktikan isolasinya benar-benar menyala — kegagalannya **tak bergejala sama
+sekali**:
+
+```bash
+docker compose exec db psql -U rag -d rag -c \
+  "select rolname, rolbypassrls from pg_roles where rolname in ('rag','nalar_app');"
+# nalar_app harus rolbypassrls = f
+
+docker compose exec app printenv DATABASE_URL
+# harus diawali postgres://nalar_app:
+```
+
+**Sepenuhnya lokal.** Tiga lapis yang biasanya memanggil awan, semuanya bisa
+dipindah ke jaringanmu:
+
+| Lapis     | Cara                                                            |
+| --------- | --------------------------------------------------------------- |
+| LLM       | Ollama / vLLM / LM Studio / llama.cpp → daftarkan di **Models & Keys → server LLM** |
+| Embedding | model ONNX lokal (bawaan), atau `services/embedding-server/` di VPS |
+| Reranker  | `RERANK_SELFHOSTED_URL` — opsional, mati secara bawaan            |
+
+Ketiganya berbicara protokol **kompatibel OpenAI**, jadi tak ada yang mengunci
+ke satu vendor.
+
+**Air-gapped.** Bisa, dengan satu syarat: **bobot model harus sudah ada
+sebelum kabelnya dicabut.** Jalankan satu sinkronisasi dokumen selagi masih
+daring; bobotnya disinggahkan di volume `modelcache` dan dipakai ulang lintas
+restart. Model lewat API (OpenAI, Cohere) dan konektor Drive/SharePoint/Notion/
+Slack jelas tak berfungsi tanpa internet.
+
+Panduan penuh — variabel yang wajib diubah, kebutuhan disk terukur, HTTPS,
+pemutakhiran versi, dan **apa yang belum tercakup** — ada di
+**[docs/ONPREM.md](docs/ONPREM.md)**.
 
 ### Menyematkan widget di situs mana pun
 

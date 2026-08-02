@@ -77,6 +77,7 @@ export default function SettingsPage() {
       <TwoFactor />
 
       <PanelSso />
+      {session?.user?.role === 'superadmin' && <PanelRetrieval />}
       {session?.user?.role === 'superadmin' && <PanelKonektor />}
       {session?.user?.role === 'superadmin' && <PanelDemo />}
       {session?.user?.role === 'superadmin' && <MailSettings />}
@@ -398,6 +399,64 @@ function PanelDemo() {
 interface BarisKonektor {
   jenis: string; label: string; nyala: boolean; tersedia: boolean;
   butuhAplikasiKita: boolean; keterangan: string; sumberAktif: number;
+}
+
+/* ── saklar retrieval tingkat platform (superadmin) ──────────────────
+   Keputusan PEMASANGAN, bukan per-tenant: yang ditukar adalah waktu lawan
+   ketepatan pada infrastruktur bersama. */
+function PanelRetrieval() {
+  const { data, loading, refetch } = useApi<{ binaryQuantize: boolean }>('/api/admin/retrieval');
+  const [biner, setBiner] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => { if (data) setBiner(data.binaryQuantize); }, [data]);
+
+  async function simpan(nilai: boolean) {
+    setBusy(true);
+    setBiner(nilai);
+    try {
+      await api('/api/admin/retrieval', {
+        method: 'PUT', body: JSON.stringify({ binaryQuantize: nilai }),
+      });
+      toast(nilai ? 'Kuantisasi biner dinyalakan' : 'Kuantisasi biner dimatikan');
+      refetch();
+    } catch (e) {
+      setBiner(!nilai);                       // kembalikan; simpannya gagal
+      toast((e as Error).message, 'error');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">retrieval (superadmin)</span>
+        <span className="badge">{biner ? 'kuantisasi biner: nyala' : 'kuantisasi biner: mati'}</span>
+      </div>
+      <div className="card-pad stack gap-3">
+        {loading ? <Skeleton rows={2} /> : (
+          <label className="cluster gap-3"
+            style={{
+              padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8,
+              alignItems: 'flex-start', cursor: busy ? 'wait' : 'pointer',
+            }}>
+            <input type="checkbox" style={{ marginTop: 3 }} checked={biner} disabled={busy}
+              onChange={(e) => void simpan(e.target.checked)} />
+            <span style={{ flex: 1 }}>
+              <b>Kuantisasi biner sebagai lapisan penyaring</b>
+              <p className="microlabel" style={{ marginTop: 6, lineHeight: 1.7 }}>
+                MEMPERKECIL INDEKS PENCARIAN ±32× PADA KORPUS BESAR. JARAK HAMMING
+                HANYA MEMPERSEMPIT KANDIDAT — JARAK EKSAK TETAP YANG MENENTUKAN
+                URUTAN AKHIR, JADI KETEPATANNYA TIDAK DITUKAR.<br />
+                MENGABAIKAN DIRINYA SENDIRI DI KORPUS KECIL, KARENA DI SANA IA
+                JUSTRU MERUGIKAN. BUKTIKAN AMAN DI KORPUSMU DENGAN{' '}
+                <code>npm run bench:biner</code> SEBELUM MENGANDALKANNYA.
+              </p>
+            </span>
+          </label>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function PanelKonektor() {

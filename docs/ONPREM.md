@@ -142,6 +142,89 @@ embedding harus sudah ada sebelum kabelnya dicabut**.
   Arahkan ke server LLM sendiri yang berbicara protokol OpenAI (halaman
   *Models & Keys* → server LLM).
 
+### 5a. Menjalankan LLM di jaringanmu sendiri
+
+Contoh dengan Ollama, tapi vLLM / LM Studio / LocalAI / llama.cpp sama saja —
+semuanya melayani `/v1/chat/completions`:
+
+```bash
+ollama serve                      # mendengarkan di :11434
+ollama pull qwen3:8b
+```
+
+Lalu di **Models & Keys → server LLM sendiri (on-premise)** → *Tambah server*:
+
+```
+Nama      : Ollama internal
+Base URL  : http://10.0.0.5:11434/v1     ← sampai /v1, bukan lebih
+Token     : (kosongkan — lazim tanpa auth di jaringan tertutup)
+```
+
+Tekan **Test koneksi**. Model yang dilaporkan server langsung muncul di
+dropdown *model chat aktif*; tak ada daftar yang perlu ditulis tangan.
+
+> Dari dalam kontainer `app`, `localhost` menunjuk kontainer itu sendiri —
+> bukan host. Pakai alamat IP host di jaringanmu, atau
+> `host.docker.internal` bila platform Docker-mu menyediakannya.
+
+### 5b. Embedding di server terpisah (opsional)
+
+Model besar (BGE-M3 presisi penuh, 2,16 GB) tak masuk akal dimuat di dalam
+kontainer aplikasi. `services/embedding-server/` adalah paket terpisah yang
+memuat bobotnya **sekali saat start** lalu melayaninya lewat HTTP:
+
+```bash
+EMBEDDING_SELFHOSTED_URL=https://embed.internal.perusahaan.co.id
+EMBEDDING_SELFHOSTED_TOKEN=<opsional>
+```
+
+Klien **menolak URL non-`https`** kecuali loopback, dan itu disengaja: yang
+melintas ke sana adalah **isi dokumen tenant**. Isolasi dijaga ketat sampai
+level basis data; mengirim teksnya lewat HTTP polos ke IP publik membocorkan
+semuanya di satu titik yang tak dijaga. Pasang TLS di depannya (Caddy/nginx).
+
+Panduannya: `services/embedding-server/SETUP-VPS.md`.
+
+### 5c. Reranker sendiri (opsional, mati secara bawaan)
+
+Lapisan penilai ulang yang membaca pertanyaan dan potongan **bersamaan**,
+jadi lebih tepat menilai mana yang benar-benar menjawab. Untuk pemasangan
+yang tak boleh ada teks dokumennya keluar jaringan, sediakan endpoint
+`/rerank` sendiri:
+
+```bash
+RERANK_SELFHOSTED_URL=https://rerank.internal.perusahaan.co.id
+RERANK_SELFHOSTED_TOKEN=<opsional>
+```
+
+Lalu pilih **Server sendiri (on-premise)** di *Models & Keys → reranker*.
+
+Penjagaan `https`-nya sama persis dengan server embedding, dan alasannya juga
+sama. Bawaannya **mati** — ia membeli ketepatan pada sebagian permintaan
+dengan biaya latensi yang ditanggung semua permintaan, jadi nyalakan hanya
+bila kamu melihat jawaban sering meleset padahal dokumennya ada.
+
+### 5d. Korpus sangat besar: kuantisasi biner
+
+Untuk korpus ratusan ribu potongan ke atas, lapisan penyaring biner
+memperkecil indeks pencarian ±32×. Jarak Hamming hanya **mempersempit
+kandidat**; jarak eksak tetap yang menentukan urutan akhir — jadi ketepatannya
+tidak ditukar.
+
+Nyalakan di **Settings → kuantisasi biner** (superadmin). Ia mengabaikan
+dirinya sendiri pada korpus kecil, karena di sana ia justru merugikan.
+
+Buktikan aman di korpusmu sendiri sebelum mengandalkannya:
+
+```bash
+npm run bench:biner
+```
+
+Ia membandingkan hasil dua tahap dengan **pemindaian penuh** — bukan dengan
+indeks HNSW, yang juga aproksimasi — dan membandingkannya lewat **jarak**,
+bukan ID, karena korpus dengan dokumen kembar membuat perbandingan ID
+melaporkan "meleset" untuk urutan seri yang sama benarnya.
+
 ---
 
 ## 6. Berapa disk yang perlu disiapkan
@@ -175,9 +258,40 @@ Layanan `setup` berjalan lagi dan idempoten — `db:push` menyesuaikan skema,
 
 > **Untuk pemasangan sungguhan, cadangkan basis data dulu.** `db:push`
 > menyelaraskan basis data dengan `schema.ts`, dan pada basis data yang sudah
-> berisi ia bisa membuang hal-hal yang tak dideklarasikan di sana. Prosedur
-> cadangan dan latihan pemulihan belum tertulis — itu kartu `a-runbook`, dan
-> sampai selesai, cadangan adalah tanggung jawabmu sendiri.
+> berisi ia bisa membuang hal-hal yang tak dideklarasikan di sana.
+
+### 7a. Cadangan on-premise
+
+Prosedur pemulihannya ada di **[RUNBOOK.md](RUNBOOK.md)** — dibaca saat
+sesuatu sudah rusak, disusun mulai dari gejala. Tapi satu bagiannya **tidak
+berlaku di sini**: pemulihan titik-waktu di sana memakai PITR Neon, dan
+`npm run dr:drill` bicara dengan API Neon. Pemasangan on-premise memakai
+Postgres sendiri, jadi cadangannya juga milikmu sendiri:
+
+```bash
+# Cadangan penuh, terkompresi
+docker compose exec -T db pg_dump -U rag -Fc rag > nalar-$(date +%F).dump
+
+# Pulihkan ke basis data kosong
+docker compose exec -T db pg_restore -U rag -d rag --clean --if-exists < nalar-2026-08-02.dump
+```
+
+Dua hal yang mudah terlewat, dan keduanya membuat cadangan jadi tak berguna
+tepat saat dibutuhkan:
+
+1. **`CREDENTIALS_ENCRYPTION_KEY` tidak ada di dalam dump.** Ia di `.env`.
+   Kehilangannya membuat setiap kunci API penyedia yang tersimpan berubah jadi
+   data acak, dan **tak ada cadangan basis data yang bisa memulihkannya**.
+   Cadangkan `.env` terpisah, di tempat yang berbeda.
+2. **Cadangan yang belum pernah dipulihkan bukan cadangan.** Latih memulihkan
+   ke basis data kosong, lalu jalankan `npm run dr:verify` untuk membandingkan
+   bentuknya dengan patokan yang di-commit di repo.
+
+Bentuk skema bisa dibuktikan ulang kapan saja tanpa menyentuh data:
+
+```bash
+npm run dr:verify
+```
 
 ---
 

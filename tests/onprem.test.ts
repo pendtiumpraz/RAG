@@ -112,7 +112,16 @@ test('panduan menuliskan apa yang BELUM ada, bukan hanya yang ada', () => {
      menyimpulkan hal yang berbeda tentang produk yang sama. */
   assert.ok(/Mekanisme lisensi.{0,40}belum ada/s.test(DOC), 'panduan tak menyebut lisensi belum ada');
   assert.ok(/HTTPS/.test(DOC), 'panduan tak menyebut HTTPS belum ditangani');
-  assert.ok(/a-runbook/.test(DOC), 'panduan tak menunjuk kartu cadangan/pemulihan');
+  /* Dulu asersi ini menuntut panduan menyebut KARTU `a-runbook`, karena saat
+     itu cadangan memang belum tertulis di mana pun dan yang bisa dijanjikan
+     hanyalah "sedang dikerjakan". Sejak RUNBOOK.md ada dan panduan ini punya
+     prosedur pg_dump sendiri (§7a), menunjuk nomor kartu justru lebih buruk:
+     ia mengirim pembacanya ke papan backlog alih-alih ke perintah yang harus
+     ia ketik. Yang dijaga tetap sama — bahwa cadangan TIDAK didiamkan. */
+  assert.ok(/RUNBOOK\.md/.test(DOC), 'panduan tak menunjuk prosedur pemulihan');
+  assert.ok(/pg_dump/.test(DOC), 'panduan tak memberi cara mencadangkan on-premise');
+  assert.ok(/CREDENTIALS_ENCRYPTION_KEY/.test(DOC),
+    'panduan tak memperingatkan kunci enkripsi TIDAK ikut di dalam dump');
 });
 
 test('panduan memberi cara MEMBUKTIKAN isolasi menyala', () => {

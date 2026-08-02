@@ -474,6 +474,20 @@ export const openApiSpec = {
           + 'platform, bukan informasi yang berguna bagi pemilik knowledge base.',
         responses: { 200: err('{ konektor: [{ jenis, label }] }') } },
     },
+    '/api/admin/retrieval': {
+      get: { summary: 'SUPERADMIN: saklar retrieval tingkat platform',
+        security: [sessionAuth],
+        description: 'Kuantisasi biner sebagai lapisan penyaring. Keputusan PEMASANGAN, bukan '
+          + 'per-tenant: yang ditukar adalah waktu lawan ketepatan pada infrastruktur bersama, '
+          + 'dan pemilik satu knowledge base tak punya dasar untuk menilainya.',
+        responses: { 200: err('{ binaryQuantize: boolean }') } },
+      put: { summary: 'SUPERADMIN: nyalakan/matikan kuantisasi biner', security: [sessionAuth],
+        description: 'MATI secara bawaan. Jarak Hamming hanya mempersempit kandidat — jarak '
+          + 'eksak tetap yang menentukan urutan akhir, jadi ketepatannya tidak ditukar. '
+          + 'Mengabaikan dirinya sendiri pada korpus kecil, tempat ia justru merugikan.',
+        requestBody: json(obj({ binaryQuantize: { type: 'boolean' } }, ['binaryQuantize'])),
+        responses: { 200: err('{ ok: true }'), 400: err('input tidak valid') } },
+    },
     '/api/admin/connectors': {
       get: { summary: 'SUPERADMIN: daftar konektor + saklarnya + berapa sumber masih memakainya',
         security: [sessionAuth],
