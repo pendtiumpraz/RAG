@@ -8,9 +8,14 @@ import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../..
 
 interface LlmModel { id: string; label: string; provider: string }
 interface EmbModel { id: string; label: string; bucket: string; kind: string }
+interface RerankModel { id: string; label: string; penyedia: string; catatan: string }
 interface Catalog {
   llmModels: LlmModel[]; embeddingModels: EmbModel[]; providers: string[];
-  active: { activeLlmModel: string; activeEmbeddingModel: string; systemPrompt: string | null } | null;
+  rerankModels: RerankModel[];
+  active: {
+    activeLlmModel: string; activeEmbeddingModel: string; systemPrompt: string | null;
+    activeRerankModel: string | null;
+  } | null;
   savedKeys: string[];
   role: string;
 }
@@ -24,6 +29,8 @@ interface EmbServer {
 export default function ModelsPage() {
   const { data, loading, error, refetch } = useApi<Catalog>('/api/settings');
   const [llm, setLlm] = useState(''); const [emb, setEmb] = useState('');
+  /* '' = MATI. Dipetakan ke null saat dikirim — lihat save(). */
+  const [rerank, setRerank] = useState('');
   const [prompt, setPrompt] = useState(''); const [keys, setKeys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
@@ -48,6 +55,7 @@ export default function ModelsPage() {
     setLlm(data.active?.activeLlmModel ?? data.llmModels[0]?.id ?? '');
     setEmb(data.active?.activeEmbeddingModel ?? data.embeddingModels[0]?.id ?? '');
     setPrompt(data.active?.systemPrompt ?? '');
+    setRerank(data.active?.activeRerankModel ?? '');
   }, [data]);
 
   async function save() {
@@ -55,6 +63,10 @@ export default function ModelsPage() {
     try {
       await api('/api/settings', { method: 'POST', body: JSON.stringify({
         activeLlmModel: llm, activeEmbeddingModel: emb, systemPrompt: prompt,
+        /* '' → null, bukan '' — kolomnya memakai NULL untuk "mati", dan dua
+           nilai yang sama-sama berarti mati selalu berakhir dengan satu
+           cabang kode yang lupa salah satunya. */
+        activeRerankModel: rerank || null,
         apiKeys: Object.fromEntries(Object.entries(keys).filter(([, v]) => v)),
       }) });
       toast('Pengaturan tersimpan'); setKeys({}); setTested({}); refetch();
@@ -100,6 +112,27 @@ export default function ModelsPage() {
                 {!!g.selfhosted.length && <optgroup label="Server sendiri (VPS)">{g.selfhosted.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>}
                 <optgroup label="API">{g.api.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</optgroup>
               </Select></Field></div></div>
+
+          <div className="card"><div className="panel-head"><span className="t">reranker</span>
+            <span className="badge">{rerank ? 'nyala' : 'mati'}</span></div>
+            <div className="card-pad stack gap-3">
+              <Field label="Model penilai ulang">
+                <Select value={rerank} onChange={(e) => setRerank(e.target.value)}>
+                  <option value="">Mati — pakai peringkat gabungan apa adanya</option>
+                  {(data.rerankModels ?? []).map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </Select>
+              </Field>
+              <p className="microlabel" style={{ lineHeight: 1.6 }}>
+                {rerank
+                  ? (data.rerankModels ?? []).find((m) => m.id === rerank)?.catatan
+                  : 'MEMBACA PERTANYAAN & POTONGAN BERSAMAAN, JADI LEBIH TEPAT MENILAI '
+                    + 'MANA YANG BENAR-BENAR MENJAWAB. HARGANYA SATU PANGGILAN TAMBAHAN '
+                    + 'DI TIAP PERTANYAAN — NYALAKAN KALAU JAWABAN SERING MELESET '
+                    + 'PADAHAL DOKUMENNYA ADA.'}
+              </p>
+            </div></div>
 
           <div className="card"><div className="panel-head"><span className="t">system prompt</span></div>
             <div className="card-pad"><Field label="Instruksi"><textarea className="textarea" rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} /></Field></div></div>

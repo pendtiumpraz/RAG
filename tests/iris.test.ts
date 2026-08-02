@@ -47,6 +47,25 @@ test('irisBlok berhenti di batas fungsi berikutnya', () => {
     'irisan menembus ke fungsi berikutnya — asersi positif akan lolos terlalu mudah');
 });
 
+test('percabangan di dalam badan fungsi BUKAN batas', () => {
+  /* `  if (x) return;` di badan fungsi tingkat atas berbentuk persis seperti
+     `  namaMetode(` di dalam objek. Tanpa pengecualian kata kunci, irisannya
+     berhenti di percabangan PERTAMA dan tesnya menuduh kode yang sudah benar —
+     kejadian nyata saat helper ini dipakai memeriksa `mungkinRerank`. */
+  const src = [
+    'async function f(a: number) {',
+    '  if (!a) return null;',
+    '  for (const x of []) void x;',
+    '  return hasilAkhir(a);',
+    '}',
+    '',
+    'function g() { return 1; }',
+  ].join('\n');
+  const blok = irisBlok(src, 'async function f(');
+  assert.ok(/hasilAkhir/.test(blok), 'irisan berhenti di percabangan pertama');
+  assert.ok(!/function g\(\)/.test(blok), 'irisan menembus ke fungsi berikutnya');
+});
+
 test('irisBlok MELEMPAR bila batasnya tak dikenali', () => {
   /* Bentuk kegagalan yang paling berbahaya bukan "melempar", melainkan
      "mengembalikan sisa berkas" — asersi positif lalu menemukan polanya di

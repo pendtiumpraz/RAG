@@ -25,8 +25,19 @@
  */
 
 /** Pola pembuka anggota/fungsi berikutnya di dalam sebuah objek layanan. */
+/**
+ * Kata kunci yang BENTUKNYA sama dengan deklarasi metode.
+ *
+ * `  if (!model) return;` di dalam badan fungsi tingkat atas terlihat persis
+ * seperti `  namaMetode(` di dalam objek. Tanpa pengecualian ini, irisannya
+ * berhenti di percabangan pertama — dan tesnya lalu menuduh kode yang sudah
+ * benar. Ketahuan saat helper ini baru dipakai untuk memeriksa `mungkinRerank`:
+ * dua asersi gagal terhadap kode yang isinya persis seperti yang diminta.
+ */
+const KATA_KUNCI = /(?:if|for|while|switch|catch|return|do|else|try|await|typeof|new|delete|void|yield)\b/;
+
 const BATAS = [
-  /\n {2}(?:async )?[a-zA-Z_$][\w$]*\s*[(<]/,   // metode objek: `  async foo(` / `  foo(`
+  new RegExp(`\\n {2}(?!${KATA_KUNCI.source})(?:async )?[a-zA-Z_$][\\w$]*\\s*[(<]`), // metode objek
   /\n {2}(?:export )?function /,
   /\nfunction /,
   /\n {2}useEffect\(/,

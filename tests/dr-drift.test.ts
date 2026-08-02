@@ -119,7 +119,13 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
   const patokan = JSON.parse(readFileSync('docs/dr-baseline.json', 'utf8')) as
     { tabel: string[]; indeks: string[]; kebijakan: string[]; rlsAktif: string[] };
   const terakhir = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort().at(-1)!;
-  assert.equal(terakhir, '0045_saklar_konektor.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+  /* Nama migrasi terakhir dipatok DI SINI sebagai kawat pemicu: tiap migrasi
+     baru menggagalkan tes ini sampai seseorang benar-benar menjalankan
+     `npm run dr:verify` terhadap produksi dan menyegarkan patokannya.
+     Menaikkan angkanya tanpa melakukan itu berarti mencabut kawatnya.
+     0046 (kolom reranker) diperiksa 2 Agu 2026: nol selisih — kolom baru
+     memang tak menambah tabel, indeks, maupun kebijakan. */
+  assert.equal(terakhir, '0046_reranker.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
   assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),

@@ -4,6 +4,11 @@ import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { embed, embeddingDims } from '@/modules/knowledge/embeddings';
 import { rrfFuse, mmrSelect, contentTokens, dedupeNearDuplicates } from './fusion';
 import { lexicalTsquery } from './lexical-query';
+import { pasangUlangSkala, porsiKandidat, terapkanRerank } from './rerank';
+import { cariRerank, nilaiUlang } from './rerank-penyedia';
+import { log } from '@/modules/core/observability';
+import { tenantSettings } from '@/modules/core/db/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * Bobot MMR: 0,75 condong ke relevansi, cukup untuk membuang potongan yang
@@ -133,6 +138,58 @@ export function titleBoost(title: string | null, tokens: string[]): number {
  * Chatbot tanpa KB ter-assign = konteks kosong (jawab "tidak tahu"), bukan
  * error — keadaan sah saat chatbot baru dibuat.
  */
+/** Kandidat yang dipahami MMR — bentuk yang beredar setelah fusi. */
+interface Berskor {
+  id: string; title: string | null; content: string;
+  kind: string; rank: number; score: number;
+}
+
+/**
+ * Nilai ulang dengan reranker bila tenant menyalakannya; kalau tidak,
+ * kembalikan apa adanya.
+ *
+ * MEMANGGIL JARINGAN — wajib dipanggil di LUAR withTenant(). Pembacaan
+ * setelan di bawah membuka transaksinya sendiri dan menutupnya SEBELUM
+ * panggilan keluar, bukan membungkusnya.
+ */
+async function mungkinRerank(
+  tenantId: string, query: string, scored: Berskor[], k: number,
+): Promise<Berskor[]> {
+  if (scored.length < 2) return scored;
+
+  const [set] = await withTenant(tenantId, (tx) =>
+    tx.select({ m: tenantSettings.activeRerankModel }).from(tenantSettings)
+      .where(eq(tenantSettings.tenantId, tenantId)).limit(1));
+  const model = cariRerank(set?.m);
+  if (!model) return scored;                    // NULL = mati, dan itu bawaannya
+
+  /* Hanya puncak daftar yang dinilai ulang. Ekornya jarang terpilih dan tiap
+     kandidat berharga satu lintasan model — mengirim semuanya membuat satu
+     pertanyaan pada korpus besar berbiaya berlipat tanpa ada yang memutuskan
+     begitu. */
+  const batas = porsiKandidat(k);
+  const puncak = scored.slice(0, batas);
+  const ekor = scored.slice(batas);
+
+  try {
+    const t0 = Date.now();
+    const hasil = await nilaiUlang(model, query, puncak, { ambilKunci: apiKeyResolver(tenantId) });
+    const baru = pasangUlangSkala(terapkanRerank(puncak, hasil) as Berskor[]);
+    log('info', {
+      event: 'rerank.selesai', model: model.id, kandidat: puncak.length,
+      dinilai: hasil.length, durasiMs: Date.now() - t0,
+    });
+    return [...baru, ...ekor];
+  } catch (e) {
+    /* GAGAL DENGAN TENANG. Reranker adalah penyempurnaan; hasil yang urutannya
+       agak kurang tepat jauh lebih baik daripada pertanyaan yang tak terjawab
+       sama sekali. Tapi kegagalannya DICATAT — lapisan yang diam-diam mati
+       akan tampak seperti "kok tidak ada bedanya" berbulan-bulan. */
+    log('warn', { event: 'rerank.gagal', model: model.id, pesan: (e as Error).message });
+    return scored;
+  }
+}
+
 export const retrievalService = {
   async retrieve(
     tenantId: string,
@@ -389,13 +446,33 @@ export const retrievalService = {
       };
     });
 
+    /* ── reranker lintas-encoder, bila tenant menyalakannya ─────────────
+     *
+     * DI SINI, dan tempatnya tidak sembarang. Titik ini berada di LUAR kedua
+     * withTenant() di atas — keduanya sudah ditutup. Reranker memanggil
+     * jaringan, dan di Vercel kolam koneksi dipatok max:1: satu panggilan
+     * lambat di dalam transaksi menahan satu-satunya koneksi selama seluruh
+     * perjalanan HTTP-nya. tests/audit-koneksi.test.ts yang menjaga itu tetap
+     * begitu.
+     *
+     * Sebelum MMR, bukan sesudah. MMR menata KERAGAMAN di atas urutan yang
+     * diberikan padanya; kalau reranker berjalan sesudahnya, ia menilai ulang
+     * daftar yang sudah diacak keragamannya dan hasilnya dua penataan yang
+     * saling menimpa.
+     *
+     * Kegagalannya TIDAK menggagalkan pencarian. Hasil yang urutannya agak
+     * kurang tepat jauh lebih baik daripada tak ada jawaban sama sekali —
+     * apalagi untuk lapisan yang seluruh nilainya adalah penyempurnaan.
+     */
+    const urut = await mungkinRerank(tenantId, query, scored, k);
+
     // Dua tahap, dan urutannya penting. Kembar dibuang TEGAS lebih dulu:
     // ia tak membawa informasi baru sama sekali, sedangkan MMR hanya
     // mengurangi nilai — dan kembar yang relevansinya nyaris sama tetap
     // menang di MMR. Baru sesudah itu MMR menata keragaman yang lebih halus.
     // Pemilihan memakai nilai RRF, bukan kosinus — urutan ditentukan
     // penggabungan dua kaki, bukan salah satunya saja.
-    const cand = scored.map((s) => ({ id: s.id, score: s.rank, tokens: contentTokens(s.content) }));
+    const cand = urut.map((s) => ({ id: s.id, score: s.rank, tokens: contentTokens(s.content) }));
     // Diambil LEBIH dari k: sebagian bisa gugur oleh jatah ringkasan di bawah,
     // dan tanpa cadangan, slot konteks yang mahal itu terbuang kosong.
     const picked = mmrSelect(dedupeNearDuplicates(cand), k + memCap(k), MMR_LAMBDA);

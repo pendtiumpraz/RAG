@@ -7,6 +7,7 @@ import { ALL_PROVIDERS } from '@/modules/core/registry';
 import { listLlmModels } from '@/modules/chat/llm-catalog';
 import { listEmbeddingModels } from '@/modules/knowledge/embeddings/catalog';
 import { listSavedProviders } from '@/modules/settings/credentials.repository';
+import { MODEL_RERANK } from '@/modules/chat/rerank-penyedia';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +23,10 @@ export async function GET() {
   return NextResponse.json({
     llmModels,
     embeddingModels,
+    /* Katalog reranker. Dikirim SELALU, termasuk saat tak ada satu pun yang
+       aktif — kalau tidak, satu-satunya cara pengguna tahu fitur ini ada
+       adalah membaca kode. */
+    rerankModels: MODEL_RERANK,
     providers: ALL_PROVIDERS,
     // hanya NAMA provider yang punya kunci — nilainya tak pernah keluar.
     // Tanpa ini UI tak bisa memberi tahu bahwa penyimpanan berhasil, karena
@@ -36,6 +41,12 @@ export async function GET() {
 const Body = z.object({
   activeLlmModel: z.string().optional(),
   activeEmbeddingModel: z.string().optional(),
+  /* .nullable() WAJIB di samping .optional(): null berarti "matikan
+     reranker", undefined berarti "jangan sentuh". Skema yang hanya optional
+     menolak null dengan galat validasi mentah — cacat yang persis pernah
+     terjadi pada kolom `context` chatbot dan muncul di layar sebagai
+     "[object Object]". */
+  activeRerankModel: z.string().nullable().optional(),
   systemPrompt: z.string().optional(),
   themeConfig: z.record(z.unknown()).optional(),
   apiKeys: z.record(z.string()).optional(),

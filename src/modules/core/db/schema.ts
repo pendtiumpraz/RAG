@@ -213,6 +213,19 @@ export const tenantSettings = pgTable('tenant_settings', {
    * murah, di sini ia bisa mematikan fiturnya sendiri.
    */
   memoryReview: boolean('memory_review').default(false).notNull(),
+  /**
+   * Reranker lintas-encoder yang aktif (migrasi 0046). NULL = MATI, bawaan.
+   *
+   * Sengaja NULL alih-alih string kosong: kolom teks yang "kosong berarti
+   * mati" selalu berakhir dengan dua nilai yang berarti mati ('' dan NULL)
+   * dan satu cabang kode yang lupa salah satunya.
+   *
+   * Mati secara bawaan karena reranker membeli ketepatan pada sekitar 19%
+   * permintaan dengan biaya latensi yang ditanggung 100% permintaan — lihat
+   * src/modules/chat/rerank.ts untuk angkanya. Pertukaran itu hanya pantas
+   * diambil oleh orang yang melihat 19% itu menyakitkan pada korpusnya.
+   */
+  activeRerankModel: text('active_rerank_model'),
   /** White-label theme for the tenant dashboard (brand, colors, radius, font…). */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   ...stamps,
