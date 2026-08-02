@@ -32,7 +32,8 @@
     "a11y:kontras": "node --import tsx scripts/a11y-kontras.ts",
     "funnel:report": "node --env-file=.env --import tsx scripts/funnel-report.ts",
     "dr:verify": "node --env-file=.env --import tsx scripts/dr-verify.ts",
-    "eval:leksikal": "node --import tsx scripts/eval-leksikal.ts"
+    "eval:leksikal": "node --import tsx scripts/eval-leksikal.ts",
+    "tur": "node --env-file=.env --import tsx scripts/tur-fitur.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.66.0",
@@ -64,6 +65,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.22",
+    "playwright-core": "^1.62.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0"
   },

@@ -504,3 +504,64 @@
   border-radius:9px; display:flex; flex-direction:column; gap:8px;
 }
 .kb-note textarea{ resize:vertical; min-height:64px; font-size:13.5px; }
+
+/* ── tab Bukti Fitur ──────────────────────────────────────────────────
+   Bukti dari tur peramban (npm run tur). Kegagalan sengaja diberi warna
+   bahaya dan TIDAK disembunyikan: dataroom yang hanya memuat kabar baik
+   tak memberi tahu pembacanya apa pun. */
+.dr-bukti{ display:flex; flex-direction:column; gap:18px; padding:4px 0 40px; }
+
+.bk-summary{ background:var(--card); border:1px solid var(--line);
+  border-radius:var(--rad-lg); padding:20px 22px; display:grid;
+  grid-template-columns:auto 1fr; gap:8px 32px; align-items:center; }
+.bk-overall b{ font-family:var(--font-display); font-size:44px; line-height:1;
+  letter-spacing:-.03em; display:block; margin-top:4px; }
+.bk-overall b small{ font-size:20px; color:var(--muted); font-weight:400; }
+.bk-overall .delta{ font-size:13px; color:var(--muted); }
+.bk-angka{ display:flex; gap:28px; justify-self:end; }
+.bk-angka b{ font-family:var(--font-display); font-size:24px; display:block; margin-top:2px; }
+.bk-angka b.warn{ color:var(--source); } .bk-angka b.bad{ color:var(--danger); }
+.bk-meta{ grid-column:1/-1; margin:6px 0 0; font-size:12.5px; color:var(--muted); }
+
+.bk-catat{ background:var(--card); border:1px solid var(--source);
+  border-left-width:3px; border-radius:var(--rad-lg); padding:14px 18px;
+  font-size:13.5px; line-height:1.55; }
+
+.bk-sec.bad{ border-color:var(--danger); border-left-width:3px; }
+.bk-sec.warn{ border-color:var(--source); border-left-width:3px; }
+.as-badge.skip{ color:var(--muted); }
+.bk-kunci{ color:var(--muted); }
+
+.bk-langkah{ list-style:none; margin:0; padding:0; display:flex;
+  flex-direction:column; gap:14px; }
+.bk-langkah > li{ border-top:1px solid var(--line); padding-top:12px; }
+.bk-kepala{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.bk-n{ font-family:var(--font-mono); font-size:11px; width:20px; height:20px;
+  display:grid; place-items:center; border:1px solid var(--line);
+  border-radius:999px; color:var(--muted); flex:none; }
+.bk-kepala b{ font-size:14px; }
+.bk-http, .bk-ms{ font-size:11.5px; color:var(--muted); }
+.bk-catatan{ margin:6px 0 0 30px; font-size:12.5px; color:var(--muted); }
+.bk-galat{ margin:6px 0 0 30px; padding:0; list-style:none; }
+.bk-galat code{ font-size:11.5px; color:var(--danger); }
+
+.bk-shot{ display:block; margin:10px 0 0 30px; padding:0; border:1px solid var(--line);
+  border-radius:var(--rad-md); overflow:hidden; background:var(--bg); cursor:zoom-in;
+  max-width:520px; width:100%; }
+.bk-shot img{ display:block; width:100%; height:auto; }
+.bk-shot:hover{ border-color:var(--signal); }
+
+.bk-lightbox{ position:fixed; inset:0; z-index:80; background:rgba(15,23,42,.82);
+  display:grid; place-items:center; padding:24px; cursor:zoom-out; }
+.bk-lightbox figure{ margin:0; max-width:min(1440px,96vw); max-height:92vh;
+  display:flex; flex-direction:column; gap:8px; cursor:default; }
+.bk-lightbox img{ max-width:100%; max-height:84vh; object-fit:contain;
+  border-radius:var(--rad-md); background:#fff; }
+.bk-lightbox figcaption{ display:flex; align-items:center; justify-content:space-between;
+  gap:16px; color:#fff; font-size:13px; }
+
+@media (max-width:720px){
+  .bk-summary{ grid-template-columns:1fr; }
+  .bk-angka{ justify-self:start; }
+  .bk-shot, .bk-catatan, .bk-galat{ margin-left:0; }
+}

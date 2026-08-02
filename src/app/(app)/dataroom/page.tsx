@@ -9,6 +9,7 @@ import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment
 import { SHIPPED, SHIPPED_AT } from './updates';
 import Kanban from './Kanban';
 import Calculator from './Calculator';
+import BuktiFitur from './BuktiFitur';
 import { buildZip, standaloneSvg, svgToWebp, slideFileName, KETERANGAN_EKSPOR } from './slide-export';
 import { EmptyState, useToast } from '../../_components/ui';
 
@@ -24,7 +25,7 @@ import { EmptyState, useToast } from '../../_components/ui';
 export default function DataroomPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const [deckId, setDeckId] = useState<Deck['id'] | 'assessment' | 'updates' | 'calculator'>('technical');
+  const [deckId, setDeckId] = useState<Deck['id'] | 'assessment' | 'bukti' | 'updates' | 'calculator'>('technical');
   const [i, setI] = useState(0);
   const [exporting, setExporting] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -33,7 +34,8 @@ export default function DataroomPage() {
   const isAssess = deckId === 'assessment';
   const isUpdates = deckId === 'updates';
   const isCalc = deckId === 'calculator';
-  const isDoc = isAssess || isUpdates || isCalc;   // tab dokumen (bukan deck slide)
+  const isBukti = deckId === 'bukti';
+  const isDoc = isAssess || isUpdates || isCalc || isBukti;   // tab dokumen (bukan deck slide)
   const deck = DECKS.find((d) => d.id === deckId) ?? DECKS[0];
   const total = deck.slides.length;
 
@@ -159,6 +161,11 @@ export default function DataroomPage() {
           onClick={() => setDeckId('assessment')}>
           Assessment
         </button>
+        <button role="tab" aria-selected={isBukti}
+          className={`dr-tab${isBukti ? ' on' : ''}`}
+          onClick={() => setDeckId('bukti')}>
+          Bukti Fitur
+        </button>
         <button role="tab" aria-selected={isCalc}
           className={`dr-tab${isCalc ? ' on' : ''}`}
           onClick={() => setDeckId('calculator')}>
@@ -173,6 +180,7 @@ export default function DataroomPage() {
 
       {isCalc && <Calculator />}
       {isAssess && <AssessmentView />}
+      {isBukti && <BuktiFitur />}
       {isUpdates && <UpdatesView />}
 
       {/* panggung — juga target fullscreen */}
