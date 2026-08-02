@@ -582,6 +582,8 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const [loc, setLoc] = useState('');
   /** URL folder Drive publik / URL situs SharePoint / tautan berbagi */
   const [url, setUrl] = useState('');
+  /** Token Notion/Slack. Dikirim sekali, dienkripsi di server, tak pernah kembali. */
+  const [token, setToken] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
   const [picked, setPicked] = useState<PickedFile[]>([]);
   /** berkas dari komputer pengguna (jenis sumber `upload`) */
@@ -591,7 +593,11 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const toast = useToast();
 
   // Tiga jenis sumber tak butuh akun sama sekali.
-  const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload' || kind === 's3';
+  /* Konektor bertoken: pelanggan memasok kredensialnya sendiri, jadi tak ada
+     akun OAuth yang perlu dipilih lebih dulu. */
+  const bertoken = kind === 'notion' || kind === 'slack';
+  const noAuth = kind === 'gdrive_public' || kind === 'url' || kind === 'upload'
+    || kind === 's3' || bertoken;
   const konektor = useApi<{ konektor: Array<{ jenis: string; label: string }> }>('/api/connectors');
   const [s3, setS3] = useState({ bucket: '', region: '', prefix: '', accessKeyId: '', secretAccessKey: '', endpoint: '', gayaPath: false });
   const provider = kind === 'gdrive' ? 'google' : 'microsoft';
@@ -716,6 +722,17 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
         secretAccessKey: s3.secretAccessKey,
         endpoint: s3.endpoint.trim(), gayaPath: s3.gayaPath,
       };
+    } else if (bertoken) {
+      if (!token.trim()) {
+        setErr(kind === 'notion'
+          ? 'Tempel token internal integration Notion (diawali ntn_ atau secret_).'
+          : 'Tempel bot token Slack (diawali xoxb-).');
+        setBusy(false); return;
+      }
+      /* Dikirim polos SEKALI lewat HTTPS lalu dienkripsi di server — sama
+         seperti S3. Tak ada jalan lain: yang dienkripsi di peramban berarti
+         kuncinya juga ada di peramban. */
+      config = { token: token.trim() };
     } else if (kind === 'gdrive_public') {
       config = { folderUrl: url.trim() };
     } else if (kind === 'url') {
@@ -756,6 +773,27 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
           {/* S3 tak memakai OAuth: pelanggan memasok kuncinya sendiri, persis
               seperti kunci API penyedia LLM. Secret-nya dienkripsi di server
               (AES-256-GCM) dan tak pernah dikirim balik ke peramban. */}
+          {bertoken && (
+            <Field label={kind === 'notion' ? 'Token internal integration' : 'Bot token'}>
+              <input className="input" type="password" value={token} autoComplete="off"
+                placeholder={kind === 'notion' ? 'ntn_…' : 'xoxb-…'}
+                onChange={(e) => setToken(e.target.value)} />
+              <p className="microlabel" style={{ marginTop: 6, lineHeight: 1.7 }}>
+                {kind === 'notion' ? (
+                  <>DISIMPAN TERENKRIPSI DI SERVER — TAK PERNAH DIKIRIM BALIK KE PERAMBAN.<br />
+                    BUAT INTEGRASI DI NOTION → SETTINGS → CONNECTIONS → DEVELOP OR MANAGE INTEGRATIONS,
+                    LALU <b>SHARE</b> TIAP HALAMAN YANG BOLEH DIBACA KE INTEGRASI ITU.
+                    YANG TIDAK DIBAGIKAN TIDAK AKAN PERNAH TERLIHAT.</>
+                ) : (
+                  <>DISIMPAN TERENKRIPSI DI SERVER — TAK PERNAH DIKIRIM BALIK KE PERAMBAN.<br />
+                    BUAT APLIKASI DI api.slack.com/apps, BERI CAKUPAN <b>channels:read</b> &amp;{' '}
+                    <b>channels:history</b>, LALU UNDANG BOT-NYA KE KANAL YANG BOLEH DIBACA.
+                    SATU KANAL JADI SATU DOKUMEN; DM &amp; GRUP PRIVAT TIDAK PERNAH DIAMBIL.</>
+                )}
+              </p>
+            </Field>
+          )}
+
           {kind === 's3' && (
             <>
               <Field label="Bucket">

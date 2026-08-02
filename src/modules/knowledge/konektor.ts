@@ -76,14 +76,23 @@ export const KONEKTOR: Konektor[] = [
     keterangan: 'Pelanggan memasok kunci aksesnya sendiri — tak ada yang perlu kita daftarkan.',
   },
   {
-    jenis: 'notion', label: 'Notion', tersedia: false,
-    butuhAplikasiKita: true, bawaanNyala: false,
-    keterangan: 'Belum tersedia: menuntut aplikasi OAuth Notion yang kita daftarkan sendiri.',
+    jenis: 'notion', label: 'Notion', tersedia: true,
+    /* Anggapan lama: menuntut aplikasi OAuth yang KAMI daftarkan, jadi
+       kartunya menunggu kredensial pihak ketiga. Itu hanya benar untuk
+       integrasi MARKETPLACE. Notion punya "internal integration": pelanggan
+       membuatnya di ruang kerjanya sendiri dan menempelkan tokennya, persis
+       pola S3. Tak ada yang perlu kami daftarkan. */
+    butuhAplikasiKita: false, bawaanNyala: true,
+    keterangan: 'Pelanggan membuat internal integration di ruang kerjanya sendiri, '
+      + 'membagikan halaman yang dipilihnya, lalu menempelkan token.',
   },
   {
-    jenis: 'slack', label: 'Slack', tersedia: false,
-    butuhAplikasiKita: true, bawaanNyala: false,
-    keterangan: 'Belum tersedia: menuntut aplikasi Slack yang kita daftarkan sendiri.',
+    jenis: 'slack', label: 'Slack', tersedia: true,
+    /* Alasan yang sama: bot token milik ruang kerja pelanggan, bukan aplikasi
+       marketplace kami. */
+    butuhAplikasiKita: false, bawaanNyala: true,
+    keterangan: 'Bot token dari aplikasi Slack milik pelanggan sendiri. Satu kanal '
+      + 'jadi satu dokumen; DM & grup privat sengaja tak pernah diambil.',
   },
 ];
 
@@ -108,7 +117,28 @@ export function konektorBoleh(
   jenis: string,
   pengaturan: Record<string, boolean> | null | undefined,
 ): boolean {
-  const k = konektor(jenis);
+  return bolehDenganDaftar(jenis, pengaturan, KONEKTOR);
+}
+
+/**
+ * Aturan yang sama, tapi daftarnya bisa diberikan dari luar.
+ *
+ * Ada semata-mata supaya aturan "yang belum tersedia SELALU tertutup" bisa
+ * benar-benar diuji. Sejak Notion & Slack selesai (2 Agu 2026) tak ada satu
+ * pun konektor ber-`tersedia:false` yang tersisa, dan tes yang kehilangan
+ * contohnya lalu ditulis ulang jadi memeriksa ekspresinya sendiri — lulus
+ * selamanya tanpa menyentuh fungsi ini sama sekali.
+ *
+ * Menghapus tesnya bukan pilihan: aturan itu akan hilang tepat sebelum
+ * konektor berikutnya ditambahkan setengah jadi, dan galatnya muncul jauh
+ * dari sebabnya — di tengah sinkronisasi milik pelanggan.
+ */
+export function bolehDenganDaftar(
+  jenis: string,
+  pengaturan: Record<string, boolean> | null | undefined,
+  daftar: Konektor[],
+): boolean {
+  const k = daftar.find((x) => x.jenis === jenis);
   if (!k || !k.tersedia) return false;
   const disetel = pengaturan?.[jenis];
   return typeof disetel === 'boolean' ? disetel : k.bawaanNyala;

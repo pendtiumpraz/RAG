@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { irisAntara } from './_iris';
 
 import {
-  KONEKTOR, bersihkanPengaturan, daftarKonektor, konektor, konektorBoleh,
+  KONEKTOR, bersihkanPengaturan, bolehDenganDaftar, daftarKonektor, konektor, konektorBoleh,
 } from '../src/modules/knowledge/konektor';
 
 /**
@@ -33,10 +33,23 @@ test('kunci yang HILANG berarti bawaan, bukan mati', () => {
 test('yang BELUM TERSEDIA selalu tertutup, apa pun isi pengaturannya', () => {
   /* Baris pengaturan yang tertinggal dari percobaan lama tak boleh bisa
      menyalakan adaptor yang tak pernah ditulis — galatnya akan muncul jauh
-     dari sebabnya, di tengah sinkronisasi milik pelanggan. */
-  assert.equal(konektorBoleh('notion', { notion: true }), false);
-  assert.equal(konektorBoleh('slack', { slack: true }), false);
-  assert.equal(konektor('notion')?.tersedia, false);
+     dari sebabnya, di tengah sinkronisasi milik pelanggan.
+
+     SEJAK 2 Agu 2026 tak ada satu pun konektor ber-`tersedia:false` (Notion &
+     Slack yang terakhir, keduanya selesai). Aturannya diuji lewat entri
+     BUATAN, bukan lewat contoh nyata: menghapus tesnya karena kebetulan tak
+     ada contohnya berarti aturan itu hilang tepat sebelum konektor berikutnya
+     ditambahkan setengah jadi. */
+  const buatan = KONEKTOR.map((k) => ({ ...k, tersedia: false, bawaanNyala: true }));
+  for (const k of buatan) {
+    assert.equal(bolehDenganDaftar(k.jenis, { [k.jenis]: true }, buatan), false,
+      `${k.jenis} lolos padahal ditandai belum tersedia`);
+  }
+  /* Dan daftar yang SEBENARNYA dipakai memang lewat aturan yang sama —
+     tanpa ini, `bolehDenganDaftar` bisa benar sementara `konektorBoleh`
+     diam-diam bercabang sendiri. */
+  assert.equal(konektorBoleh('gdrive', { gdrive: false }), false);
+  assert.equal(bolehDenganDaftar('gdrive', { gdrive: false }, KONEKTOR), false);
 });
 
 test('jenis TAK DIKENAL tertutup', () => {
@@ -55,7 +68,11 @@ test('kunci sampah dibuang, yang belum tersedia dipaksa mati saat DISIMPAN', () 
   const out = bersihkanPengaturan({
     gdrive: false, s3: true, notion: true, entah: true, url: 'ya' as unknown as boolean,
   });
-  assert.deepEqual(out, { gdrive: false, s3: true, notion: false });
+  /* notion: true kini BERTAHAN — adaptornya sudah ada sejak 2 Agu 2026. Yang
+     tetap dijaga di sini adalah dua hal lain, dan keduanya tak bergantung
+     pada konektor mana pun: kunci tak dikenal dibuang, dan nilai bukan
+     boolean tak ikut tersimpan. */
+  assert.deepEqual(out, { gdrive: false, s3: true, notion: true });
   assert.ok(!('entah' in out), 'kunci tak dikenal ikut tersimpan');
   assert.ok(!('url' in out), 'nilai bukan boolean ikut tersimpan');
 });
@@ -65,18 +82,27 @@ test('daftar lengkap membawa keadaan nyala tiap konektor', () => {
   assert.equal(d.length, KONEKTOR.length);
   assert.equal(d.find((k) => k.jenis === 'gdrive')?.nyala, false);
   assert.equal(d.find((k) => k.jenis === 's3')?.nyala, true);
-  assert.equal(d.find((k) => k.jenis === 'notion')?.nyala, false);
+  assert.equal(d.find((k) => k.jenis === 'notion')?.nyala, true,
+    'notion mati padahal adaptornya sudah ada');
 });
 
 test('registri menyebut mana yang menuntut aplikasi OAuth KITA', () => {
-  /* Inilah yang membedakan Notion/Slack dari S3: pada S3 pelanggan memasok
-     kuncinya sendiri, jadi tak ada yang perlu ditunggu. Perbedaan itu yang
-     memisahkan kartu ini dari a-connectors. */
+  /* Bendera ini memisahkan konektor yang bisa diselesaikan sendiri dari yang
+     menunggu pendaftaran aplikasi oleh KAMI.
+
+     NOTION & SLACK PINDAH SISI pada 2 Agu 2026, dan itu koreksi anggapan,
+     bukan perubahan produk: keduanya memang menuntut aplikasi OAuth kita
+     UNTUK JALUR MARKETPLACE, tapi punya jalur token per-ruang-kerja yang
+     dibuat pelanggan sendiri — persis pola S3. Yang tersisa di sisi "butuh
+     aplikasi kita" tinggal keluarga Google & Microsoft, yang memang tak
+     punya padanan token semacam itu. */
   assert.equal(konektor('s3')?.butuhAplikasiKita, false);
   assert.equal(konektor('url')?.butuhAplikasiKita, false);
   assert.equal(konektor('upload')?.butuhAplikasiKita, false);
-  assert.equal(konektor('notion')?.butuhAplikasiKita, true);
-  assert.equal(konektor('slack')?.butuhAplikasiKita, true);
+  assert.equal(konektor('notion')?.butuhAplikasiKita, false);
+  assert.equal(konektor('slack')?.butuhAplikasiKita, false);
+  assert.equal(konektor('gdrive')?.butuhAplikasiKita, true);
+  assert.equal(konektor('onedrive')?.butuhAplikasiKita, true);
 });
 
 /* ── penegakan, bukan sekadar sembunyi ───────────────────────────────── */

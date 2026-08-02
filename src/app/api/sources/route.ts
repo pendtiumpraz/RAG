@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 
 const Body = z.object({
   knowledgeBaseId: z.string().uuid(),
-  kind: z.enum(['gdrive', 'gdrive_public', 'onedrive', 'sharepoint', 'upload', 'url', 's3']),
+  kind: z.enum(['gdrive', 'gdrive_public', 'onedrive', 'sharepoint', 'upload', 'url', 's3', 'notion', 'slack']),
   config: z.record(z.unknown()).default({}),   // { folderId } | { folderPath } | …
 });
 
@@ -74,10 +74,22 @@ const Body = z.object({
  * memasukkan sumber S3 tanpa melewati enkripsi ini.
  */
 function amankanRahasia(kind: string, config: Record<string, unknown>): Record<string, unknown> {
-  if (kind !== 's3') return config;
-  const { secretAccessKey, ...sisa } = config as { secretAccessKey?: unknown };
-  if (typeof secretAccessKey !== 'string' || !secretAccessKey) return sisa;
-  return { ...sisa, secretAccessKeyEnc: encryptSecret(secretAccessKey) };
+  if (kind === 's3') {
+    const { secretAccessKey, ...sisa } = config as { secretAccessKey?: unknown };
+    if (typeof secretAccessKey !== 'string' || !secretAccessKey) return sisa;
+    return { ...sisa, secretAccessKeyEnc: encryptSecret(secretAccessKey) };
+  }
+  /* Notion & Slack: token milik ruang kerja pelanggan. Umurnya panjang dan
+     tak kedaluwarsa sendiri — persis seperti kunci S3, dan karena itu tak
+     boleh mendarat polos di jsonb yang ikut di setiap SELECT dan setiap
+     cadangan. Ditangani di titik masuk yang SAMA supaya tak ada jenis baru
+     yang bisa lolos dengan diam-diam melewati enkripsi. */
+  if (kind === 'notion' || kind === 'slack') {
+    const { token, ...sisa } = config as { token?: unknown };
+    if (typeof token !== 'string' || !token) return sisa;
+    return { ...sisa, tokenEnc: encryptSecret(token) };
+  }
+  return config;
 }
 
 /** POST /api/sources — hubungkan sumber → langsung antre sync pertama. */
@@ -107,7 +119,7 @@ export async function POST(req: NextRequest) {
   let jobStatus = null;
   // Jenis "upload" TIDAK di sini: berkasnya ikut di badan permintaan dan ingest-nya
   // tuntas di /api/knowledge-bases/{id}/upload — tak ada yang bisa di-sync.
-  if (['gdrive', 'gdrive_public', 'onedrive', 'sharepoint', 'url', 's3'].includes(parsed.data.kind)) {
+  if (['gdrive', 'gdrive_public', 'onedrive', 'sharepoint', 'url', 's3', 'notion', 'slack'].includes(parsed.data.kind)) {
     jobStatus = syncService.enqueue(user.tenantId, user.id, created.id);
     // Tanpa ini, Vercel membekukan lambda begitu respons terkirim dan job
     // sync mati di tengah — status macet 'syncing', KB tak pernah terisi.

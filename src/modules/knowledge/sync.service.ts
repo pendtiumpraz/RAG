@@ -27,6 +27,8 @@ import { assertPublicHttpUrl } from '@/modules/core/net';
 import { decryptSecret } from '@/modules/core/crypto';
 import type { KredensialS3 } from '@/modules/connections/s3';
 import { ambilObjek, daftarObjek } from './storage/s3';
+import { daftarHalaman, isiHalaman, type KredensialNotion } from './storage/notion';
+import { daftarKanal, isiKanal, versiKanal, type KredensialSlack } from './storage/slack';
 
 /**
  * SYNC WORKER — crawl storage user → ekstrak teks → ingest KB →
@@ -600,6 +602,70 @@ async function connect(
       })),
       truncated: terpotong,
       async fetch(f) { return ambilObjek(kred, f.externalId); },
+    };
+  }
+
+  /**
+   * NOTION — halaman yang dibagikan ke integrasi milik pelanggan.
+   *
+   * Tanpa aplikasi OAuth kita: pelanggan membuat internal integration di
+   * ruang kerjanya, membagikan halaman yang dipilihnya, lalu menempelkan
+   * token. Sama seperti S3, dan itulah yang membuka kartu ini — anggapan
+   * lamanya "menuntut aplikasi OAuth yang kita daftarkan" hanya benar untuk
+   * integrasi marketplace.
+   *
+   * Batas aksesnya ditentukan PEMILIK DATA lewat tombol Share di Notion, dan
+   * itu batas yang lebih baik daripada apa pun yang bisa kami tulis.
+   */
+  if (kind === 'notion') {
+    const tokenEnc = String(config.tokenEnc ?? '');
+    if (!tokenEnc) throw new Error('Sumber Notion tanpa token — pasang ulang sumbernya.');
+    const kred: KredensialNotion = { token: decryptSecret(tokenEnc) };
+    const { halaman, terpotong } = await daftarHalaman(kred);
+    return {
+      files: halaman.map((h) => ({
+        externalId: h.id,
+        name: `${h.judul}.md`,
+        version: h.versi,
+      })),
+      truncated: terpotong,
+      async fetch(f) {
+        const md = await isiHalaman(kred, f.externalId);
+        return { content: Buffer.from(md, 'utf8'), mime: 'text/markdown' };
+      },
+    };
+  }
+
+  /**
+   * SLACK — satu kanal, satu dokumen.
+   *
+   * Alternatifnya (satu pesan satu dokumen) menghasilkan puluhan ribu potongan
+   * sepanjang satu kalimat yang hampir tak pernah cukup menjawab apa pun,
+   * sekaligus menghabiskan kuota potongan dalam sekali sync. Percakapan baru
+   * berarti sebagai rangkaian.
+   *
+   * Versi kanal butuh SATU panggilan tambahan per kanal (pesan terbaru). Itu
+   * harga yang dibayar di pendaftaran, bukan di pengunduhan — dan justru itu
+   * yang membuat kanal yang tak berubah tak pernah diunduh ulang.
+   */
+  if (kind === 'slack') {
+    const tokenEnc = String(config.tokenEnc ?? '');
+    if (!tokenEnc) throw new Error('Sumber Slack tanpa token — pasang ulang sumbernya.');
+    const kred: KredensialSlack = { token: decryptSecret(tokenEnc) };
+    const { kanal, terpotong } = await daftarKanal(kred);
+    const nama = new Map(kanal.map((c) => [c.id, c.nama]));
+    const versi = await Promise.all(kanal.map((c) => versiKanal(kred, c.id).catch(() => '')));
+    return {
+      files: kanal.map((c, i) => ({
+        externalId: c.id,
+        name: `#${c.nama}.md`,
+        version: versi[i],
+      })),
+      truncated: terpotong,
+      async fetch(f) {
+        const teks = await isiKanal(kred, f.externalId, nama.get(f.externalId) ?? f.externalId);
+        return { content: Buffer.from(teks, 'utf8'), mime: 'text/markdown' };
+      },
     };
   }
 
