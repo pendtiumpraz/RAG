@@ -37,7 +37,16 @@ export type JenisPeringatan =
   /** Kuota habis — unggahan & sync sudah ditolak. */
   | 'kuota.habis'
   /** Galat melonjak dibanding jendela sebelumnya. */
-  | 'galat.melonjak';
+  | 'galat.melonjak'
+  /**
+   * Pilihan folder tak cocok dengan satu berkas pun di sumbernya.
+   *
+   * Bukan sekadar "sync tak menghasilkan apa-apa": tanpa penjagaan, daftar
+   * berkas yang kosong membuat planDelta menyimpulkan SELURUH isi knowledge
+   * base lenyap dari upstream lalu menghapusnya. Satu garis miring salah ketik
+   * cukup untuk memicunya, jadi keadaannya dihentikan dan diteriakkan.
+   */
+  | 'sync.folder_kosong';
 
 export interface Peringatan {
   jenis: JenisPeringatan;
@@ -69,6 +78,11 @@ export const REDAM_MS: Record<JenisPeringatan, number> = {
   'kuota.hampir-habis': 24 * 60 * 60 * 1000,
   'kuota.habis': 12 * 60 * 60 * 1000,
   'galat.melonjak': 60 * 60 * 1000,
+  /* 1 jam — SENGAJA pendek. Ini keadaan yang menghentikan sync sepenuhnya dan
+     hanya bisa diperbaiki manusia (pilih ulang foldernya). Meredamnya
+     berjam-jam berarti pemiliknya menunggu tanpa tahu sinkronisasinya sudah
+     berhenti, dan dokumen baru diam-diam tak pernah masuk. */
+  'sync.folder_kosong': 60 * 60 * 1000,
 };
 
 /** Ambang kuota, sama dengan yang dipakai bilah kuota di UI. */

@@ -90,6 +90,8 @@ export default function KnowledgePage() {
   const conns = useApi<Conn[]>('/api/connections');
   const oauthReady = useApi<Providers>('/api/connections/providers');
   const [adding, setAdding] = useState(false);
+  /** Sumber yang sedang dipratinjau — id, bukan boolean: satu laci melayani semua baris. */
+  const [pratinjauId, setPratinjauId] = useState<string | null>(null);
   const [creatingKb, setCreatingKb] = useState(false);
   const [assigning, setAssigning] = useState<Kb | null>(null);
   const toast = useToast();
@@ -353,6 +355,13 @@ export default function KnowledgePage() {
                     <td className="mono" style={{ color: 'var(--muted)' }}>{s.lastSyncedAt?.slice(0, 16).replace('T', ' ') ?? '—'}</td>
                     <td>
                       <div className="cluster gap-2">
+                        {/* PRATINJAU sebelum Sync, dan urutannya di layar
+                            mengikuti urutan yang seharusnya dikerjakan:
+                            lihat dulu apa yang akan diserap, baru bayar. */}
+                        <button className="btn btn-sm" onClick={() => setPratinjauId(s.id)}
+                          title="Lihat apa yang akan diserap — tanpa mengunduh apa pun">
+                          <Icon name="search" size={14} /> Pratinjau
+                        </button>
                         <button className="btn btn-sm" onClick={() => resync(s.id)}><Icon name="sync" size={14} /> Sync</button>
                         <button className="btn btn-sm btn-ghost" title="Abaikan versi tersimpan, ingest ulang semua file"
                           onClick={() => resync(s.id, true)}>Penuh</button>
@@ -368,6 +377,9 @@ export default function KnowledgePage() {
       {adding && kbId && <SourceDrawer knowledgeBaseId={kbId} accounts={conns.data ?? []}
         providers={oauthReady.data ?? null} onClose={() => setAdding(false)}
         onSaved={() => { setAdding(false); sources.refetch(); kbs.refetch(); segarkanKuota(); }} />}
+      {pratinjauId && <PratinjauDrawer sourceId={pratinjauId}
+        onClose={() => setPratinjauId(null)}
+        onSimpan={() => { setPratinjauId(null); sources.refetch(); }} />}
       {creatingKb && <KbDrawer onClose={() => setCreatingKb(false)} onSave={createKb} />}
       {assigning && <AssignDrawer kb={assigning} bots={bots.data ?? []}
         onClose={() => setAssigning(null)}
@@ -377,6 +389,127 @@ export default function KnowledgePage() {
 }
 
 /* ── drawer: buat KB ────────────────────────────────────────────────── */
+/* ── pratinjau sumber: apa yang AKAN diserap ──────────────────────────
+   Layar ini menjawab satu pertanyaan yang hari ini hanya bisa dijawab dengan
+   menjalankan sync penuh lalu melihat akibatnya — dan pada korpus ratusan GB,
+   "coba dulu lalu lihat" berarti biayanya sudah dibayar penuh. */
+interface BarisFolder {
+  jalur: string; berkas: number; byte: number; takTerbaca: number; perkiraanPotongan: number;
+}
+interface HasilPratinjau {
+  folder: BarisFolder[]; total: BarisFolder; terpotong: boolean; folderTerpilih: string[];
+}
+
+const rapiByte = (n: number) => {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)} KB`;
+  return `${n} B`;
+};
+
+function PratinjauDrawer({ sourceId, onClose, onSimpan }: {
+  sourceId: string; onClose: () => void; onSimpan: () => void;
+}) {
+  const { data, loading, error } = useApi<HasilPratinjau>(`/api/sources/${sourceId}/pratinjau`);
+  const [pilih, setPilih] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => { if (data) setPilih(new Set(data.folderTerpilih)); }, [data]);
+
+  /* Perkiraan yang IKUT TERPILIH — inilah angka yang dipakai orang untuk
+     memutuskan, bukan totalnya. */
+  const terpilih = (data?.folder ?? []).filter((f) => pilih.size === 0 || pilih.has(f.jalur));
+  const potonganTerpilih = terpilih.reduce((a, f) => a + f.perkiraanPotongan, 0);
+
+  async function simpan() {
+    setBusy(true);
+    try {
+      await api(`/api/sources/${sourceId}/pratinjau`, {
+        method: 'PUT', body: JSON.stringify({ folderTerpilih: [...pilih] }),
+      });
+      toast(pilih.size ? `${pilih.size} folder dipilih` : 'Semua folder diserap');
+      onSimpan();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  return (
+    <Drawer onClose={onClose} label="Pratinjau sumber">
+      <div className="dh"><h3>Pratinjau — sebelum diunduh</h3>
+        <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button>
+      </div>
+      <div className="card-pad stack gap-4">
+        {loading && <Skeleton rows={5} />}
+        {error && <p className="microlabel" style={{ color: 'var(--danger)' }}>{error}</p>}
+        {data && (
+          <>
+            {data.terpotong && (
+              /* Daftar yang tak lengkap membuat keputusan tentang data yang
+                 tak pernah dilihat. Diteriakkan, bukan disembunyikan. */
+              <p className="microlabel" style={{ color: 'var(--warn)', lineHeight: 1.6 }}>
+                PENDAFTARAN KENA BATAS — YANG DI BAWAH INI <b>BUKAN</b> SELURUH ISINYA.
+              </p>
+            )}
+            <p className="microlabel" style={{ lineHeight: 1.7 }}>
+              {data.total.berkas} BERKAS · {rapiByte(data.total.byte)} ·{' '}
+              ±{data.total.perkiraanPotongan.toLocaleString('id-ID')} POTONGAN
+              {data.total.takTerbaca > 0 && ` · ${data.total.takTerbaca} TAK TERBACA`}
+              <br />
+              PERKIRAAN POTONGAN KASAR — IA MENJANJIKAN URUTAN BESARAN, BUKAN KETEPATAN.
+              CUKUP UNTUK MENJAWAB FOLDER MANA YANG AKAN MENGHABISKAN KUOTA.
+            </p>
+
+            <div className="table-wrap"><table className="table">
+              <thead><tr>
+                <th style={{ width: 34 }} />
+                <th>Folder</th><th>Berkas</th><th>Ukuran</th><th>±Potongan</th>
+              </tr></thead>
+              <tbody>
+                {data.folder.map((f) => (
+                  <tr key={f.jalur || '(akar)'}>
+                    <td>
+                      <input type="checkbox" checked={pilih.has(f.jalur)} disabled={busy}
+                        onChange={(e) => setPilih((s) => {
+                          const n = new Set(s);
+                          if (e.target.checked) n.add(f.jalur); else n.delete(f.jalur);
+                          return n;
+                        })} />
+                    </td>
+                    <td className="mono">{f.jalur || '(akar)'}</td>
+                    <td>{f.berkas}{f.takTerbaca > 0 && (
+                      <span className="microlabel" style={{ marginLeft: 6 }}>{f.takTerbaca} TAK TERBACA</span>
+                    )}</td>
+                    <td className="mono">{rapiByte(f.byte)}</td>
+                    <td className="mono">{f.perkiraanPotongan.toLocaleString('id-ID')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+
+            <p className="microlabel" style={{ lineHeight: 1.7 }}>
+              {pilih.size === 0
+                ? 'TAK ADA YANG DICENTANG = SEMUA FOLDER DISERAP.'
+                : `${pilih.size} FOLDER DIPILIH · ±${potonganTerpilih.toLocaleString('id-ID')} POTONGAN`}
+              <br />
+              FOLDER YANG TIDAK DIPILIH AKAN <b>DIKELUARKAN</b> DARI KNOWLEDGE BASE PADA SYNC
+              BERIKUTNYA — DOKUMENNYA DIHAPUS LUNAK, JADI MASIH BISA DIPULIHKAN.
+            </p>
+
+            <div className="cluster gap-2">
+              <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy}
+                onClick={() => void simpan()}>Simpan pilihan</button>
+              {pilih.size > 0 && (
+                <button className="btn btn-ghost" disabled={busy}
+                  onClick={() => setPilih(new Set())}>Pilih semua</button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </Drawer>
+  );
+}
+
 function KbDrawer({ onClose, onSave }: { onClose: () => void; onSave: (name: string, desc: string) => Promise<void> }) {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');

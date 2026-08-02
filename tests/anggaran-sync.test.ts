@@ -79,8 +79,14 @@ test('anggaran dihitung dari AWAL PUTARAN, bukan awal lingkaran', () => {
   /* Pendaftaran berkas (listing) memakan tenggat yang sama. Mengabaikannya
      membuat anggaran berbohong pada sumber yang daftarnya panjang: ia
      mengira punya 45 detik padahal 20 detik sudah terpakai. */
-  const iMulai = SVC.indexOf('const mulaiMs = Date.now();');
-  const iListing = SVC.indexOf('const conn = await connect(');
+  /* Diiris ke badan runSync DULU. `pratinjauSumber()` memakai `connect()`
+     yang sama dan letaknya lebih dulu di berkas, jadi mencari penandanya di
+     seluruh berkas menemukan pendaftaran MILIK PRATINJAU — yang memang tak
+     punya anggaran waktu, karena ia tak mengunduh apa pun. Tesnya lalu
+     menuduh runSync atas urutan yang benar. */
+  const jalan = SVC.slice(SVC.indexOf('export async function runSync('));
+  const iMulai = jalan.indexOf('const mulaiMs = Date.now();');
+  const iListing = jalan.indexOf('const conn = await connect(');
   assert.ok(iMulai > 0 && iMulai < iListing, 'penanda waktu dipasang setelah listing');
 });
 

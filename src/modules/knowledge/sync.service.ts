@@ -8,6 +8,7 @@ import { periksaSync, terbitkanPeringatan } from '@/modules/core/alerts';
 import { TEXT_EXT, DOC_EXT } from './format';
 import { batasSync } from './sync-limits';
 import { masihMuat } from './anggaran-sync';
+import { ringkasPerFolder, saringFolderTerpilih, type Pratinjau } from './pratinjau';
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService, QuotaError } from './knowledge.service';
@@ -153,6 +154,33 @@ export function planDelta(
 /** DIEKSPOR utk pekerja ingest (scripts/ingest-worker.ts) — pekerja WAJIB
  *  memanggil jalur yang sama dengan HTTP; jalur ingest kedua akan berbeda
  *  perilakunya dalam hal yang tak seorang pun sadari sampai hasilnya beda. */
+/**
+ * Apa yang AKAN diserap sumber ini — tanpa mengunduh satu byte pun.
+ *
+ * Memakai `connect()` yang SAMA dengan sync, jadi tak ada kemungkinan
+ * pratinjaunya menjanjikan sesuatu yang berbeda dari yang benar-benar terjadi.
+ * Jalur ingest kedua akan berbeda perilakunya dalam hal yang tak seorang pun
+ * sadari sampai hasilnya beda — dan pada fitur yang gunanya MEMPERCAYAI
+ * angkanya sebelum membayar, itu kegagalan yang menghapus seluruh gunanya.
+ */
+export async function pratinjauSumber(
+  tenantId: string, userId: string, sourceId: string,
+): Promise<Pratinjau & { folderTerpilih: string[] }> {
+  const source = await withTenant(tenantId, async (tx) =>
+    (await tx.select().from(dataSources).where(and(
+      eq(dataSources.id, sourceId), isNull(dataSources.deletedAt),
+    )).limit(1))[0] ?? null);
+  if (!source) throw new Error('Sumber data tidak ditemukan');
+
+  const config = source.config as Record<string, unknown>;
+  const conn = await connect(tenantId, userId, source.kind, config);
+  const hasil = ringkasPerFolder(conn.files, isExtractable, conn.truncated);
+  return {
+    ...hasil,
+    folderTerpilih: Array.isArray(config.folderTerpilih) ? (config.folderTerpilih as string[]) : [],
+  };
+}
+
 export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload): Promise<void> {
   const source = await withTenant(tenantId, async (tx) =>
     (await tx.select().from(dataSources).where(and(
@@ -204,10 +232,42 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
   try {
     const conn = await connect(tenantId, userId, source.kind, source.config as Record<string, unknown>);
 
+    /* FOLDER YANG DICENTANG PEMILIKNYA — disaring SEBELUM apa pun diunduh.
+       Daftar kosong berarti SEMUA; arti sebaliknya akan membuat setiap sumber
+       yang sudah ada berhenti menyerap apa pun pada detik fitur ini dipasang,
+       tanpa galat dan tanpa jejak. Lihat saringFolderTerpilih(). */
+    const terpilihFolder = Array.isArray((source.config as Record<string, unknown>)?.folderTerpilih)
+      ? ((source.config as Record<string, unknown>).folderTerpilih as string[])
+      : null;
+    const berkasTerpilih = saringFolderTerpilih(conn.files, terpilihFolder);
+
+    /* PENJAGA: pilihan yang MENGHABISKAN daftar hampir pasti salah paham,
+       bukan maksud.
+       Kalau jalur tersimpan tak cocok dengan jalur yang dihitung dari berkas
+       — satu garis miring berbeda sudah cukup — penyaringnya mengembalikan
+       NOL berkas. Dan nol berkas berarti planDelta melihat seluruh isi
+       knowledge base "lenyap dari upstream" lalu menghapus semuanya.
+       Perlakukan seperti pendaftaran terpotong: jangan hapus apa pun,
+       dan berteriak. Menghapus seluruh korpus pelanggan karena satu jalur
+       salah ketik adalah kegagalan yang tak boleh mungkin terjadi. */
+    if (conn.files.length > 0 && berkasTerpilih.length === 0) {
+      await terbitkanPeringatan(tenantId, {
+        jenis: 'sync.folder_kosong', tingkat: 'gawat',
+        pesan: 'Pilihan folder tidak cocok dengan satu berkas pun — sync dihentikan sebelum menghapus apa pun.',
+        konteks: { sourceId, folderTerpilih: terpilihFolder, berkasUpstream: conn.files.length },
+      });
+      await setStatus('error', {
+        pesan: 'Pilihan folder tidak cocok dengan satu berkas pun di sumber ini. '
+          + 'Buka Pratinjau dan pilih ulang foldernya.',
+      });
+      return;
+    }
+
+
     // Format yang pasti tak bisa jadi teks tidak perlu diunduh sama sekali.
     const supported: RemoteFile[] = [];
     let skipped = 0;
-    for (const f of conn.files) {
+    for (const f of berkasTerpilih) {
       if (isExtractable(f.name, f.mimeType)) supported.push(f);
       else skipped++;
     }

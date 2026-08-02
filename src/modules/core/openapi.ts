@@ -828,6 +828,31 @@ export const openApiSpec = {
           ['knowledgeBaseId', 'kind'])),
         responses: { 201: err('source + jobStatus') } },
     },
+    '/api/sources/{id}/pratinjau': {
+      get: {
+        summary: 'Apa yang AKAN diserap sumber ini — tanpa mengunduh satu byte pun',
+        security: [sessionAuth],
+        description: 'Ringkasan per folder: jumlah berkas, byte, berapa yang formatnya tak '
+          + 'terbaca, dan PERKIRAAN jumlah potongan. Seluruhnya dari metadata pendaftaran '
+          + 'yang memang sudah dilakukan sync di langkah pertamanya, jadi tak ada permintaan '
+          + 'jaringan tambahan. Perkiraan potongannya kasar dan hanya menjanjikan URUTAN '
+          + 'BESARAN — cukup untuk menjawab "folder mana yang akan menghabiskan kuota".',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: {
+          200: err('{ folder: [{ jalur, berkas, byte, takTerbaca, perkiraanPotongan }], total, terpotong, folderTerpilih }'),
+          422: err('pendaftaran gagal — token kedaluwarsa atau folder dihapus'),
+        } },
+      put: {
+        summary: 'Simpan folder yang dicentang; sync berikutnya hanya menyerap itu',
+        security: [sessionAuth],
+        description: 'Daftar KOSONG berarti SEMUA, bukan tak satu pun — arti sebaliknya akan '
+          + 'membuat setiap sumber yang sudah ada berhenti menyerap apa pun pada detik fitur '
+          + 'ini dipasang. Bila pilihannya kelak tak cocok dengan satu berkas pun, sync '
+          + 'BERHENTI dan berteriak alih-alih menyimpulkan seluruh isi KB lenyap dari upstream.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ folderTerpilih: { type: 'array', items: { type: 'string' } } }, ['folderTerpilih'])),
+        responses: { 200: err('{ ok, folderTerpilih }'), 400: err('input tidak valid'), 404: err('sumber tidak ditemukan') } },
+    },
     '/api/sources/{id}/sync': {
       post: {
         summary: 'Re-sync manual — DELTA (hanya file baru/berubah) kecuali full=1',
