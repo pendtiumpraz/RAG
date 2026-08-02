@@ -1,25 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BUKTI } from './bukti.generated';
 import type { AdeganBukti, LangkahBukti, StatusBukti } from './bukti-tipe';
 
 /**
- * DATAROOM · BUKTI FITUR — apa yang benar-benar disaksikan bekerja.
+ * DATAROOM · BUKTI FITUR — wiki fitur yang isinya DISAKSIKAN, bukan diklaim.
  *
- * Isinya SELURUHNYA dihasilkan `npm run tur`: peramban sungguhan membuka
+ * Seluruh isinya dihasilkan `npm run tur`: peramban sungguhan membuka
  * produksi, menekan tombolnya, dan memotret tiap langkah. Tak ada satu pun
  * status di halaman ini yang ditulis tangan.
  *
- * Kenapa itu penting untuk dataroom: klaim "fitur X ada" gampang dibuat dan
- * mustahil diperiksa dari luar. Klaim "fitur X ditekan pada 2 Agu 2026 pukul
- * sekian di rag.sainskerta.net, ini tangkapan layarnya, servernya menjawab
- * 200, konsolnya bersih" bisa dibantah siapa pun yang mau — dan justru itu
- * yang membuatnya layak dipercaya.
+ * KENAPA BENTUKNYA WIKI, bukan daftar panjang. Dengan tiga puluh fitur dan
+ * seratusan langkah, satu gulungan raksasa memaksa pembacanya menggulir
+ * melewati hal yang tak ia cari — dan pembaca dataroom biasanya datang dengan
+ * satu pertanyaan spesifik ("apa RBAC-nya jalan?"). Navigasi kiri menjawab
+ * pertanyaan itu dalam satu klik, dan pita statusnya terbaca sekaligus sebagai
+ * daftar isi dan sebagai ringkasan kesehatan.
  *
- * Kegagalan TIDAK disembunyikan. Adegan yang gagal tampil dengan warna
- * bahaya, lengkap dengan tangkapan layar saat gagal. Dataroom yang hanya
- * memuat kabar baik tak memberi tahu pembacanya apa pun.
+ * KEGAGALAN TIDAK DISEMBUNYIKAN. Fitur yang gagal tampil merah di navigasi,
+ * lengkap dengan tangkapan layar saat gagal. Dataroom yang hanya memuat kabar
+ * baik tak memberi tahu pembacanya apa pun.
  */
 
 const NAMA: Record<StatusBukti, string> = {
@@ -34,68 +35,125 @@ const waktu = (iso: string) => {
   return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
+/** Kelompok navigasi — urutannya urutan orang mengenal produknya. */
+function kelompok(a: AdeganBukti): string {
+  if (!a.butuhLogin) return 'Permukaan publik';
+  if (['dashboard', 'chat', 'chatbots', 'knowledge', 'documents', 'graf'].includes(a.id)) return 'Inti produk';
+  if (['conversations', 'analytics', 'memory', 'categories', 'usage'].includes(a.id)) return 'Wawasan & data';
+  if (['team', 'divisions', 'branding', 'models', 'settings'].includes(a.id)) return 'Pengaturan & tim';
+  return 'Platform & superadmin';
+}
+const URUTAN = ['Permukaan publik', 'Inti produk', 'Wawasan & data', 'Pengaturan & tim', 'Platform & superadmin'];
+
 export default function BuktiFitur() {
+  const [aktifId, setAktifId] = useState<string>(BUKTI.adegan[0]?.id ?? '');
   const [besar, setBesar] = useState<{ src: string; judul: string } | null>(null);
   const r = BUKTI.ringkas;
 
+  const grup = useMemo(() => {
+    const m = new Map<string, AdeganBukti[]>();
+    for (const a of BUKTI.adegan) {
+      const k = kelompok(a);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(a);
+    }
+    return URUTAN.filter((k) => m.has(k)).map((k) => [k, m.get(k)!] as const);
+  }, []);
+
+  const aktif = BUKTI.adegan.find((a) => a.id === aktifId) ?? BUKTI.adegan[0];
+  const langkahDipakai = aktif?.langkah.filter((l) => l.status !== 'dilewati').length ?? 0;
+
   return (
-    <div className="dr-bukti">
-      <div className="bk-summary">
-        <div className="bk-overall">
-          <span className="microlabel">DISAKSIKAN · {waktu(BUKTI.pada)}</span>
+    <div className="dr-wiki">
+      {/* ── rak kiri: daftar isi + kesehatan sekaligus ─────────────── */}
+      <nav className="wk-nav" aria-label="Daftar fitur">
+        <div className="wk-ringkas">
           <b>{r.bekerja}<small>/{r.total}</small></b>
-          <span className="delta">fitur bekerja penuh</span>
+          <span>fitur bekerja penuh</span>
+          <div className="wk-pil">
+            {r.sebagian > 0 && <span className="warn">{r.sebagian} sebagian</span>}
+            {r.gagal > 0 && <span className="bad">{r.gagal} gagal</span>}
+            {r.dilewati > 0 && <span>{r.dilewati} dilewati</span>}
+          </div>
         </div>
-        <div className="bk-angka">
-          <div><span className="microlabel">SEBAGIAN</span><b className={r.sebagian ? 'warn' : ''}>{r.sebagian}</b></div>
-          <div><span className="microlabel">GAGAL</span><b className={r.gagal ? 'bad' : ''}>{r.gagal}</b></div>
-          <div><span className="microlabel">DILEWATI</span><b>{r.dilewati}</b></div>
-        </div>
-        <p className="bk-meta">
-          <code>{BUKTI.basis}</code> · mode {BUKTI.mode}
-          {BUKTI.masuk ? ' · masuk sebagai superadmin demo' : ' · TANPA login'}
-        </p>
-      </div>
 
-      {!BUKTI.masuk && (
-        /* Ketiadaan bukti bukan bukti ketiadaan — dan kebalikannya juga.
-           Tanpa peringatan ini, "8 dari 8 bekerja" terbaca seolah seluruh
-           produk sudah diperiksa, padahal yang diperiksa baru halaman yang
-           bisa dibuka tanpa akun. */
-        <div className="bk-catat">
-          <b>Baru permukaan publik.</b> Tur berjalan tanpa kredensial, jadi{' '}
-          {BUKTI.adegan.length} fitur di atas adalah yang bisa dibuka siapa pun tanpa akun.
-          Halaman di balik login belum diperiksa pada jalannya laporan ini —
-          angka di atas tidak boleh dibaca sebagai penilaian seluruh produk.
-        </div>
-      )}
+        {grup.map(([nama, isi]) => (
+          <div key={nama} className="wk-grup">
+            <span className="microlabel">{nama.toUpperCase()}</span>
+            <ul>
+              {isi.map((a) => (
+                <li key={a.id}>
+                  <button
+                    className={`wk-item${a.id === aktifId ? ' on' : ''}`}
+                    aria-current={a.id === aktifId ? 'page' : undefined}
+                    onClick={() => setAktifId(a.id)}
+                  >
+                    <i className={`wk-dot ${PITA[a.status]}`} aria-hidden />
+                    <span>{a.fitur}</span>
+                    <em className="mono">{a.langkah.length}</em>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
 
-      {BUKTI.adegan.map((a) => <KartuAdegan key={a.id} a={a} onBesar={setBesar} />)}
+      {/* ── kanan: satu fitur, langkah demi langkah ─────────────────── */}
+      <article className="wk-isi">
+        <header className="wk-kepala">
+          <div>
+            <h2>{aktif?.fitur}</h2>
+            <p className="wk-sub">
+              <code>{aktif?.jalur}</code>
+              {aktif?.butuhLogin ? ' · butuh login' : ' · dapat dibuka tanpa akun'}
+              {` · ${langkahDipakai} langkah`}
+            </p>
+          </div>
+          <span className={`as-badge ${PITA[aktif?.status ?? 'dilewati']}`}>
+            {NAMA[aktif?.status ?? 'dilewati']}
+          </span>
+        </header>
 
-      <p className="as-method">
-        Metodologi: <code>npm run tur</code> menjalankan peramban sungguhan
-        (playwright-core + Edge) terhadap {BUKTI.basis}. Tiap langkah menyebut
-        PENANDA yang harus terlihat setelahnya; halaman yang menjawab 200 tapi
-        tak menampilkan penandanya dicatat <b>gagal</b>, karena itulah yang
-        dilihat pengguna. Galat konsol peramban ikut direkam dan menurunkan
-        status ke <b>sebagian</b>. Skenario tak punya cara menyatakan
-        &ldquo;bekerja&rdquo; sendiri. Bukti gambar: <code>/bukti/</code>.
-        {BUKTI.jejakBersih.length > 0 && (
-          <> Objek uji yang dibuat selama tur dihapus lagi di akhir:{' '}
-            <code>{BUKTI.jejakBersih.join(' · ')}</code>.</>
-        )}
-      </p>
+        <p className="wk-ringkasan">{aktif?.ringkas}</p>
+
+        {aktif?.langkah.map((l) => (
+          <Langkah key={l.n} l={l} fitur={aktif.fitur} onBesar={setBesar} />
+        ))}
+
+        <footer className="wk-kaki">
+          <p>
+            <b>Cara bukti ini dikumpulkan.</b> <code>npm run tur</code>{' '}
+            menjalankan peramban sungguhan (playwright-core + Edge) terhadap{' '}
+            <code>{BUKTI.basis}</code> pada {waktu(BUKTI.pada)}, mode {BUKTI.mode}
+            {BUKTI.masuk ? ', masuk lewat formulir login sebagai superadmin' : ', tanpa login'}.
+          </p>
+          <p>
+            Tiap langkah menyebut <b>penanda</b> yang harus terlihat setelahnya;
+            halaman yang menjawab 200 tapi tak menampilkan penandanya dicatat{' '}
+            <b>gagal</b>, karena itulah yang dilihat pengguna. Galat konsol
+            peramban ikut direkam dan menurunkan status ke <b>sebagian</b>.
+            Skenario tak punya cara menyatakan &ldquo;bekerja&rdquo; sendiri.
+          </p>
+          {BUKTI.jejakBersih.length > 0 && (
+            <p>
+              <b>Objek uji dibersihkan.</b>{' '}
+              <code>{BUKTI.jejakBersih.join(' · ')}</code>
+            </p>
+          )}
+        </footer>
+      </article>
 
       {besar && (
         <div className="bk-lightbox" role="dialog" aria-label={besar.judul} onClick={() => setBesar(null)}>
           <figure onClick={(e) => e.stopPropagation()}>
-            {/* Sengaja <img>, bukan next/image: ini bukti tur, dan bukti tidak
+            {/* Sengaja <img>, bukan next/image: ini bukti tur, dan bukti tak
                 boleh dikompresi ulang oleh pengoptimal gambar — teks kecil di
-                tangkapan layar harus tetap terbaca apa adanya. Halaman ini
-                juga superadmin saja, jadi LCP-nya tak menyangkut siapa pun. */}
+                tangkapan layar harus tetap terbaca apa adanya. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={besar.src} alt={besar.judul} />
-            <figcaption>{besar.judul}
+            <figcaption>
+              {besar.judul}
               <button className="btn btn-sm" onClick={() => setBesar(null)}>Tutup</button>
             </figcaption>
           </figure>
@@ -105,52 +163,32 @@ export default function BuktiFitur() {
   );
 }
 
-function KartuAdegan({ a, onBesar }: {
-  a: AdeganBukti; onBesar: (v: { src: string; judul: string }) => void;
-}) {
-  return (
-    <section className={`as-sec bk-sec ${PITA[a.status]}`}>
-      <header>
-        <h2>{a.fitur}</h2>
-        <span className={`as-badge ${PITA[a.status]}`}>{NAMA[a.status]}</span>
-      </header>
-      <p className="desc">
-        <code>{a.jalur}</code> · {a.ringkas}
-        {a.butuhLogin && <span className="bk-kunci"> · butuh login</span>}
-      </p>
-      <ol className="bk-langkah">
-        {a.langkah.map((l) => <BarisLangkah key={l.n} l={l} fitur={a.fitur} onBesar={onBesar} />)}
-      </ol>
-    </section>
-  );
-}
-
-function BarisLangkah({ l, fitur, onBesar }: {
+function Langkah({ l, fitur, onBesar }: {
   l: LangkahBukti; fitur: string; onBesar: (v: { src: string; judul: string }) => void;
 }) {
   const src = l.gambar ? `/bukti/${l.gambar}` : null;
   const judul = `${fitur} — langkah ${l.n}: ${l.nama}`;
   return (
-    <li className={PITA[l.status]}>
-      <div className="bk-kepala">
-        <span className="bk-n">{l.n}</span>
+    <section className={`wk-langkah ${PITA[l.status]}`}>
+      <div className="wk-lk-kepala">
+        <span className="wk-n">{l.n}</span>
         <b>{l.nama}</b>
-        <span className={`as-badge ${PITA[l.status]}`}>{NAMA[l.status]}</span>
-        {l.http !== null && <span className="mono bk-http">HTTP {l.http}</span>}
-        {l.ms > 0 && <span className="mono bk-ms">{(l.ms / 1000).toFixed(1)}s</span>}
+        {l.status !== 'bekerja' && <span className={`as-badge ${PITA[l.status]}`}>{NAMA[l.status]}</span>}
+        {l.http !== null && <span className="mono wk-tanda">HTTP {l.http}</span>}
+        {l.ms > 0 && <span className="mono wk-tanda">{(l.ms / 1000).toFixed(1)}s</span>}
       </div>
-      {l.catatan && <p className="bk-catatan">{l.catatan}</p>}
+      {l.catatan && <p className="wk-catatan">{l.catatan}</p>}
       {l.galat.length > 0 && (
-        <ul className="bk-galat">
+        <ul className="wk-galat">
           {l.galat.map((g, i) => <li key={i}><code>{g}</code></li>)}
         </ul>
       )}
       {src && (
-        <button className="bk-shot" onClick={() => onBesar({ src, judul })} title="Perbesar">
+        <button className="wk-shot" onClick={() => onBesar({ src, judul })} title="Perbesar">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={src} alt={judul} loading="lazy" />
         </button>
       )}
-    </li>
+    </section>
   );
 }

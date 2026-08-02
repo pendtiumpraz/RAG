@@ -512,53 +512,76 @@
 }
 .kb-note textarea{ resize:vertical; min-height:64px; font-size:13.5px; }
 
-/* ── tab Bukti Fitur ──────────────────────────────────────────────────
-   Bukti dari tur peramban (npm run tur). Kegagalan sengaja diberi warna
-   bahaya dan TIDAK disembunyikan: dataroom yang hanya memuat kabar baik
-   tak memberi tahu pembacanya apa pun. */
-.dr-bukti{ display:flex; flex-direction:column; gap:18px; padding:4px 0 40px; }
 
-.bk-summary{ background:var(--card); border:1px solid var(--line);
-  border-radius:var(--rad-lg); padding:20px 22px; display:grid;
-  grid-template-columns:auto 1fr; gap:8px 32px; align-items:center; }
-.bk-overall b{ font-family:var(--font-display); font-size:44px; line-height:1;
-  letter-spacing:-.03em; display:block; margin-top:4px; }
-.bk-overall b small{ font-size:20px; color:var(--muted); font-weight:400; }
-.bk-overall .delta{ font-size:13px; color:var(--muted); }
-.bk-angka{ display:flex; gap:28px; justify-self:end; }
-.bk-angka b{ font-family:var(--font-display); font-size:24px; display:block; margin-top:2px; }
-.bk-angka b.warn{ color:var(--source); } .bk-angka b.bad{ color:var(--danger); }
-.bk-meta{ grid-column:1/-1; margin:6px 0 0; font-size:12.5px; color:var(--muted); }
+/* ── tab Bukti Fitur — wiki fitur ─────────────────────────────────────
+   Rak kiri berperan ganda: daftar isi DAN ringkasan kesehatan. Titik warna
+   di tiap baris membuat "apa yang rusak" terbaca tanpa membuka satu pun
+   artikel — dan kegagalan sengaja tidak disembunyikan, karena dataroom yang
+   hanya memuat kabar baik tak memberi tahu pembacanya apa pun. */
+.dr-wiki{ display:grid; grid-template-columns:262px minmax(0,1fr); gap:26px;
+  align-items:start; padding-bottom:48px; }
 
-.bk-catat{ background:var(--card); border:1px solid var(--source);
-  border-left-width:3px; border-radius:var(--rad-lg); padding:14px 18px;
-  font-size:13.5px; line-height:1.55; }
+.wk-nav{ position:sticky; top:12px; max-height:calc(100vh - 120px); overflow-y:auto;
+  display:flex; flex-direction:column; gap:20px; padding-right:4px; scrollbar-width:thin; }
 
-.bk-sec.bad{ border-color:var(--danger); border-left-width:3px; }
-.bk-sec.warn{ border-color:var(--source); border-left-width:3px; }
-.as-badge.skip{ color:var(--muted); }
-.bk-kunci{ color:var(--muted); }
+.wk-ringkas{ background:var(--ink); border-radius:var(--rad-lg); padding:16px 18px;
+  display:flex; flex-direction:column; gap:4px; color:#E2E8F0; }
+.wk-ringkas b{ font-family:var(--font-display); font-size:34px; line-height:1;
+  letter-spacing:-.03em; color:#fff; }
+.wk-ringkas b small{ font-size:16px; color:#93C5FD; font-weight:400; }
+.wk-ringkas > span{ font-size:12.5px; color:#94A3B8; }
+.wk-pil{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.wk-pil span{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.05em;
+  padding:3px 8px; border-radius:var(--rad-pill); background:#334155; color:#CBD5E1; }
+.wk-pil span.warn{ background:#78350F; color:#FDE68A; }
+.wk-pil span.bad{ background:#7F1D1D; color:#FECACA; }
 
-.bk-langkah{ list-style:none; margin:0; padding:0; display:flex;
-  flex-direction:column; gap:14px; }
-.bk-langkah > li{ border-top:1px solid var(--line); padding-top:12px; }
-.bk-kepala{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.bk-n{ font-family:var(--font-mono); font-size:11px; width:20px; height:20px;
-  display:grid; place-items:center; border:1px solid var(--line);
-  border-radius:999px; color:var(--muted); flex:none; }
-.bk-kepala b{ font-size:14px; }
-.bk-http, .bk-ms{ font-size:11.5px; color:var(--muted); }
-.bk-catatan{ margin:6px 0 0 30px; font-size:12.5px; color:var(--muted); }
-.bk-galat{ margin:6px 0 0 30px; padding:0; list-style:none; }
-.bk-galat code{ font-size:11.5px; color:var(--danger); }
+.wk-grup{ display:flex; flex-direction:column; gap:4px; }
+.wk-grup ul{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:1px; }
+.wk-item{ appearance:none; background:none; border:none; cursor:pointer; width:100%;
+  display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:var(--rad-sm);
+  font-family:var(--font-ui); font-size:13px; color:var(--muted); text-align:left; }
+.wk-item:hover{ background:var(--card-2); color:var(--ink); }
+.wk-item.on{ background:var(--tint-signal); color:var(--ink); font-weight:600; }
+.wk-item > span{ flex:1; line-height:1.35; }
+.wk-item em{ font-style:normal; font-size:10.5px; color:var(--faint); }
+.wk-dot{ width:7px; height:7px; border-radius:50%; flex:none; background:var(--good); }
+.wk-dot.warn{ background:var(--warn); } .wk-dot.bad{ background:var(--danger); }
+.wk-dot.skip{ background:var(--line-strong); }
 
-.bk-shot{ display:block; margin:10px 0 0 30px; padding:0; border:1px solid var(--line);
-  border-radius:var(--rad-md); overflow:hidden; background:var(--bg); cursor:zoom-in;
-  max-width:520px; width:100%; }
-.bk-shot img{ display:block; width:100%; height:auto; }
-.bk-shot:hover{ border-color:var(--signal); }
+.wk-isi{ min-width:0; display:flex; flex-direction:column; gap:16px; }
+.wk-kepala{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px;
+  padding-bottom:14px; border-bottom:1px solid var(--line); }
+.wk-kepala h2{ font-family:var(--font-display); font-size:24px; letter-spacing:-.02em; margin:0; }
+.wk-sub{ margin:6px 0 0; font-size:12.5px; color:var(--muted); }
+.wk-ringkasan{ margin:0; font-size:13.5px; color:var(--muted); line-height:1.55; }
 
-.bk-lightbox{ position:fixed; inset:0; z-index:80; background:rgba(15,23,42,.82);
+.wk-langkah{ background:var(--card); border:1px solid var(--line);
+  border-radius:var(--rad-lg); padding:16px 18px; }
+.wk-langkah.warn{ border-left:3px solid var(--warn); }
+.wk-langkah.bad{ border-left:3px solid var(--danger); }
+.wk-langkah.skip{ opacity:.62; }
+.wk-lk-kepala{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.wk-lk-kepala b{ font-size:14.5px; }
+.wk-n{ font-family:var(--font-mono); font-size:11px; width:22px; height:22px; flex:none;
+  display:grid; place-items:center; border-radius:50%; background:var(--card-3); color:var(--muted); }
+.wk-tanda{ font-size:11px; color:var(--faint); }
+.wk-catatan{ margin:8px 0 0 32px; font-size:12.5px; color:var(--muted); line-height:1.5; }
+.wk-galat{ margin:8px 0 0 32px; padding:0; list-style:none; display:flex;
+  flex-direction:column; gap:3px; }
+.wk-galat code{ font-size:11.5px; color:var(--danger); word-break:break-all; }
+
+.wk-shot{ display:block; margin:12px 0 0 32px; padding:0; cursor:zoom-in; width:calc(100% - 32px);
+  border:1px solid var(--line); border-radius:var(--rad-md); overflow:hidden; background:var(--bg); }
+.wk-shot img{ display:block; width:100%; height:auto; }
+.wk-shot:hover{ border-color:var(--signal); }
+
+.wk-kaki{ margin-top:8px; padding-top:16px; border-top:1px solid var(--line);
+  display:flex; flex-direction:column; gap:10px; font-size:12.5px; line-height:1.6;
+  color:var(--muted); }
+.wk-kaki code{ font-size:11.5px; word-break:break-all; }
+
+.bk-lightbox{ position:fixed; inset:0; z-index:80; background:rgba(15,23,42,.86);
   display:grid; place-items:center; padding:24px; cursor:zoom-out; }
 .bk-lightbox figure{ margin:0; max-width:min(1440px,96vw); max-height:92vh;
   display:flex; flex-direction:column; gap:8px; cursor:default; }
@@ -567,8 +590,8 @@
 .bk-lightbox figcaption{ display:flex; align-items:center; justify-content:space-between;
   gap:16px; color:#fff; font-size:13px; }
 
-@media (max-width:720px){
-  .bk-summary{ grid-template-columns:1fr; }
-  .bk-angka{ justify-self:start; }
-  .bk-shot, .bk-catatan, .bk-galat{ margin-left:0; }
+@media (max-width:900px){
+  .dr-wiki{ grid-template-columns:1fr; }
+  .wk-nav{ position:static; max-height:none; }
+  .wk-catatan,.wk-galat,.wk-shot{ margin-left:0; width:100%; }
 }

@@ -3,11 +3,16 @@ import type { LaporanTur } from './bukti-tipe';
 
 export const BUKTI: LaporanTur = {
   "basis": "https://rag.sainskerta.net",
-  "pada": "2026-08-02T03:39:35.002Z",
+  "pada": "2026-08-02T04:06:59.631Z",
   "masuk": true,
   "mode": "baca+tulis",
-  "dibuatLaluDihapus": {},
-  "jejakBersih": [],
+  "dibuatLaluDihapus": {
+    "chatbotId": "95323550-fd10-4ff5-80f1-acb0807f3d2b"
+  },
+  "jejakBersih": [
+    "DELETE /api/chatbots/95323550-fd10-4ff5-80f1-acb0807f3d2b \"Uji Tur 2026-08-02\" → 200",
+    "DELETE /api/chatbots/b732b6cb-c650-4381-bebc-72252a86e9d2 \"Uji Tur 2026-08-02\" → 200"
+  ],
   "ringkas": {
     "total": 30,
     "bekerja": 29,
@@ -32,7 +37,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2212
+          "ms": 4413
         },
         {
           "n": 2,
@@ -42,7 +47,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 2054
+          "ms": 2133
         }
       ]
     },
@@ -62,7 +67,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1474
+          "ms": 1714
         },
         {
           "n": 2,
@@ -72,7 +77,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 847
+          "ms": 1044
         }
       ]
     },
@@ -92,7 +97,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1800
+          "ms": 1951
         }
       ]
     },
@@ -112,7 +117,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1514
+          "ms": 1824
         }
       ]
     },
@@ -132,7 +137,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1604
+          "ms": 1732
         }
       ]
     },
@@ -152,7 +157,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1771
+          "ms": 1739
         }
       ]
     },
@@ -172,7 +177,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2520
+          "ms": 2693
         }
       ]
     },
@@ -192,7 +197,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1425
+          "ms": 1800
         },
         {
           "n": 2,
@@ -202,7 +207,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 2398
+          "ms": 2384
         }
       ]
     },
@@ -222,7 +227,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1145
+          "ms": 1159
         },
         {
           "n": 2,
@@ -232,7 +237,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "mendarat di /chat",
           "http": null,
           "galat": [],
-          "ms": 3521
+          "ms": 3680
         },
         {
           "n": 3,
@@ -242,7 +247,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "Dataroom hanya terlihat oleh superadmin",
           "http": null,
           "galat": [],
-          "ms": 2563
+          "ms": 2139
         }
       ]
     },
@@ -252,7 +257,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/dashboard",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "5 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -262,7 +267,47 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1216
+          "ms": 1210
+        },
+        {
+          "n": 2,
+          "nama": "Panel: PESAN 30 HARI TERAKHIR",
+          "gambar": "dashboard-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1394
+        },
+        {
+          "n": 3,
+          "nama": "Panel: PER CHATBOT (30 HARI)",
+          "gambar": "dashboard-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1348
+        },
+        {
+          "n": 4,
+          "nama": "Panel: CARA KERJA",
+          "gambar": "dashboard-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1386
+        },
+        {
+          "n": 5,
+          "nama": "Panel: MULAI CEPAT",
+          "gambar": "dashboard-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1405
         }
       ]
     },
@@ -282,7 +327,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1252
+          "ms": 1777
         },
         {
           "n": 2,
@@ -292,17 +337,17 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1060
+          "ms": 1062
         },
         {
           "n": 3,
           "nama": "Isi nama + konteks, tekan Simpan",
           "gambar": "chatbots-03.png",
           "status": "bekerja",
-          "catatan": "POST /api/chatbots → 201 dalam 528ms",
+          "catatan": "POST /api/chatbots → 201 dalam 559ms",
           "http": 201,
           "galat": [],
-          "ms": 1525
+          "ms": 1541
         },
         {
           "n": 4,
@@ -312,7 +357,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 2030
+          "ms": 2068
         },
         {
           "n": 5,
@@ -322,7 +367,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1408
+          "ms": 1395
         }
       ]
     },
@@ -342,7 +387,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1791
+          "ms": 1814
         },
         {
           "n": 2,
@@ -352,7 +397,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1377
+          "ms": 1398
         },
         {
           "n": 3,
@@ -362,7 +407,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1385
+          "ms": 1397
         },
         {
           "n": 4,
@@ -372,7 +417,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1376
+          "ms": 1354
         },
         {
           "n": 5,
@@ -382,7 +427,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1002
+          "ms": 1009
         },
         {
           "n": 6,
@@ -392,7 +437,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1351
+          "ms": 1344
         },
         {
           "n": 7,
@@ -402,7 +447,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1369
+          "ms": 1367
         }
       ]
     },
@@ -422,17 +467,17 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1241
+          "ms": 1293
         },
         {
           "n": 2,
           "nama": "Kirim pertanyaan dan tunggu jawaban",
           "gambar": "chat-02.png",
           "status": "bekerja",
-          "catatan": "jawaban mulai muncul dalam 6185ms",
+          "catatan": "jawaban mulai muncul dalam 6180ms",
           "http": null,
           "galat": [],
-          "ms": 7128
+          "ms": 7118
         },
         {
           "n": 3,
@@ -442,7 +487,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "rel daftar sesi di konsol Chat",
           "http": null,
           "galat": [],
-          "ms": 2438
+          "ms": 2393
         }
       ]
     },
@@ -462,7 +507,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1790
+          "ms": 1813
         }
       ]
     },
@@ -472,7 +517,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/graf",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "2 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -482,7 +527,17 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1753
+          "ms": 1773
+        },
+        {
+          "n": 2,
+          "nama": "Panel: PETA HUBUNGAN",
+          "gambar": "graf-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1331
         }
       ]
     },
@@ -502,7 +557,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1768
+          "ms": 1776
         },
         {
           "n": 2,
@@ -512,7 +567,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1634
+          "ms": 1659
         },
         {
           "n": 3,
@@ -522,7 +577,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "belum ada percakapan untuk dibuka",
           "http": null,
           "galat": [],
-          "ms": 1230
+          "ms": 1264
         }
       ]
     },
@@ -532,7 +587,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/analytics",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "4 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -542,7 +597,37 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2580
+          "ms": 2585
+        },
+        {
+          "n": 2,
+          "nama": "Panel: PERTANYAAN TERBANYAK",
+          "gambar": "analytics-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1352
+        },
+        {
+          "n": 3,
+          "nama": "Panel: TOPIK YANG SERING MUNCUL",
+          "gambar": "analytics-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1370
+        },
+        {
+          "n": 4,
+          "nama": "Panel: DOKUMEN PALING SERING JADI SUMBER JAWABAN",
+          "gambar": "analytics-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1357
         }
       ]
     },
@@ -552,7 +637,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/memory",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "3 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -562,7 +647,27 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2071
+          "ms": 2107
+        },
+        {
+          "n": 2,
+          "nama": "Panel: KNOWLEDGE GRAPH",
+          "gambar": "memory-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1352
+        },
+        {
+          "n": 3,
+          "nama": "Panel: CATATAN",
+          "gambar": "memory-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1342
         }
       ]
     },
@@ -572,7 +677,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/categories",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "2 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -582,7 +687,17 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1781
+          "ms": 1775
+        },
+        {
+          "n": 2,
+          "nama": "Panel: KATEGORI AKTIF",
+          "gambar": "categories-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1372
         }
       ]
     },
@@ -592,7 +707,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/models",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "8 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -602,7 +717,77 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2583
+          "ms": 2542
+        },
+        {
+          "n": 2,
+          "nama": "Panel: MODEL CHAT AKTIF",
+          "gambar": "models-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1367
+        },
+        {
+          "n": 3,
+          "nama": "Panel: MODEL EMBEDDING AKTIF",
+          "gambar": "models-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1394
+        },
+        {
+          "n": 4,
+          "nama": "Panel: SYSTEM PROMPT",
+          "gambar": "models-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1365
+        },
+        {
+          "n": 5,
+          "nama": "Panel: PROVIDER API KEYS",
+          "gambar": "models-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1402
+        },
+        {
+          "n": 6,
+          "nama": "Panel: SERVER LLM SENDIRI (ON-PREMISE)",
+          "gambar": "models-06.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1390
+        },
+        {
+          "n": 7,
+          "nama": "Panel: SERVER EMBEDDING (VPS)",
+          "gambar": "models-07.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1374
+        },
+        {
+          "n": 8,
+          "nama": "Panel: KREDENSIAL OAUTH (GOOGLE / MICROSOFT)",
+          "gambar": "models-08.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1399
         }
       ]
     },
@@ -612,7 +797,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/branding",
       "butuhLogin": true,
       "status": "sebagian",
-      "ringkas": "1 dari 1 langkah bermasalah: Buka /branding",
+      "ringkas": "1 dari 4 langkah bermasalah: Buka /branding",
       "langkah": [
         {
           "n": 1,
@@ -624,7 +809,37 @@ export const BUKTI: LaporanTur = {
           "galat": [
             "konsol: Failed to load resource: the server responded with a status of 404 ()"
           ],
-          "ms": 2585
+          "ms": 2608
+        },
+        {
+          "n": 2,
+          "nama": "Panel: PENGATURAN",
+          "gambar": "branding-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1377
+        },
+        {
+          "n": 3,
+          "nama": "Panel: PRATINJAU",
+          "gambar": "branding-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1379
+        },
+        {
+          "n": 4,
+          "nama": "Panel: PASANG DI SITUS",
+          "gambar": "branding-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1375
         }
       ]
     },
@@ -644,7 +859,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2095
+          "ms": 2089
         },
         {
           "n": 2,
@@ -654,7 +869,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1380
+          "ms": 1381
         },
         {
           "n": 3,
@@ -664,7 +879,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1391
+          "ms": 1367
         },
         {
           "n": 4,
@@ -674,7 +889,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1391
+          "ms": 1376
         },
         {
           "n": 5,
@@ -684,7 +899,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1855
+          "ms": 1839
         }
       ]
     },
@@ -704,7 +919,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1758
+          "ms": 1699
         },
         {
           "n": 2,
@@ -714,7 +929,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1331
+          "ms": 1336
         },
         {
           "n": 3,
@@ -724,7 +939,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": null,
           "galat": [],
-          "ms": 1840
+          "ms": 1817
         }
       ]
     },
@@ -734,7 +949,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/usage",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "4 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -744,7 +959,37 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2073
+          "ms": 2540
+        },
+        {
+          "n": 2,
+          "nama": "Panel: PESAN PER HARI · 30 HARI",
+          "gambar": "usage-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1370
+        },
+        {
+          "n": 3,
+          "nama": "Panel: PER CHATBOT · 30 HARI",
+          "gambar": "usage-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1338
+        },
+        {
+          "n": 4,
+          "nama": "Panel: PER TENANT · PERIODE BERJALAN",
+          "gambar": "usage-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1346
         }
       ]
     },
@@ -754,7 +999,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/billing",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "11 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -764,7 +1009,107 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2134
+          "ms": 2545
+        },
+        {
+          "n": 2,
+          "nama": "Panel: PLAN AKTIF",
+          "gambar": "billing-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1372
+        },
+        {
+          "n": 3,
+          "nama": "Panel: PAKET TERSEDIA",
+          "gambar": "billing-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1367
+        },
+        {
+          "n": 4,
+          "nama": "Panel: RIWAYAT PEMBAYARAN",
+          "gambar": "billing-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1419
+        },
+        {
+          "n": 5,
+          "nama": "Panel: IDENTITAS PENERBIT KUITANSI (SUPERADMIN)",
+          "gambar": "billing-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1334
+        },
+        {
+          "n": 6,
+          "nama": "Panel: PENGATURAN PEMBAYARAN & MODE DEPLOY (SUPERADMIN)",
+          "gambar": "billing-06.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1393
+        },
+        {
+          "n": 7,
+          "nama": "Panel: MIDTRANS",
+          "gambar": "billing-07.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1381
+        },
+        {
+          "n": 8,
+          "nama": "Panel: TRIPAY",
+          "gambar": "billing-08.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1384
+        },
+        {
+          "n": 9,
+          "nama": "Panel: XENDIT",
+          "gambar": "billing-09.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1367
+        },
+        {
+          "n": 10,
+          "nama": "Panel: KUOTA PAKET",
+          "gambar": "billing-10.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1421
+        },
+        {
+          "n": 11,
+          "nama": "Panel: SEMUA TENANT",
+          "gambar": "billing-11.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1370
         }
       ]
     },
@@ -774,7 +1119,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/observability",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "6 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -784,7 +1129,57 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2107
+          "ms": 2093
+        },
+        {
+          "n": 2,
+          "nama": "Panel: KESEHATAN",
+          "gambar": "observability-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1378
+        },
+        {
+          "n": 3,
+          "nama": "Panel: PEMAKAIAN BULAN 2026-08",
+          "gambar": "observability-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1359
+        },
+        {
+          "n": 4,
+          "nama": "Panel: AKTIVITAS (24H)",
+          "gambar": "observability-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1354
+        },
+        {
+          "n": 5,
+          "nama": "Panel: GALAT TERAKHIR",
+          "gambar": "observability-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1363
+        },
+        {
+          "n": 6,
+          "nama": "Panel: TENANT TERSIBUK",
+          "gambar": "observability-06.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1346
         }
       ]
     },
@@ -794,7 +1189,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/settings",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "11 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -804,7 +1199,107 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1822
+          "ms": 1775
+        },
+        {
+          "n": 2,
+          "nama": "Panel: TAMPILAN",
+          "gambar": "settings-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1383
+        },
+        {
+          "n": 3,
+          "nama": "Panel: WHITE-LABEL",
+          "gambar": "settings-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1394
+        },
+        {
+          "n": 4,
+          "nama": "Panel: DEPLOYMENT",
+          "gambar": "settings-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1392
+        },
+        {
+          "n": 5,
+          "nama": "Panel: API KEY",
+          "gambar": "settings-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1395
+        },
+        {
+          "n": 6,
+          "nama": "Panel: WEBHOOK KELUAR",
+          "gambar": "settings-06.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1377
+        },
+        {
+          "n": 7,
+          "nama": "Panel: DUA FAKTOR (TOTP)",
+          "gambar": "settings-07.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1392
+        },
+        {
+          "n": 8,
+          "nama": "Panel: SSO ORGANISASI",
+          "gambar": "settings-08.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1389
+        },
+        {
+          "n": 9,
+          "nama": "Panel: KONEKTOR SUMBER DATA (SUPERADMIN)",
+          "gambar": "settings-09.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1384
+        },
+        {
+          "n": 10,
+          "nama": "Panel: DEMO PUBLIK DI LANDING (SUPERADMIN)",
+          "gambar": "settings-10.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1378
+        },
+        {
+          "n": 11,
+          "nama": "Panel: EMAIL PLATFORM / SMTP (SUPERADMIN)",
+          "gambar": "settings-11.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1395
         }
       ]
     },
@@ -814,7 +1309,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/bantuan",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "9 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -824,7 +1319,87 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1827
+          "ms": 1817
+        },
+        {
+          "n": 2,
+          "nama": "Panel: 1 · EMPAT LANGKAH PERTAMA",
+          "gambar": "bantuan-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1391
+        },
+        {
+          "n": 3,
+          "nama": "Panel: 2 · DOKUMEN: FORMAT & YANG TAK TERBACA",
+          "gambar": "bantuan-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1385
+        },
+        {
+          "n": 4,
+          "nama": "Panel: 3 · KENAPA BOT MENJAWAB \"TIDAK ADA DI DOKUMEN\"",
+          "gambar": "bantuan-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1374
+        },
+        {
+          "n": 5,
+          "nama": "Panel: 4 · MEMASANG DI SITUSMU",
+          "gambar": "bantuan-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1431
+        },
+        {
+          "n": 6,
+          "nama": "Panel: 5 · KUOTA, DAN APA YANG TERJADI SAAT HABIS",
+          "gambar": "bantuan-06.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1378
+        },
+        {
+          "n": 7,
+          "nama": "Panel: 6 · KEAMANAN DATA",
+          "gambar": "bantuan-07.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1384
+        },
+        {
+          "n": 8,
+          "nama": "Panel: BATAS PER PAKET",
+          "gambar": "bantuan-08.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1360
+        },
+        {
+          "n": 9,
+          "nama": "Panel: MASIH TERSANGKUT?",
+          "gambar": "bantuan-09.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 1387
         }
       ]
     },
@@ -844,7 +1419,7 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 2599
+          "ms": 2579
         }
       ]
     },
@@ -854,7 +1429,7 @@ export const BUKTI: LaporanTur = {
       "jalur": "/dataroom",
       "butuhLogin": true,
       "status": "bekerja",
-      "ringkas": "1 langkah, semuanya bekerja",
+      "ringkas": "9 langkah, semuanya bekerja",
       "langkah": [
         {
           "n": 1,
@@ -864,7 +1439,87 @@ export const BUKTI: LaporanTur = {
           "catatan": "",
           "http": 200,
           "galat": [],
-          "ms": 1288
+          "ms": 1802
+        },
+        {
+          "n": 2,
+          "nama": "Tab: HLA",
+          "gambar": "dataroom-02.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2281
+        },
+        {
+          "n": 3,
+          "nama": "Tab: Technical",
+          "gambar": "dataroom-03.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2185
+        },
+        {
+          "n": 4,
+          "nama": "Tab: Business",
+          "gambar": "dataroom-04.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2160
+        },
+        {
+          "n": 5,
+          "nama": "Tab: Proposal",
+          "gambar": "dataroom-05.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2192
+        },
+        {
+          "n": 6,
+          "nama": "Tab: Assessment",
+          "gambar": "dataroom-06.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2286
+        },
+        {
+          "n": 7,
+          "nama": "Tab: Bukti Fitur",
+          "gambar": "dataroom-07.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2333
+        },
+        {
+          "n": 8,
+          "nama": "Tab: Kalkulator",
+          "gambar": "dataroom-08.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2228
+        },
+        {
+          "n": 9,
+          "nama": "Tab: Backlog",
+          "gambar": "dataroom-09.png",
+          "status": "bekerja",
+          "catatan": "",
+          "http": null,
+          "galat": [],
+          "ms": 2306
         }
       ]
     }

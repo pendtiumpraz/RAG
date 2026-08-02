@@ -9,6 +9,8 @@ import { Skeleton, ErrorState, EmptyState, useToast, Field } from '../../_compon
 interface Chatbot {
   id: string; name: string; publicKey: string; greeting: string | null;
   themeConfig: ThemeCfg | null;
+  /** Ada logo terunggah? Bendera, bukan gambarnya — lihat tanpaRahasia(). */
+  punyaLogo?: boolean;
 }
 interface ThemeCfg {
   brand?: { name?: string; logo?: string };
@@ -132,8 +134,14 @@ function BrandingPageInner() {
             <Field label="Nama merek"><input className="input" value={cfg.name} onChange={(e) => set('name')(e.target.value)} /></Field>
 
             <Field label="Logo"><div className="cluster gap-3" style={{ alignItems: 'center' }}>
-                {/* pratinjau logo terunggah; onError = belum ada logo */}
-                {active && logoVersion >= 0 && (
+                {/* Pratinjau logo terunggah. Diminta HANYA kalau logonya
+                    memang ada: sebelumnya gambarnya selalu diminta dan
+                    ketiadaannya ditangani `onError`, sehingga tiap kunjungan
+                    ke halaman ini meninggalkan 404 di konsol — derau yang
+                    membuat galat sungguhan lebih sulit terlihat.
+                    `logoVersion` tetap dipakai sebagai pembatal cache setelah
+                    unggah/hapus, dan onError tetap ada sebagai jaring terakhir. */}
+                {active && (active.punyaLogo || logoVersion > 0) && (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img key={logoVersion} src={`/api/chat/${active.publicKey}/logo?v=${logoVersion}`}
                     alt="Logo yang sedang terpasang" style={{ height: 34, width: 'auto', borderRadius: 6, border: '1px solid var(--line)', background: '#fff', padding: 3 }}

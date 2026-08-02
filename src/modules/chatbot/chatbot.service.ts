@@ -39,9 +39,17 @@ export const chatbotService = {
    * kunci enkripsi kelak mengubahnya jadi rahasia terbuka, dan tak ada satu
    * pun layar yang membutuhkannya. Yang dibutuhkan UI cuma NYALA atau tidak.
    */
-  tanpaRahasia<T extends { visitorSecret?: string | null }>(row: T) {
-    const { visitorSecret, ...sisa } = row;
-    return { ...sisa, visitorSecret: visitorSecret ? true : null };
+  tanpaRahasia<T extends { visitorSecret?: string | null; logo?: string | null }>(row: T) {
+    const { visitorSecret, logo, ...sisa } = row;
+    /* `logo` adalah data URL PENUH (kolom text). Ia ikut terkirim ke peramban
+       di setiap daftar chatbot — persis jebakan yang diperingatkan di komentar
+       atas: `select()` tanpa kolom eksplisit membawa SEMUA kolom. Tak ada satu
+       pun layar yang membacanya dari sini; gambarnya dilayani terpisah lewat
+       /api/chat/{publicKey}/logo justru supaya daftar tetap ringan. Yang
+       dibutuhkan UI cuma tahu ADA atau tidak — dan itu juga yang menghentikan
+       halaman Branding meminta gambar yang tak pernah ada (404 di konsol
+       setiap kali dibuka). */
+    return { ...sisa, visitorSecret: visitorSecret ? true : null, punyaLogo: !!logo };
   },
 
   async list(tenantId: string, aktor: AktorDivisi) {

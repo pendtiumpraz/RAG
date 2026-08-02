@@ -74,6 +74,17 @@ export class Pengintai {
       if (m.type() === 'error') this.galat.push(`konsol: ${m.text().slice(0, 200)}`);
     });
     page.on('pageerror', (e) => this.galat.push(`pageerror: ${String(e.message).slice(0, 200)}`));
+    /* Respons 4xx/5xx BUKAN `requestfailed` — permintaannya berhasil, isinya
+       yang tak ada. Tanpa pendengar ini yang tersisa cuma pesan konsol
+       "Failed to load resource: 404" TANPA URL, dan bukti yang tak menyebut
+       apa yang hilang tak bisa ditindaklanjuti siapa pun. */
+    page.on('response', (r) => {
+      const s = r.status();
+      const u = r.url();
+      if (s < 400) return;
+      if (/vitals|analytics|beacon|gtag|hotjar/.test(u)) return;
+      this.galat.push(`${s} ${u.replace(/^https?:\/\/[^/]+/, '').slice(0, 140)}`);
+    });
     page.on('requestfailed', (r) => {
       const u = r.url();
       /* Pemblokir iklan, favicon, dan beacon analitik bukan cacat produk —
