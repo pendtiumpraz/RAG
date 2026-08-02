@@ -34,12 +34,28 @@ test('mode bertingkat menyala dari KEBERADAAN vektor dokumen, bukan dari setelan
   // Keputusan ini disengaja: menyuruh pemilik data memilih "mode retrieval"
   // berarti meminta mereka menilai sesuatu yang tak punya dasar untuk dinilai.
   // Ambangnya ditentukan ingest; retrieval cuma membaca jejaknya lewat EXISTS.
-  assert.ok(SRC.includes('select exists ('), 'pengecekan EXISTS hilang');
   assert.ok(SRC.includes('document_vectors v'), 'tak membaca document_vectors');
-  // Menghitung potongan pada tiap pertanyaan akan menaruh beban baru persis di
-  // jalur terpanas produk — kebalikan dari tujuan fiturnya.
-  const cek = SRC.slice(SRC.indexOf('const tiered ='), SRC.indexOf('const tierFilter'));
-  assert.ok(!/count\(\*\)/.test(cek), 'menghitung potongan di jalur kueri panas');
+  assert.ok(/const tiered = jumlahTier1 > 0;/.test(SRC),
+    'mode bertingkat tak lagi ditentukan keberadaan vektor dokumen');
+
+  /* KEPUTUSAN LAMA YANG DIUBAH SADAR (2 Agu 2026, kartu a-tier1-adaptif).
+     Versi sebelumnya melarang `count(*)` di sini sama sekali, dan alasannya
+     benar: menghitung potongan pada tiap pertanyaan menaruh beban baru persis
+     di jalur terpanas produk.
+
+     Yang berubah bukan alasannya melainkan kebutuhannya — ambang lapisan
+     pertama kini harus tahu SEBERAPA BESAR korpus efektifnya, dan EXISTS tak
+     bisa menjawab itu. Jalan tengahnya: hitungan BERBATAS. Di atas titik
+     rumusnya mentok, jawabannya selalu sama, jadi memindai lebih jauh tak
+     mengubah satu pun keputusan — dan batas itu (±2.400 baris) tak sebanding
+     dengan `count(*)` tanpa batas yang dulu dilarang.
+
+     Yang dijaga sekarang justru batasnya. Menghapus `limit` di sana
+     mengembalikan persis beban yang dilarang tes ini sejak awal. */
+  const cek = SRC.slice(SRC.indexOf('const jumlahTier1 ='), SRC.indexOf('const tiered ='));
+  assert.ok(/count\(\*\)::int/.test(cek), 'ukuran korpus tak lagi dihitung — ambang adaptif jadi buta');
+  assert.ok(/limit \$\{BATAS_HITUNG \+ 1\}/.test(cek),
+    'hitungan korpus TANPA batas — inilah beban yang dilarang tes ini sejak awal');
 });
 
 test('ambang lapisan pertama tak diturunkan diam-diam', () => {

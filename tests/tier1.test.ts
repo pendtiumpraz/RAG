@@ -276,10 +276,16 @@ test('TIER1_DOCS membawa ukurannya, dan ukuran itu tak boleh hilang diam-diam', 
      konstanta tanpa asal-usul akan diubah orang berikutnya sambil mengira ia
      asal pilih, dan kerugian recall tak pernah membuat satu tes pun gagal. */
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync('src/modules/chat/retrieval.service.ts', 'utf8');
-  const m = src.match(/const TIER1_DOCS = (\d+);/);
-  assert.ok(m, 'TIER1_DOCS tak ditemukan — bentuk berkasnya berubah');
-  assert.ok(Number(m![1]) > 0, 'TIER1_DOCS harus positif');
+  /* Ambangnya pindah ke modul sendiri (kartu a-tier1-adaptif) dan berhenti
+     jadi satu angka: ia kini rasio + dua batas. Yang dijaga tetap sama —
+     angkanya membawa asal-usulnya, karena konstanta tanpa sebab akan diubah
+     orang berikutnya sambil mengira ia asal pilih, dan kerugian recall tak
+     pernah membuat satu tes pun gagal. */
+  const src = readFileSync('src/modules/chat/tier1.ts', 'utf8');
+  const m = src.match(/export const RASIO_KORPUS = ([\d.]+);/);
+  assert.ok(m, 'RASIO_KORPUS tak ditemukan — bentuk berkasnya berubah');
+  assert.ok(Number(m![1]) > 0 && Number(m![1]) <= 1, 'RASIO_KORPUS harus pecahan 0..1');
   assert.ok(/eval:tier1/.test(src),
-    'TIER1_DOCS tak lagi menyebut cara mengukurnya — angkanya jadi tak bisa ditinjau');
+    'rasionya tak lagi menyebut cara mengukurnya — angkanya jadi tak bisa ditinjau');
+  assert.ok(/95%/.test(src), 'target recall yang melahirkan rasio ini tak disebutkan');
 });

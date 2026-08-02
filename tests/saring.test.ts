@@ -117,12 +117,17 @@ test('penyaring dipasang di KETIGA tempat, bukan hanya di kaki potongan', () => 
      memilih 120 dokumennya TANPA memperhatikan penyaring — dan ke-120 itu
      bisa habis tersaring semuanya, sehingga jawabannya kosong padahal
      dokumennya ada. */
-  /* TIGA titik pakai: lapisan pertama (v), kaki vektor satu tahap (d), dan
-     tahap penyaring biner (d). Definisinya sendiri tak ikut terhitung —
-     `const saringSql = (alias…` tak memuat `saringSql(`. Versi pertama
-     asersi ini menuntut 4 dan gagal terhadap kode yang sudah benar. */
+  /* EMPAT titik pakai:
+       1. hitungan ukuran korpus efektif (v) — ditambahkan kartu
+          a-tier1-adaptif; tanpa ini ambangnya menjawab pertanyaan tentang
+          korpus yang tak sedang dicari
+       2. lapisan pertama (v)
+       3. kaki vektor satu tahap (d)
+       4. tahap penyaring biner (d)
+     Definisinya sendiri tak ikut terhitung — `const saringSql = (alias…` tak
+     memuat `${saringSql(`. */
   const dipakai = (SVC.match(/\$\{saringSql\(/g) ?? []).length;
-  assert.equal(dipakai, 3, `saringSql dipakai ${dipakai}×, seharusnya di 3 titik`);
+  assert.equal(dipakai, 4, `saringSql dipakai ${dipakai}×, seharusnya di 4 titik`);
   assert.ok(/\$\{saringSql\('v'\)\}/.test(SVC), 'lapisan pertama (document_vectors) tak disaring');
   assert.ok(/\$\{saringSql\('d'\)\}/.test(SVC), 'kaki dokumen tak disaring');
 });

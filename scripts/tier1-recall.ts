@@ -21,9 +21,18 @@ import {
   type DokVektor, centroidBagian, kurvaAmbang, peringkatDatar, peringkatTarget,
   proyeksikan, ringkas, ambangUntukRecall,
 } from '@/modules/eval/tier1';
+import { RASIO_KORPUS, TIER1_MAKS, TIER1_MIN, tier1Docs } from '@/modules/chat/tier1';
 
-/** Sama dengan TIER1_DOCS di retrieval.service.ts. Dibaca dari sana, bukan disalin. */
-const TIER1_DOCS = 40;
+/**
+ * Ambang yang sedang diukur — kini FUNGSI ukuran korpus, bukan angka tetap.
+ *
+ * Komentar sebelumnya berbunyi "dibaca dari sana, bukan disalin" padahal
+ * angkanya salinan, dan salinannya tertinggal: produksi sudah 120 sementara
+ * harness ini masih melaporkan 40, sehingga seluruh laporannya menjawab
+ * pertanyaan tentang ambang yang tak dipakai siapa pun. Sekarang benar-benar
+ * dari sumbernya — modul yang sama yang dipakai retrieval.
+ */
+const AMBANG = (n: number) => tier1Docs(n);
 
 function arg(nama: string, bawaan: number): number {
   const m = process.argv.find((a) => a.startsWith(`--${nama}=`));
@@ -64,7 +73,10 @@ async function main() {
   if (!model) { console.error(`Model tak dikenal: ${modelId}`); process.exit(2); }
   const dims = model.dimensions;
 
-  console.log(`\nRECALL LAPISAN PERTAMA — ${nDok} dokumen · ${nTanya} pertanyaan · ${modelId} (${dims}d)\n`);
+  const TIER1_DOCS = AMBANG(nDok);
+  console.log(`\nRECALL LAPISAN PERTAMA — ${nDok} dokumen · ${nTanya} pertanyaan · ${modelId} (${dims}d)`);
+  console.log(`Ambang adaptif untuk korpus sebesar ini: ${TIER1_DOCS}`
+    + `  (rasio ${RASIO_KORPUS} · batas ${TIER1_MIN}–${TIER1_MAKS})\n`);
 
   const korpus = bangunKorpus(nDok);
   const potongan = korpus.flatMap((d) => d.potongan.map((b) => b.teks));
@@ -139,10 +151,20 @@ async function main() {
     console.log(`  ${rp.padEnd(9)} recall ${(rr.recall * 100).toFixed(1)}%  rerata ${rr.rerataPeringkat.toFixed(1)}  terburuk ${rr.peringkatTerburuk}`);
   }
 
+  /* PROYEKSI DENGAN AMBANG ADAPTIF, dan inilah pertanyaan sebenarnya dari
+     kartu a-tier1-adaptif: apakah membesarkan ambang mengikuti korpus benar-
+     benar menahan recall — atau ia mentok lebih dulu. Kolom "tetap"
+     dipertahankan sebagai pembanding; tanpa itu tak ada cara melihat apa yang
+     dibeli perubahan ini. */
   console.log(`\nPROYEKSI (batas atas — lihat catatan asumsi di modules/eval/tier1.ts)`);
-  for (const n of [10_000, 50_000, 200_000, 1_000_000]) {
+  console.log('  dokumen      ambang   recall adaptif   recall bila ambang tetap 120');
+  for (const n of [10_000, 50_000, 200_000, 1_000_000, 3_500_000]) {
     if (n <= nDok) continue;
-    console.log(`  ${String(n).padStart(9)} dokumen → recall @${TIER1_DOCS} ≈ ${(proyeksikan(peringkat, nDok, n, TIER1_DOCS) * 100).toFixed(1)}%`);
+    const a = AMBANG(n);
+    const rAdaptif = proyeksikan(peringkat, nDok, n, a) * 100;
+    const rTetap = proyeksikan(peringkat, nDok, n, TIER1_MIN) * 100;
+    const mentok = a >= TIER1_MAKS ? '  ← MENTOK' : '';
+    console.log(`  ${String(n).padStart(9)}  ${String(a).padStart(7)}   ${rAdaptif.toFixed(1).padStart(12)}%   ${rTetap.toFixed(1).padStart(12)}%${mentok}`);
   }
 
   /* KONTROL — peringkat potongan benar tanpa lapisan pertama sama sekali.

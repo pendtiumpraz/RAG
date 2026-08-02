@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { irisAntara } from './_iris';
+
 process.env.DATABASE_URL ??= 'postgres://x:y@localhost:5432/z';
 process.env.CREDENTIALS_ENCRYPTION_KEY ??= '0'.repeat(64);
 
@@ -67,9 +69,13 @@ test('yang DIBATASI adalah jumlah dokumen, bukan jumlah bagian', () => {
   /* Membatasi baris bagian akan membiarkan satu dokumen tebal memakan
      seluruh 40 slot lewat sepuluh bagiannya, dan sembilan dokumen lain yang
      relevan justru tersingkir — kebalikan dari tujuan perubahan ini. */
-  const blok = RS.slice(RS.indexOf('const tierFilter'), RS.indexOf('const tierFilter') + 900);
+  const blok = irisAntara(RS, 'const tierFilter', 'const rows = await withTenant');
   const iGroup = blok.indexOf('group by v.doc_ref');
-  const iLimit = blok.indexOf('limit ${TIER1_DOCS}');
+  /* `tier1Ambang`, bukan `TIER1_DOCS`: ambangnya kini dihitung dari ukuran
+     korpus efektif (kartu a-tier1-adaptif). Yang dijaga tes ini tak berubah
+     sedikit pun — pengelompokan per dokumen harus mendahului limit, berapa
+     pun angkanya. */
+  const iLimit = blok.indexOf('limit ${tier1Ambang}');
   assert.ok(iGroup > 0 && iLimit > iGroup,
     'limit diterapkan sebelum pengelompokan per dokumen');
 });

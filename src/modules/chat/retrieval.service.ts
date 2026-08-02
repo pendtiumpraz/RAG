@@ -7,6 +7,7 @@ import { lexicalTsquery } from './lexical-query';
 import { adaSaring, type SaringDokumen } from '@/modules/knowledge/saring';
 import { pasangUlangSkala, porsiKandidat, terapkanRerank } from './rerank';
 import { layakBiner, porsiSaring } from './kuantisasi';
+import { RASIO_KORPUS, TIER1_MAKS, tier1Docs, tier1Mentok } from './tier1';
 import { platformSettings } from '@/modules/core/db/schema';
 import { db } from '@/modules/core/db';
 import { cariRerank, nilaiUlang } from './rerank-penyedia';
@@ -21,39 +22,6 @@ import { eq } from 'drizzle-orm';
  */
 const MMR_LAMBDA = 0.75;
 
-/**
- * Kandidat DOKUMEN dari lapisan pertama. Sengaja jauh lebih banyak dari
- * jumlah potongan yang akhirnya dipakai: rerata dokumen tebal itu kabur, dan
- * dokumen yang terlewat di sini tak akan pernah dibaca di lapisan kedua.
- *
- * 40 → 120 pada 31 Jul 2026, disetujui pemilik produk setelah diukur.
- *
- * Yang diukur (`npm run eval:tier1`, 400 dokumen × 60 potongan, MiniLM):
- *
- *   • Dari 61 pertanyaan yang potongan benarnya MEMANG terjangkau pencarian
- *     datar, ambang 40 menjatuhkan 5 — 8,2% jawaban yang seharusnya
- *     terambil, hilang sebelum lapisan kedua sempat membacanya.
- *   • Recall 95% pada korpus itu menuntut 95 dokumen, jauh di atas 40. Dan
- *     angkanya memburuk saat korpus tumbuh, karena pengganggu bertambah
- *     sementara ambangnya tetap.
- *
- * Sebabnya bukan peringkatnya yang salah melainkan perata-rataan: centroid
- * satu bagian adalah avg() atas 50 potongan, jadi potongan yang membawa
- * jawaban hanya menyumbang seperlima puluh arahnya.
- *
- * Kenapa 120, bukan 95 yang persis terukur: 95 adalah titik di mana recall
- * PAS 95% pada korpus 400 dokumen, dan angkanya memburuk saat korpus tumbuh
- * karena pengganggu bertambah sementara ambangnya tetap. 120 memberi ruang
- * untuk pertumbuhan itu tanpa melompat ke ambang yang biayanya terasa.
- *
- * Biayanya, dan kapan ia terasa: yang tumbuh hanya jumlah potongan yang
- * dipindai lapisan kedua — 120 dokumen alih-alih 40. Lapisan pertamanya
- * sendiri tetap satu kueri berindeks. Di korpus produksi hari ini (6
- * dokumen) keduanya mengambil semuanya, jadi tak ada beda sama sekali; beda
- * itu baru muncul setelah korpus melewati TIERED_MIN_CHUNKS. UKUR LAGI
- * latensi lambda pada saat itu — pool-nya max:1 dan waktunya berbatas.
- */
-const TIER1_DOCS = 120;
 
 /** Kandidat catatan Memory yang diadu di RRF. Kecil: tabelnya satu baris per
  *  dokumen, dan gunanya memberi gambaran luas — bukan menyapu korpus. */
@@ -346,18 +314,52 @@ export const retrievalService = {
      * Satu query EXISTS berindeks — jauh lebih murah daripada menghitung
      * potongan pada tiap pertanyaan.
      */
-    const tiered = await withTenant(tenantId, async (tx) => {
+    /**
+     * Ukuran lapisan pertama — DIBATASI, bukan dihitung penuh.
+     *
+     * Menghitungnya penuh berarti memindai jutaan baris pada tiap pertanyaan
+     * untuk memutuskan sebuah pengoptimalan; itu cara membayar ongkos yang
+     * hendak dihemat. Yang dibutuhkan hanya "berapa, sampai titik rumusnya
+     * mentok" — di atas BATAS_HITUNG jawabannya selalu sama (TIER1_MAKS), jadi
+     * menghitung lebih jauh tak mengubah satu pun keputusan.
+     *
+     * `+1` disengaja: ia membedakan "persis sebanyak batas" dari "lebih
+     * banyak dari batas", dan bedanya menentukan apakah keadaan mentok ikut
+     * dicatat ke log.
+     *
+     * Penyaring metadata ikut di sini, dan itu inti kartu a-tier1-adaptif:
+     * yang menentukan bukan besar KORPUS melainkan besar korpus YANG MASIH
+     * MUNGKIN TERAMBIL. Penyaring yang menyempitkan ke 5.000 dokumen membuat
+     * ambang kecil masuk akal lagi.
+     */
+    const BATAS_HITUNG = Math.ceil(TIER1_MAKS / RASIO_KORPUS);
+    const jumlahTier1 = await withTenant(tenantId, async (tx) => {
       const r = await tx.execute(sql`
-        select exists (
+        select count(*)::int as n from (
           select 1 from document_vectors v
           where v.embedding_model = ${embeddingModel}
             and v.deleted_at is null
             and v.knowledge_base_id in (
               select a.knowledge_base_id from chatbot_knowledge_bases a
               where a.chatbot_id = ${chatbotId} and a.deleted_at is null)
-        ) as ada`);
-      return Boolean((r as unknown as Array<{ ada: boolean }>)[0]?.ada);
+            ${useSub ? sql`and v.embedding_dims = ${dims}` : sql``}
+            ${saringSql('v')}
+          limit ${BATAS_HITUNG + 1}
+        ) t`);
+      return Number((r as unknown as Array<{ n: number }>)[0]?.n ?? 0);
     });
+    const tiered = jumlahTier1 > 0;
+    const tier1Ambang = tier1Docs(jumlahTier1);
+    if (tier1Mentok(jumlahTier1) || jumlahTier1 > BATAS_HITUNG) {
+      /* Keadaan yang tak pernah dicatat adalah keadaan yang baru diketahui
+         saat ada yang mengeluh jawabannya meleset — berbulan-bulan kemudian,
+         tanpa satu pun jejak yang menghubungkannya. */
+      log('info', {
+        event: 'tier1.mentok', chatbotId, ambang: tier1Ambang,
+        pesan: 'Korpus melewati titik di mana lapisan pertama bisa mempertahankan recall '
+          + 'lewat pembesaran ambang. Persempit dengan penyaring metadata.',
+      });
+    }
 
     /* Saklar kuantisasi biner — keputusan PEMASANGAN (superadmin), dan hanya
        berlaku bila korpusnya memang besar. Sinyal "besar" memakai `tiered`
@@ -401,7 +403,7 @@ export const retrievalService = {
             ${saringSql('v')}
           group by v.doc_ref
           order by min(${jarakTier1})
-          limit ${TIER1_DOCS})`
+          limit ${tier1Ambang})`
       : sql``;
 
     /**
