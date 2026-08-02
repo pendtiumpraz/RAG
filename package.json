@@ -66,6 +66,7 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.22",
     "playwright-core": "^1.62.1",
+    "sharp": "^0.35.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0"
   },

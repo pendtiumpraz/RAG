@@ -12,12 +12,41 @@
  * bukan penilaian. assessment.ts menjanjikan "tak ada skor utk fitur yang
  * belum disaksikan bekerja" — berkas ini yang menjaga janji itu punya arti.
  */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import sharp from 'sharp';
 import type { Page } from 'playwright-core';
 
 export const BASIS = (process.env.BASIS ?? 'https://rag.sainskerta.net').replace(/\/$/, '');
 export const TULIS = process.env.TUR_TULIS === '1';
 export const KELUARAN = 'public/bukti';
+
+/**
+ * WebP LOSSLESS. Diukur, bukan ditebak — dan tebakan pertama memang salah.
+ *
+ * Satu jalan penuh berisi ±120 gambar dan tiap jalan menaruh blob baru di
+ * riwayat git, jadi ukurannya layak dipikirkan. Dugaan awal "JPEG akan jauh
+ * lebih kecil" ternyata KELIRU: JPEG mutu 90 justru 14MB melawan PNG 13MB,
+ * karena tangkapan layar antarmuka adalah warna rata dengan tepi huruf tajam —
+ * bentuk paling boros bagi JPEG (bit terbuang pada dengung di sekitar teks).
+ *
+ * Diukur pada SELURUH 120 berkas dengan sumber piksel identik (dua sampel
+ * 12-berkas sebelumnya sama-sama mengambil 12 nama pertama secara alfabet —
+ * yang kebetulan halaman paling sederhana; sampel yang sama diambil dua kali
+ * bukan dua bukti):
+ *   WebP lossless  58%   ← dipakai
+ *   WebP q90       77%
+ *   PNG           100%
+ *
+ * Lossless MENGALAHKAN lossy di sini, jadi tak ada pertukaran sama sekali.
+ * Hasil nyata satu jalan penuh: 13MB → 5,8MB, piksel identik. Tak ada
+ * sakelar mutu, karena tak ada mutu yang dikorbankan untuk ditawar.
+ *
+ * Playwright BISA menulis .webp sendiri, dan itu sempat terjadi tanpa
+ * disadari ketika penyambungan ke sini gagal diam-diam — hasilnya 208KB
+ * untuk gambar yang lewat sini jadi 66KB. Encoder peramban memakai setelan
+ * bawaannya; yang di sini dipilih sengaja.
+ */
+export const EKSTENSI = 'webp';
 export const TANDA_UJI = `Uji Tur ${new Date().toISOString().slice(0, 10)}`;
 
 export type Status = 'bekerja' | 'sebagian' | 'gagal' | 'dilewati';
@@ -99,7 +128,22 @@ export class Pengintai {
 }
 
 export function siapkanKeluaran() {
+  /* DIKOSONGKAN, bukan sekadar dibuat. Tanpa ini, gambar dari jalan sebelumnya
+     tetap tinggal — dan yang tertinggal justru bukti fitur yang sudah dihapus
+     atau berganti nama, yang tak lagi ditunjuk laporan mana pun tapi masih
+     ikut ter-commit. Ketahuan saat format bawaan berganti dari PNG ke JPEG:
+     122 berkas lama akan menetap selamanya. */
+  rmSync(KELUARAN, { recursive: true, force: true });
   mkdirSync(KELUARAN, { recursive: true });
+}
+
+/** Potret → WebP lossless. Playwright hanya bisa PNG/JPEG, jadi konversinya
+ *  di sini; `effort: 5` sudah menyentuh dasar ukurannya tanpa memperlambat
+ *  tur secara terasa. */
+async function simpanPotret(page: Page, nama: string) {
+  const png = await page.screenshot();
+  const webp = await sharp(png).webp({ lossless: true, effort: 5 }).toBuffer();
+  writeFileSync(`${KELUARAN}/${nama}`, webp);
 }
 
 export async function jalankanAdegan(page: Page, mata: Pengintai, def: DefAdegan): Promise<Adegan> {
@@ -150,15 +194,15 @@ export async function jalankanAdegan(page: Page, mata: Pengintai, def: DefAdegan
       const teks = await page.locator('body').innerText().catch(() => '');
       const terlarang = LARANGAN.filter((x) => teks.includes(x));
       if (terlarang.length) throw new Error(`halaman menampilkan: ${terlarang.join(', ')}`);
-      gambar = `${def.id}-${String(n).padStart(2, '0')}.png`;
-      await page.screenshot({ path: `${KELUARAN}/${gambar}` });
+      gambar = `${def.id}-${String(n).padStart(2, '0')}.${EKSTENSI}`;
+      await simpanPotret(page, gambar);
     } catch (e) {
       status = 'gagal';
       const pesan = String((e as Error).message).split('\n')[0].slice(0, 220);
       catatan = catatan ? `${catatan} · ${pesan}` : pesan;
       try {
-        gambar = `${def.id}-${String(n).padStart(2, '0')}-gagal.png`;
-        await page.screenshot({ path: `${KELUARAN}/${gambar}` });
+        gambar = `${def.id}-${String(n).padStart(2, '0')}-gagal.${EKSTENSI}`;
+        await simpanPotret(page, gambar);
       } catch { gambar = null; }
     }
     const galat = mata.ambil();
