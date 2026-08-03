@@ -524,6 +524,17 @@
 .wk-nav{ position:sticky; top:12px; max-height:calc(100vh - 120px); overflow-y:auto;
   display:flex; flex-direction:column; gap:20px; padding-right:4px; scrollbar-width:thin; }
 
+/* Umur bukti — SELALU tampil, tak hanya saat basi. Pita yang cuma muncul saat
+   ada masalah mengajari pembacanya bahwa ketiadaan pita berarti "belum
+   diperiksa", bukan "masih segar". */
+.wk-umur{ display:flex; flex-direction:column; gap:3px; margin-bottom:var(--sp-3);
+  padding:10px 12px; border:1px solid var(--line); border-left:3px solid var(--good-mark);
+  border-radius:var(--rad-sm); background:var(--card-2); font-size:12px; }
+.wk-umur b{ font-size:12.5px; color:var(--ink); }
+.wk-umur span{ color:var(--muted); line-height:1.5; }
+.wk-umur.basi{ border-left-color:var(--source); background:color-mix(in srgb,var(--source) 8%,transparent); }
+.wk-umur.basi b{ color:var(--source); }
+
 .wk-ringkas{ background:var(--ink); border-radius:var(--rad-lg); padding:16px 18px;
   display:flex; flex-direction:column; gap:4px; color:#E2E8F0; }
 .wk-ringkas b{ font-family:var(--font-display); font-size:34px; line-height:1;

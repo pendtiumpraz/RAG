@@ -16,7 +16,17 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 import type { Page } from 'playwright-core';
 
-export const BASIS = (process.env.BASIS ?? 'https://rag.sainskerta.net').replace(/\/$/, '');
+/**
+ * Alamat yang ditur.
+ *
+ * Menerima DUA nama, dan itu disengaja. `BASIS` sudah dipakai orang saat
+ * menjalankannya dari terminal, tapi ia terlalu umum untuk sebuah alur CI —
+ * variabel bernama "BASIS" di daftar rahasia repositori tak memberi tahu
+ * siapa pun basis apa. `TUR_BASIS` didahulukan supaya alur terjadwalnya punya
+ * nama yang menjelaskan dirinya, tanpa mematahkan kebiasaan yang sudah ada.
+ */
+export const BASIS = (process.env.TUR_BASIS ?? process.env.BASIS
+  ?? 'https://rag.sainskerta.net').replace(/\/$/, '');
 export const TULIS = process.env.TUR_TULIS === '1';
 export const KELUARAN = 'public/bukti';
 

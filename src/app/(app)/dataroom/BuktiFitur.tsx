@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BUKTI } from './bukti.generated';
 import type { AdeganBukti, LangkahBukti, StatusBukti } from './bukti-tipe';
 
@@ -35,6 +35,28 @@ const waktu = (iso: string) => {
   return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
+/**
+ * UMUR BUKTI — sengaja ditampilkan, bukan disimpan di komentar kode.
+ *
+ * `bukti.generated.ts` adalah POTRET SATU SAAT, dan ia tetap tampil
+ * meyakinkan berbulan-bulan setelah fitur yang dipotretnya berubah atau rusak.
+ * Tak ada satu pun tanda di layar yang membedakan bukti kemarin dari bukti
+ * bulan lalu — dan itu persis yang terjadi pada halaman Assessment sebelum
+ * 3 Agu 2026: ia menyebut sepuluh celah yang sudah lama tertutup, dan tak ada
+ * yang tahu sampai seseorang memeriksanya baris demi baris.
+ *
+ * Ambangnya dua minggu. Lebih pendek akan berbunyi terus-menerus pada minggu
+ * yang tak ada perubahan apa pun; lebih panjang berarti satu rilis penuh bisa
+ * lewat sebelum ada yang curiga.
+ */
+export const UMUR_BASI_HARI = 14;
+
+export function umurHari(iso: string, sekarang: Date = new Date()): number | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return Math.floor((sekarang.getTime() - t) / 86_400_000);
+}
+
 /** Kelompok navigasi — urutannya urutan orang mengenal produknya. */
 function kelompok(a: AdeganBukti): string {
   if (!a.butuhLogin) return 'Permukaan publik';
@@ -67,6 +89,7 @@ export default function BuktiFitur() {
     <div className="dr-wiki">
       {/* ── rak kiri: daftar isi + kesehatan sekaligus ─────────────── */}
       <nav className="wk-nav" aria-label="Daftar fitur">
+        <UmurBukti pada={BUKTI.pada} />
         <div className="wk-ringkas">
           <b>{r.bekerja}<small>/{r.total}</small></b>
           <span>fitur bekerja penuh</span>
@@ -170,6 +193,35 @@ export default function BuktiFitur() {
           </figure>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Pita umur bukti. Selalu tampil — bukan hanya saat basi.
+ *
+ * Pita yang cuma muncul saat ada masalah mengajari pembacanya bahwa ketiadaan
+ * pita berarti "belum diperiksa", bukan "masih segar". Angka yang selalu ada
+ * membuat kedua keadaan bisa dibedakan tanpa pengetahuan sebelumnya.
+ */
+function UmurBukti({ pada }: { pada: string }) {
+  const [umur, setUmur] = useState<number | null>(null);
+  /* Dihitung SETELAH render pertama, bukan saat render. Halaman ini dirender
+     di server juga, dan "berapa hari lalu" yang dihitung di sana akan
+     terkunci pada waktu build — persis jenis kebasian yang hendak dicegah
+     komponen ini, dilakukan oleh komponen ini sendiri. */
+  useEffect(() => { setUmur(umurHari(pada)); }, [pada]);
+  if (umur === null) return null;
+
+  const basi = umur >= UMUR_BASI_HARI;
+  return (
+    <div className={`wk-umur${basi ? ' basi' : ''}`}>
+      <b>{umur === 0 ? 'Bukti hari ini' : `Bukti berumur ${umur} hari`}</b>
+      <span>
+        {basi
+          ? `Lebih tua dari ${UMUR_BASI_HARI} hari — fitur yang berubah sejak itu tidak terwakili di sini. Jalankan npm run tur.`
+          : 'Dipotret ulang tiap kali tur dijalankan.'}
+      </span>
     </div>
   );
 }

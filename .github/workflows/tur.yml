@@ -1,0 +1,85 @@
+name: Tur bukti fitur
+
+# KENAPA TERJADWAL.
+#
+# Tab "Bukti Fitur" di Dataroom adalah satu-satunya halaman yang isinya
+# benar-benar DISAKSIKAN, dan justru karena itu ia punya bentuk pembusukan yang
+# khas: `bukti.generated.ts` adalah potret satu saat, dan ia tetap tampil
+# meyakinkan berbulan-bulan setelah fitur yang dipotretnya berubah atau rusak.
+#
+# Itu bukan kekhawatiran teoretis. Halaman Assessment di repo yang sama sempat
+# menyebut sepuluh celah yang sudah lama tertutup, dan tak ada yang tahu sampai
+# seseorang memeriksanya baris demi baris pada 3 Agu 2026.
+
+on:
+  schedule:
+    # 21:00 UTC = 04:00 WIB — setelah deploy hari kerja selesai, sebelum orang
+    # membuka dasbor. Kalau turnya gagal, yang membuka pagi harinya melihat
+    # kegagalannya, bukan bukti yang diam-diam tak diperbarui.
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # BERHENTI DENGAN KERAS bila kredensialnya belum dipasang.
+      #
+      # Ini yang membedakan pekerjaan terjadwal yang berguna dari yang
+      # menenangkan: alur yang melewati langkahnya saat rahasia kosong akan
+      # HIJAU setiap malam tanpa memotret apa pun, dan papan Actions yang
+      # seluruhnya hijau adalah alasan terkuat untuk berhenti memeriksanya.
+      - name: Pastikan kredensialnya ada
+        env:
+          NALAR_EMAIL: ${{ secrets.NALAR_EMAIL }}
+          NALAR_SANDI: ${{ secrets.NALAR_SANDI }}
+          TUR_BASIS: ${{ secrets.TUR_BASIS }}
+        run: |
+          hilang=""
+          [ -z "$NALAR_EMAIL" ] && hilang="$hilang NALAR_EMAIL"
+          [ -z "$NALAR_SANDI" ] && hilang="$hilang NALAR_SANDI"
+          [ -z "$TUR_BASIS" ]   && hilang="$hilang TUR_BASIS"
+          if [ -n "$hilang" ]; then
+            echo "::error::Rahasia belum dipasang:$hilang"
+            echo "Tanpa ini tur tak memotret apa pun, dan alur yang tetap hijau"
+            echo "akan membuat bukti di Dataroom membusuk tanpa ada yang tahu."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+
+      # playwright-core memakai peramban sistem — sengaja, supaya `npm ci`
+      # sehari-hari tak mengunduh ~150MB peramban yang cuma dipakai di sini.
+      - name: Pasang Chromium untuk peramban tur
+        run: npx playwright install --with-deps chromium
+
+      - name: Jalankan tur
+        env:
+          NALAR_EMAIL: ${{ secrets.NALAR_EMAIL }}
+          NALAR_SANDI: ${{ secrets.NALAR_SANDI }}
+          TUR_BASIS: ${{ secrets.TUR_BASIS }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: npm run tur
+
+      # KEGAGALAN IKUT DI-COMMIT. Tur yang menemukan fitur rusak menghasilkan
+      # bukti berstatus GAGAL, dan itu justru isi yang paling berharga di
+      # halaman itu — membuang hasilnya karena "merah" akan mengubah dataroom
+      # jadi brosur.
+      - name: Commit bukti yang diperbarui
+        run: |
+          git config user.name  "nalar-tur[bot]"
+          git config user.email "noreply@sainskerta.net"
+          git add "src/app/(app)/dataroom/bukti.generated.ts" public/bukti
+          if git diff --cached --quiet; then
+            echo "Tak ada perubahan bukti."
+          else
+            git commit -m "chore(bukti): tur terjadwal $(date -u +%Y-%m-%d)"
+            git push
+          fi
