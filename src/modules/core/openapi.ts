@@ -182,6 +182,22 @@ export const openApiSpec = {
         responses: { 200: err('{ ok }') } },
     },
 
+    '/api/team/members/{id}/recover': {
+      post: {
+        summary: 'Terbitkan tautan pemulihan akun anggota (email tak bisa diakses)',
+        description: 'Admin/superadmin saja, untuk anggota tenant yang sama, dan TIDAK untuk diri '
+          + 'sendiri. Tautannya dikembalikan SEKALI di badan respons — tidak disimpan dan tidak '
+          + 'dikirim lewat email, karena email itulah yang sedang tak bisa dibuka. Setiap '
+          + 'penerbitan dicatat di audit lengkap dengan siapa memulihkan siapa.',
+        security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: {
+          200: err('{ tautan, email, berlakuSampai } — tautan berlaku 1 jam'),
+          422: err('Bukan admin / diri sendiri / lintas tenant / target superadmin / akun ditolak'),
+        },
+      },
+    },
+
     '/api/documents/move': {
       post: {
         summary: 'Pindahkan satu dokumen ke knowledge base lain',

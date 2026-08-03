@@ -50,6 +50,7 @@ function TeamPageInner() {
   const invites = useApi<Invitation[]>(canInvite ? '/api/team/invitations' : null);
   const divisi = useApi<Divisi[]>('/api/divisions');
   const [inviting, setInviting] = useState(false);
+  const [pulih, setPulih] = useState<Member | null>(null);
   const toast = useToast();
   const t = useTabel(members.data ?? [], OPSI_ANGGOTA);
 
@@ -168,7 +169,15 @@ function TeamPageInner() {
                       <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{m.createdAt?.slice(0, 10)}</td>
                       {canInvite && (
                         <td>{!untouchable && (
-                          <button className="btn btn-sm btn-ghost" onClick={() => removeMember(m)}>Keluarkan</button>
+                          <div className="cluster gap-2">
+                            {/* Pemulihan berdiri BERDAMPINGAN dengan Keluarkan,
+                                bukan tersembunyi di menu: yang membukanya
+                                sedang menolong rekan yang tak bisa masuk, dan
+                                aksi yang harus dicari dulu tak pernah ketemu
+                                pada saat orang sedang panik. */}
+                            <button className="btn btn-sm" onClick={() => setPulih(m)}>Pulihkan</button>
+                            <button className="btn btn-sm btn-ghost" onClick={() => removeMember(m)}>Keluarkan</button>
+                          </div>
                         )}</td>
                       )}
                     </tr>
@@ -184,6 +193,7 @@ function TeamPageInner() {
       {canInvite && <Invitations feed={invites} onInvite={() => setInviting(true)} />}
       {inviting && <InviteDrawer onClose={() => setInviting(false)}
         onSent={() => { invites.refetch(); members.refetch(); }} />}
+      {pulih && <PulihkanDrawer member={pulih} onClose={() => setPulih(null)} />}
 
       {/* Antrean verifikasi menembus batas tenant (tiap signup = tenant sendiri),
           jadi hanya peran platform yang boleh melihatnya. */}
@@ -344,6 +354,79 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
         </div>
       </Drawer>
     </>
+  );
+}
+
+/* ── pemulihan akun (kartu a-account-recovery) ──────────────────────── */
+
+/**
+ * Tautan pemulihan untuk anggota yang tak bisa mengakses emailnya.
+ *
+ * TIDAK dikirim lewat email — itu inti kartunya. Setiap jalur pemulihan yang
+ * ada sebelumnya bermuara ke kotak surat yang justru sudah tak bisa dibuka,
+ * jadi mengirim tautan ini ke sana akan mengembalikan buntu yang sama persis.
+ * Ia ditampilkan SEKALI di sini, lalu disampaikan lewat jalur yang sudah
+ * dipercaya organisasi: tatap muka, telepon, chat internal.
+ */
+function PulihkanDrawer({ member, onClose }: { member: Member; onClose: () => void }) {
+  const toast = useToast();
+  const [hasil, setHasil] = useState<{ tautan: string; email: string; berlakuSampai: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function terbitkan() {
+    setBusy(true);
+    try {
+      setHasil(await api(`/api/team/members/${member.id}/recover`, { method: 'POST' }));
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  return (
+    <Drawer onClose={onClose} label="Pulihkan akun anggota">
+      <div className="dh">
+        <h3>Pulihkan akses {member.name ?? member.email}</h3>
+        <button className="icon-btn" onClick={onClose} aria-label="Tutup"><Icon name="close" size={16} /></button>
+      </div>
+      <div className="db stack gap-4">
+        {!hasil ? (
+          <>
+            <p className="sub" style={{ margin: 0 }}>
+              Untuk anggota yang <b>tak bisa lagi membuka emailnya</b> — resign, domain pindah,
+              kotak surat dihapus IT. Semua jalur pemulihan lain bermuara ke email yang sama,
+              jadi hanya kamu yang bisa membukanya.
+            </p>
+            <p className="microlabel">
+              KAMU YANG MENJAMIN INI ORANGNYA. TAUTANNYA MEMBERI SIAPA PUN YANG MEMEGANGNYA
+              KEMAMPUAN MENGATUR ULANG KATA SANDI AKUN INI. PENERBITANNYA DICATAT DI AUDIT
+              LENGKAP DENGAN NAMAMU.
+            </p>
+            <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={terbitkan}>
+              Terbitkan tautan pemulihan
+            </button>
+          </>
+        ) : (
+          <>
+            <Field label={`Tautan sekali pakai untuk ${hasil.email}`}
+              hint={`BERLAKU SAMPAI ${new Date(hasil.berlakuSampai).toLocaleString('id-ID')} — SETELAH ITU MATI SENDIRI.`}>
+              <div className="mono" style={{
+                fontSize: 12.5, wordBreak: 'break-all', background: 'var(--card-2)',
+                border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px',
+              }}>{hasil.tautan}</div>
+            </Field>
+            <button className="btn btn-primary" onClick={() => {
+              navigator.clipboard?.writeText(hasil.tautan); toast('Tautan disalin');
+            }}>Salin tautan</button>
+            <p className="microlabel">
+              {/* Dikatakan justru di sini, saat tautannya ada di layar dan
+                  godaan menempelkannya ke email paling besar. */}
+              JANGAN KIRIM LEWAT EMAIL — ITU KOTAK SURAT YANG SEDANG TAK BISA DIBUKA.
+              SAMPAIKAN LANGSUNG, LEWAT TELEPON, ATAU CHAT INTERNAL. TAUTAN INI TIDAK DISIMPAN
+              DI MANA PUN DAN TAK BISA DITAMPILKAN ULANG.
+            </p>
+          </>
+        )}
+      </div>
+      <div className="df"><button className="btn" style={{ flex: 1 }} onClick={onClose}>Tutup</button></div>
+    </Drawer>
   );
 }
 
