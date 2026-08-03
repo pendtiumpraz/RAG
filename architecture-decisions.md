@@ -444,9 +444,57 @@ domain, dan penolakan konfigurasi yang tak aman.
 
 **Status:** disetujui, dikerjakan.
 
+---
+
+## D17 — Partisi korpus: HASH per `knowledge_base_id` (MENUNGGU KEPUTUSAN)
+
+**Keputusan yang diusulkan:** memartisi `documents` dan `document_vectors`
+dengan `PARTITION BY HASH (knowledge_base_id)`, 16 partisi tetap.
+
+**Konteks.** Diukur 2 Agu 2026: recall lapisan pertama runtuh ke 21,7% di atas
+±40 GB per chatbot, dan membesarkan ambang TIDAK menolong — peringkat kandidat
+tumbuh linear bersama korpus. Satu-satunya jalan keluar adalah mengecilkan
+korpus EFEKTIF. Penyaring metadata (0048) sudah menutup separuhnya; separuh
+lainnya adalah tata letak fisik: hari ini SATU indeks HNSW memuat seluruh KB
+milik seluruh tenant, dan pgvector menyaring `knowledge_base_id` SESUDAH
+menelusuri `ef_search` tetangga — jadi pada korpus besar, sebagian besar
+tetangga yang ditelusuri milik KB yang tak diminta, lalu dibuang.
+
+**Kenapa HASH, bukan LIST per KB.** LIST menuntut `CREATE TABLE` tiap kali
+knowledge base dibuat, dan peran aplikasi `nalar_app` sengaja TIDAK punya
+wewenang DDL — itu pagar yang tak layak dilonggarkan demi kenyamanan. HASH
+memberi pemangkasan partisi yang sama untuk `knowledge_base_id = $1` maupun
+`IN (...)` tanpa satu pun DDL saat berjalan.
+
+**Tiga batasan Postgres sudah DIBUKTIKAN langsung** (skema sementara di basis
+data staging, 3 Agu 2026 — bukan dibaca dari dokumentasi):
+
+| Yang diuji | Hasil |
+|---|---|
+| Indeks unik PARSIAL yang memuat kunci partisi | **boleh** |
+| Indeks biasa parsial | **boleh** |
+| Kolom TERGENERASI (`fts`, `doc_ref`) di tabel terpartisi | **boleh** |
+| PK hanya `id`, tanpa kunci partisi | **DITOLAK** |
+
+Konsekuensi dari baris terakhir: primary key `documents` berubah dari `(id)`
+jadi `(id, knowledge_base_id)`. Kueri `where id = $1` tetap memakai indeks yang
+sama (kolom `id` di depan), jadi tak ada jalur baca yang perlu diubah.
+
+**Kenapa SEKARANG, dan kenapa ini keputusanmu.** Korpus staging hari ini KOSONG
+(0 dokumen, 0 KB), jadi biaya pemindahannya nol — dan itu tak akan berulang.
+Mengubah tabel berisi jutaan baris jadi terpartisi berarti menulis ulang
+seluruh isinya. Tapi perubahannya juga tak kecil: PK berubah, 29 indeks
+dibangun ulang, dan patokan pemulihan bencana (`docs/dr-baseline.json`) ikut
+berubah total karena tiap partisi melahirkan indeksnya sendiri. Itu sebabnya ia
+diangkat ke sini alih-alih dikerjakan diam-diam.
+
+**Status:** MENUNGGU KEPUTUSAN. Pekerjaan persiapannya selesai; migrasinya
+belum ditulis.
+
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-08-03 | D17 diangkat = partisi HASH per knowledge_base_id; batasan Postgres dibuktikan langsung; PK documents jadi (id, knowledge_base_id) — MENUNGGU KEPUTUSAN | AI |
 | 2026-08-01 | D16 = SSO enterprise: Entra/Google/Okta/OIDC generik, kredensial milik tenant, gerbang pending tetap berlaku, perutean lewat domain email | User |
 | 2026-07-30 | D15 = basis data tak terikat penyedia + pemindahan bertingkat; TLS tak lagi ditebak dari nama host; BYODB per tenant ditunda sampai diminta | User |
 | 2026-07-30 | D14 = kebijakan jawaban per chatbot (bahasa/nada/kepatuhan/temperature) + mode retrieval bertingkat menyala otomatis, bukan dipilih | User |
