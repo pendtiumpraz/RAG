@@ -129,8 +129,112 @@ export function adeganMasuk(email: string, sandi: string): DefAdegan {
 
 /* ── di balik login ───────────────────────────────────────────────────── */
 
+/* ── komponen di build TERPASANG ──────────────────────────────────────── */
+
+/**
+ * Berapa lama sebuah komponen harus BERTAHAN terbuka.
+ *
+ * Bug dropdown 2 Agu 2026 tak terlihat di dev dan lolos seluruh tes unit: ia
+ * membuka popup-nya lalu menutupnya sendiri dalam hitungan puluhan milidetik,
+ * karena satu pendengar klik di luar ikut menangkap klik yang MEMBUKANYA.
+ * Memotret sesaat setelah klik akan menangkapnya dalam keadaan terbuka dan
+ * menyimpulkan semuanya baik. Yang membuktikan sebaliknya hanya menunggu.
+ */
+const TAHAN_MS = 900;
+
+/**
+ * Satu langkah: buka sebuah komponen, tunggu, pastikan ia MASIH terbuka.
+ *
+ * `pemicu` adalah yang diklik; `terlihat` adalah yang harus ada sesudahnya.
+ * Keduanya wajib berbeda — memeriksa pemicunya sendiri hanya membuktikan
+ * tombolnya masih ada.
+ */
+function langkahBertahan(nama: string, pemicu: string, terlihat: string): DefLangkah {
+  return {
+    nama,
+    jalankan: async (page: Page) => {
+      const p = page.locator(pemicu).first();
+      if (!(await p.count())) return { catatan: `pemicu "${pemicu}" tak ada di halaman ini` };
+      await p.click();
+      const target = page.locator(terlihat).first();
+      await target.waitFor({ state: 'visible', timeout: 5_000 });
+      await page.waitForTimeout(TAHAN_MS);
+      const masih = await target.isVisible().catch(() => false);
+      if (!masih) {
+        throw new Error(
+          `"${nama}" terbuka lalu MENUTUP SENDIRI dalam ${TAHAN_MS}ms — `
+          + 'persis bentuk bug dropdown 2 Agu 2026, dan tak terlihat di dev.',
+        );
+      }
+      return { penanda: terlihat, catatan: `masih terbuka setelah ${TAHAN_MS}ms` };
+    },
+  };
+}
+
+/**
+ * AUDIT KOMPONEN — kartu a-komponen-audit.
+ *
+ * Dropdown yang sudah ditulis ulang dan dites ternyata menutup sendiri begitu
+ * dibuka; hanya di build TERPASANG, tidak di dev, dan 27 titik pakai ikut
+ * terdampak. Bugnya sudah ditutup berikut guard-nya, tapi yang belum ditutup
+ * adalah CARA MENEMUKANNYA: satu-satunya alasan ia ketahuan adalah kebetulan
+ * ada yang mengeklik dropdown itu di staging.
+ *
+ * Adegan ini menutup lubang itu untuk seluruh komponen yang perilakunya
+ * bergantung pada tata letak nyata — yang justru tak bisa dibuktikan tes unit
+ * mana pun, karena tak satu pun dari mereka merender tata letak.
+ */
+const adeganKomponen: DefAdegan = {
+  id: 'komponen', fitur: 'Komponen interaktif (build terpasang)', jalur: '/knowledge', butuhLogin: true,
+  langkah: [
+    { nama: 'Buka halaman berkomponen padat', jalankan: bukaTunggu('/knowledge', h1('Knowledge')) },
+
+    langkahBertahan('Dropdown listbox tetap terbuka',
+      'button[aria-haspopup="listbox"]', '[role="listbox"]'),
+
+    { nama: 'Tutup dropdown', jalankan: async (page: Page) => { await tutupLaci(page); } },
+
+    langkahBertahan('Laci (drawer) tetap terbuka',
+      'button.btn-primary:has-text("Buat KB")', '[role="dialog"]'),
+
+    {
+      /* Escape HARUS menutup — dan ini bukan kenyamanan: <Drawer> mengaku
+         `aria-modal="true"`, dan teknologi bantu memercayai deklarasi itu.
+         Dialog yang mengaku modal tapi tak bisa ditutup papan ketik lebih
+         buruk daripada yang tak mengaku apa-apa. */
+      nama: 'Escape menutup laci',
+      jalankan: async (page: Page) => {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(400);
+        const masih = await page.locator('[role="dialog"]').first().isVisible().catch(() => false);
+        if (masih) throw new Error('Laci mengaku aria-modal tapi Escape tak menutupnya');
+        return { catatan: 'laci tertutup oleh Escape' };
+      },
+    },
+
+    {
+      /* Fokus harus KEMBALI ke tombol yang membuka. Tanpa itu ia jatuh ke
+         <body>, dan pengguna papan ketik harus menelusuri halaman dari awal
+         tiap kali menutup satu laci. */
+      nama: 'Fokus kembali ke pemicunya',
+      jalankan: async (page: Page) => {
+        const aktif = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return { tag: el?.tagName ?? '-', teks: (el?.textContent ?? '').trim().slice(0, 40) };
+        });
+        if (aktif.tag === 'BODY') throw new Error('Fokus jatuh ke <body> setelah laci ditutup');
+        return { catatan: `fokus di <${aktif.tag.toLowerCase()}> "${aktif.teks}"` };
+      },
+    },
+
+    langkahBertahan('Bilah alat tabel: dropdown penyaring tetap terbuka',
+      '.tabel-alat button[aria-haspopup="listbox"]', '[role="listbox"]'),
+  ],
+};
+
 export const adeganTerlindungi: DefAdegan[] = [
   adeganHalamanPanel('dashboard', 'Dashboard', '/dashboard', h1('Dashboard')),
+  adeganKomponen,
 
   /* ── chatbots: alur tambah PENUH ───────────────────────────────────── */
   {
