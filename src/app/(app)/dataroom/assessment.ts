@@ -2,8 +2,15 @@
  * DATAROOM · ASSESSMENT — data penilaian 4 dimensi (2026-07-28).
  *
  * Sumber kebenaran visual utk tab Assessment; padanan naratifnya di
- * docs/ASSESSMENT.md. Digrounding screenshot produksi via agent-browser
- * (docs/assessment/) — tak ada skor utk fitur yang belum disaksikan bekerja.
+ * docs/ASSESSMENT.md. Digrounding screenshot dari lingkungan STAGING
+ * (rag.sainskerta.net) via agent-browser — tak ada skor utk fitur yang belum
+ * disaksikan bekerja.
+ *
+ * STAGING, BUKAN PEMASANGAN PELANGGAN. Korpusnya kecil, jadi apa pun yang
+ * bergantung pada ukuran data — latensi, rencana kueri, perilaku pada korpus
+ * ratusan GB — TIDAK terwakili di sini. Menyebutnya "produksi" (seperti versi
+ * sebelumnya) membuat pembaca dataroom menyimpulkan lebih banyak daripada
+ * yang benar-benar dibuktikan.
  */
 
 export interface AssessArea { name: string; score: number; gap: string }
@@ -18,7 +25,7 @@ export const OVERALL = 8.7;
 export const DIMENSIONS: AssessDimension[] = [
   {
     id: 'uiux', label: 'UI/UX Readiness', score: 8.5,
-    desc: 'Seluruh permukaan dinilai dari screenshot produksi — bukan dari kode.',
+    desc: 'Seluruh permukaan dinilai dari screenshot lingkungan staging — bukan dari kode.',
     areas: [
       { name: 'Chat + jawaban terstruktur', score: 9.0, gap: 'Belum ada stop-generation, tombol copy, riwayat sesi di halaman Chat' },
       { name: 'Widget embed', score: 8.5, gap: 'Logo unggahan & footnote sumber sudah ada; sesi masih hilang saat reload' },

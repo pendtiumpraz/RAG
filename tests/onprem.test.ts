@@ -131,3 +131,21 @@ test('panduan memberi cara MEMBUKTIKAN isolasi menyala', () => {
   assert.ok(/pg_policies/.test(DOC), 'panduan tak mengajarkan cara menghitung kebijakan');
   assert.ok(/printenv DATABASE_URL/.test(DOC), 'panduan tak memeriksa peran yang dipakai aplikasi');
 });
+
+test('dataroom menyebut lingkungannya STAGING, bukan produksi', () => {
+  /* Dikoreksi pemilik produk 3 Agu 2026: rag.sainskerta.net adalah STAGING
+     Vercel, bukan pemasangan pelanggan. Dataroom yang menyebutnya "produksi"
+     membuat pembacanya menyimpulkan lebih banyak daripada yang dibuktikan —
+     terutama soal perilaku di bawah beban, yang justru pertanyaan pertama
+     pembeli enterprise. Yang menanggung akibat salah paham itu bukan yang
+     menulis halamannya. */
+  const bukti = readFileSync('src/app/(app)/dataroom/BuktiFitur.tsx', 'utf8');
+  assert.ok(/Ini lingkungan staging<\/b>, bukan pemasangan pelanggan/.test(bukti),
+    'tab Bukti Fitur tak menyebut bahwa lingkungannya staging');
+  assert.ok(/TIDAK dibuktikan: perilakunya di bawah beban/.test(bukti),
+    'batas bukti tak dinyatakan — pembaca menyimpulkan lebih dari yang ada');
+
+  const assess = readFileSync('src/app/(app)/dataroom/assessment.ts', 'utf8');
+  assert.ok(!/screenshot produksi/.test(assess), 'assessment masih mengklaim screenshot produksi');
+  assert.ok(/staging/i.test(assess), 'assessment tak menyebut lingkungan sebenarnya');
+});

@@ -326,10 +326,14 @@ function AssessmentView() {
       </section>
 
       <p className="as-method">
-        Metodologi: seluruh halaman produksi dijelajahi & di-screenshot via
-        agent-browser (login superadmin demo); chat & widget diuji dengan
-        pertanyaan nyata. Tak ada skor untuk fitur yang belum disaksikan
-        bekerja. Bukti: <code>docs/assessment/</code>.
+        Metodologi: seluruh halaman dijelajahi &amp; di-screenshot via
+        agent-browser pada <b>lingkungan staging</b> (<code>rag.sainskerta.net</code>,
+        login superadmin demo); chat &amp; widget diuji dengan pertanyaan nyata.
+        Tak ada skor untuk fitur yang belum disaksikan bekerja.
+        Bukti: <code>docs/assessment/</code> &amp; tab Bukti Fitur.
+        {' '}<b>Staging, bukan pemasangan pelanggan</b> — korpusnya kecil, jadi
+        angka yang bergantung pada ukuran data (latensi, rencana kueri) belum
+        terwakili di sini.
       </p>
     </div>
   );

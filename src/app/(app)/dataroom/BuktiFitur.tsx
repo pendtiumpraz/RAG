@@ -8,7 +8,7 @@ import type { AdeganBukti, LangkahBukti, StatusBukti } from './bukti-tipe';
  * DATAROOM · BUKTI FITUR — wiki fitur yang isinya DISAKSIKAN, bukan diklaim.
  *
  * Seluruh isinya dihasilkan `npm run tur`: peramban sungguhan membuka
- * produksi, menekan tombolnya, dan memotret tiap langkah. Tak ada satu pun
+ * lingkungan STAGING, menekan tombolnya, dan memotret tiap langkah. Tak ada satu pun
  * status di halaman ini yang ditulis tangan.
  *
  * KENAPA BENTUKNYA WIKI, bukan daftar panjang. Dengan tiga puluh fitur dan
@@ -127,6 +127,17 @@ export default function BuktiFitur() {
             menjalankan peramban sungguhan (playwright-core + Edge) terhadap{' '}
             <code>{BUKTI.basis}</code> pada {waktu(BUKTI.pada)}, mode {BUKTI.mode}
             {BUKTI.masuk ? ', masuk lewat formulir login sebagai superadmin' : ', tanpa login'}.
+          </p>
+          <p>
+            {/* DITULIS DI LAYAR, bukan cuma di komentar kode. Pembaca dataroom
+                yang mengira ini pemasangan pelanggan akan menyimpulkan lebih
+                banyak daripada yang dibuktikan — dan yang menanggung akibat
+                salah paham itu bukan yang menulis halamannya. */}
+            <b>Ini lingkungan staging</b>, bukan pemasangan pelanggan. Korpusnya
+            kecil, jadi apa pun yang bergantung pada UKURAN DATA — latensi,
+            rencana kueri, perilaku pada korpus ratusan GB — tidak terwakili di
+            sini. Yang dibuktikan halaman ini: fiturnya ada dan bekerja. Yang
+            TIDAK dibuktikan: perilakunya di bawah beban sungguhan.
           </p>
           <p>
             Tiap langkah menyebut <b>penanda</b> yang harus terlihat setelahnya;
