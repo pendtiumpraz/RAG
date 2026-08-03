@@ -226,6 +226,25 @@ export const tenantSettings = pgTable('tenant_settings', {
    * diambil oleh orang yang melihat 19% itu menyakitkan pada korpusnya.
    */
   activeRerankModel: text('active_rerank_model'),
+  /**
+   * SALURAN PERINGATAN LANGSUNG (migrasi 0049).
+   *
+   * Peringatan sudah disebarkan ke webhook keluar, tapi pelanggan yang tak
+   * punya sistem penerima — mayoritasnya — tetap tak diberi tahu apa pun.
+   *
+   * `alertEmail` NULL = mati. `encryptedSlackUrl` disimpan TERENKRIPSI karena
+   * URL incoming-webhook Slack adalah kredensial penuh: yang memegangnya bisa
+   * menulis ke kanal itu selamanya.
+   */
+  alertEmail: text('alert_email'),
+  encryptedSlackUrl: text('encrypted_slack_url'),
+  /**
+   * Tingkat terendah yang dikirim ke saluran langsung: 'gawat' (bawaan) atau
+   * 'perhatian'. Bawaannya sengaja yang paling sunyi — sistem peringatan yang
+   * berisik melatih orang mengabaikannya, dan pada hari ia berbunyi untuk hal
+   * yang benar-benar baru tak ada lagi yang membacanya.
+   */
+  alertMinLevel: text('alert_min_level').default('gawat').notNull(),
   /** White-label theme for the tenant dashboard (brand, colors, radius, font…). */
   themeConfig: jsonb('theme_config').$type<ThemeConfig>(),
   ...stamps,

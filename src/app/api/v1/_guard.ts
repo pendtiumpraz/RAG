@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apikeyService, type ApiCaller, type Scope } from '@/modules/integrations/apikey.service';
-import { wireWebhooks } from '@/modules/integrations/webhook.service';
+import { ensureIntegrations } from '@/app/api/_wire';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 
 /**
@@ -20,9 +20,13 @@ export function apiRoute<C>(
   handler: (req: NextRequest, ctx: C, caller: ApiCaller) => Promise<NextResponse>,
 ) {
   return async (req: NextRequest, ctx: C): Promise<NextResponse> => {
-    // Dipasang di titik masuk, bukan saat impor: urutan pemuatan modul tak
-    // boleh menentukan apakah webhook hidup.
-    wireWebhooks();
+    /* Dipasang di titik masuk, bukan saat impor: urutan pemuatan modul tak
+       boleh menentukan apakah integrasi hidup. Memanggil ensureIntegrations()
+       — BUKAN wireWebhooks() langsung — supaya integrasi berikutnya yang
+       ditambahkan di sana ikut hidup di jalur v1 tanpa ada yang perlu ingat
+       menambahkannya dua kali. Jalur ini sempat memasang webhook saja, dan
+       saluran peringatan tak akan pernah terkirim dari permintaan API. */
+    ensureIntegrations();
 
     const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
     const raw = bearer || req.headers.get('x-api-key') || '';

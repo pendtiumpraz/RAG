@@ -182,6 +182,25 @@ export const openApiSpec = {
         responses: { 200: err('{ ok }') } },
     },
 
+    '/api/alerts': {
+      get: { summary: 'Saluran peringatan tenant + 200 peringatan terakhir', security: [sessionAuth],
+        responses: { 200: err('{ saluran: { email, slackTerpasang, minLevel }, riwayat[] }') } },
+      patch: {
+        summary: 'Simpan saluran peringatan (email / Slack / ambang tingkat)',
+        description: 'URL Slack disimpan terenkripsi dan TIDAK pernah dibalas ke klien — '
+          + 'respons hanya menyebut `slackTerpasang`. Menghilangkan `slackUrl` dari body berarti '
+          + '"jangan sentuh yang tersimpan"; mengirimnya sebagai string kosong berarti mencabutnya.',
+        security: [sessionAuth],
+        requestBody: json(obj({ email: str, slackUrl: str, minLevel: str })),
+        responses: {
+          200: err('{ email, slackTerpasang, minLevel }'),
+          400: err('Email tak sah / URL Slack tak layak kirim / tingkat tak dikenal'),
+        },
+      },
+      post: { summary: 'Kirim peringatan UJI lewat saluran yang tersimpan', security: [sessionAuth],
+        responses: { 200: err('{ email: boolean, slack: boolean, dilewati: boolean } — apa yang benar-benar sampai') } },
+    },
+
     /* ── auth ── */
     '/api/auth/signup': {
       post: {

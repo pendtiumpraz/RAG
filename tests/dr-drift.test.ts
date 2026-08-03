@@ -126,8 +126,16 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
      0048 (penyaring metadata) diperiksa 2 Agu 2026: 5 objek baru, SEMUANYA
      terjelaskan migrasi ter-commit, nol hanyutan liar. Pelajaran dari 0047
      terpakai — indeksnya ditulis literal sejak awal, bukan lewat FOREACH +
-     format() yang membuat namanya tak pernah muncul sebagai teks. */
-  assert.equal(terakhir, '0048_saring_metadata.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+     format() yang membuat namanya tak pernah muncul sebagai teks.
+
+     0049 (saluran peringatan) diperiksa 3 Agu 2026 dengan `npm run dr:verify`
+     sungguhan: 33 tabel · 117 indeks · 38 kebijakan · RLS di 24 tabel, NOL
+     SELISIH. Angkanya tak bergerak sama sekali, dan itu memang yang
+     diharapkan — 0049 hanya menambah KOLOM pada tabel yang sudah ada,
+     sementara patokan ini melacak objek (tabel, indeks, kebijakan, RLS).
+     Layak dicatat justru karena "tak ada yang berubah" adalah hasil yang
+     paling gampang dipalsukan tanpa menjalankan apa pun. */
+  assert.equal(terakhir, '0049_saluran_peringatan.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
   assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),

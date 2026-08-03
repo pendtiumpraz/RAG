@@ -8,6 +8,7 @@ import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../
 import type { OpsiTabel } from '../../_lib/tabel';
 import { Select } from '../../_components/select';
 import Integrations from './Integrations';
+import Peringatan from './Peringatan';
 import TwoFactor from './TwoFactor';
 import { toggleTheme } from '../../providers';
 
@@ -75,6 +76,11 @@ export default function SettingsPage() {
       )}
 
       <Integrations />
+
+      {/* Peringatan duduk SEBELUM 2FA & SSO: ia satu-satunya panel di halaman
+          ini yang menentukan apakah kerusakan diketahui atau tidak, dan panel
+          yang harus digulir untuk ditemukan tak pernah diisi. */}
+      <Peringatan />
 
       <TwoFactor />
 

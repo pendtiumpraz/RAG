@@ -1,4 +1,5 @@
 import { wireWebhooks } from '@/modules/integrations/webhook.service';
+import { wireAlertChannels } from '@/modules/integrations/alert-channels.service';
 
 /**
  * Pemasangan langganan lintas-modul, dipanggil dari RUTE.
@@ -23,4 +24,10 @@ import { wireWebhooks } from '@/modules/integrations/webhook.service';
  */
 export function ensureIntegrations(): void {
   wireWebhooks();
+  /* Saluran langsung mendengarkan bus yang SAMA (`alert.raised`). Dipasang di
+     sini bersama webhook, bukan di tempatnya sendiri: dua titik pemasangan
+     berarti satu di antaranya akan lupa dipanggil oleh rute berikutnya, dan
+     gagalnya senyap — peringatan yang tak pernah dikirim tak menimbulkan
+     galat apa pun. */
+  wireAlertChannels();
 }

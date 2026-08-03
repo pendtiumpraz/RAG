@@ -115,7 +115,16 @@ test('NULL = mati, dan itu bawaan kolomnya', () => {
      — dan setiap tenant baru — mendapat NULL. Menyalakannya untuk semua orang
      berarti memutuskan pertukaran latensi atas nama korpus yang belum pernah
      kita lihat. */
-  const blok = irisBlok(SET, "activeRerankModel: text('active_rerank_model')");
+  /* Diiris sampai koma penutup DEKLARASINYA, bukan sampai batas blok
+     berikutnya. Versi sebelumnya memakai irisBlok() dan ikut menyeret kolom
+     apa pun yang ditulis SESUDAHNYA — begitu kolom baru dengan `.default()`
+     ditambahkan tepat di bawahnya, uji ini gagal sambil melaporkan bahwa
+     RERANKER-lah yang punya default. Uji yang menuduh kolom yang salah lebih
+     buruk daripada uji yang diam: yang membacanya akan mengubah kolom yang
+     tak bersalah. */
+  const awal = SET.indexOf("activeRerankModel: text('active_rerank_model')");
+  assert.ok(awal > 0, 'kolom reranker hilang dari schema.ts');
+  const blok = SET.slice(awal, SET.indexOf(',', awal) + 1);
   assert.ok(!/notNull\(\)/.test(blok), 'kolom dibuat wajib — tenant lama akan menabrak');
   assert.ok(!/\.default\(/.test(blok), 'ada default — reranker menyala tanpa diminta');
 });

@@ -44,6 +44,23 @@ async function getConfig(): Promise<(SmtpConfig & { password: string }) | null> 
   return value;
 }
 
+/**
+ * Loloskan teks yang akan masuk ke HTML email.
+ *
+ * ADA KARENA email peringatan memuat teks yang TIDAK kita tulis: nama berkas
+ * dari Drive, pesan galat dari server upstream, nilai konteks apa pun yang
+ * dititipkan pemanggil `terbitkanPeringatan`. Seluruh email lain di berkas ini
+ * hanya menempelkan kalimat tetap dan token yang bentuknya kita jamin, jadi
+ * kebutuhannya baru muncul sekarang — dan justru itu yang membuatnya mudah
+ * terlewat. Klien email memang tak menjalankan script, tapi markup yang bocor
+ * cukup untuk merusak tata letak atau menyelundupkan tautan palsu ke dalam
+ * pesan yang tampak resmi.
+ */
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
+
 /** Kerangka email branded — inline style (klien email tak membaca CSS luar). */
 function layout(title: string, bodyHtml: string, ctaLabel?: string, ctaUrl?: string): string {
   return `<!doctype html><body style="margin:0;padding:32px 16px;background:#F1F5F9;font-family:Segoe UI,Arial,sans-serif">
@@ -128,6 +145,33 @@ export const mailerService = {
       layout(`Kamu diundang ke ${orgName}`,
         `Seseorang mengundangmu bergabung ke workspace <b>${orgName}</b> di Nalar. Undangan berlaku 7 hari dan sekali pakai.`,
         'Terima undangan', url));
+  },
+
+  /**
+   * Peringatan operasional ke alamat yang dipilih tenant (kartu
+   * a-alert-channels).
+   *
+   * Subjeknya MENYEBUT jenis kerusakannya, bukan sekadar "Peringatan Nalar":
+   * email peringatan dibaca dari daftar masuk yang penuh, sering di ponsel,
+   * dan yang menentukan apakah ia dibuka sekarang atau nanti adalah barisnya
+   * sendiri. Konteks mesin ikut dilampirkan supaya penerimanya tak perlu
+   * membuka dasbor untuk tahu sumber mana yang rusak.
+   */
+  sendAlert(to: string, p: {
+    jenis: string; tingkat: string; pesan: string; konteks?: Record<string, unknown>;
+  }): Promise<boolean> {
+    const ikon = p.tingkat === 'gawat' ? '🔴' : '🟡';
+    const rinci = Object.entries(p.konteks ?? {})
+      .filter(([, v]) => v != null && typeof v !== 'object')
+      .slice(0, 8)
+      .map(([k, v]) => `<li><b>${esc(k)}</b>: ${esc(String(v))}</li>`)
+      .join('');
+    return send(to, `${ikon} ${p.jenis} — peringatan Nalar`,
+      layout(`Peringatan: ${esc(p.jenis)}`,
+        `${esc(p.pesan)}${rinci ? `<br><br><ul style="margin:0;padding-left:18px">${rinci}</ul>` : ''}`
+        + '<br><br>Kamu menerima ini karena alamat ini terdaftar sebagai saluran peringatan '
+        + 'workspace. Ubah atau matikan di Settings → Peringatan.',
+        'Buka Observability', `${base()}/observability`));
   },
 
   sendPasswordReset(to: string, token: string): Promise<boolean> {
