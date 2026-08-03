@@ -12,8 +12,13 @@ import {
  *
  * Dokumen yang tersingkir di lapisan pertama TAK AKAN PERNAH dibaca lapisan
  * kedua, dan tak ada satu pun gejala yang muncul. Pada korpus 400 dokumen,
- * 120 adalah 30% isi — longgar. Pada 3,5 juta dokumen, 120 adalah 0,003%, dan
- * angka yang sama berubah dari "longgar" jadi ATAP RECALL seluruh sistem.
+ * 120 adalah 30% isi — longgar. Pada 750 ribu dokumen (satu chatbot berkorpus
+ * ±150 GB, ceilingnya), 120 adalah 0,016%, dan angka yang sama berubah dari
+ * "longgar" jadi ATAP RECALL.
+ *
+ * UKURANNYA PER CHATBOT, bukan per pemasangan. Pemasangan 700 GB milik BANYAK
+ * DIVISI, dan tiap chatbot menunjuk knowledge base-nya sendiri — tak ada satu
+ * pertanyaan pun yang menyapu seluruh korpus organisasi.
  *
  * KESIMPULAN YANG TIDAK MENYENANGKAN, dan justru itu yang harus dijaga: model
  * pertumbuhan di modules/eval/tier1.ts LINEAR, jadi ambang yang mempertahankan
@@ -45,7 +50,8 @@ test('ada ATAP, dan atapnya anggaran WAKTU — bukan anggaran ketepatan', () => 
      memindahkan kegagalan dari "jawaban meleset" ke "permintaan mati di
      tengah" — dan yang kedua jauh lebih sulit didiagnosis. */
   assert.equal(tier1Docs(1_000_000), TIER1_MAKS);
-  assert.equal(tier1Docs(3_500_000), TIER1_MAKS);
+  assert.equal(tier1Docs(750_000), TIER1_MAKS, 'satu chatbot berkorpus ±150 GB — ceiling nyata');
+  assert.equal(tier1Docs(3_500_000), TIER1_MAKS, 'angka ekstrem apa pun tetap terbatas');
   assert.ok(TIER1_MAKS > TIER1_MIN);
 });
 
@@ -54,7 +60,7 @@ test('keadaan MENTOK bisa dikenali — supaya bisa dicatat', () => {
      ada yang mengeluh jawabannya meleset, berbulan-bulan kemudian, tanpa satu
      pun jejak yang menghubungkannya. */
   assert.equal(tier1Mentok(400), false);
-  assert.equal(tier1Mentok(3_500_000), true);
+  assert.equal(tier1Mentok(750_000), true, 'chatbot berkorpus ±150 GB tak dilaporkan mentok');
   const persisAtap = Math.ceil(TIER1_MAKS / RASIO_KORPUS);
   assert.equal(tier1Mentok(persisAtap), false, 'tepat di atap dilaporkan mentok');
   assert.equal(tier1Mentok(persisAtap + 100), true);

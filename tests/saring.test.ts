@@ -10,8 +10,8 @@ import {
 /**
  * PENYARING METADATA SEBELUM PENCARIAN VEKTOR.
  *
- * Pertanyaan "SOP pengadaan 2024" tak perlu menyentuh 3,5 juta dokumen; ia
- * perlu menyentuh beberapa ribu. Satu WHERE berindeks mengalahkan setiap
+ * Pertanyaan "SOP pengadaan 2024" tak perlu menyentuh 750 ribu dokumen milik
+ * satu chatbot; ia perlu menyentuh beberapa ribu. Satu WHERE berindeks mengalahkan setiap
  * pengoptimalan vektor yang bisa ditulis di lapisan mana pun — dan bedanya
  * MEMBESAR saat korpusnya membesar, tepat ketika segala hal lain memburuk.
  *

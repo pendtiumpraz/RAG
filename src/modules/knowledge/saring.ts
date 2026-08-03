@@ -1,8 +1,8 @@
 /**
  * METADATA YANG BISA DISARING — dan penyaringnya.
  *
- * KENAPA ADA. Pertanyaan "SOP pengadaan 2024" tak perlu menyentuh 3,5 juta
- * dokumen; ia perlu menyentuh beberapa ribu. Satu `WHERE` berindeks
+ * KENAPA ADA. Pertanyaan "SOP pengadaan 2024" tak perlu menyentuh 750 ribu
+ * dokumen milik satu chatbot; ia perlu menyentuh beberapa ribu. Satu `WHERE` berindeks
  * mengalahkan setiap pengoptimalan vektor yang bisa ditulis di lapisan mana
  * pun — dan bedanya membesar justru saat korpusnya membesar, tepat ketika
  * segala hal lain memburuk.

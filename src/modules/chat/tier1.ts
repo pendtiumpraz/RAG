@@ -2,11 +2,25 @@
  * BERAPA DOKUMEN YANG DIAMBIL LAPISAN PERTAMA.
  *
  * KENAPA TIDAK BOLEH ANGKA TETAP. Lapisan pertama memilih N dokumen kandidat
- * dari seluruh korpus; dokumen yang tersingkir di sana TAK AKAN PERNAH dibaca
- * lapisan kedua, dan tak ada satu pun gejala yang muncul. Pada korpus 400
- * dokumen, 120 adalah 30% isi — longgar. Pada korpus 3,5 juta dokumen, 120
- * adalah 0,003%, dan angka yang sama berubah dari "longgar" jadi ATAP RECALL
- * seluruh sistem.
+ * dari korpus yang terjangkau chatbot itu; dokumen yang tersingkir di sana TAK
+ * AKAN PERNAH dibaca lapisan kedua, dan tak ada satu pun gejala yang muncul.
+ * Pada korpus 400 dokumen, 120 adalah 30% isi — longgar. Pada 750 ribu
+ * dokumen, 120 adalah 0,016%, dan angka yang sama berubah dari "longgar" jadi
+ * ATAP RECALL.
+ *
+ * UKURAN YANG BENAR ADALAH PER CHATBOT, bukan per pemasangan — dan bedanya
+ * sempat salah ditulis di sini. Satu chatbot menunjuk knowledge base-nya
+ * sendiri (D11), jadi tak ada satu pertanyaan pun yang pernah menyapu seluruh
+ * korpus organisasi. Pemasangan 700 GB yang jadi acuan itu MILIK BANYAK
+ * DIVISI; satu chatbot paling mentok 100–150 GB:
+ *
+ *   150 GB berkas → rasio teks 2–3% → ±3,75 GB teks
+ *                 → ±5,5 juta potongan → ±750 ribu dokumen
+ *
+ * Angka 700 GB tetap benar untuk PENYIMPANAN (seluruh divisi ada di satu basis
+ * data, ±25 juta potongan), tapi keliru untuk RUANG CARI. Memakai angka
+ * penyimpanan untuk menyetel ambang pencarian berarti menyetelnya untuk korpus
+ * yang tak pernah ada di satu pertanyaan pun.
  *
  * MODEL PERTUMBUHANNYA LINEAR, dan itu bukan tebakan — ia tertulis di
  * `modules/eval/tier1.ts` dan bisa diperiksa: bila korpus ditumbuhkan dengan
@@ -15,7 +29,7 @@
  *
  * KONSEKUENSINYA TAJAM, dan harus ditulis apa adanya: kalau peringkat tumbuh
  * linear, ambang yang mempertahankan recall juga harus tumbuh linear — dan
- * pada 3,5 juta dokumen itu berarti memilih ratusan ribu dokumen, yaitu tidak
+ * pada 750 ribu dokumen itu berarti memilih 187 ribu dokumen, yaitu tidak
  * menyaring sama sekali. Jadi lapisan pertama TIDAK BISA mempertahankan recall
  * di korpus raksasa lewat pembesaran ambang saja. Yang membuatnya bekerja
  * lagi adalah MENGECILKAN KORPUS EFEKTIFNYA — penyaring metadata (folder,
@@ -26,18 +40,23 @@
  * DIUKUR (`npm run eval:tier1 -- --dok=300 --tanya=120`, 2 Agu 2026, MiniLM;
  * proyeksi dari sebaran peringkat nyata, batas atas):
  *
- *     dokumen    ambang   recall adaptif   recall bila tetap 120
- *      10.000       600           80,0%                   45,8%
- *      50.000       600           45,8%                   21,7%
- *     200.000       600           21,7%                   21,7%
- *   3.500.000       600           21,7%                   21,7%
+ *   dokumen   ≈berkas   ambang   recall adaptif   recall bila tetap 120
+ *    10.000     ±2 GB      600           80,0%                   45,8%
+ *    50.000    ±10 GB      600           45,8%                   21,7%
+ *   200.000    ±40 GB      600           21,7%                   21,7%
+ *   750.000   ±150 GB      600           21,7%                   21,7%
  *
  * Bacaannya jujur, termasuk bagian yang tak menyenangkan: perubahan ini
- * hampir MELIPATGANDAKAN recall pada korpus 10–50 ribu dokumen, dan TIDAK
- * MEMBELI APA PUN di atas ±200 ribu. Di sana ambangnya sudah menabrak atap,
- * dan satu-satunya yang tersisa adalah penyaring metadata. Menuliskan angka
- * 21,7% itu di sini lebih berguna daripada menyembunyikannya di balik rumus
- * yang terlihat pintar — orang berikutnya berhak tahu di mana batasnya.
+ * hampir MELIPATGANDAKAN recall pada chatbot berkorpus 2–10 GB, dan TIDAK
+ * MEMBELI APA PUN di atas ±40 GB. Di sana ambangnya sudah menabrak atap, dan
+ * satu-satunya yang tersisa adalah penyaring metadata. Menuliskan angka 21,7%
+ * itu di sini lebih berguna daripada menyembunyikannya di balik rumus yang
+ * terlihat pintar — orang berikutnya berhak tahu di mana batasnya.
+ *
+ * Kolom "≈berkas" memakai rasio teks 2,5% dan dokumen kantor ±200 KB. Ia
+ * kasar, tapi ia satu-satunya kolom yang bisa dicocokkan orang dengan apa yang
+ * mereka lihat sendiri di Drive — dan kartu ini pernah salah justru karena
+ * angkanya hanya ada dalam satuan yang tak bisa dibandingkan dengan apa pun.
  */
 
 /**
