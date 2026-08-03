@@ -442,4 +442,103 @@ export const knowledgeService = {
       return res;
     });
   },
+
+  /**
+   * Pindahkan satu dokumen logis ke knowledge base lain (kartu a-doc-move).
+   *
+   * KENAPA ADA. KB sudah bisa dibuat, dihapus, dan di-assign N:M ke chatbot —
+   * tapi isinya terkunci di tempat ia pertama kali masuk. Padahal pemilahan
+   * yang benar biasanya baru ketahuan SETELAH dokumennya masuk ("ternyata ini
+   * semua harusnya di KB Legal"), dan satu-satunya jalan sebelumnya adalah
+   * menghapus sumbernya lalu sync ulang dari nol — membayar embedding dua kali
+   * untuk memindahkan berkas yang isinya tak berubah sedikit pun.
+   *
+   * YANG PALING MENENTUKAN DI SINI BUKAN PEMINDAHANNYA, MELAINKAN PENOLAKANNYA.
+   * Dokumen yang dimiliki sumber BERULANG (Drive, OneDrive, SharePoint, S3,
+   * URL, Notion, Slack) tak boleh dipindahkan, karena sync berikutnya
+   * membandingkan manifes sumber terhadap KB SUMBERNYA: dokumen yang "hilang"
+   * dari sana akan diserap ulang, dan pemindahannya batal sendiri — diam-diam,
+   * berjam-jam kemudian, tanpa satu pun galat. Yang benar untuk kasus itu
+   * adalah memindahkan SUMBERNYA, dan itulah yang dikatakan pesan galatnya.
+   * Hanya sumber `upload` yang aman: ia sekali jalan, tak pernah menyapu ulang.
+   *
+   * Kuota TIDAK dihitung ulang, dan itu benar: potongan berpindah antar-KB
+   * dalam tenant yang sama, jadi totalnya tak bergerak sedikit pun.
+   */
+  async pindahDokumen(actor: { id: string; tenantId: string }, input: {
+    docRef: string; dariKbId: string; keKbId: string;
+  }) {
+    const { docRef, dariKbId, keKbId } = input;
+    if (!docRef?.trim()) throw new ValidationError('Dokumen tidak disebut');
+    if (dariKbId === keKbId) throw new ValidationError('Dokumen sudah ada di knowledge base itu');
+
+    const hasil = await withTenant(actor.tenantId, async (tx) => {
+      const kb = await tx.select({ id: knowledgeBases.id, name: knowledgeBases.name })
+        .from(knowledgeBases)
+        .where(and(eq(knowledgeBases.id, keKbId), isNull(knowledgeBases.deletedAt)))
+        .limit(1);
+      if (!kb[0]) throw new ValidationError('Knowledge base tujuan tidak ditemukan');
+
+      /* Satu kueri untuk tiga pertanyaan sekaligus: ada berapa potongan, dari
+         sumber jenis apa saja, dan berapa yang sudah ada di tujuan. Memecahnya
+         jadi tiga perjalanan bolak-balik berarti tiga peluang keadaannya
+         berubah di antaranya. */
+      const rows = await tx.execute(sql`
+        select count(*)::int                                   as potongan,
+               coalesce(array_agg(distinct s.kind) filter (where s.kind is not null), '{}') as jenis,
+               coalesce(array_agg(distinct s.id::text) filter (where s.id is not null), '{}') as sumber
+          from documents d
+          left join sources s on s.id = d.source_id and s.deleted_at is null
+         where d.knowledge_base_id = ${dariKbId}
+           and d.doc_ref = ${docRef}
+           and d.deleted_at is null
+      `) as unknown as Array<{ potongan: number; jenis: string[]; sumber: string[] }>;
+      const asal = rows[0];
+      if (!asal || asal.potongan === 0) throw new ValidationError('Dokumen tidak ditemukan di knowledge base asal');
+
+      const berulang = (asal.jenis ?? []).filter((k) => k !== 'upload');
+      if (berulang.length > 0) {
+        throw new ValidationError(
+          `Dokumen ini dimiliki sumber "${berulang.join(', ')}" yang tersinkron berulang. `
+          + 'Sync berikutnya akan menyerapnya kembali ke knowledge base asal dan pemindahan ini '
+          + 'batal sendiri tanpa pemberitahuan. Pindahkan SUMBER-nya, bukan dokumennya.',
+        );
+      }
+
+      const bentrok = await tx.execute(sql`
+        select 1 from documents
+         where knowledge_base_id = ${keKbId} and doc_ref = ${docRef} and deleted_at is null
+         limit 1
+      `) as unknown as Array<unknown>;
+      if (bentrok.length > 0) {
+        throw new ValidationError(
+          'Knowledge base tujuan sudah memuat dokumen dengan nama yang sama. '
+          + 'Menimpanya akan menggabungkan dua berkas berbeda jadi satu jawaban — hapus salah satunya dulu.',
+        );
+      }
+
+      await tx.execute(sql`
+        update documents set knowledge_base_id = ${keKbId}, updated_at = now()
+         where knowledge_base_id = ${dariKbId} and doc_ref = ${docRef} and deleted_at is null
+      `);
+      /* Centroid lapisan pertama IKUT pindah. Kalau tertinggal, dokumennya
+         tetap bisa ditemukan lewat pencarian datar tapi TAK PERNAH lolos
+         lapisan pertama di KB barunya — recall yang turun diam-diam, gejala
+         nol, dan tak ada yang menghubungkannya dengan pemindahan berbulan
+         lalu. */
+      await tx.execute(sql`
+        update document_vectors set knowledge_base_id = ${keKbId}, updated_at = now()
+         where knowledge_base_id = ${dariKbId} and doc_ref = ${docRef} and deleted_at is null
+      `);
+
+      return { potongan: asal.potongan, tujuan: kb[0].name };
+    });
+
+    /* DI LUAR transaksi — kolam koneksi `max: 1` di Vercel. Lihat catatan
+       panjang di chatbot.service.create(). */
+    await audit(actor.tenantId, actor.id, 'knowledge.document_moved', docRef, {
+      dariKbId, keKbId, potongan: hasil.potongan,
+    });
+    return hasil;
+  },
 };

@@ -182,6 +182,24 @@ export const openApiSpec = {
         responses: { 200: err('{ ok }') } },
     },
 
+    '/api/documents/move': {
+      post: {
+        summary: 'Pindahkan satu dokumen ke knowledge base lain',
+        description: 'Potongan DAN vektor lapisan pertamanya ikut pindah; isinya tidak di-embed '
+          + 'ulang. MENOLAK dokumen yang dimiliki sumber tersinkron berulang (drive, onedrive, '
+          + 'sharepoint, s3, url, notion, slack) — sync berikutnya akan menyerapnya kembali ke '
+          + 'KB asal sehingga pemindahannya batal sendiri tanpa pemberitahuan. Untuk kasus itu, '
+          + 'pindahkan sumbernya. Hanya sumber `upload` yang aman dipindah per dokumen.',
+        security: [sessionAuth],
+        requestBody: json(obj({ docRef: str, dariKbId: uuid, keKbId: uuid },
+          ['docRef', 'dariKbId', 'keKbId'])),
+        responses: {
+          200: err('{ potongan, tujuan }'),
+          422: err('Sumber berulang / nama bentrok di tujuan / KB tujuan tak ada'),
+        },
+      },
+    },
+
     '/api/admin/license': {
       get: {
         summary: 'Keadaan lisensi pemasangan (on-premise)',

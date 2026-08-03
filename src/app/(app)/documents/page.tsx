@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useApi } from '../../_lib/api';
+import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
@@ -229,7 +229,13 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      {open && <SummaryDrawer doc={open} onClose={() => setOpen(null)} />}
+      {open && (
+        <SummaryDrawer
+          doc={open} kbs={kbs.data ?? []}
+          onClose={() => setOpen(null)}
+          onMoved={() => { setOpen(null); docs.refetch(); kbs.refetch(); }}
+        />
+      )}
     </>
   );
 }
@@ -288,8 +294,25 @@ function TabelKembar({ rows }: { rows: Kembar[] }) {
   );
 }
 
-function SummaryDrawer({ doc, onClose }: { doc: Doc; onClose: () => void }) {
+function SummaryDrawer({ doc, kbs, onClose, onMoved }: {
+  doc: Doc; kbs: Kb[]; onClose: () => void; onMoved: () => void;
+}) {
   const toast = useToast();
+  const [tujuan, setTujuan] = useState('');
+  const [pindah, setPindah] = useState(false);
+
+  async function lakukanPindah() {
+    setPindah(true);
+    try {
+      const r = await api<{ potongan: number; tujuan: string }>('/api/documents/move', {
+        method: 'POST',
+        body: JSON.stringify({ docRef: doc.docRef, dariKbId: doc.knowledgeBaseId, keKbId: tujuan }),
+      });
+      toast(`${r.potongan} potongan dipindah ke ${r.tujuan}`);
+      onMoved();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setPindah(false); }
+  }
+
   /* Dirender jadi BLOK, bukan ditempel sebagai teks. Sebelumnya isinya
      ditampilkan dengan white-space:pre-wrap, sehingga "# Judul", "**tebal**",
      dan "[[wikilink]]" tampil apa adanya di layar — pengguna melihat penanda
@@ -319,6 +342,28 @@ function SummaryDrawer({ doc, onClose }: { doc: Doc; onClose: () => void }) {
           <button className="btn btn-sm" onClick={() => { navigator.clipboard?.writeText(teks); toast('Ringkasan disalin'); }}>
             Salin ringkasan
           </button>
+
+          <Field label="Pindahkan ke knowledge base lain"
+            hint="POTONGAN DAN VEKTOR LAPISAN PERTAMANYA IKUT PINDAH — ISINYA TIDAK DI-EMBED ULANG, JADI TAK ADA BIAYA TAMBAHAN.">
+            <div className="cluster gap-2">
+              <Select style={{ flex: 1 }} value={tujuan} onChange={(e) => setTujuan(e.target.value)}>
+                <option value="">Pilih knowledge base…</option>
+                {kbs.filter((k) => k.id !== doc.knowledgeBaseId)
+                  .map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+              </Select>
+              <button className={`btn${pindah ? ' is-loading' : ''}`}
+                disabled={!tujuan || pindah} onClick={lakukanPindah}>Pindahkan</button>
+            </div>
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              {/* Dikatakan DI MUKA, bukan hanya saat ditolak: yang menemukan
+                  sendiri bahwa pemindahannya batal setelah sync berikutnya
+                  akan menyimpulkan fiturnya rusak, bukan bahwa sumbernya yang
+                  harus dipindah. */}
+              DOKUMEN YANG DIMILIKI SUMBER TERSINKRON BERULANG (DRIVE, ONEDRIVE, SHAREPOINT, S3,
+              URL, NOTION, SLACK) TAK BISA DIPINDAH SENDIRI — SYNC BERIKUTNYA AKAN MENARIKNYA
+              KEMBALI. PINDAHKAN SUMBERNYA.
+            </p>
+          </Field>
         </div>
         <div className="df"><button className="btn" style={{ flex: 1 }} onClick={onClose}>Tutup</button></div>
       </Drawer>

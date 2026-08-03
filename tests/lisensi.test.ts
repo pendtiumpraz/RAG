@@ -147,7 +147,7 @@ test('tanggal yang tak bisa diurai = tanpa masa berlaku, bukan kedaluwarsa', () 
 /* ── keadaan yang bukan salah pelanggan ──────────────────────────────── */
 
 test('SaaS: lisensi tak berlaku, dan tak berisik', () => {
-  const h = periksaLisensi({ DEPLOYMENT_MODE: 'saas' } as NodeJS.ProcessEnv, HARI_INI);
+  const h = periksaLisensi({ DEPLOYMENT_MODE: 'saas' } as unknown as NodeJS.ProcessEnv, HARI_INI);
   assert.equal(h.status, 'tak-berlaku');
   assert.equal(h.perluPerhatian, false);
   assert.equal(barisLogLisensi(h), null, 'SaaS mencetak baris lisensi di log tiap proses');
@@ -165,7 +165,7 @@ test('kunci publik hilang dilaporkan APA ADANYA, bukan disamarkan jadi aktif', (
      berhenti berarti apa pun: siapa pun tinggal menghapus satu baris env. */
   const k = terbitkan({ untuk: 'PT Contoh' });
   const h = periksaLisensi(
-    { DEPLOYMENT_MODE: 'onprem', LICENSE_KEY: k } as NodeJS.ProcessEnv, HARI_INI);
+    { DEPLOYMENT_MODE: 'onprem', LICENSE_KEY: k } as unknown as NodeJS.ProcessEnv, HARI_INI);
   assert.equal(h.status, 'tidak-sah');
   assert.ok(/LICENSE_PUBLIC_KEY/.test(h.pesan));
 });
