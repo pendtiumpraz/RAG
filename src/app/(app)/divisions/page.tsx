@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Drawer, Field, Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 /**
  * DIVISI — siapa boleh membuka chatbot yang mana, di dalam satu tenant.
@@ -20,6 +22,20 @@ interface Divisi {
 }
 
 interface Buang { id: string; name: string }
+
+/* Di luar komponen supaya rujukannya stabil antar render. */
+const OPSI: OpsiTabel<Divisi> = {
+  cari: (d) => [d.name, d.description],
+  /* Penyaring yang benar-benar dipakai: menemukan divisi KOSONG adalah alasan
+     orang membuka halaman ini setelah reorganisasi — divisi tanpa anggota dan
+     tanpa chatbot tak membatasi apa pun, dan hanya menambah pilihan yang
+     membingungkan di layar lain. */
+  saring: { isi: (d) => (d.anggota + d.chatbot > 0 ? 'terisi' : 'kosong') },
+  urut: {
+    name: (d) => d.name, description: (d) => d.description,
+    anggota: (d) => d.anggota, chatbot: (d) => d.chatbot,
+  },
+};
 
 export default function DivisionsPage() {
   const div = useApi<Divisi[]>('/api/divisions');
@@ -48,6 +64,7 @@ export default function DivisionsPage() {
   }
 
   const rows = div.data ?? [];
+  const t = useTabel(rows, OPSI);
 
   return (
     <>
@@ -81,25 +98,44 @@ export default function DivisionsPage() {
                 action={<button className="btn btn-primary" onClick={() => setForm('baru')}>Buat divisi pertama</button>}
               />
             ) : (
-              <div className="table-wrap"><table className="table">
-                <thead><tr><th>Divisi</th><th>Keterangan</th><th>Anggota</th><th>Chatbot</th><th /></tr></thead>
-                <tbody>
-                  {rows.map((d) => (
-                    <tr key={d.id}>
-                      <td><b>{d.name}</b></td>
-                      <td style={{ color: 'var(--muted)' }}>{d.description ?? '—'}</td>
-                      <td className="mono">{d.anggota}</td>
-                      <td className="mono">{d.chatbot}</td>
-                      <td>
-                        <div className="cluster gap-2">
-                          <button className="btn btn-sm" disabled={busy === d.id} onClick={() => setForm(d)}>Ubah</button>
-                          <button className="btn btn-sm btn-ghost" disabled={busy === d.id} onClick={() => hapus(d)}>Hapus</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table></div>
+              <>
+                <TabelAlat
+                  t={t} rows={rows} cariLabel="Cari divisi atau keterangannya"
+                  saring={[{ kunci: 'isi', label: 'Semua divisi', lebar: 150, pilihan: [
+                    { nilai: 'terisi', label: 'Ada isinya' },
+                    { nilai: 'kosong', label: 'Kosong' },
+                  ] }]}
+                />
+                <div className="table-wrap"><table className="table">
+                  <thead><tr>
+                    <ThNo />
+                    <Th t={t} kunci="name">Divisi</Th>
+                    <Th t={t} kunci="description">Keterangan</Th>
+                    <Th t={t} kunci="anggota">Anggota</Th>
+                    <Th t={t} kunci="chatbot">Chatbot</Th>
+                    <th />
+                  </tr></thead>
+                  <tbody>
+                    <BarisKosong t={t} kolom={6} />
+                    {t.hasil.tampil.map((d, i) => (
+                      <tr key={d.id}>
+                        <TdNo n={t.nomor(i)} />
+                        <td><b>{d.name}</b></td>
+                        <td style={{ color: 'var(--muted)' }}>{d.description ?? '—'}</td>
+                        <td className="mono">{d.anggota}</td>
+                        <td className="mono">{d.chatbot}</td>
+                        <td>
+                          <div className="cluster gap-2">
+                            <button className="btn btn-sm" disabled={busy === d.id} onClick={() => setForm(d)}>Ubah</button>
+                            <button className="btn btn-sm btn-ghost" disabled={busy === d.id} onClick={() => hapus(d)}>Hapus</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+                <TabelKaki t={t} satuan="divisi" />
+              </>
             )}
 
           <p className="microlabel">

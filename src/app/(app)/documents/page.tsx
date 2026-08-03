@@ -5,6 +5,8 @@ import { useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 import { AnswerBlocks } from '../../_components/answer-blocks';
 import { plainTextToBlocks } from '@/modules/chat/blocks';
 import { abstrakBersih, ringkasanBersih } from '@/modules/memory/ringkasan';
@@ -16,7 +18,7 @@ interface Doc {
   summary: string | null; category: string | null;
   noteStatus: string | null; noteId: string | null;
 }
-interface Page { rows: Doc[]; more: boolean; page: number }
+interface Page { rows: Doc[]; more: boolean; page: number; pageSize: number }
 interface Kb { id: string; name: string }
 interface Cat { slug: string; label: string; color: string; shape: string; status: string }
 
@@ -44,6 +46,28 @@ export default function DocumentsPage() {
   const [cat, setCat] = useState('');
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<Doc | null>(null);
+  /* Urutan dikerjakan SERVER, bukan di peramban: daftar ini berhalaman, dan
+     mengurutkan 20 baris yang kebetulan tampil bukan mengurutkan apa pun —
+     ia hanya menata ulang potongan yang sudah dipilih server. */
+  const [urut, setUrut] = useState<{ kunci: string; arah: 'naik' | 'turun' } | null>(null);
+
+  function klikKolom(kunci: string) {
+    setPage(0);
+    setUrut((u) => (u?.kunci !== kunci ? { kunci, arah: 'naik' }
+      : u.arah === 'naik' ? { kunci, arah: 'turun' } : null));
+  }
+  function KolomUrut({ kunci, children, num }: { kunci: string; children: React.ReactNode; num?: boolean }) {
+    const on = urut?.kunci === kunci;
+    return (
+      <th className={num ? 'num' : undefined}
+        aria-sort={on ? (urut!.arah === 'naik' ? 'ascending' : 'descending') : 'none'}>
+        <button type="button" className={`th-urut${on ? ' on' : ''}`} onClick={() => klikKolom(kunci)}>
+          <span>{children}</span>
+          <i aria-hidden className="th-arah">{on ? (urut!.arah === 'naik' ? '▲' : '▼') : '↕'}</i>
+        </button>
+      </th>
+    );
+  }
 
   // Menembak satu permintaan per ketikan akan membanjiri database pada korpus
   // besar; jeda 300 ms membuat pencarian tetap terasa langsung tanpa itu.
@@ -57,7 +81,8 @@ export default function DocumentsPage() {
   const url = `/api/documents/summaries?page=${page}`
     + (debounced ? `&q=${encodeURIComponent(debounced)}` : '')
     + (kbId ? `&knowledgeBaseId=${kbId}` : '')
-    + (cat ? `&category=${cat}` : '');
+    + (cat ? `&category=${cat}` : '')
+    + (urut ? `&urut=${urut.kunci}&arah=${urut.arah}` : '');
   const docs = useApi<Page>(url);
   const dups = useApi<Array<Record<string, unknown>>>(
     `/api/documents/duplicates${kbId ? `?knowledgeBaseId=${kbId}` : ''}`);
@@ -89,26 +114,10 @@ export default function DocumentsPage() {
               sekaligus mencegah jawaban mengutip kalimat yang sama berkali-kali.
               Isinya tetap bisa ditemukan lewat berkas aslinya.
             </p>
-            <div className="table-wrap"><table className="table">
-              <thead><tr><th>Berkas dilewati</th><th>Sama dengan</th><th>Terdeteksi lewat</th><th>Ukuran</th></tr></thead>
-              <tbody>
-                {dups.data!.slice(0, 50).map((d) => (
-                  <tr key={String(d.id)}>
-                    <td style={{ wordBreak: 'break-word' }}>{String(d.title ?? d.externalId ?? '—')}</td>
-                    <td style={{ wordBreak: 'break-word', color: 'var(--muted)' }}>{String(d.canonicalDocRef)}</td>
-                    <td>
-                      <span className="badge">
-                        {d.reason === 'name-size' ? 'nama + ukuran' : 'isi identik'}
-                      </span>
-                    </td>
-                    <td className="mono">{d.sizeBytes ? `${Math.round(Number(d.sizeBytes) / 1024)} KB` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
-            {dups.data!.length > 50 && (
-              <p className="microlabel">MENAMPILKAN 50 DARI {dups.data!.length}</p>
-            )}
+            {/* Dulu tabel ini memotong di 50 baris dan hanya MEMBERI TAHU ada
+                sisanya — tanpa satu pun jalan melihatnya. Sekarang seluruhnya
+                bisa ditelusuri. */}
+            <TabelKembar rows={dups.data!} />
           </div>
         </div>
       )}
@@ -149,15 +158,26 @@ export default function DocumentsPage() {
                 <>
                   <div className="table-wrap"><table className="table">
                     <thead><tr>
-                      <th>Dokumen</th><th>Ringkasan</th><th>Kategori</th>
-                      <th>Knowledge base</th><th>Potongan</th><th />
+                      <th className="col-no">#</th>
+                      <KolomUrut kunci="title">Dokumen</KolomUrut>
+                      <th>Ringkasan</th>
+                      <KolomUrut kunci="category">Kategori</KolomUrut>
+                      <KolomUrut kunci="knowledgeBaseName">Knowledge base</KolomUrut>
+                      <KolomUrut kunci="chunks" num>Potongan</KolomUrut>
+                      <th />
                     </tr></thead>
                     <tbody>
-                      {docs.data.rows.map((d) => {
+                      {docs.data.rows.map((d, i) => {
                         const c = d.category ? catBySlug.get(d.category) : null;
                         const abstrak = abstrakBersih(d.summary);
                         return (
                           <tr key={`${d.knowledgeBaseId}:${d.docRef}`}>
+                            {/* Nomornya GLOBAL — dihitung dari halaman & besar
+                                halaman yang dikirim server, bukan dari indeks
+                                baris. Baris pertama halaman 2 bernomor 21. */}
+                            <td className="col-no">
+                              {(docs.data!.page * docs.data!.pageSize + i + 1).toLocaleString('id-ID')}
+                            </td>
                             <td style={{ maxWidth: 260 }}>
                               <b style={{ wordBreak: 'break-word' }}>{d.title ?? d.docRef}</b>
                               {d.updatedAt && (
@@ -185,7 +205,7 @@ export default function DocumentsPage() {
                               ) : <span className="microlabel">—</span>}
                             </td>
                             <td>{d.knowledgeBaseName ?? '—'}</td>
-                            <td className="mono">{d.chunks}</td>
+                            <td className="num">{d.chunks}</td>
                             <td>
                               <button className="btn btn-sm" onClick={() => setOpen(d)} disabled={!d.summary}>
                                 Lihat ringkasan
@@ -211,6 +231,60 @@ export default function DocumentsPage() {
 
       {open && <SummaryDrawer doc={open} onClose={() => setOpen(null)} />}
     </>
+  );
+}
+
+type Kembar = Record<string, unknown>;
+const teks = (v: unknown) => (v == null ? '' : String(v));
+
+const OPSI_KEMBAR: OpsiTabel<Kembar> = {
+  cari: (d) => [teks(d.title), teks(d.externalId), teks(d.canonicalDocRef)],
+  saring: { reason: (d) => teks(d.reason) },
+  urut: {
+    title: (d) => teks(d.title ?? d.externalId),
+    canonical: (d) => teks(d.canonicalDocRef),
+    size: (d) => Number(d.sizeBytes ?? 0),
+  },
+};
+
+function TabelKembar({ rows }: { rows: Kembar[] }) {
+  const t = useTabel(rows, OPSI_KEMBAR);
+  return (
+    <div className="stack gap-3">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari berkas kembar"
+        saring={[{ kunci: 'reason', label: 'Semua sebab', lebar: 170, pilihan: [
+          { nilai: 'name-size', label: 'Nama + ukuran' },
+          { nilai: 'content', label: 'Isi identik' },
+        ] }]}
+      />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="title">Berkas dilewati</Th>
+          <Th t={t} kunci="canonical">Sama dengan</Th>
+          <th>Terdeteksi lewat</th>
+          <Th t={t} kunci="size" num>Ukuran</Th>
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={5} />
+          {t.hasil.tampil.map((d, i) => (
+            <tr key={teks(d.id)}>
+              <TdNo n={t.nomor(i)} />
+              <td style={{ wordBreak: 'break-word' }}>{teks(d.title ?? d.externalId) || '—'}</td>
+              <td style={{ wordBreak: 'break-word', color: 'var(--muted)' }}>{teks(d.canonicalDocRef)}</td>
+              <td>
+                <span className="badge">
+                  {d.reason === 'name-size' ? 'nama + ukuran' : 'isi identik'}
+                </span>
+              </td>
+              <td className="num">{d.sizeBytes ? `${Math.round(Number(d.sizeBytes) / 1024)} KB` : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="berkas" />
+    </div>
   );
 }
 

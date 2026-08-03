@@ -158,7 +158,12 @@ test('kerangka aplikasi tak ikut tercetak', () => {
 /* ── riwayat ─────────────────────────────────────────────────────────── */
 
 test('tombol kuitansi hanya muncul pada transaksi lunas', () => {
-  assert.ok(/t\.status === 'paid'\s*\?\s*<a className="btn btn-sm" href=\{`\/kuitansi\//.test(BILLING),
+  /* Diikat ke BENTUK pagarnya, bukan ke nama variabel barisnya. Versi
+     sebelumnya menuntut `t.status`, dan pecah begitu baris tabel berganti nama
+     dari `t` ke `x` — perubahan yang tak menyentuh aturannya sedikit pun.
+     Uji yang pecah karena penggantian nama menghukum perapian, dan yang
+     berikutnya akan tergoda melonggarkannya sekalian. */
+  assert.ok(/\w+\.status === 'paid'\s*\?\s*<a className="btn btn-sm" href=\{`\/kuitansi\//.test(BILLING),
     'tombol kuitansi tak dipagari status lunas');
   assert.ok(/BELUM LUNAS/.test(BILLING), 'transaksi belum lunas tak diberi keterangan');
 });

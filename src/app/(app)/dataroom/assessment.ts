@@ -51,7 +51,7 @@ export const DIMENSIONS: AssessDimension[] = [
     id: 'agentic', label: 'Agentic Readiness', score: 8.6,
     desc: 'Kualitas pipeline AI dan kesiapannya diintegrasikan agen lain. Skornya TURUN 0,1 meski lima area naik — satu atap recall yang sebelumnya tak diketahui kini terukur.',
     areas: [
-      { name: 'Jawaban terstruktur (blok)', score: 9.0, gap: 'Blok tabel kini ada (maks 5 kolom); chart masih bar/line satu seri' },
+      { name: 'Jawaban terstruktur (blok)', score: 9.2, gap: 'Blok tabel (maks 5 kolom) & chart multi-seri (maks 4 seri) kini ada, dan blok satu-seri lama tetap terbaca — tak ada gap berarti' },
       { name: 'Fleksibilitas model', score: 9.0, gap: '14 model · 8 provider · LLM & embedding self-hosted — tak ada gap berarti' },
       { name: 'Guardrails 5 lapis', score: 9.0, gap: 'Korpus eval penyalahgunaan + `eval:policy` kini ada, dan justru MEMBUKTIKAN lapis moderasi terpisah belum perlu dibangun' },
       { name: 'Pipeline RAG', score: 9.0, gap: 'Hybrid RRF + dedup + MMR + reranker lintas-encoder (mati bawaan) + kuantisasi biner + penyaring metadata semuanya terpasang' },

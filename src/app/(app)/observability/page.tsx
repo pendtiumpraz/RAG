@@ -5,17 +5,44 @@ import { useSession } from 'next-auth/react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
 import { Select } from '../../_components/select';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
+
+interface Aksi { action: string; count: number }
+interface Galat { at: string; tenantId: string; message: string }
+interface TenantSibuk { tenantId: string; name: string; messages: number }
 
 interface Ops {
   window: string;
-  actions: Array<{ action: string; count: number }>;
-  errors: Array<{ at: string; tenantId: string; message: string }>;
+  actions: Aksi[];
+  errors: Galat[];
   guardrail: { flagged: number };
   usage: { tenants: number; messages: number; tokensIn: number; tokensOut: number; period: string };
-  topTenants: Array<{ tenantId: string; name: string; messages: number }>;
+  topTenants: TenantSibuk[];
 }
 
 const fmt = (n: number) => n.toLocaleString('id-ID');
+
+/** `chat.answer` → `chat`. Modul adalah cara orang benar-benar membaca daftar
+ *  ini ("apa yang terjadi di knowledge?"), bukan aksi satu per satu. */
+const modul = (a: string) => a.split('.')[0] ?? a;
+
+const OPSI_AKSI: OpsiTabel<Aksi> = {
+  cari: (a) => [a.action],
+  saring: { modul: (a) => modul(a.action) },
+  urut: { action: (a) => a.action, count: (a) => a.count },
+};
+
+const OPSI_GALAT: OpsiTabel<Galat> = {
+  cari: (e) => [e.message, e.tenantId],
+  saring: { tenant: (e) => e.tenantId },
+  urut: { at: (e) => e.at, message: (e) => e.message },
+};
+
+const OPSI_TENANT: OpsiTabel<TenantSibuk> = {
+  cari: (t) => [t.name],
+  urut: { name: (t) => t.name, messages: (t) => t.messages },
+};
 
 export default function ObservabilityPage() {
   const { data: session } = useSession();
@@ -76,17 +103,7 @@ export default function ObservabilityPage() {
               <div className="panel-head"><span className="t">aktivitas ({data.window})</span></div>
               {data.actions.length === 0
                 ? <EmptyState title="Belum ada aktivitas" hint="Aksi tercatat begitu ada chat, ingest, atau perubahan admin." />
-                : (
-                  <div className="table-wrap"><table className="table">
-                    <thead><tr><th>Aksi</th><th style={{ textAlign: 'right' }}>Jumlah</th></tr></thead>
-                    <tbody>{data.actions.map((a) => (
-                      <tr key={a.action}>
-                        <td className="mono" style={{ fontSize: 13 }}>{a.action}</td>
-                        <td className="mono" style={{ textAlign: 'right' }}>{fmt(a.count)}</td>
-                      </tr>))}
-                    </tbody>
-                  </table></div>
-                )}
+                : <TabelAksi rows={data.actions} />}
             </div>
 
             <div className="card">
@@ -94,39 +111,112 @@ export default function ObservabilityPage() {
                 <span className="microlabel">{data.errors.length} TERCATAT</span></div>
               {data.errors.length === 0
                 ? <EmptyState title="Tak ada galat" hint={`Tidak ada galat tercatat dalam ${data.window} terakhir.`} />
-                : (
-                  <div className="table-wrap"><table className="table">
-                    <thead><tr><th>Waktu</th><th>Pesan</th></tr></thead>
-                    <tbody>{data.errors.map((e, i) => (
-                      <tr key={i}>
-                        <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                          {e.at.slice(5, 16).replace('T', ' ')}</td>
-                        <td style={{ fontSize: 13, color: 'var(--danger)' }}>{e.message}</td>
-                      </tr>))}
-                    </tbody>
-                  </table></div>
-                )}
+                : <TabelGalat rows={data.errors} />}
             </div>
 
             <div className="card">
               <div className="panel-head"><span className="t">tenant tersibuk</span></div>
               {data.topTenants.length === 0
                 ? <EmptyState title="Belum ada pemakaian" hint="Peringkat muncul setelah ada percakapan bulan ini." />
-                : (
-                  <div className="table-wrap"><table className="table">
-                    <thead><tr><th>Organisasi</th><th style={{ textAlign: 'right' }}>Pesan</th></tr></thead>
-                    <tbody>{data.topTenants.map((t) => (
-                      <tr key={t.tenantId}>
-                        <td>{t.name}</td>
-                        <td className="mono" style={{ textAlign: 'right' }}>{fmt(t.messages)}</td>
-                      </tr>))}
-                    </tbody>
-                  </table></div>
-                )}
+                : <TabelTenantSibuk rows={data.topTenants} />}
             </div>
           </div>
         )}
     </>
+  );
+}
+
+/* Tiga tabel di halaman ini duduk di kartu selebar setengah layar, jadi
+   ukuran halaman bawaannya 10 — cukup untuk terbaca sekaligus tanpa memaksa
+   kartunya tumbuh melewati tetangganya. */
+
+function TabelAksi({ rows }: { rows: Aksi[] }) {
+  const t = useTabel(rows, OPSI_AKSI);
+  return (
+    <div className="card-pad stack gap-3">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari aksi"
+        saring={[{ kunci: 'modul', label: 'Semua modul', lebar: 150, ambil: (a) => modul(a.action) }]}
+      />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="action">Aksi</Th>
+          <Th t={t} kunci="count" num>Jumlah</Th>
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={3} />
+          {t.hasil.tampil.map((a, i) => (
+            <tr key={a.action}>
+              <TdNo n={t.nomor(i)} />
+              <td className="mono" style={{ fontSize: 13 }}>{a.action}</td>
+              <td className="num">{fmt(a.count)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="aksi" />
+    </div>
+  );
+}
+
+function TabelGalat({ rows }: { rows: Galat[] }) {
+  const t = useTabel(rows, OPSI_GALAT);
+  return (
+    <div className="card-pad stack gap-3">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari isi pesan galat"
+        saring={[{ kunci: 'tenant', label: 'Semua tenant', lebar: 150, ambil: (e) => e.tenantId }]}
+      />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="at">Waktu</Th>
+          <Th t={t} kunci="message">Pesan</Th>
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={3} />
+          {t.hasil.tampil.map((e, i) => (
+            <tr key={`${e.at}:${i}`}>
+              <TdNo n={t.nomor(i)} />
+              <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                {e.at.slice(5, 16).replace('T', ' ')}</td>
+              <td style={{ fontSize: 13, color: 'var(--danger)' }}>{e.message}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="galat" />
+    </div>
+  );
+}
+
+function TabelTenantSibuk({ rows }: { rows: TenantSibuk[] }) {
+  const t = useTabel(rows, OPSI_TENANT);
+  return (
+    <div className="card-pad stack gap-3">
+      {/* Tanpa penyaring: satu-satunya ragam di tabel ini adalah organisasinya
+          sendiri, dan itu sudah dijawab kotak cari. */}
+      <TabelAlat t={t} rows={rows} cariLabel="Cari organisasi" />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="name">Organisasi</Th>
+          <Th t={t} kunci="messages" num>Pesan</Th>
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={3} />
+          {t.hasil.tampil.map((tn, i) => (
+            <tr key={tn.tenantId}>
+              <TdNo n={t.nomor(i)} />
+              <td>{tn.name}</td>
+              <td className="num">{fmt(tn.messages)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="organisasi" />
+    </div>
   );
 }
 

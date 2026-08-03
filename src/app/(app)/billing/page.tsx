@@ -6,6 +6,8 @@ import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { Select } from '../../_components/select';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 interface PlanSpec { id: string; messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null }
 interface Billing {
@@ -144,8 +146,21 @@ const tglSingkat = (iso: string | null) => (iso ? iso.slice(0, 10) : '—');
  * terima uang, dan pelanggan akan memakainya persis sebagai itu — menerbitkan
  * satu untuk tagihan yang belum dibayar akan berbalik jadi masalah kita.
  */
+const OPSI_TRX: OpsiTabel<Trx> = {
+  cari: (t) => [t.plan, t.provider, t.status, tglSingkat(t.paidAt ?? t.createdAt)],
+  saring: { status: (t) => t.status, provider: (t) => t.provider },
+  urut: {
+    tanggal: (t) => (t.paidAt ?? t.createdAt),
+    plan: (t) => t.plan, amount: (t) => t.amount, status: (t) => t.status,
+  },
+};
+
 function RiwayatPembayaran() {
   const { data, loading, error, refetch } = useApi<Trx[]>('/api/payments');
+  /* Riwayat pembayaran adalah satu-satunya tabel di aplikasi ini yang urutan
+     BAWAANNYA bermakna: kronologi. Karena itu ia dibiarkan tanpa urutan
+     awal — dan klik ketiga pada kepala kolom mengembalikannya ke sana. */
+  const t = useTabel(data ?? [], OPSI_TRX);
 
   return (
     <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
@@ -158,28 +173,44 @@ function RiwayatPembayaran() {
               hint="Riwayat muncul setelah pembayaran pertama. Paket free tak menghasilkan transaksi." />
           </div>
         ) : (
-          <div className="card-pad table-wrap">
-            <table className="table"><thead><tr>
-              <th>Tanggal</th><th>Paket</th><th className="num">Jumlah</th>
-              <th>Status</th><th /></tr></thead><tbody>
-              {data.map((t) => (
-                <tr key={t.id}>
-                  <td className="mono">{tglSingkat(t.paidAt ?? t.createdAt)}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{t.plan} · {t.months} bln</td>
-                  <td className="num">{fmt(t.amount)}</td>
-                  <td>
-                    <span className={`badge ${t.status === 'paid' ? 'badge-ok' : t.status === 'pending' ? 'badge-source' : ''}`}>
-                      {t.status === 'paid' ? 'lunas' : t.status}
-                    </span>
-                  </td>
-                  <td className="num">
-                    {t.status === 'paid'
-                      ? <a className="btn btn-sm" href={`/kuitansi/${t.id}`}>Kuitansi</a>
-                      : <span className="microlabel">BELUM LUNAS</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody></table>
+          <div className="card-pad stack gap-4">
+            <TabelAlat
+              t={t} rows={data} cariLabel="Cari paket, gateway, atau tanggal"
+              saring={[
+                { kunci: 'status', label: 'Semua status', lebar: 150, ambil: (x) => x.status },
+                { kunci: 'provider', label: 'Semua gateway', lebar: 155, ambil: (x) => x.provider },
+              ]}
+            />
+            <div className="table-wrap">
+              <table className="table"><thead><tr>
+                <ThNo />
+                <Th t={t} kunci="tanggal">Tanggal</Th>
+                <Th t={t} kunci="plan">Paket</Th>
+                <Th t={t} kunci="amount" num>Jumlah</Th>
+                <Th t={t} kunci="status">Status</Th>
+                <th /></tr></thead><tbody>
+                <BarisKosong t={t} kolom={6} />
+                {t.hasil.tampil.map((x, i) => (
+                  <tr key={x.id}>
+                    <TdNo n={t.nomor(i)} />
+                    <td className="mono">{tglSingkat(x.paidAt ?? x.createdAt)}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{x.plan} · {x.months} bln</td>
+                    <td className="num">{fmt(x.amount)}</td>
+                    <td>
+                      <span className={`badge ${x.status === 'paid' ? 'badge-ok' : x.status === 'pending' ? 'badge-source' : ''}`}>
+                        {x.status === 'paid' ? 'lunas' : x.status}
+                      </span>
+                    </td>
+                    <td className="num">
+                      {x.status === 'paid'
+                        ? <a className="btn btn-sm" href={`/kuitansi/${x.id}`}>Kuitansi</a>
+                        : <span className="microlabel">BELUM LUNAS</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </div>
+            <TabelKaki t={t} satuan="transaksi" />
           </div>
         )}
     </div>
@@ -442,9 +473,25 @@ function PaymentSettings() {
 
 /* ── pandangan platform (superadmin) ────────────────────────────────── */
 
+const OPSI_TENANT: OpsiTabel<TenantRow> = {
+  cari: (t) => [t.tenantName, t.planOnPaper],
+  saring: {
+    plan: (t) => t.planOnPaper,
+    /* Yang dicari superadmin di tabel ini hampir selalu satu hal: siapa yang
+       masa berlakunya LEWAT dan diam-diam turun ke Free. */
+    berlaku: (t) => (t.expired ? 'kedaluwarsa' : 'berlaku'),
+  },
+  urut: {
+    tenantName: (t) => t.tenantName, plan: (t) => t.planOnPaper,
+    expiresAt: (t) => t.planExpiresAt, members: (t) => t.members,
+    chatbots: (t) => t.chatbots, messages: (t) => t.messages,
+  },
+};
+
 function AllTenants() {
   const { data, loading, error, refetch } = useApi<{ tenants: TenantRow[]; plans: PlanSpec[] }>('/api/admin/billing');
   const [editing, setEditing] = useState<TenantRow | null>(null);
+  const t = useTabel(data?.tenants ?? [], OPSI_TENANT);
 
   return (
     <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
@@ -454,26 +501,50 @@ function AllTenants() {
       {error ? <ErrorState message={error} onRetry={refetch} />
         : loading || !data ? <Skeleton rows={3} />
         : (
+          <div className="card-pad stack gap-4">
+          <TabelAlat
+            t={t} rows={data.tenants} cariLabel="Cari organisasi"
+            saring={[
+              { kunci: 'plan', label: 'Semua plan', lebar: 150, ambil: (x) => x.planOnPaper },
+              { kunci: 'berlaku', label: 'Semua masa berlaku', lebar: 190, pilihan: [
+                { nilai: 'berlaku', label: 'Masih berlaku' },
+                { nilai: 'kedaluwarsa', label: 'Kedaluwarsa → Free' },
+              ] },
+            ]}
+          />
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Organisasi</th><th>Plan</th><th>Berlaku s/d</th><th>Anggota</th><th>Chatbot</th><th>Pesan bln ini</th><th /></tr></thead>
+            <thead><tr>
+              <ThNo />
+              <Th t={t} kunci="tenantName">Organisasi</Th>
+              <Th t={t} kunci="plan">Plan</Th>
+              <Th t={t} kunci="expiresAt">Berlaku s/d</Th>
+              <Th t={t} kunci="members" num>Anggota</Th>
+              <Th t={t} kunci="chatbots" num>Chatbot</Th>
+              <Th t={t} kunci="messages" num>Pesan bln ini</Th>
+              <th />
+            </tr></thead>
             <tbody>
-              {data.tenants.map((t) => (
-                <tr key={t.tenantId}>
-                  <td><b>{t.tenantName}</b></td>
+              <BarisKosong t={t} kolom={8} />
+              {t.hasil.tampil.map((x, i) => (
+                <tr key={x.tenantId}>
+                  <TdNo n={t.nomor(i)} />
+                  <td><b>{x.tenantName}</b></td>
                   <td>
-                    <span className={`badge ${t.expired ? 'badge-danger' : 'badge-source'}`}>{t.planOnPaper}</span>
-                    {t.expired && <span className="microlabel" style={{ marginLeft: 6 }}>→ FREE</span>}
+                    <span className={`badge ${x.expired ? 'badge-danger' : 'badge-source'}`}>{x.planOnPaper}</span>
+                    {x.expired && <span className="microlabel" style={{ marginLeft: 6 }}>→ FREE</span>}
                   </td>
                   <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    {t.planExpiresAt?.slice(0, 10) ?? '—'}</td>
-                  <td className="mono">{t.members}</td>
-                  <td className="mono">{t.chatbots}</td>
-                  <td className="mono">{fmt(t.messages)}</td>
-                  <td><button className="btn btn-sm" onClick={() => setEditing(t)}>Ubah plan</button></td>
+                    {x.planExpiresAt?.slice(0, 10) ?? '—'}</td>
+                  <td className="num">{x.members}</td>
+                  <td className="num">{x.chatbots}</td>
+                  <td className="num">{fmt(x.messages)}</td>
+                  <td><button className="btn btn-sm" onClick={() => setEditing(x)}>Ubah plan</button></td>
                 </tr>
               ))}
             </tbody>
           </table></div>
+          <TabelKaki t={t} satuan="organisasi" />
+          </div>
         )}
 
       {editing && <PlanDrawer tenant={editing} plans={data?.plans ?? []}

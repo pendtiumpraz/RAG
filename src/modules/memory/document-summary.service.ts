@@ -44,9 +44,29 @@ export const documentSummaryService = {
    */
   async search(tenantId: string, opts: {
     q?: string; knowledgeBaseId?: string; category?: string; page?: number;
+    urut?: string; arah?: string;
   } = {}) {
     const page = Math.max(0, opts.page ?? 0);
     const q = opts.q?.trim();
+
+    /* Kunci urut DIPETAKAN, tak pernah disisipkan apa adanya: nilainya datang
+       dari query string, dan potongan SQL yang dirakit dari masukan pengguna
+       adalah cara paling langsung membuka injeksi. Daftar putih ini sekaligus
+       dokumentasi kolom apa saja yang memang bisa diurutkan. */
+    const KOLOM: Record<string, ReturnType<typeof sql.raw>> = {
+      title: sql.raw('max(d.title)'),
+      chunks: sql.raw('count(*)'),
+      updatedAt: sql.raw('max(d.updated_at)'),
+      knowledgeBaseName: sql.raw('max(kb.name)'),
+      category: sql.raw('max(n.category)'),
+    };
+    const kolom = opts.urut ? KOLOM[opts.urut] : undefined;
+    const naik = opts.arah !== 'turun';
+    const urutSql = kolom
+      ? sql`order by ${kolom} ${sql.raw(naik ? 'asc' : 'desc')} nulls last`
+      /* Bawaan: yang terbaru dulu — pertanyaan pertama orang yang membuka
+         halaman ini hampir selalu "apa yang baru masuk". */
+      : sql`order by max(d.updated_at) desc nulls last`;
 
     const kbFilter = opts.knowledgeBaseId
       ? sql`and d.knowledge_base_id = ${opts.knowledgeBaseId}::uuid` : sql``;
@@ -82,14 +102,17 @@ export const documentSummaryService = {
         where d.deleted_at is null
           ${kbFilter} ${catFilter} ${qFilter}
         group by d.doc_ref, d.knowledge_base_id
-        order by max(d.updated_at) desc nulls last
+        ${urutSql}
         limit ${PAGE + 1} offset ${page * PAGE}
       `) as unknown as DocSummaryRow[];
 
       // Satu baris lebih diambil semata untuk tahu ADA halaman berikutnya —
       // jauh lebih murah daripada COUNT(*) atas seluruh korpus tiap ketikan.
       const more = rows.length > PAGE;
-      return { rows: more ? rows.slice(0, PAGE) : rows, more, page };
+      /* `pageSize` ikut dikirim supaya penomoran baris di UI bisa GLOBAL
+         (baris pertama halaman 2 bernomor 26, bukan 1) tanpa menyalin angka
+         PAGE ke sisi peramban — salinan yang pasti menyimpang. */
+      return { rows: more ? rows.slice(0, PAGE) : rows, more, page, pageSize: PAGE };
     });
   },
 

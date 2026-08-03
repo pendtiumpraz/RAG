@@ -19,5 +19,7 @@ export async function GET(req: NextRequest) {
     knowledgeBaseId: p.get('knowledgeBaseId') ?? undefined,
     category: p.get('category') ?? undefined,
     page: Number(p.get('page') ?? 0) || 0,
+    urut: p.get('urut') ?? undefined,
+    arah: p.get('arah') ?? undefined,
   }));
 }

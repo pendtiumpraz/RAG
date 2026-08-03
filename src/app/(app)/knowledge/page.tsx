@@ -6,6 +6,8 @@ import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { QuotaBar } from '../../_components/quota-bar';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 interface Chatbot { id: string; name: string }
 /** Ringkasan run delta terakhir — ditulis sync.service ke config.lastSync. */
@@ -80,6 +82,34 @@ interface Kb {
   tier1?: number;
 }
 
+const OPSI_KB: OpsiTabel<Kb> = {
+  cari: (k) => [k.name, k.description, ...k.chatbots.map((c) => c.name)],
+  /* KB yang belum di-assign ke chatbot mana pun tak dipakai menjawab apa pun —
+     ia membakar penyimpanan tanpa melayani siapa pun, dan pada daftar panjang
+     itu tak terlihat. */
+  saring: { pakai: (k) => (k.chatbots.length ? 'terpakai' : 'menganggur') },
+  urut: {
+    name: (k) => k.name, sources: (k) => k.sources, chunks: (k) => k.chunks,
+    chatbots: (k) => k.chatbots.length, updatedAt: (k) => k.updatedAt,
+  },
+};
+
+/** Cakupan sumber — sama persis dengan yang digambar kolomnya. */
+function cakupanSumber(s: Source): string {
+  if (Array.isArray(s.config.fileIds)) return `${(s.config.fileIds as unknown[]).length} berkas terpilih`;
+  if (s.config.scope === 'all') return 'seluruh drive';
+  return String(s.config.folderId ?? s.config.folderPath ?? 'folder');
+}
+
+const OPSI_SUMBER: OpsiTabel<Source> = {
+  cari: (s) => [s.kind, String(s.config.accountEmail ?? ''), cakupanSumber(s), s.status],
+  saring: { kind: (s) => s.kind, status: (s) => s.status },
+  urut: {
+    kind: (s) => s.kind, akun: (s) => String(s.config.accountEmail ?? ''),
+    status: (s) => s.status, lastSyncedAt: (s) => s.lastSyncedAt,
+  },
+};
+
 export default function KnowledgePage() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
   const kbs = useApi<Kb[]>('/api/knowledge-bases');
@@ -87,6 +117,8 @@ export default function KnowledgePage() {
   useEffect(() => { if (kbs.data?.[0] && !kbId) setKbId(kbs.data[0].id); }, [kbs.data, kbId]);
 
   const sources = useApi<Source[]>(kbId ? `/api/sources?knowledgeBaseId=${kbId}` : null);
+  const tKb = useTabel(kbs.data ?? [], OPSI_KB);
+  const tSrc = useTabel(sources.data ?? [], OPSI_SUMBER);
   const conns = useApi<Conn[]>('/api/connections');
   const oauthReady = useApi<Providers>('/api/connections/providers');
   const [adding, setAdding] = useState(false);
@@ -209,19 +241,37 @@ export default function KnowledgePage() {
               hint="Buat KB, isi sumbernya, lalu assign ke chatbot divisi yang membutuhkannya."
               action={<button className="btn btn-primary btn-sm" onClick={() => setCreatingKb(true)}>Buat KB</button>} />
           : (
+            <div className="card-pad stack gap-4">
+            <TabelAlat
+              t={tKb} rows={kbs.data} cariLabel="Cari KB, keterangan, atau chatbot pemakainya"
+              saring={[{ kunci: 'pakai', label: 'Semua KB', lebar: 175, pilihan: [
+                { nilai: 'terpakai', label: 'Sudah di-assign' },
+                { nilai: 'menganggur', label: 'Belum di-assign' },
+              ] }]}
+            />
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Sumber</th><th>Chunk</th><th>Mode pencarian</th><th>Dipakai chatbot</th><th /></tr></thead>
+              <thead><tr>
+                <ThNo />
+                <Th t={tKb} kunci="name">Nama</Th>
+                <Th t={tKb} kunci="sources" num>Sumber</Th>
+                <Th t={tKb} kunci="chunks" num>Chunk</Th>
+                <th>Mode pencarian</th>
+                <Th t={tKb} kunci="chatbots">Dipakai chatbot</Th>
+                <th />
+              </tr></thead>
               <tbody>
-                {kbs.data.map((k) => (
+                <BarisKosong t={tKb} kolom={7} />
+                {tKb.hasil.tampil.map((k, i) => (
                   <tr key={k.id} style={{ background: k.id === kbId ? 'var(--card-2)' : undefined }}>
+                    <TdNo n={tKb.nomor(i)} />
                     <td>
                       <button onClick={() => setKbId(k.id)} style={{ all: 'unset', cursor: 'pointer' }}>
                         <b style={{ borderLeft: `2px solid ${k.id === kbId ? 'var(--signal)' : 'transparent'}`, paddingLeft: 8 }}>{k.name}</b>
                       </button>
                       {k.description && <div style={{ fontSize: 12, color: 'var(--muted)', paddingLeft: 10, marginTop: 2 }}>{k.description}</div>}
                     </td>
-                    <td className="mono">{k.sources}</td>
-                    <td className="mono">{k.chunks}</td>
+                    <td className="num">{k.sources}</td>
+                    <td className="num">{k.chunks}</td>
                     <RetrievalModeCell tier1={k.tier1 ?? 0} chunks={k.chunks} />
                     <td>
                       {k.chatbots.length === 0
@@ -241,6 +291,8 @@ export default function KnowledgePage() {
                 ))}
               </tbody>
             </table></div>
+            <TabelKaki t={tKb} satuan="knowledge base" />
+            </div>
           )}
       </div>
 
@@ -333,19 +385,33 @@ export default function KnowledgePage() {
               hint="Tambah sumber: seluruh Drive, folder tertentu, OneDrive, atau SharePoint."
               action={<button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}>Tambah sumber</button>} />
           : (
+            <div className="card-pad stack gap-4">
+            <TabelAlat
+              t={tSrc} rows={sources.data} cariLabel="Cari jenis, akun, atau cakupan"
+              saring={[
+                { kunci: 'kind', label: 'Semua jenis', lebar: 155, ambil: (s) => s.kind },
+                { kunci: 'status', label: 'Semua status', lebar: 150, ambil: (s) => s.status },
+              ]}
+            />
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Jenis</th><th>Akun</th><th>Cakupan</th><th>Status</th><th>Hasil terakhir</th><th>Terakhir</th><th /></tr></thead>
+              <thead><tr>
+                <ThNo />
+                <Th t={tSrc} kunci="kind">Jenis</Th>
+                <Th t={tSrc} kunci="akun">Akun</Th>
+                <th>Cakupan</th>
+                <Th t={tSrc} kunci="status">Status</Th>
+                <th>Hasil terakhir</th>
+                <Th t={tSrc} kunci="lastSyncedAt">Terakhir</Th>
+                <th />
+              </tr></thead>
               <tbody>
-                {sources.data.map((s) => (
+                <BarisKosong t={tSrc} kolom={8} />
+                {tSrc.hasil.tampil.map((s, i) => (
                   <tr key={s.id}>
+                    <TdNo n={tSrc.nomor(i)} />
                     <td><span className="badge">{s.kind}</span></td>
                     <td style={{ color: 'var(--muted)' }}>{String(s.config.accountEmail ?? '—')}</td>
-                    <td className="mono" style={{ color: 'var(--muted)' }}>{
-                      Array.isArray(s.config.fileIds)
-                        ? `${(s.config.fileIds as unknown[]).length} berkas terpilih`
-                        : s.config.scope === 'all' ? 'seluruh drive'
-                        : String(s.config.folderId ?? s.config.folderPath ?? 'folder')
-                    }</td>
+                    <td className="mono" style={{ color: 'var(--muted)' }}>{cakupanSumber(s)}</td>
                     <td><StatusBadge s={s} /><SyncProgress s={s} /></td>
                     <td>
                       <DeltaSummary last={s.config.lastSync as LastSync | undefined} />
@@ -371,6 +437,8 @@ export default function KnowledgePage() {
                 ))}
               </tbody>
             </table></div>
+            <TabelKaki t={tSrc} satuan="sumber" />
+            </div>
           )}
       </div>
 

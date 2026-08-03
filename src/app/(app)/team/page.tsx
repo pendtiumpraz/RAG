@@ -2,11 +2,13 @@
 
 import { FeatureGate } from '../../_components/entitlements';
 import { Select } from '../../_components/select';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast, Pager, type PageMeta, Field, Drawer } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 interface PendingUser {
   id: string; email: string; name: string | null; role: string; status: string;
@@ -21,6 +23,22 @@ interface Member {
 interface Divisi { id: string; name: string }
 interface Invitation { id: string; email: string; role: string; expiresAt: string; acceptedAt: string | null; createdAt: string; expired: boolean }
 
+const OPSI_ANGGOTA: OpsiTabel<Member> = {
+  cari: (m) => [m.name, m.email, m.role, m.status],
+  saring: {
+    role: (m) => m.role,
+    status: (m) => m.status,
+    /* '-' mewakili "tanpa divisi". Memakai '' akan bertabrakan dengan makna
+       "semua", dan anggota yang belum ditempatkan justru yang paling sering
+       dicari setelah divisi baru dibuat. */
+    divisi: (m) => m.divisionId ?? '-',
+  },
+  urut: {
+    name: (m) => m.name, email: (m) => m.email, role: (m) => m.role,
+    status: (m) => m.status, createdAt: (m) => m.createdAt,
+  },
+};
+
 /** Anggota tenant. Saat ini menampilkan user aktif (nyata dari sesi);
  *  undang anggota + daftar penuh menyusul (endpoint team belum dibuat). */
 function TeamPageInner() {
@@ -33,6 +51,7 @@ function TeamPageInner() {
   const divisi = useApi<Divisi[]>('/api/divisions');
   const [inviting, setInviting] = useState(false);
   const toast = useToast();
+  const t = useTabel(members.data ?? [], OPSI_ANGGOTA);
 
   /* RBAC tenant: admin bisa mengubah peran & mengeluarkan anggota.
      Superadmin & diri sendiri tak bisa disentuh dari sini; pengaman admin
@@ -82,13 +101,39 @@ function TeamPageInner() {
         {members.error ? <ErrorState message={members.error} onRetry={members.refetch} />
           : members.loading || !members.data ? <Skeleton rows={2} />
           : (
+            <div className="card-pad stack gap-4">
+            <TabelAlat
+              t={t} rows={members.data} cariLabel="Cari nama, email, peran, atau status"
+              saring={[
+                { kunci: 'role', label: 'Semua peran', lebar: 150, ambil: (m) => m.role },
+                { kunci: 'status', label: 'Semua status', lebar: 150, ambil: (m) => m.status },
+                { kunci: 'divisi', label: 'Semua divisi', lebar: 165, pilihan: [
+                  ...(divisi.data ?? []).map((d) => ({ nilai: d.id, label: d.name })),
+                  { nilai: '-', label: '— tanpa divisi —' },
+                ] },
+              ]}
+            />
             <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Divisi</th><th>Status</th><th>Bergabung</th>{canInvite && <th />}</tr></thead>
+              <thead><tr>
+                <ThNo />
+                <Th t={t} kunci="name">Nama</Th>
+                <Th t={t} kunci="email">Email</Th>
+                <Th t={t} kunci="role">Peran</Th>
+                {/* Tak bisa diurutkan: yang disimpan baris ini adalah id divisi,
+                    dan mengurutkan uuid memberi urutan yang terlihat acak.
+                    Menyaringnya tetap berguna, dan itu yang disediakan. */}
+                <th>Divisi</th>
+                <Th t={t} kunci="status">Status</Th>
+                <Th t={t} kunci="createdAt">Bergabung</Th>
+                {canInvite && <th />}
+              </tr></thead>
               <tbody>
-                {members.data.map((m) => {
+                <BarisKosong t={t} kolom={canInvite ? 8 : 7} />
+                {t.hasil.tampil.map((m, idx) => {
                   const untouchable = m.role === 'superadmin' || m.email === u?.email;
                   return (
                     <tr key={m.id}>
+                      <TdNo n={t.nomor(idx)} />
                       <td><b>{m.name ?? '—'}</b>{m.email === u?.email && <span className="microlabel" style={{ marginLeft: 8 }}>KAMU</span>}</td>
                       <td style={{ color: 'var(--muted)' }}>{m.email}</td>
                       <td>
@@ -131,6 +176,8 @@ function TeamPageInner() {
                 })}
               </tbody>
             </table></div>
+            <TabelKaki t={t} satuan="anggota" />
+            </div>
           )}
       </div>
 
@@ -147,10 +194,23 @@ function TeamPageInner() {
 
 /* ── undangan anggota ───────────────────────────────────────────────── */
 
+const KEADAAN_UNDANGAN = (i: Invitation) =>
+  (i.acceptedAt ? 'diterima' : i.expired ? 'kedaluwarsa' : 'menunggu');
+
+const OPSI_UNDANGAN: OpsiTabel<Invitation> = {
+  cari: (i) => [i.email, i.role, KEADAAN_UNDANGAN(i)],
+  saring: { keadaan: KEADAAN_UNDANGAN, role: (i) => i.role },
+  urut: {
+    email: (i) => i.email, role: (i) => i.role,
+    keadaan: KEADAAN_UNDANGAN, expiresAt: (i) => i.expiresAt,
+  },
+};
+
 function Invitations({ feed, onInvite }: {
   feed: ReturnType<typeof useApi<Invitation[]>>; onInvite: () => void;
 }) {
   const toast = useToast();
+  const t = useTabel(feed.data ?? [], OPSI_UNDANGAN);
 
   async function revoke(inv: Invitation) {
     try {
@@ -170,11 +230,32 @@ function Invitations({ feed, onInvite }: {
             hint="Undang rekan lewat email; mereka bergabung ke workspace ini, bukan membuat baru."
             action={<button className="btn btn-primary btn-sm" onClick={onInvite}>Undang anggota</button>} />
         : (
+          <div className="card-pad stack gap-4">
+          <TabelAlat
+            t={t} rows={feed.data} cariLabel="Cari email undangan"
+            saring={[
+              { kunci: 'keadaan', label: 'Semua keadaan', lebar: 160, pilihan: [
+                { nilai: 'menunggu', label: 'Menunggu' },
+                { nilai: 'diterima', label: 'Diterima' },
+                { nilai: 'kedaluwarsa', label: 'Kedaluwarsa' },
+              ] },
+              { kunci: 'role', label: 'Semua peran', lebar: 145, ambil: (i) => i.role },
+            ]}
+          />
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Email</th><th>Peran</th><th>Status</th><th>Berlaku sampai</th><th /></tr></thead>
+            <thead><tr>
+              <ThNo />
+              <Th t={t} kunci="email">Email</Th>
+              <Th t={t} kunci="role">Peran</Th>
+              <Th t={t} kunci="keadaan">Status</Th>
+              <Th t={t} kunci="expiresAt">Berlaku sampai</Th>
+              <th />
+            </tr></thead>
             <tbody>
-              {feed.data.map((i) => (
+              <BarisKosong t={t} kolom={6} />
+              {t.hasil.tampil.map((i, idx) => (
                 <tr key={i.id}>
+                  <TdNo n={t.nomor(idx)} />
                   <td>{i.email}</td>
                   <td><span className="badge badge-source">{i.role}</span></td>
                   <td>
@@ -192,6 +273,8 @@ function Invitations({ feed, onInvite }: {
               ))}
             </tbody>
           </table></div>
+          <TabelKaki t={t} satuan="undangan" />
+          </div>
         )}
     </div>
   );
@@ -269,9 +352,24 @@ function InviteDrawer({ onClose, onSent }: { onClose: () => void; onSent: () => 
 function SignupApprovals() {
   const [scope, setScope] = useState<'pending' | 'all'>('pending');
   const [page, setPage] = useState(1);
-  const { data, loading, error, refetch } = useApi<ApprovalPage>(`/api/admin/users?status=${scope}&page=${page}`);
+  const [q, setQ] = useState('');
+  const [cari, setCari] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const toast = useToast();
+
+  /* Pencariannya DIKIRIM KE SERVER — daftar ini berhalaman, jadi menyaringnya
+     di peramban hanya akan menyaring 25 baris yang kebetulan tampil. Mengetik
+     sebuah email lalu tak menemukannya akan terbaca sebagai "belum mendaftar"
+     padahal ia ada di halaman berikutnya, dan ini layar yang dipakai
+     memutuskan siapa boleh masuk. */
+  useEffect(() => {
+    const id = setTimeout(() => { setCari(q); setPage(1); }, 300);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const { data, loading, error, refetch } = useApi<ApprovalPage>(
+    `/api/admin/users?status=${scope}&page=${page}`
+    + (cari.trim() ? `&q=${encodeURIComponent(cari.trim())}` : ''));
 
   async function setStatus(user: PendingUser, status: 'active' | 'rejected' | 'pending') {
     setBusyId(user.id);
@@ -293,6 +391,11 @@ function SignupApprovals() {
         <span className="t">verifikasi pendaftaran</span>
         <div className="cluster gap-2">
           <span className="microlabel">SUPERADMIN · LINTAS TENANT</span>
+          <input
+            className="input select-sm" type="search" style={{ width: 220 }}
+            value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="Cari email, nama, organisasi" aria-label="Cari pendaftar"
+          />
           <Select className="select-sm"  style={{ width: 150 }}
             value={scope} onChange={(e) => { setScope(e.target.value as 'pending' | 'all'); setPage(1); }}>
             <option value="pending">Menunggu</option>
@@ -304,16 +407,21 @@ function SignupApprovals() {
       {error ? <ErrorState message={error} onRetry={refetch} />
         : loading || !data ? <Skeleton rows={3} />
         : data.rows.length === 0 ? <EmptyState
-            title={scope === 'pending' ? 'Tak ada yang menunggu' : 'Belum ada akun'}
-            hint={scope === 'pending'
+            title={cari.trim() ? 'Tak ada yang cocok'
+              : scope === 'pending' ? 'Tak ada yang menunggu' : 'Belum ada akun'}
+            hint={cari.trim() ? 'Coba kata kunci lain, atau ganti ke "Semua akun".'
+              : scope === 'pending'
               ? 'Pendaftar baru muncul di sini sebelum bisa masuk.'
               : 'Akun akan muncul setelah ada yang mendaftar.'} />
         : (
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Nama</th><th>Email</th><th>Organisasi</th><th>Daftar</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th className="col-no">#</th><th>Nama</th><th>Email</th><th>Organisasi</th><th>Daftar</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {data.rows.map((p) => (
+              {data.rows.map((p, i) => (
                 <tr key={p.id}>
+                  {/* Nomornya GLOBAL, dihitung dari halaman server — baris
+                      pertama halaman 2 bernomor 26, bukan 1. */}
+                  <td className="col-no">{((data.page - 1) * data.pageSize + i + 1).toLocaleString('id-ID')}</td>
                   <td><b>{p.name ?? '—'}</b></td>
                   <td style={{ color: 'var(--muted)' }}>{p.email}</td>
                   <td style={{ color: 'var(--muted)' }}>{p.tenantName ?? '—'}</td>

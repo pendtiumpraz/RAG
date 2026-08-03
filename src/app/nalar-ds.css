@@ -214,6 +214,30 @@ table.table td.num{ text-align:right; font-family:var(--font-mono); font-variant
 table.table tbody tr{ transition:background var(--dur-fast); }
 table.table tbody tr:hover{ background:var(--card-2); }
 table.table tr:last-child td{ border-bottom:none; }
+table.table th.num{ text-align:right; }
+
+/* ── tabel: nomor, kepala terurut, bilah alat, kaki ──────────────────────
+   Dipakai _components/tabel.tsx. Kolom nomor berlebar TETAP supaya tabel tak
+   bergeser saat halaman berpindah dari 9 ke 10 — pergeseran satu digit
+   terbaca sebagai layout yang goyah, bukan sebagai angka yang bertambah. */
+table.table .col-no{ width:52px; text-align:right; padding-right:var(--sp-3);
+  font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--faint); }
+table.table thead th.col-no{ text-align:right; }
+
+/* Kepala kolom terurut adalah TOMBOL, bukan <th> ber-onClick: sel tabel tak
+   bisa difokus papan ketik dan tak mengumumkan dirinya bisa ditekan. */
+.th-urut{ display:inline-flex; align-items:center; gap:6px; background:none; border:0; padding:0;
+  font:inherit; color:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; }
+.th-urut:hover{ color:var(--ink); }
+.th-urut:focus-visible{ outline:2px solid var(--signal); outline-offset:2px; border-radius:var(--rad-xs); }
+.th-urut.on{ color:var(--signal); }
+.th-arah{ font-style:normal; font-size:9px; opacity:.5; }
+.th-urut.on .th-arah{ opacity:1; }
+
+.tabel-alat{ flex-wrap:wrap; }
+.tabel-kaki{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+  flex-wrap:wrap; padding-top:var(--sp-3); border-top:1px solid var(--line); font-size:var(--fs-sm); }
+
 .empty-state{ text-align:center; padding:var(--sp-12) var(--sp-6); color:var(--muted); }
 .empty-state .glyph{ font-family:var(--font-mono); font-size:26px; color:var(--faint); margin-bottom:var(--sp-2); }
 

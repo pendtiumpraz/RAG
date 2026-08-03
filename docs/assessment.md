@@ -58,7 +58,7 @@ kemajuan adalah cara paling halus membuat dokumen ini berhenti bisa dipercaya.
 | API utk agen/integrasi | 9,5 | API key per tenant + webhook keluar + `/api/v1` + **MCP server** semuanya jalan |
 | Pipeline RAG | 9,0 | Hybrid RRF + dedup + MMR + reranker lintas-encoder (mati bawaan) + kuantisasi biner + penyaring metadata terpasang |
 | Guardrails 5 lapis | 9,0 | Korpus eval penyalahgunaan + `eval:policy` kini ada — dan justru **membuktikan lapis moderasi terpisah belum perlu dibangun** |
-| Jawaban terstruktur (blok) | 9,0 | Blok tabel kini ada (maks 5 kolom); chart masih bar/line satu seri |
+| Jawaban terstruktur (blok) | 9,2 | Blok tabel (maks 5 kolom) & chart multi-seri (maks 4 seri) kini ada, dan blok satu-seri lama tetap terbaca |
 | Fleksibilitas model | 9,0 | 14 model · 8 provider · LLM & embedding self-hosted |
 | Memory agent | 7,5 | Graph force-directed hidup; masih hanya terpicu sync, belum belajar dari percakapan |
 | **Recall pada korpus besar** | **6,5** | **Celah baru, diukur 2 Agu.** Recall lapisan pertama runtuh ke 21,7% di atas ±40 GB per chatbot, dan **membesarkan ambang tidak menolong** — peringkat kandidat tumbuh linear bersama korpus. Penyaring metadata dibangun sebagai jalan keluarnya; partisi korpus belum |

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, useToast, Field } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 /**
  * API KEY & WEBHOOK — akses programatik tenant.
@@ -46,8 +48,21 @@ export default function Integrations() {
 }
 
 /* ── kunci API ───────────────────────────────────────────────────────── */
+const OPSI_KEY: OpsiTabel<KeyRow> = {
+  cari: (k) => [k.name, k.prefix, ...k.scopes],
+  /* Kunci yang sudah DICABUT tetap ditampilkan (jejak audit), jadi pada daftar
+     panjang penyaring ini yang membedakan "kunci yang benar-benar hidup" dari
+     riwayat. */
+  saring: { hidup: (k) => (k.revokedAt ? 'dicabut' : 'aktif') },
+  urut: {
+    name: (k) => k.name, prefix: (k) => k.prefix,
+    lastUsedAt: (k) => k.lastUsedAt, createdAt: (k) => k.createdAt,
+  },
+};
+
 function ApiKeys() {
   const { data, loading, refetch } = useApi<{ keys: KeyRow[] }>('/api/keys');
+  const t = useTabel(data?.keys ?? [], OPSI_KEY);
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<string[]>(['read', 'chat']);
   const [fresh, setFresh] = useState<string | null>(null);
@@ -102,11 +117,27 @@ function ApiKeys() {
       )}
 
       {loading ? <Skeleton rows={2} /> : (
+        <div className="card-pad stack gap-3">
+        <TabelAlat
+          t={t} rows={data?.keys ?? []} cariLabel="Cari nama kunci atau izin"
+          saring={[{ kunci: 'hidup', label: 'Semua kunci', lebar: 155, pilihan: [
+            { nilai: 'aktif', label: 'Masih aktif' }, { nilai: 'dicabut', label: 'Sudah dicabut' },
+          ] }]}
+        />
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>Nama</th><th>Kunci</th><th>Izin</th><th>Terakhir dipakai</th><th /></tr></thead>
+          <thead><tr>
+            <ThNo />
+            <Th t={t} kunci="name">Nama</Th>
+            <Th t={t} kunci="prefix">Kunci</Th>
+            <th>Izin</th>
+            <Th t={t} kunci="lastUsedAt">Terakhir dipakai</Th>
+            <th />
+          </tr></thead>
           <tbody>
-            {(data?.keys ?? []).map((k) => (
+            {(data?.keys?.length ?? 0) > 0 && <BarisKosong t={t} kolom={6} />}
+            {t.hasil.tampil.map((k, i) => (
               <tr key={k.id} style={k.revokedAt ? { opacity: .5 } : undefined}>
+                <TdNo n={t.nomor(i)} />
                 <td><b>{k.name}</b>
                   {k.revokedAt && <span className="badge" style={{ marginLeft: 8 }}>dicabut</span>}</td>
                 <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{k.prefix}…</td>
@@ -126,12 +157,14 @@ function ApiKeys() {
               </tr>
             ))}
             {!data?.keys?.length && (
-              <tr><td colSpan={5} style={{ color: 'var(--muted)', fontSize: 13 }}>
+              <tr><td colSpan={6} style={{ color: 'var(--muted)', fontSize: 13 }}>
                 Belum ada kunci. Buat satu untuk menyambungkan sistemmu ke Nalar.
               </td></tr>
             )}
           </tbody>
         </table></div>
+        <TabelKaki t={t} satuan="kunci" />
+        </div>
       )}
 
       <div className="card-pad stack gap-3">
@@ -166,10 +199,22 @@ function ApiKeys() {
 }
 
 /* ── webhook ─────────────────────────────────────────────────────────── */
+
+/** Keadaan kiriman terakhir — dipakai penyaring DAN kolomnya, satu sumber. */
+const keadaanWebhook = (w: WebhookRow) =>
+  (!w.enabled ? 'nonaktif' : w.lastError ? 'gagal' : w.lastAttemptAt ? 'ok' : 'belum pernah');
+
+const OPSI_WEBHOOK: OpsiTabel<WebhookRow> = {
+  cari: (w) => [w.url, ...w.events],
+  saring: { keadaan: keadaanWebhook },
+  urut: { url: (w) => w.url, keadaan: keadaanWebhook, lastAttemptAt: (w) => w.lastAttemptAt },
+};
+
 function Webhooks() {
   const { data, loading, refetch } = useApi<{
     webhooks: WebhookRow[]; events: Array<{ id: string; label: string }>;
   }>('/api/webhooks');
+  const t = useTabel(data?.webhooks ?? [], OPSI_WEBHOOK);
   const [url, setUrl] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [secret, setSecret] = useState<string | null>(null);
@@ -236,11 +281,29 @@ function Webhooks() {
       )}
 
       {loading ? <Skeleton rows={2} /> : (
+        <div className="card-pad stack gap-3">
+        <TabelAlat
+          t={t} rows={data?.webhooks ?? []} cariLabel="Cari URL atau kejadian"
+          saring={[{ kunci: 'keadaan', label: 'Semua keadaan', lebar: 165, pilihan: [
+            { nilai: 'ok', label: 'Kiriman terakhir OK' },
+            { nilai: 'gagal', label: 'Kiriman terakhir gagal' },
+            { nilai: 'belum pernah', label: 'Belum pernah dikirim' },
+            { nilai: 'nonaktif', label: 'Nonaktif' },
+          ] }]}
+        />
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>URL</th><th>Kejadian</th><th>Kiriman terakhir</th><th /></tr></thead>
+          <thead><tr>
+            <ThNo />
+            <Th t={t} kunci="url">URL</Th>
+            <th>Kejadian</th>
+            <Th t={t} kunci="lastAttemptAt">Kiriman terakhir</Th>
+            <th />
+          </tr></thead>
           <tbody>
-            {(data?.webhooks ?? []).map((w) => (
+            {(data?.webhooks?.length ?? 0) > 0 && <BarisKosong t={t} kolom={5} />}
+            {t.hasil.tampil.map((w, i) => (
               <tr key={w.id} style={w.enabled ? undefined : { opacity: .55 }}>
+                <TdNo n={t.nomor(i)} />
                 <td className="mono" style={{ fontSize: 12, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {w.url}
                   {!w.enabled && <span className="badge" style={{ marginLeft: 8 }}>nonaktif</span>}
@@ -273,12 +336,14 @@ function Webhooks() {
               </tr>
             ))}
             {!data?.webhooks?.length && (
-              <tr><td colSpan={4} style={{ color: 'var(--muted)', fontSize: 13 }}>
+              <tr><td colSpan={5} style={{ color: 'var(--muted)', fontSize: 13 }}>
                 Belum ada webhook. Tambahkan agar sistemmu tahu saat dokumen masuk atau percakapan terjadi.
               </td></tr>
             )}
           </tbody>
         </table></div>
+        <TabelKaki t={t} satuan="webhook" />
+        </div>
       )}
 
       <div className="card-pad stack gap-3">

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, useToast, Field } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 import { Select } from '../../_components/select';
 import Integrations from './Integrations';
 import TwoFactor from './TwoFactor';
@@ -198,8 +200,15 @@ interface DataSso {
   callbackUrl: string;
 }
 
+const OPSI_SSO: OpsiTabel<KoneksiSso> = {
+  cari: (c) => [c.domain, c.kind, c.issuer, c.clientId],
+  saring: { kind: (c) => c.kind },
+  urut: { domain: (c) => c.domain, kind: (c) => c.kind, issuer: (c) => c.issuer },
+};
+
 function PanelSso() {
   const { data, loading, refetch } = useApi<DataSso>('/api/sso');
+  const t = useTabel(data?.connections ?? [], OPSI_SSO);
   const [kind, setKind] = useState('entra');
   const [f, setF] = useState({ isian: '', clientId: '', clientSecret: '', domain: '' });
   const [busy, setBusy] = useState(false);
@@ -231,19 +240,34 @@ function PanelSso() {
         {loading ? <Skeleton rows={3} /> : (
           <>
             {(data?.connections.length ?? 0) > 0 && (
-              <div className="table-wrap"><table className="table">
-                <thead><tr><th>Domain</th><th>Penyedia</th><th>Issuer</th><th /></tr></thead>
-                <tbody>
-                  {data!.connections.map((c) => (
-                    <tr key={c.id}>
-                      <td><b>{c.domain}</b></td>
-                      <td><span className="badge">{c.kind}</span></td>
-                      <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{c.issuer}</td>
-                      <td><button className="btn btn-sm btn-ghost" onClick={() => void cabut(c.id, c.domain)}>Cabut</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table></div>
+              <div className="stack gap-3">
+                <TabelAlat
+                  t={t} rows={data!.connections} cariLabel="Cari domain atau issuer"
+                  saring={[{ kunci: 'kind', label: 'Semua penyedia', lebar: 165, ambil: (c) => c.kind }]}
+                />
+                <div className="table-wrap"><table className="table">
+                  <thead><tr>
+                    <ThNo />
+                    <Th t={t} kunci="domain">Domain</Th>
+                    <Th t={t} kunci="kind">Penyedia</Th>
+                    <Th t={t} kunci="issuer">Issuer</Th>
+                    <th />
+                  </tr></thead>
+                  <tbody>
+                    <BarisKosong t={t} kolom={5} />
+                    {t.hasil.tampil.map((c, i) => (
+                      <tr key={c.id}>
+                        <TdNo n={t.nomor(i)} />
+                        <td><b>{c.domain}</b></td>
+                        <td><span className="badge">{c.kind}</span></td>
+                        <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{c.issuer}</td>
+                        <td><button className="btn btn-sm btn-ghost" onClick={() => void cabut(c.id, c.domain)}>Cabut</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+                <TabelKaki t={t} satuan="koneksi" />
+              </div>
             )}
 
             <Field label="Penyedia">

@@ -5,6 +5,8 @@ import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { Select } from '../../_components/select';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 interface Chatbot {
   id: string; name: string; publicKey: string; enabled: boolean;
@@ -61,46 +63,105 @@ export default function ChatbotsPage() {
           empty={<EmptyState title="Belum ada chatbot" hint="Buat chatbot pertamamu untuk mulai."
             action={<button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>Tambah Chatbot</button>} />}
           render={(rows) => (
-            <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Public Key</th><th>Status</th><th /></tr></thead>
-              <tbody>
-                {rows.map((b) => (
-                  <tr key={b.id}>
-                    <td><b>{b.name}</b></td>
-                    <td className="mono" style={{ color: 'var(--source)' }}>{b.publicKey.slice(0, 14)}…</td>
-                    <td><span className={`badge ${b.enabled ? 'badge-ok' : ''}`}><span className={`led ${b.enabled ? 'led-live' : 'led-off'}`} />{b.enabled ? 'enabled' : 'disabled'}</span></td>
-                    <td><div className="rowact">
-                      <a className="icon-btn" href={`/demo/${b.publicKey}`} target="_blank" rel="noreferrer" aria-label="Demo" title="Buka halaman demo"><Icon name="chat" size={15} /></a>
-                      <button className="icon-btn" aria-label="Edit" onClick={() => setEditing(b)}><Icon name="edit" size={15} /></button>
-                      <button className="icon-btn" aria-label="Hapus" onClick={() => remove(b.id)}><Icon name="trash" size={15} /></button>
-                    </div></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
+            <TabelAktif rows={rows} onEdit={setEditing} onRemove={remove} />
           )} />
       ) : (
         <ListCard state={trash}
           empty={<EmptyState title="Sampah kosong" hint="Chatbot yang dihapus muncul di sini dan bisa dipulihkan." />}
-          render={(rows) => (
-            <div className="table-wrap"><table className="table">
-              <thead><tr><th>Nama</th><th>Dihapus</th><th /></tr></thead>
-              <tbody>
-                {rows.map((b) => (
-                  <tr key={b.id}>
-                    <td><b>{b.name}</b></td>
-                    <td className="mono" style={{ color: 'var(--muted)' }}>{b.deletedAt?.slice(0, 10)}</td>
-                    <td><button className="btn btn-sm" onClick={() => restore(b.id)}><Icon name="restore" size={14} /> Restore</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
-          )} />
+          render={(rows) => <TabelSampah rows={rows} onRestore={restore} />} />
       )}
 
       {editing && <ChatbotDrawer chatbot={editing} onClose={() => setEditing(null)}
         onSaved={() => { setEditing(null); refresh(); }} />}
     </>
+  );
+}
+
+/* Tabelnya dipisah jadi komponen sendiri, bukan digambar di dalam `render`:
+   useTabel adalah hook, dan hook tak boleh dipanggil di dalam callback. */
+
+const OPSI_AKTIF: OpsiTabel<Chatbot> = {
+  cari: (b) => [b.name, b.publicKey, b.greeting, b.context],
+  saring: { status: (b) => (b.enabled ? 'enabled' : 'disabled') },
+  urut: { name: (b) => b.name, publicKey: (b) => b.publicKey, status: (b) => (b.enabled ? 'a' : 'b') },
+};
+
+function TabelAktif({ rows, onEdit, onRemove }: {
+  rows: Chatbot[]; onEdit: (b: Chatbot) => void; onRemove: (id: string) => void;
+}) {
+  const t = useTabel(rows, OPSI_AKTIF);
+  return (
+    <div className="card-pad stack gap-4">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari nama, public key, sapaan, atau konteks"
+        saring={[{ kunci: 'status', label: 'Semua status', lebar: 150, pilihan: [
+          { nilai: 'enabled', label: 'Aktif' }, { nilai: 'disabled', label: 'Nonaktif' },
+        ] }]}
+      />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="name">Nama</Th>
+          <Th t={t} kunci="publicKey">Public Key</Th>
+          <Th t={t} kunci="status">Status</Th>
+          <th />
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={5} />
+          {t.hasil.tampil.map((b, i) => (
+            <tr key={b.id}>
+              <TdNo n={t.nomor(i)} />
+              <td><b>{b.name}</b></td>
+              <td className="mono" style={{ color: 'var(--source)' }}>{b.publicKey.slice(0, 14)}…</td>
+              <td><span className={`badge ${b.enabled ? 'badge-ok' : ''}`}><span className={`led ${b.enabled ? 'led-live' : 'led-off'}`} />{b.enabled ? 'enabled' : 'disabled'}</span></td>
+              <td><div className="rowact">
+                <a className="icon-btn" href={`/demo/${b.publicKey}`} target="_blank" rel="noreferrer" aria-label="Demo" title="Buka halaman demo"><Icon name="chat" size={15} /></a>
+                <button className="icon-btn" aria-label="Edit" onClick={() => onEdit(b)}><Icon name="edit" size={15} /></button>
+                <button className="icon-btn" aria-label="Hapus" onClick={() => onRemove(b.id)}><Icon name="trash" size={15} /></button>
+              </div></td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="chatbot" />
+    </div>
+  );
+}
+
+const OPSI_SAMPAH: OpsiTabel<Chatbot> = {
+  cari: (b) => [b.name, b.publicKey],
+  urut: { name: (b) => b.name, deletedAt: (b) => b.deletedAt },
+};
+
+function TabelSampah({ rows, onRestore }: { rows: Chatbot[]; onRestore: (id: string) => void }) {
+  const t = useTabel(rows, OPSI_SAMPAH);
+  return (
+    <div className="card-pad stack gap-4">
+      {/* Tanpa penyaring: seluruh isi tabel ini SUDAH satu keadaan (terhapus),
+          jadi dropdown apa pun di sini cuma memberi kesan bisa menyaring
+          sesuatu yang tak punya ragam. */}
+      <TabelAlat t={t} rows={rows} cariLabel="Cari chatbot yang dihapus" />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="name">Nama</Th>
+          <Th t={t} kunci="deletedAt">Dihapus</Th>
+          <th />
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={4} />
+          {t.hasil.tampil.map((b, i) => (
+            <tr key={b.id}>
+              <TdNo n={t.nomor(i)} />
+              <td><b>{b.name}</b></td>
+              <td className="mono" style={{ color: 'var(--muted)' }}>{b.deletedAt?.slice(0, 10)}</td>
+              <td><button className="btn btn-sm" onClick={() => onRestore(b.id)}><Icon name="restore" size={14} /> Restore</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="chatbot" />
+    </div>
   );
 }
 
@@ -112,7 +173,10 @@ function ListCard<T>({ state, render, empty }: {
       {state.error ? <ErrorState message={state.error} onRetry={state.refetch} />
         : state.loading || !state.data ? <Skeleton rows={3} />
         : state.data.length === 0 ? empty
-        : <div className="table-wrap">{render(state.data)}</div>}
+        /* Pembungkus `table-wrap` DILEPAS dari sini: yang dirender sekarang
+           bukan lagi tabel telanjang melainkan bilah alat + tabel + kaki, dan
+           membungkusnya dengan overflow-x akan memotong dropdown penyaringnya. */
+        : render(state.data)}
     </div>
   );
 }

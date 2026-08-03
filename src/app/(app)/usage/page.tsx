@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 /**
  * USAGE — dashboard monitoring pemakaian.
@@ -22,14 +24,41 @@ interface Summary {
   messages: { used: number; limit: number | null };
   tokens: { in: number; out: number };
 }
+interface PerChatbot { chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }
 interface Breakdown {
   days: number; model: string | null; price: { in: number; out: number } | null;
-  perChatbot: Array<{ chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }>;
+  perChatbot: PerChatbot[];
   daily: Array<{ day: string; messages: number }>;
 }
-interface AdminBilling {
-  tenants: Array<{ tenantId: string; tenantName: string; plan: string; members: number; chatbots: number; messages: number; tokensIn: number; tokensOut: number }>;
+interface TenantBaris {
+  tenantId: string; tenantName: string; plan: string; members: number;
+  chatbots: number; messages: number; tokensIn: number; tokensOut: number;
 }
+interface AdminBilling { tenants: TenantBaris[] }
+
+const OPSI_CHATBOT: OpsiTabel<PerChatbot> = {
+  cari: (c) => [c.name],
+  /* Penyaring yang menjawab pertanyaan sebenarnya di halaman ini: chatbot mana
+     yang MEMAKAI, dan mana yang menganggur. Chatbot nol pesan dalam periode
+     berjalan adalah kandidat pertama untuk ditutup, dan pada daftar panjang ia
+     tenggelam di antara yang aktif. */
+  saring: { pakai: (c) => (c.messages > 0 ? 'aktif' : 'nol') },
+  urut: {
+    name: (c) => c.name, messages: (c) => c.messages,
+    tokensIn: (c) => c.tokensIn, tokensOut: (c) => c.tokensOut,
+    biaya: (c) => c.tokensIn + c.tokensOut,
+  },
+};
+
+const OPSI_TENANT: OpsiTabel<TenantBaris> = {
+  cari: (t) => [t.tenantName, t.plan],
+  saring: { plan: (t) => t.plan },
+  urut: {
+    tenantName: (t) => t.tenantName, plan: (t) => t.plan, members: (t) => t.members,
+    chatbots: (t) => t.chatbots, messages: (t) => t.messages,
+    tokensIn: (t) => t.tokensIn, tokensOut: (t) => t.tokensOut,
+  },
+};
 
 const n = (v: number) => v.toLocaleString('id-ID');
 const cost = (tin: number, tout: number, p: { in: number; out: number } | null) =>
@@ -42,6 +71,9 @@ function UsagePageInner() {
   const sum = useApi<Summary>('/api/usage');
   const br = useApi<Breakdown>(`/api/usage/breakdown?days=${days}`);
   const admin = useApi<AdminBilling>(isSuper ? '/api/admin/billing' : null);
+
+  const tCb = useTabel(br.data?.perChatbot ?? [], OPSI_CHATBOT);
+  const tTn = useTabel(admin.data?.tenants ?? [], OPSI_TENANT);
 
   const totalMsgs = br.data?.perChatbot.reduce((a, c) => a + c.messages, 0) ?? 0;
   const maxDaily = Math.max(...(br.data?.daily.map((d) => d.messages) ?? [0]), 1);
@@ -108,23 +140,43 @@ function UsagePageInner() {
         {!br.data ? <Skeleton rows={3} />
           : br.data.perChatbot.length === 0 ? <EmptyState title="Belum ada pemakaian" hint="Angka muncul begitu chatbot dipakai." />
           : (
-            <div className="table-wrap"><table className="table">
-              <thead><tr><th>Chatbot</th><th>Pesan</th><th style={{ width: '26%' }}>Porsi</th><th>Token masuk</th><th>Token keluar</th><th>Est. biaya</th></tr></thead>
-              <tbody>
-                {br.data.perChatbot.map((c) => (
-                  <tr key={c.chatbotId}>
-                    <td><b>{c.name}</b></td>
-                    <td className="mono">{n(c.messages)}</td>
-                    <td>
-                      <span className="meter"><span style={{ width: `${totalMsgs ? (c.messages / totalMsgs) * 100 : 0}%` }} /></span>
-                    </td>
-                    <td className="mono">{n(c.tokensIn)}</td>
-                    <td className="mono">{n(c.tokensOut)}</td>
-                    <td className="mono">{cost(c.tokensIn, c.tokensOut, br.data!.price)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
+            <div className="card-pad stack gap-4">
+              <TabelAlat
+                t={tCb} rows={br.data.perChatbot} cariLabel="Cari chatbot"
+                saring={[{ kunci: 'pakai', label: 'Semua chatbot', lebar: 165, pilihan: [
+                  { nilai: 'aktif', label: 'Ada pemakaian' },
+                  { nilai: 'nol', label: 'Belum dipakai' },
+                ] }]}
+              />
+              <div className="table-wrap"><table className="table">
+                <thead><tr>
+                  <ThNo />
+                  <Th t={tCb} kunci="name">Chatbot</Th>
+                  <Th t={tCb} kunci="messages" num>Pesan</Th>
+                  <th style={{ width: '26%' }}>Porsi</th>
+                  <Th t={tCb} kunci="tokensIn" num>Token masuk</Th>
+                  <Th t={tCb} kunci="tokensOut" num>Token keluar</Th>
+                  <Th t={tCb} kunci="biaya" num>Est. biaya</Th>
+                </tr></thead>
+                <tbody>
+                  <BarisKosong t={tCb} kolom={7} />
+                  {tCb.hasil.tampil.map((c, i) => (
+                    <tr key={c.chatbotId}>
+                      <TdNo n={tCb.nomor(i)} />
+                      <td><b>{c.name}</b></td>
+                      <td className="num">{n(c.messages)}</td>
+                      <td>
+                        <span className="meter"><span style={{ width: `${totalMsgs ? (c.messages / totalMsgs) * 100 : 0}%` }} /></span>
+                      </td>
+                      <td className="num">{n(c.tokensIn)}</td>
+                      <td className="num">{n(c.tokensOut)}</td>
+                      <td className="num">{cost(c.tokensIn, c.tokensOut, br.data!.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table></div>
+              <TabelKaki t={tCb} satuan="chatbot" />
+            </div>
           )}
       </div>
 
@@ -136,22 +188,40 @@ function UsagePageInner() {
           {admin.error ? <ErrorState message={admin.error} onRetry={admin.refetch} />
             : !admin.data ? <Skeleton rows={3} />
             : (
-              <div className="table-wrap"><table className="table">
-                <thead><tr><th>Tenant</th><th>Plan</th><th>Anggota</th><th>Chatbot</th><th>Pesan</th><th>Token masuk</th><th>Token keluar</th></tr></thead>
-                <tbody>
-                  {admin.data.tenants.map((t) => (
-                    <tr key={t.tenantId}>
-                      <td><b>{t.tenantName}</b></td>
-                      <td><span className="badge">{t.plan}</span></td>
-                      <td className="mono">{n(t.members)}</td>
-                      <td className="mono">{n(t.chatbots)}</td>
-                      <td className="mono">{n(t.messages)}</td>
-                      <td className="mono">{n(t.tokensIn)}</td>
-                      <td className="mono">{n(t.tokensOut)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table></div>
+              <div className="card-pad stack gap-4">
+                <TabelAlat
+                  t={tTn} rows={admin.data.tenants} cariLabel="Cari organisasi"
+                  saring={[{ kunci: 'plan', label: 'Semua plan', lebar: 150, ambil: (t) => t.plan }]}
+                />
+                <div className="table-wrap"><table className="table">
+                  <thead><tr>
+                    <ThNo />
+                    <Th t={tTn} kunci="tenantName">Tenant</Th>
+                    <Th t={tTn} kunci="plan">Plan</Th>
+                    <Th t={tTn} kunci="members" num>Anggota</Th>
+                    <Th t={tTn} kunci="chatbots" num>Chatbot</Th>
+                    <Th t={tTn} kunci="messages" num>Pesan</Th>
+                    <Th t={tTn} kunci="tokensIn" num>Token masuk</Th>
+                    <Th t={tTn} kunci="tokensOut" num>Token keluar</Th>
+                  </tr></thead>
+                  <tbody>
+                    <BarisKosong t={tTn} kolom={8} />
+                    {tTn.hasil.tampil.map((t, i) => (
+                      <tr key={t.tenantId}>
+                        <TdNo n={tTn.nomor(i)} />
+                        <td><b>{t.tenantName}</b></td>
+                        <td><span className="badge">{t.plan}</span></td>
+                        <td className="num">{n(t.members)}</td>
+                        <td className="num">{n(t.chatbots)}</td>
+                        <td className="num">{n(t.messages)}</td>
+                        <td className="num">{n(t.tokensIn)}</td>
+                        <td className="num">{n(t.tokensOut)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+                <TabelKaki t={tTn} satuan="organisasi" />
+              </div>
             )}
         </div>
       )}

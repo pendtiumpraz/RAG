@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 import { VISUAL_SLOTS, FALLBACK_SLUG } from '@/modules/memory/categories';
 
 interface Cat {
@@ -24,6 +26,16 @@ function Swatch({ color, shape, size = 14 }: { color: string; shape: string; siz
   );
 }
 
+const ASAL: Record<Cat['origin'], string> = {
+  seed: 'bawaan', agent: 'dari agen', user: 'dibuat pengguna',
+};
+
+const OPSI: OpsiTabel<Cat> = {
+  cari: (c) => [c.label, c.slug, ASAL[c.origin]],
+  saring: { origin: (c) => c.origin },
+  urut: { label: (c) => c.label, slug: (c) => c.slug, origin: (c) => ASAL[c.origin], notes: (c) => c.notes },
+};
+
 export default function CategoriesPage() {
   const cats = useApi<Cat[]>('/api/categories');
   const [label, setLabel] = useState('');
@@ -33,6 +45,7 @@ export default function CategoriesPage() {
 
   const usulan = (cats.data ?? []).filter((c) => c.status === 'proposed');
   const aktif = (cats.data ?? []).filter((c) => c.status === 'active');
+  const t = useTabel(aktif, OPSI);
 
   async function tambah() {
     if (!label.trim()) return;
@@ -145,20 +158,34 @@ export default function CategoriesPage() {
             : cats.loading ? <Skeleton rows={4} />
             : aktif.length === 0 ? <EmptyState title="Belum ada kategori" />
             : (
+              <>
+              <TabelAlat
+                t={t} rows={aktif} cariLabel="Cari kategori atau kuncinya"
+                saring={[{ kunci: 'origin', label: 'Semua asal', lebar: 165, pilihan: [
+                  { nilai: 'seed', label: 'Bawaan' },
+                  { nilai: 'agent', label: 'Dari agen' },
+                  { nilai: 'user', label: 'Dibuat pengguna' },
+                ] }]}
+              />
               <div className="table-wrap"><table className="table">
-                <thead><tr><th>Penanda</th><th>Kategori</th><th>Kunci</th><th>Asal</th><th>Catatan</th><th /></tr></thead>
+                <thead><tr>
+                  <ThNo /><th>Penanda</th>
+                  <Th t={t} kunci="label">Kategori</Th>
+                  <Th t={t} kunci="slug">Kunci</Th>
+                  <Th t={t} kunci="origin">Asal</Th>
+                  <Th t={t} kunci="notes" num>Catatan</Th>
+                  <th />
+                </tr></thead>
                 <tbody>
-                  {aktif.map((c) => (
+                  <BarisKosong t={t} kolom={7} />
+                  {t.hasil.tampil.map((c, i) => (
                     <tr key={c.id}>
+                      <TdNo n={t.nomor(i)} />
                       <td><Swatch color={c.color} shape={c.shape} /></td>
                       <td><b>{c.label}</b></td>
                       <td className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{c.slug}</td>
-                      <td>
-                        <span className="badge">
-                          {c.origin === 'seed' ? 'bawaan' : c.origin === 'agent' ? 'dari agen' : 'dibuat pengguna'}
-                        </span>
-                      </td>
-                      <td className="mono">{c.notes}</td>
+                      <td><span className="badge">{ASAL[c.origin]}</span></td>
+                      <td className="num">{c.notes}</td>
                       <td>
                         <div className="cluster gap-2">
                           {/* Penampung adalah KEADAAN sistem, bukan kategori: mengganti
@@ -176,6 +203,8 @@ export default function CategoriesPage() {
                   ))}
                 </tbody>
               </table></div>
+              <TabelKaki t={t} satuan="kategori" />
+              </>
             )}
 
           <p className="microlabel">

@@ -39,11 +39,31 @@ function withPlatformAdmin<T>(fn: (tx: typeof db) => Promise<T>): Promise<T> {
   });
 }
 
-async function listByStatus(status: string | null, p: Paging): Promise<Page<PendingUser>> {
+/**
+ * Pencarian antrean verifikasi dijalankan DI SERVER, bukan di peramban.
+ *
+ * Daftarnya berhalaman, jadi menyaringnya di sisi klien hanya akan menyaring
+ * 25 baris yang kebetulan sedang tampil — mengetik sebuah email lalu tak
+ * menemukannya akan terbaca sebagai "orang ini belum mendaftar", padahal ia
+ * hanya ada di halaman berikutnya. Itu kesimpulan yang salah pada layar yang
+ * dipakai memutuskan siapa boleh masuk.
+ */
+function cariSql(q: string | undefined) {
+  const s = (q ?? '').trim();
+  if (!s) return undefined;
+  const pola = `%${s.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
+  return sql`(${users.email} ilike ${pola} or coalesce(${users.name}, '') ilike ${pola}
+    or coalesce(${tenants.name}, '') ilike ${pola})`;
+}
+
+async function listByStatus(status: string | null, p: Paging, q?: string): Promise<Page<PendingUser>> {
   return withPlatformAdmin(async (tx) => {
-    const where = status
-      ? and(eq(users.status, status), isNull(users.deletedAt))
-      : isNull(users.deletedAt);
+    const cari = cariSql(q);
+    const where = and(
+      status ? eq(users.status, status) : undefined,
+      isNull(users.deletedAt),
+      cari,
+    );
 
     const [rows, totalRows] = await Promise.all([
       tx.select({
@@ -56,7 +76,13 @@ async function listByStatus(status: string | null, p: Paging): Promise<Page<Pend
         .where(where)
         .orderBy(desc(users.createdAt))
         .limit(p.limit).offset(p.offset),
-      tx.select({ n: count() }).from(users).where(where),
+      /* Join yang sama juga di hitungan: penyaring pencarian menyebut
+         `tenants.name`, dan tabel yang tak ikut di-join membuat kueri ini
+         gagal — bukan menghasilkan angka yang salah, melainkan menjatuhkan
+         seluruh halaman. */
+      tx.select({ n: count() }).from(users)
+        .leftJoin(tenants, eq(tenants.id, users.tenantId))
+        .where(where),
     ]);
     return toPage(rows as PendingUser[], Number(totalRows[0]?.n ?? 0), p);
   });
@@ -64,9 +90,9 @@ async function listByStatus(status: string | null, p: Paging): Promise<Page<Pend
 
 export const userApprovalService = {
   /** Antrean verifikasi — yang paling sering dilihat superadmin. */
-  listPending: (p: Paging) => listByStatus('pending', p),
+  listPending: (p: Paging, q?: string) => listByStatus('pending', p, q),
   /** Semua akun, untuk meninjau/mencabut keputusan. */
-  listAll: (p: Paging) => listByStatus(null, p),
+  listAll: (p: Paging, q?: string) => listByStatus(null, p, q),
 
   async setStatus(
     actor: { id: string; tenantId: string },

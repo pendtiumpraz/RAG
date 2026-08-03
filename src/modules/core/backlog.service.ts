@@ -117,6 +117,21 @@ const HUMAN: SeedItem[] = [
     title: 'Tetapkan kanal & jam dukungan pelanggan',
     why: 'Halaman paket menjanjikan tingkat dukungan berbeda per plan; janji itu perlu punya kanal nyata di belakangnya.',
     blocked: 'Keputusan operasional' },
+
+  /* ── dari assessment 3 Agu 2026 ────────────────────────────────────
+     Dua kartu di bawah lahir dari celah yang assessment-nya sebut sebagai
+     "tinggal satu langkah", dan keduanya tersandera hal yang tak bisa
+     kukerjakan sendiri. */
+
+  { key: 'h-demo-chatbot', track: 'human', dimension: 'uiux', size: 'S', priority: 'P0',
+    title: 'Arahkan demo publik ke sebuah chatbot',
+    why: 'Panel demo sudah terbangun penuh di konsol superadmin, tapi belum menunjuk chatbot mana pun — jadi pengunjung landing page masih tak punya cara mencoba produknya sebelum mendaftar, dan itu penghalang konversi terbesar yang tersisa. Yang dibutuhkan bukan kode: memilih chatbot mana yang isinya layak dilihat publik, memastikan knowledge base-nya tak memuat dokumen internal, lalu menyimpannya. Sekali klik, dan halaman depan berubah dari klaim jadi bukti.',
+    blocked: 'Keputusan isi: chatbot & KB mana yang boleh dilihat publik' },
+
+  { key: 'h-neon-key', track: 'human', dimension: 'launch', size: 'S', priority: 'P1',
+    title: 'Sediakan NEON_API_KEY untuk latihan pemulihan',
+    why: 'RUNBOOK.md sudah ditulis, `npm run dr:verify` melaporkan nol selisih, dan `npm run dr:drill` sudah jadi SATU perintah yang menjalankan seluruh latihan dari awal sampai akhir. Yang kurang tinggal kuncinya. Selama latihan itu belum pernah benar-benar dijalankan, yang kita punya adalah prosedur pemulihan — bukan pemulihan; dan bedanya baru ketahuan pada hari yang paling buruk untuk mengetahuinya. Neon Console → Account settings → API keys → buat kunci → tempel ke .env.',
+    blocked: 'Akses Neon Console' },
 ];
 
 const AGENT: SeedItem[] = [
@@ -304,6 +319,44 @@ const AGENT: SeedItem[] = [
   { key: 'a-policy-adherence', track: 'agent', dimension: 'agentic', size: 'M', priority: 'P1',
     title: 'Kepatuhan bahasa: pertanyaan Inggris masih dijawab Indonesia',
     why: 'DIPERSEMPIT & DIKOREKSI 31 Jul 2026 setelah diselidiki — versi pertama kartu ini memuat dua temuan, dan yang kedua ternyata salah alamat. (1) YANG NYATA: pertanyaan berbahasa Inggris kadang dijawab bahasa Indonesia, mengikuti bahasa dokumen alih-alih bahasa penanya. Arahannya SUDAH sampai ke prompt, jadi ini bukan cacat pemasangan seperti temperature dulu. Percobaan pertama: mengulang aturan bahasa SESUDAH blok konteks (policyReminder), karena sebelumnya aturan itu berakhir di sepertiga atas system prompt sementara ribuan token dokumen menyusul di bawahnya. HASILNYA BELUM TERBUKTI: tiga jalan tanpa pengingat menghasilkan 3·2·1 pelanggaran, tiga jalan dengan pengingat 2·1·0 — sebaran yang BERTUMPANG TINDIH. Arahnya baik, buktinya belum ada. Pengingatnya tetap dipasang karena murah dan alasannya masuk akal, tapi TIDAK boleh disebut sudah beres. Untuk membuktikannya butuh himpunan lebih besar (12 pertanyaan, hanya 5 yang menguji bahasa) atau lebih banyak pengulangan; `npm run eval:policy -- --ulang=5` sudah ada untuk itu. (2) YANG DICORET: "menolak berlebih pada NPWP" TERNYATA BUKAN pelanggaran kebijakan. Diselidiki dengan menelusuri potongan yang benar-benar sampai ke model: TAK SATU PUN memuat kata NPWP, di k=6 maupun k=10. Model menolak dengan BENAR. Penyebab sesungguhnya ada di kartu a-lexical-dead. Pelajaran yang layak dicatat: eval retrieval menilai di tingkat DOKUMEN, dan dokumen bisa "ketemu" sementara potongan yang memuat jawabannya tidak — jadi recall 100% di sana tidak berarti modelnya menerima faktanya.' },
+
+  /* ── dari assessment 3 Agu 2026 ────────────────────────────────────
+     Delapan kartu di bawah adalah celah yang assessment hari itu tulis dan
+     belum punya kartunya sendiri. Dua di antaranya lahir dari hal yang
+     DITEMUKAN saat mengerjakan sesuatu yang lain — dan itu justru yang paling
+     layak dicatat, karena tak ada yang akan menemukannya lagi. */
+
+  { key: 'a-partisi-korpus', track: 'agent', dimension: 'agentic', size: 'L', priority: 'P0',
+    title: 'Partisi korpus per knowledge base sebelum ada KB yang besar',
+    why: 'DIUKUR 2 Agu 2026, bukan diduga: recall lapisan pertama runtuh ke 21,7% di atas ±40 GB per chatbot, dan MEMBESARKAN AMBANG TIDAK MENOLONG — peringkat kandidat tumbuh linear bersama korpus, jadi ambang yang mempertahankan recall pada korpus raksasa berarti tidak menyaring sama sekali. Satu-satunya jalan keluar yang benar adalah MENGECILKAN KORPUS EFEKTIF. Penyaring metadata sudah dibangun sebagai setengah jawabannya; setengah lainnya adalah partisi tabel `documents`/`document_vectors` per knowledge base, sehingga tiap pertanyaan hanya menyentuh partisi KB-nya sendiri. Yang menentukan WAKTUNYA: mengubah tabel berisi jutaan baris jadi terpartisi menuntut menulis ulang seluruh isinya, sementara memulainya kecil hampir gratis. Jadi pemicunya "akan besar", BUKAN "sudah besar" — dan begitu ada satu pelanggan berkorpus nyata, kartu ini sudah terlambat.' },
+
+  { key: 'a-alert-channels', track: 'agent', dimension: 'feature', size: 'M', priority: 'P1',
+    title: 'Saluran peringatan langsung + halaman riwayat peringatan',
+    why: 'Peringatan kini benar-benar TERBIT (`terbitkanPeringatan` → kejadian `alert.raised` → webhook keluar), jadi sistem yang sudah berlangganan webhook akan tahu. Yang belum: pelanggan yang TIDAK punya sistem penerima — dan itu mayoritasnya. Bagi mereka, sync yang gagal jam dua pagi tetap tak memberi tahu siapa pun sampai ada yang membuka halaman Knowledge dan kebetulan memperhatikan. Butuh dua hal: saluran langsung (email lewat mailer yang sudah ada, plus URL webhook Slack yang cukup ditempel), dan halaman riwayat peringatan — karena peringatan yang hanya lewat sebagai notifikasi tak bisa ditelusuri seminggu kemudian saat orang bertanya "sejak kapan ini rusak?".' },
+
+  { key: 'a-license-key', track: 'agent', dimension: 'feature', size: 'M', priority: 'P1',
+    title: 'Mekanisme kunci lisensi on-premise',
+    why: 'DIPISAH DARI a-onprem-docs supaya papan ini jujur: panduan instalasinya sudah selesai dan dijaga tes (README + docs/ONPREM.md), tapi LISENSINYA belum ada sama sekali — dan panduan itu sendiri menuliskannya apa adanya. Artinya siapa pun yang menerima image kita bisa menjalankannya di berapa pun server tanpa satu pun pemeriksaan. Untuk on-prem itu bukan sekadar soal pendapatan: tanpa kunci berbatas waktu, tak ada cara memberi masa percobaan, tak ada cara membedakan pemasangan yang didukung dari yang tidak, dan tak ada cara tahu berapa pemasangan yang hidup. Bentuk yang paling tidak menyakitkan: kunci bertanda tangan yang memuat batas & masa berlaku, diperiksa lokal (tanpa panggilan keluar — pelanggan on-prem justru memilih on-prem supaya tak ada panggilan keluar), dan GAGAL DENGAN LEMBUT — memperingatkan, bukan mematikan mesin pengetahuan yang sedang dipakai orang bekerja.' },
+
+  { key: 'a-komponen-audit', track: 'agent', dimension: 'uiux', size: 'M', priority: 'P1',
+    title: 'Audit komponen di build TERPASANG, bukan di dev',
+    why: 'DITEMUKAN 2 Agu 2026 dengan cara yang paling tidak enak: dropdown listbox yang sudah ditulis ulang dan dites ternyata MENUTUP SENDIRI begitu dibuka — hanya di build terpasang, tidak di dev — dan 27 titik pakai ikut terdampak. Bugnya sudah ditutup berikut guard-nya, tapi yang belum ditutup adalah CARA MENEMUKANNYA: satu-satunya alasan ia ketahuan adalah kebetulan ada yang mengeklik dropdown itu di staging. Komponen lain yang perilakunya bergantung pada tata letak nyata — laci, tirai, tooltip, menu, lightbox — belum pernah ditelusuri di sana sama sekali. Yang dibutuhkan: satu adegan tur yang MEMBUKA tiap komponen interaktif di build terpasang dan memastikan ia masih terbuka setelah satu detik.' },
+
+  { key: 'a-account-recovery', track: 'agent', dimension: 'feature', size: 'M', priority: 'P2',
+    title: 'Pemulihan akun saat email tak bisa diakses',
+    why: 'Lupa-password, verifikasi email, dan 2FA semuanya sudah ada — dan justru kelengkapan itu yang menciptakan jalan buntu baru: orang yang kehilangan akses ke kotak surat kerjanya (resign, domain pindah, kotak dihapus IT) tak punya SATU pun jalan kembali, karena setiap jalur pemulihan bermuara ke email yang sama. Untuk akun admin tenant, itu berarti seluruh organisasi kehilangan kendali atas workspace-nya. Yang dibutuhkan: kode cadangan sekali pakai saat 2FA dipasang (sebagian sudah ada, tinggal diperluas ke pemulihan akun), plus jalur verifikasi oleh admin lain di tenant yang sama — dan untuk tenant beranggota satu orang, jalur superadmin yang meninggalkan jejak audit.' },
+
+  { key: 'a-doc-move', track: 'agent', dimension: 'feature', size: 'S', priority: 'P2',
+    title: 'Pindahkan dokumen antar knowledge base',
+    why: 'KB sudah bisa dibuat, dihapus, dan di-assign N:M ke chatbot — tapi isinya terkunci di tempat ia pertama kali masuk. Padahal pemilahan yang benar biasanya baru ketahuan SETELAH dokumennya masuk ("ternyata ini semua harusnya di KB Legal, bukan Umum"), dan satu-satunya jalan sekarang adalah menghapus sumbernya lalu sync ulang dari nol — membayar embedding dua kali untuk memindahkan berkas yang isinya tak berubah sedikit pun. Yang dibutuhkan cuma mengganti `knowledge_base_id` pada potongan + vektor lapisan pertama, dalam satu transaksi, plus menghitung ulang kuota kedua KB.' },
+
+  { key: 'a-custom-roles', track: 'agent', dimension: 'feature', size: 'M', priority: 'P3',
+    title: 'Peran kustom di atas RBAC per-divisi',
+    why: 'RBAC per-divisi sudah menutup kebutuhan yang paling menyakitkan (anggota HR tak bisa membuka chatbot Keuangan). Yang tersisa adalah permintaan yang selalu muncul di korporasi besar tapi belum pernah benar-benar menghalangi siapa pun di sini: peran yang izinnya disusun sendiri — mis. "boleh melihat analitik tapi tak boleh mengubah chatbot", atau "boleh menambah dokumen tapi tak boleh menghapus". Sengaja P3: menambah lapisan izin yang bisa disusun bebas berarti setiap pemeriksaan wewenang di seluruh aplikasi harus menanyainya, dan tiap tempat yang terlewat adalah lubang. Kerjakan setelah ada pelanggan yang benar-benar memintanya, bukan sebelum.' },
+
+  { key: 'a-tur-terjadwal', track: 'agent', dimension: 'launch', size: 'S', priority: 'P2',
+    title: 'Jalankan tur bukti terjadwal — dataroom tak boleh basi diam-diam',
+    why: 'Tab Bukti Fitur adalah satu-satunya halaman yang isinya benar-benar DISAKSIKAN, dan justru karena itu ia punya bentuk pembusukan yang khas: `bukti.generated.ts` adalah potret satu saat, dan ia tetap tampil meyakinkan berbulan-bulan setelah fitur yang dipotretnya berubah atau rusak. Tak ada satu pun tanda di layar yang membedakan bukti kemarin dari bukti bulan lalu. Ini persis yang terjadi pada assessment sebelum 3 Agu: ia menyebut sepuluh celah yang sudah lama tertutup, dan tak ada yang tahu sampai seseorang memeriksanya baris demi baris. Yang dibutuhkan: jalankan `npm run tur` terjadwal (nightly atau saat rilis), tampilkan UMUR bukti di halamannya, dan tandai merah bila lebih tua dari ambang tertentu. Tur yang gagal berjalan pun harus terlihat — potret yang tak diperbarui lebih berbahaya daripada potret yang hilang.' },
 
   { key: 'a-visitor-identity', track: 'agent', dimension: 'feature', size: 'M', priority: 'P2',
     title: 'Riwayat chat publik yang ikut berpindah perangkat',

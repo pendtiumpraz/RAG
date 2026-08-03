@@ -3,6 +3,8 @@
 import { useMemo } from 'react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 import { isiHariKosong, ringkasTren, tinggiBatang, MIN_HARI_TREN } from '@/modules/usage/tren';
 
 interface Usage {
@@ -235,20 +237,57 @@ function TrenPemakaian({ bd }: { bd: ReturnType<typeof useApi<Breakdown>> }) {
             <EmptyState title="Belum ada aktivitas"
               hint="Rincian muncul setelah salah satu chatbot dipakai." />
           ) : (
-            <div className="table-wrap"><table className="table"><thead><tr>
-              <th>Chatbot</th><th className="num">Pesan</th><th className="num">Token</th>
-            </tr></thead><tbody>
-              {bd.data.perChatbot.slice(0, 6).map((c) => (
-                <tr key={c.chatbotId}>
-                  <td>{c.name}</td>
-                  <td className="num">{fmt(c.messages)}</td>
-                  <td className="num">{fmt(c.tokensIn + c.tokensOut)}</td>
-                </tr>
-              ))}
-            </tbody></table></div>
+            /* Dulu `slice(0, 6)` — enam teratas, dan chatbot ketujuh dan
+               seterusnya tak punya satu pun jalan untuk dilihat dari sini.
+               Pemenggalan diam-diam pada dashboard adalah bentuk yang paling
+               menyesatkan: yang membacanya menyimpulkan itulah seluruhnya. */
+            <TabelPerChatbot rows={bd.data.perChatbot} />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface BarisChatbot { chatbotId: string; name: string; messages: number; tokensIn: number; tokensOut: number }
+
+const OPSI_CHATBOT: OpsiTabel<BarisChatbot> = {
+  cari: (c) => [c.name],
+  saring: { pakai: (c) => (c.messages > 0 ? 'aktif' : 'nol') },
+  urut: {
+    name: (c) => c.name, messages: (c) => c.messages,
+    token: (c) => c.tokensIn + c.tokensOut,
+  },
+};
+
+function TabelPerChatbot({ rows }: { rows: BarisChatbot[] }) {
+  const t = useTabel(rows, OPSI_CHATBOT);
+  return (
+    <div className="stack gap-3">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari chatbot"
+        saring={[{ kunci: 'pakai', label: 'Semua chatbot', lebar: 165, pilihan: [
+          { nilai: 'aktif', label: 'Ada pemakaian' },
+          { nilai: 'nol', label: 'Belum dipakai' },
+        ] }]}
+      />
+      <div className="table-wrap"><table className="table"><thead><tr>
+        <ThNo />
+        <Th t={t} kunci="name">Chatbot</Th>
+        <Th t={t} kunci="messages" num>Pesan</Th>
+        <Th t={t} kunci="token" num>Token</Th>
+      </tr></thead><tbody>
+        <BarisKosong t={t} kolom={4} />
+        {t.hasil.tampil.map((c, i) => (
+          <tr key={c.chatbotId}>
+            <TdNo n={t.nomor(i)} />
+            <td>{c.name}</td>
+            <td className="num">{fmt(c.messages)}</td>
+            <td className="num">{fmt(c.tokensIn + c.tokensOut)}</td>
+          </tr>
+        ))}
+      </tbody></table></div>
+      <TabelKaki t={t} satuan="chatbot" />
     </div>
   );
 }

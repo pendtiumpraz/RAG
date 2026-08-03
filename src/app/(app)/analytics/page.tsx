@@ -5,20 +5,41 @@ import { Select } from '../../_components/select';
 import { useEffect, useState } from 'react';
 import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
 
 interface Chatbot { id: string; name: string }
+interface Pertanyaan { question: string; count: number }
+interface DokTeratas { documentId: string; title: string | null; hits: number; avgScore: number }
 interface Analytics {
   days: number;
   range: { from: string; to: string };
   totals: { conversations: number; questions: number; withCitation: number };
   unanswered: number;
-  topQuestions: Array<{ question: string; count: number }>;
+  topQuestions: Pertanyaan[];
   topKeywords: Array<{ word: string; count: number }>;
-  topDocuments: Array<{ documentId: string; title: string | null; hits: number; avgScore: number }>;
+  topDocuments: DokTeratas[];
   daily: Array<{ day: string; questions: number }>;
 }
 
 const fmt = (n: number) => n.toLocaleString('id-ID');
+
+const OPSI_TANYA: OpsiTabel<Pertanyaan> = {
+  cari: (q) => [q.question],
+  /* Yang dicari orang di tabel ini bukan pertanyaan tertentu melainkan pola:
+     mana yang benar-benar BERULANG (>1) versus ekor panjang yang cuma sekali. */
+  saring: { ulang: (q) => (q.count > 1 ? 'berulang' : 'sekali') },
+  urut: { question: (q) => q.question, count: (q) => q.count },
+};
+
+const OPSI_DOK: OpsiTabel<DokTeratas> = {
+  cari: (d) => [d.title],
+  /* Dokumen yang sudah dihapus tapi masih tercatat pernah menjawab adalah
+     keadaan yang layak dicari sendiri — ia menjelaskan jawaban lama yang
+     sumbernya kini tak bisa dibuka. */
+  saring: { ada: (d) => (d.title ? 'ada' : 'terhapus') },
+  urut: { title: (d) => d.title, hits: (d) => d.hits, avgScore: (d) => d.avgScore },
+};
 
 function AnalyticsPageInner() {
   const bots = useApi<Chatbot[]>('/api/chatbots');
@@ -97,17 +118,7 @@ function AnalyticsPageInner() {
                 {a.data.topQuestions.length === 0
                   ? <EmptyState title="Belum ada yang berulang"
                       hint="Muncul setelah ada pertanyaan yang ditanyakan lebih dari sekali." />
-                  : (
-                    <div className="table-wrap"><table className="table">
-                      <thead><tr><th>Pertanyaan</th><th style={{ textAlign: 'right' }}>Kali</th></tr></thead>
-                      <tbody>{a.data.topQuestions.map((q, i) => (
-                        <tr key={i}>
-                          <td style={{ fontSize: 13 }}>{q.question}</td>
-                          <td className="mono" style={{ textAlign: 'right' }}>{q.count}</td>
-                        </tr>))}
-                      </tbody>
-                    </table></div>
-                  )}
+                  : <TabelPertanyaan rows={a.data.topQuestions} />}
               </div>
 
               <div className="card">
@@ -137,16 +148,7 @@ function AnalyticsPageInner() {
                       hint="Muncul setelah chatbot menjawab dengan merujuk dokumen dari knowledge base." />
                   : (
                     <>
-                      <div className="table-wrap"><table className="table">
-                        <thead><tr><th>Dokumen</th><th style={{ textAlign: 'right' }}>Dipakai</th><th style={{ textAlign: 'right' }}>Skor rata-rata</th></tr></thead>
-                        <tbody>{a.data.topDocuments.map((d) => (
-                          <tr key={d.documentId}>
-                            <td>{d.title ?? <span style={{ color: 'var(--muted)' }}>(dokumen dihapus)</span>}</td>
-                            <td className="mono" style={{ textAlign: 'right' }}>{fmt(d.hits)}</td>
-                            <td className="mono" style={{ textAlign: 'right', color: 'var(--source)' }}>{d.avgScore.toFixed(3)}</td>
-                          </tr>))}
-                        </tbody>
-                      </table></div>
+                      <TabelDokumen rows={a.data.topDocuments} />
                       <div className="card-pad">
                         <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
                           Ini <b>bukan</b> hitungan berapa kali berkas dibuka — sistem tak
@@ -169,6 +171,74 @@ function AnalyticsPageInner() {
           </>
         )}
     </>
+  );
+}
+
+function TabelPertanyaan({ rows }: { rows: Pertanyaan[] }) {
+  const t = useTabel(rows, OPSI_TANYA);
+  return (
+    <div className="card-pad stack gap-3">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari kata dalam pertanyaan"
+        saring={[{ kunci: 'ulang', label: 'Semua pertanyaan', lebar: 175, pilihan: [
+          { nilai: 'berulang', label: 'Ditanya berulang' },
+          { nilai: 'sekali', label: 'Sekali saja' },
+        ] }]}
+      />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="question">Pertanyaan</Th>
+          <Th t={t} kunci="count" num>Kali</Th>
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={3} />
+          {t.hasil.tampil.map((q, i) => (
+            <tr key={`${q.question}:${i}`}>
+              <TdNo n={t.nomor(i)} />
+              <td style={{ fontSize: 13 }}>{q.question}</td>
+              <td className="num">{q.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="pertanyaan" />
+    </div>
+  );
+}
+
+function TabelDokumen({ rows }: { rows: DokTeratas[] }) {
+  const t = useTabel(rows, OPSI_DOK);
+  return (
+    <div className="card-pad stack gap-3">
+      <TabelAlat
+        t={t} rows={rows} cariLabel="Cari judul dokumen"
+        saring={[{ kunci: 'ada', label: 'Semua dokumen', lebar: 175, pilihan: [
+          { nilai: 'ada', label: 'Masih ada' },
+          { nilai: 'terhapus', label: 'Sudah dihapus' },
+        ] }]}
+      />
+      <div className="table-wrap"><table className="table">
+        <thead><tr>
+          <ThNo />
+          <Th t={t} kunci="title">Dokumen</Th>
+          <Th t={t} kunci="hits" num>Dipakai</Th>
+          <Th t={t} kunci="avgScore" num>Skor rata-rata</Th>
+        </tr></thead>
+        <tbody>
+          <BarisKosong t={t} kolom={4} />
+          {t.hasil.tampil.map((d, i) => (
+            <tr key={d.documentId}>
+              <TdNo n={t.nomor(i)} />
+              <td>{d.title ?? <span style={{ color: 'var(--muted)' }}>(dokumen dihapus)</span>}</td>
+              <td className="num">{fmt(d.hits)}</td>
+              <td className="num" style={{ color: 'var(--source)' }}>{d.avgScore.toFixed(3)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+      <TabelKaki t={t} satuan="dokumen" />
+    </div>
   );
 }
 

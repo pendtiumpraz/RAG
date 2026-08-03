@@ -5,6 +5,16 @@ import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
+import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
+import type { OpsiTabel } from '../../_lib/tabel';
+
+/** Keadaan server, dipakai bersama penyaring & kolom Status — satu sumber
+ *  supaya yang disaring persis yang terbaca di layar. */
+function keadaanServer(s: { lastError: string | null; enabled: boolean; models: unknown[] }): string {
+  if (s.lastError) return 'gagal';
+  if (!s.models.length) return 'belum diuji';
+  return s.enabled ? 'aktif' : 'nonaktif';
+}
 
 interface LlmModel { id: string; label: string; provider: string }
 interface EmbModel { id: string; label: string; bucket: string; kind: string }
@@ -196,8 +206,15 @@ interface LlmServer {
   models: Array<{ id: string }>; lastCheckedAt: string | null; lastError: string | null;
 }
 
+const OPSI_LLM: OpsiTabel<LlmServer> = {
+  cari: (s) => [s.name, s.baseUrl, ...s.models.map((m) => m.id)],
+  saring: { keadaan: keadaanServer },
+  urut: { name: (s) => s.name, baseUrl: (s) => s.baseUrl, keadaan: keadaanServer },
+};
+
 function LlmServers({ onChanged }: { onChanged: () => void }) {
   const { data, loading, error, refetch } = useApi<LlmServer[]>('/api/admin/llm-servers');
+  const t = useTabel(data ?? [], OPSI_LLM);
   const [adding, setAdding] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const toast = useToast();
@@ -233,11 +250,28 @@ function LlmServers({ onChanged }: { onChanged: () => void }) {
         : data.length === 0 ? <EmptyState title="Belum ada server LLM sendiri"
             hint="Daftarkan Ollama, vLLM, LM Studio, atau LocalAI agar jawaban tak perlu menempuh API cloud sama sekali." />
         : (
+          <div className="card-pad stack gap-4">
+          <TabelAlat
+            t={t} rows={data} cariLabel="Cari nama, alamat, atau model"
+            saring={[{ kunci: 'keadaan', label: 'Semua keadaan', lebar: 165, pilihan: [
+              { nilai: 'aktif', label: 'Aktif' }, { nilai: 'nonaktif', label: 'Nonaktif' },
+              { nilai: 'gagal', label: 'Gagal' }, { nilai: 'belum diuji', label: 'Belum diuji' },
+            ] }]}
+          />
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Nama</th><th>Alamat</th><th>Model terdeteksi</th><th>Status</th><th /></tr></thead>
+            <thead><tr>
+              <ThNo />
+              <Th t={t} kunci="name">Nama</Th>
+              <Th t={t} kunci="baseUrl">Alamat</Th>
+              <th>Model terdeteksi</th>
+              <Th t={t} kunci="keadaan">Status</Th>
+              <th />
+            </tr></thead>
             <tbody>
-              {data.map((s) => (
+              <BarisKosong t={t} kolom={6} />
+              {t.hasil.tampil.map((s, i) => (
                 <tr key={s.id}>
+                  <TdNo n={t.nomor(i)} />
                   <td><b>{s.name}</b></td>
                   <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{s.baseUrl}</td>
                   <td className="mono" style={{ fontSize: 12 }}>
@@ -263,6 +297,8 @@ function LlmServers({ onChanged }: { onChanged: () => void }) {
               ))}
             </tbody>
           </table></div>
+          <TabelKaki t={t} satuan="server" />
+          </div>
         )}
 
       {data?.some((s) => s.lastError) && (
@@ -378,6 +414,11 @@ function OAuthApps() {
       {error ? <ErrorState message={error} onRetry={refetch} />
         : loading || !data ? <Skeleton rows={2} />
         : (
+          /* SENGAJA tanpa cari/saring/penggalan: tabel ini punya persis DUA
+             baris tetap (Google, Microsoft) yang lahir dari kode, bukan dari
+             data. Memberinya kotak cari dan tombol halaman menyiratkan daftar
+             yang bisa tumbuh, dan menyuruh orang mencari di antara dua baris
+             yang keduanya sudah terlihat. */
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Provider</th><th>Client ID</th><th>Sumber</th><th>Status</th><th /></tr></thead>
             <tbody>
@@ -546,8 +587,15 @@ function OAuthDrawer({ app, onClose, onSaved }: { app: OAuthApp; onClose: () => 
 
 /* ── server embedding sendiri (VPS) ─────────────────────────────────── */
 
+const OPSI_EMB: OpsiTabel<EmbServer> = {
+  cari: (s) => [s.name, s.baseUrl, ...s.models.map((m) => m.id)],
+  saring: { keadaan: keadaanServer },
+  urut: { name: (s) => s.name, baseUrl: (s) => s.baseUrl, keadaan: keadaanServer },
+};
+
 function EmbeddingServers({ onChanged }: { onChanged: () => void }) {
   const { data, loading, error, refetch } = useApi<EmbServer[]>('/api/admin/embedding-servers');
+  const t = useTabel(data ?? [], OPSI_EMB);
   const [editing, setEditing] = useState<EmbServer | 'new' | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const toast = useToast();
@@ -596,11 +644,28 @@ function EmbeddingServers({ onChanged }: { onChanged: () => void }) {
             hint="Daftarkan VPS yang menjalankan services/embedding-server agar model besar bisa dipilih tenant."
             action={<button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>Tambah server</button>} />
         : (
+          <div className="card-pad stack gap-4">
+          <TabelAlat
+            t={t} rows={data} cariLabel="Cari nama, alamat, atau model"
+            saring={[{ kunci: 'keadaan', label: 'Semua keadaan', lebar: 165, pilihan: [
+              { nilai: 'aktif', label: 'Aktif' }, { nilai: 'nonaktif', label: 'Nonaktif' },
+              { nilai: 'gagal', label: 'Gagal' }, { nilai: 'belum diuji', label: 'Belum diuji' },
+            ] }]}
+          />
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Nama</th><th>Alamat</th><th>Model terdeteksi</th><th>Status</th><th /></tr></thead>
+            <thead><tr>
+              <ThNo />
+              <Th t={t} kunci="name">Nama</Th>
+              <Th t={t} kunci="baseUrl">Alamat</Th>
+              <th>Model terdeteksi</th>
+              <Th t={t} kunci="keadaan">Status</Th>
+              <th />
+            </tr></thead>
             <tbody>
-              {data.map((s) => (
+              <BarisKosong t={t} kolom={6} />
+              {t.hasil.tampil.map((s, i) => (
                 <tr key={s.id}>
+                  <TdNo n={t.nomor(i)} />
                   <td>{s.name}</td>
                   <td className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{s.baseUrl}</td>
                   <td className="mono" style={{ fontSize: 12 }}>
@@ -630,6 +695,8 @@ function EmbeddingServers({ onChanged }: { onChanged: () => void }) {
               ))}
             </tbody>
           </table></div>
+          <TabelKaki t={t} satuan="server" />
+          </div>
         )}
 
       {data && data.some((s) => s.lastError) && (
