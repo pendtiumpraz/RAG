@@ -85,6 +85,7 @@ export default function SettingsPage() {
       <TwoFactor />
 
       <PanelSso />
+      {session?.user?.role === 'superadmin' && <PanelLisensi />}
       {session?.user?.role === 'superadmin' && <PanelRetrieval />}
       {session?.user?.role === 'superadmin' && <PanelKonektor />}
       {session?.user?.role === 'superadmin' && <PanelDemo />}
@@ -211,6 +212,68 @@ const OPSI_SSO: OpsiTabel<KoneksiSso> = {
   saring: { kind: (c) => c.kind },
   urut: { domain: (c) => c.domain, kind: (c) => c.kind, issuer: (c) => c.issuer },
 };
+
+/* ── lisensi on-premise ─────────────────────────────────────────────── */
+
+interface HasilLisensi {
+  status: 'tak-berlaku' | 'kosong' | 'tidak-sah' | 'aktif' | 'kedaluwarsa';
+  isi: { untuk: string; sampai?: string; edisi?: string; seri?: string } | null;
+  pesan: string; sisaHari: number | null; perluPerhatian: boolean;
+}
+
+const LENCANA: Record<HasilLisensi['status'], string> = {
+  aktif: 'badge-ok', kedaluwarsa: 'badge-danger', 'tidak-sah': 'badge-danger',
+  kosong: 'badge-source', 'tak-berlaku': '',
+};
+
+/**
+ * Keadaan lisensi — hanya berarti di pemasangan on-premise.
+ *
+ * Di SaaS panel ini menyatakan apa adanya bahwa lisensi tak berlaku di sini,
+ * alih-alih disembunyikan. Panel yang hilang tanpa penjelasan membuat orang
+ * mencarinya, dan yang mencarinya akan menyimpulkan ada yang rusak.
+ */
+function PanelLisensi() {
+  const { data, loading } = useApi<HasilLisensi>('/api/admin/license');
+  if (loading && !data) return null;
+  if (!data) return null;
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">lisensi</span>
+        <span className={`badge ${LENCANA[data.status]}`}>{data.status}</span></div>
+      <div className="card-pad stack gap-3">
+        <p className="sub" style={{ margin: 0 }}>{data.pesan}</p>
+
+        {data.isi && (
+          <div className="table-wrap"><table className="table"><tbody>
+            <tr><td>Pemegang</td><td><b>{data.isi.untuk}</b></td></tr>
+            {data.isi.edisi && <tr><td>Edisi</td><td>{data.isi.edisi}</td></tr>}
+            <tr><td>Berlaku sampai</td><td className="mono">
+              {data.isi.sampai ?? 'tanpa masa berlaku'}
+              {data.sisaHari != null && (
+                <span className="microlabel" style={{ marginLeft: 8 }}>
+                  {data.sisaHari >= 0 ? `SISA ${data.sisaHari} HARI` : `LEWAT ${Math.abs(data.sisaHari)} HARI`}
+                </span>
+              )}
+            </td></tr>
+            {data.isi.seri && <tr><td>Nomor seri</td><td className="mono">{data.isi.seri}</td></tr>}
+          </tbody></table></div>
+        )}
+
+        {data.status !== 'tak-berlaku' && (
+          <p className="microlabel">
+            {/* DITULIS DI LAYAR, bukan cuma di kode. Tim IT yang menemukan
+                lisensinya merah akan mengira layanannya akan mati, lalu
+                mematikannya sendiri lebih dulu untuk "berjaga-jaga". */}
+            TAK ADA FITUR YANG DIMATIKAN OLEH KEADAAN LISENSI — TERMASUK SAAT KEDALUWARSA.
+            PEMERIKSAANNYA BERJALAN SEPENUHNYA DI SERVER INI, TANPA SATU PUN PANGGILAN KELUAR.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PanelSso() {
   const { data, loading, refetch } = useApi<DataSso>('/api/sso');

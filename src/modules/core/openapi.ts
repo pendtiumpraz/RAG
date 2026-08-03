@@ -182,6 +182,19 @@ export const openApiSpec = {
         responses: { 200: err('{ ok }') } },
     },
 
+    '/api/admin/license': {
+      get: {
+        summary: 'Keadaan lisensi pemasangan (on-premise)',
+        description: 'Superadmin. Diperiksa lokal dengan tanda tangan Ed25519 — tanpa panggilan '
+          + 'keluar. Keadaannya hanya DILAPORKAN: tak ada fitur yang dimatikan, termasuk saat '
+          + 'kedaluwarsa. Tak ada endpoint untuk mengubahnya — lisensi hidup di env, dan '
+          + 'mengubahnya lewat HTTP berarti satu akun superadmin yang jebol bisa menerbitkan '
+          + 'masa berlaku untuk dirinya sendiri.',
+        security: [sessionAuth],
+        responses: { 200: err('{ status, isi, pesan, sisaHari, perluPerhatian }') },
+      },
+    },
+
     '/api/alerts': {
       get: { summary: 'Saluran peringatan tenant + 200 peringatan terakhir', security: [sessionAuth],
         responses: { 200: err('{ saluran: { email, slackTerpasang, minLevel }, riwayat[] }') } },

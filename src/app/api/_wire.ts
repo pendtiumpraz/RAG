@@ -1,5 +1,6 @@
 import { wireWebhooks } from '@/modules/integrations/webhook.service';
 import { wireAlertChannels } from '@/modules/integrations/alert-channels.service';
+import { barisLogLisensi, periksaLisensi } from '@/modules/core/lisensi';
 
 /**
  * Pemasangan langganan lintas-modul, dipanggil dari RUTE.
@@ -30,4 +31,25 @@ export function ensureIntegrations(): void {
      gagalnya senyap — peringatan yang tak pernah dikirim tak menimbulkan
      galat apa pun. */
   wireAlertChannels();
+  lapurLisensiSekali();
+}
+
+let lisensiDilaporkan = false;
+/**
+ * Satu baris lisensi di log, sekali per proses.
+ *
+ * Pemasangan on-premise tak punya siapa pun yang membuka konsol pada hari
+ * biasa. Baris log saat proses menyala adalah satu-satunya tempat lisensi yang
+ * hampir habis pasti terlihat oleh tim IT yang sedang menyalakan ulang layanan
+ * — yaitu satu-satunya orang di sana yang bisa menindaklanjutinya.
+ *
+ * DIAM SEPENUHNYA di SaaS: `periksaLisensi` mengembalikan 'tak-berlaku', dan
+ * `barisLogLisensi` mengembalikan null. Log produksi yang memuat baris tak
+ * berguna pada tiap permintaan adalah log yang berhenti dibaca.
+ */
+function lapurLisensiSekali(): void {
+  if (lisensiDilaporkan) return;
+  lisensiDilaporkan = true;
+  const baris = barisLogLisensi(periksaLisensi());
+  if (baris) console.log(baris);
 }

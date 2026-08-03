@@ -110,7 +110,17 @@ test('panduan menuliskan apa yang BELUM ada, bukan hanya yang ada', () => {
   /* Tim IT yang menemukan sendiri bahwa lisensi/HTTPS/cadangan belum ada
      akan menyimpulkan produknya belum siap. Yang menuliskannya di muka
      menyimpulkan hal yang berbeda tentang produk yang sama. */
-  assert.ok(/Mekanisme lisensi.{0,40}belum ada/s.test(DOC), 'panduan tak menyebut lisensi belum ada');
+  /* Dulu asersi ini menuntut kalimat "mekanisme lisensi belum ada", karena
+     memang belum ada. Sejak kartu a-license-key, kuncinya SUDAH diperiksa —
+     yang sengaja tidak ada adalah PENEGAKANNYA. Bedanya bukan main-main bagi
+     yang membaca: "belum ada lisensi" terbaca sebagai produk yang belum siap
+     dijual, sementara "tidak menegakkan" adalah keputusan rancangan yang
+     harus dinyatakan justru supaya tim IT tak mengira layanannya akan mati
+     sendiri lalu mematikannya lebih dulu untuk berjaga-jaga. */
+  assert.ok(/Penegakan lisensi.{0,60}sengaja tidak ada/s.test(DOC),
+    'panduan tak menyatakan bahwa lisensi TIDAK ditegakkan');
+  assert.ok(/tidak ada satu pun fitur\s*\n?\s*yang dimatikan/i.test(DOC),
+    'panduan tak menjamin bahwa lisensi kedaluwarsa tak mematikan apa pun');
   assert.ok(/HTTPS/.test(DOC), 'panduan tak menyebut HTTPS belum ditangani');
   /* Dulu asersi ini menuntut panduan menyebut KARTU `a-runbook`, karena saat
      itu cadangan memang belum tertulis di mana pun dan yang bisa dijanjikan

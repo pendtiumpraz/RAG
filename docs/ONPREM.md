@@ -293,15 +293,57 @@ Bentuk skema bisa dibuktikan ulang kapan saja tanpa menyentuh data:
 npm run dr:verify
 ```
 
+### 7b. Kunci lisensi
+
+Pemasangan on-premise memeriksa kunci lisensi **sepenuhnya di server ini**.
+Tak ada satu pun panggilan keluar: kunci ditandatangani Ed25519, dan yang
+dibutuhkan untuk memeriksanya hanya kunci publik penerbit. Pemasangan tetap
+bekerja penuh saat jaringan ke luar mati — dan tetap bekerja penuh kalau
+lisensinya kedaluwarsa (lihat §8).
+
+Dua variabel di `.env`:
+
+```bash
+# Diberikan penyedia. Kunci publik sama untuk semua pelanggan; kunci lisensi
+# diterbitkan khusus untuk organisasimu.
+LICENSE_PUBLIC_KEY=MCowBQYDK2VwAyEA...
+LICENSE_KEY=eyJ1bnR1ayI6...==.bJYmcGcFJJe1ryMY...
+```
+
+Keadaannya terbaca di tiga tempat, dan sengaja tiga:
+
+| Di mana | Kapan terlihat |
+|---|---|
+| Baris log saat proses menyala | Saat tim IT menyalakan ulang layanan — satu-satunya saat orang yang bisa menindaklanjuti pasti melihatnya |
+| Settings → panel **lisensi** (superadmin) | Kapan saja |
+| `GET /api/admin/license` | Untuk pemantauan sendiri |
+
+`/api/health` **tidak** menyebut lisensi sama sekali: ia publik dan paling
+sering dipindai, sementara isi lisensi menyebut nama organisasi, masa
+berlaku, dan nomor seri.
+
+Peringatan mulai muncul **30 hari** sebelum masa berlaku habis, bukan di hari
+terakhir — pengadaan korporasi butuh berminggu-minggu, dan peringatan yang
+datang di hari-H tak bisa ditindaklanjuti siapa pun.
+
+Memeriksa kunci sebelum memasangnya:
+
+```bash
+npm run license:check -- "<isi LICENSE_KEY>"
+```
+
 ---
 
 ## 8. Yang panduan ini BELUM cakup
 
 Ditulis apa adanya supaya tak ditemukan belakangan:
 
-- **Mekanisme lisensi** — belum ada. Tak ada kunci lisensi, tak ada
-  pemeriksaan masa berlaku, tak ada batas jumlah pemakai pada mode on-premise.
-  Bentuknya keputusan bisnis, bukan keputusan teknis.
+- **Penegakan lisensi** — sengaja tidak ada. Kunci lisensi sudah diperiksa
+  (lihat §7b), tapi keadaannya hanya **dilaporkan**: tidak ada satu pun fitur
+  yang dimatikan, termasuk saat kunci kedaluwarsa atau tak terpasang sama
+  sekali. Mengunci mesin pengetahuan di tengah hari kerja menghukum seluruh
+  karyawan atas urusan antara dua bagian keuangan, dan yang pertama menelepon
+  bukan yang bisa memperbaikinya.
 - **HTTPS** — tumpukan ini melayani HTTP polos di port 3000. Pasang reverse
   proxy (nginx/Caddy/Traefik) di depannya. Login akan berperilaku aneh bila
   `NEXTAUTH_URL` menyebut `https` sementara proxy-nya belum ada.
