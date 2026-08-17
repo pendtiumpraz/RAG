@@ -141,7 +141,7 @@ test('slide batas langganan MEMBACA kuota, bukan menuliskannya mati', async () =
   // konstanta tak bisa tertinggal dari kodenya.
   assert.ok(!/f: \(\) => 'tanpa batas'/.test(s),
     'ada baris tabel yang menuliskan batas secara mati, bukan membaca PLAN_LIMITS');
-  for (const k of ['maxKnowledgeBases', 'maxChunks', 'maxChatbots', 'maxMembers', 'messagesPerMonth']) {
+  for (const k of ['maxKnowledgeBases', 'maxChunks', 'maxChatbots', 'maxMembers', 'messagesPerMonth', 'storageBytes']) {
     assert.ok(s.includes(`PLAN_LIMITS[p].${k}`), `slide tak membaca ${k}`);
   }
 });
@@ -158,3 +158,77 @@ test('tak ada slide yang masih menyebut kuota penyimpanan belum ada', async () =
       `${f} masih menyatakan kuota penyimpanan belum ada — padahal sudah ditegakkan`);
   }
 });
+
+/* ── blob/BYOB utk unggahan manual (kartu a-upload-blob-storage) ──────── */
+
+const ROUTE = readFileSync('src/app/api/knowledge-bases/[id]/upload/route.ts', 'utf8');
+const KSVC = readFileSync('src/modules/knowledge/knowledge.service.ts', 'utf8');
+const STORE = readFileSync('src/modules/storage/storage.service.ts', 'utf8');
+const S3 = readFileSync('src/modules/connections/s3.ts', 'utf8');
+
+test('setiap plan punya kuota blob storageBytes, dan onprem tanpa batas', async () => {
+  const { PLAN_LIMITS } = await load();
+  for (const [nama, l] of Object.entries(PLAN_LIMITS)) {
+    assert.ok(typeof l.storageBytes === 'number', `plan ${nama} tak punya storageBytes`);
+  }
+  // Sesuai kuota lain: naik seiring paket, "onprem" tanpa batas, SaaS berhingga.
+  assert.ok(PLAN_LIMITS.free.storageBytes < PLAN_LIMITS.pro.storageBytes);
+  assert.ok(PLAN_LIMITS.pro.storageBytes < PLAN_LIMITS.enterprise.storageBytes);
+  assert.equal(PLAN_LIMITS.onprem.storageBytes, Infinity);
+  for (const p of ['free', 'pro', 'enterprise']) {
+    assert.notEqual(PLAN_LIMITS[p].storageBytes, Infinity, `${p} blob tanpa batas`);
+  }
+});
+
+test('HANYA Drive/SharePoint yang tidak pernah menulis ke blob — tak dihitung kuota', async () => {
+  // Bos Galih: "sing nyimpen nang blob cuma sing upload aja." Drive/SharePoint
+  // (serta konektor lain) TIDAK boleh memanggil rutin simpan blob/BYOB.
+  assert.ok(!/simpanBerkasUpload/.test(SYNC),
+    'sync service memanggil simpanBerkasUpload — Drive/SharePoint malah menulis ke blob');
+  // Kuota blob hanya ditegakkan di rute unggahan MANUAL, bukan di ingest()
+  // (yang dilewati SEMUA jalur termasuk sync). Kalau ada di ingest(), sync
+  // ikut dibatasi / file Drive ikut dihitung — yang dilarang.
+  assert.ok(!/assertStorageBlobQuota\([^)]*chunks/.test(KSVC),
+    'kuota blob ditegakkan di ingest() — malah membatasi Drive/SharePoint');
+  assert.ok(/assertStorageBlobQuota/.test(KSVC),
+    'tidak ada penegakan kuota blob sama sekali');
+});
+
+test('rute unggahan MANUAL menyimpan orisinal ke blob/BYOB dan memeriksa kuota', () => {
+  assert.ok(/simpanBerkasUpload/.test(ROUTE), 'rute tak menyimpan berkas orisinal ke blob');
+  assert.ok(/assertStorageBlobQuota/.test(ROUTE), 'rute tak memeriksa kuota blob');
+  assert.ok(/uploadedFileService\.simpan/.test(ROUTE), 'rute tak mencatat jejak berkas orisinal');
+  // Quota habis → 402 (bukan 500 atau sekadar "skip" berkas).
+  assert.ok(/QuotaError/.test(ROUTE));
+  assert.ok(/status: 402/.test(ROUTE), 'kuota blob tak dipetakan ke 402');
+});
+
+test('pilihTargetTulis: BYOB user dulu, lalu blob platform (bawaan)', () => {
+  assert.ok(/decryptForAccess/.test(STORE), 'pemilihan koneksi eksplisit hilang');
+  assert.ok(/isDefault, true/.test(STORE), 'BYOB default tak dipilih');
+  assert.ok(/penyedia\('platform'\)/.test(STORE), 'jatuh ke blob platform tidak ada');
+});
+
+test('adapter menyediakan simpan (put) — blob + S3 SigV4 PUT', () => {
+  const AD = readFileSync('src/modules/storage/adapter.ts', 'utf8');
+  const PLAT = readFileSync('src/modules/storage/adapters/platform.ts', 'utf8');
+  const SF = readFileSync('src/modules/storage/adapters/s3-family.ts', 'utf8');
+  const GCS = readFileSync('src/modules/storage/adapters/gcs.ts', 'utf8');
+  const AZ = readFileSync('src/modules/storage/adapters/azure.ts', 'utf8');
+  assert.ok(/simpan\?\(kred: KredensialStorage/.test(AD), 'kontrak adapter tak ada metode simpan');
+  assert.ok(/@vercel\/blob/.test(PLAT), 'blob platform tak memakai @vercel/blob');
+  assert.ok(/tandatanganiPut/.test(S3), 'SigV4 PUT tak ditambahkan');
+  assert.ok(/simpanObjek/.test(SF), 'adapter S3 tak memakai simpanObjek');
+  assert.ok(/async simpan\(kred, c\)/.test(GCS) && /tokenTulis/.test(GCS), 'adapter GCS tak punya simpan');
+  assert.ok(/async simpan\(kred, c\)/.test(AZ), 'adapter Azure tak punya simpan');
+});
+
+test('pelacakan pemakaian memakai tabel uploaded_files (soft delete)', () => {
+  const UFS = readFileSync('src/modules/knowledge/uploaded-file.service.ts', 'utf8');
+  const MIG = readFileSync('migrations/0052_uploaded_files.sql', 'utf8');
+  assert.ok(/create table if not exists uploaded_files/.test(MIG), 'migrasi uploaded_files hilang');
+  assert.ok(/sum\(size_bytes\)/.test(UFS), 'usageBytes tak menjumlahkan ukuran');
+  assert.ok(/isNull\(uploadedFiles\.deletedAt\)/.test(UFS), 'usageBytes tak memfilter soft-delete');
+  assert.ok(/deletedAt: new Date/.test(UFS), 'penggantian nama sama tak soft-delete baris lama');
+});
+

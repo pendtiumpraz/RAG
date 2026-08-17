@@ -28,6 +28,20 @@ export const platformAdapter: StorageAdapter = {
     this.validasi(kred);
     return { ok: true, detail: 'Blob platform aktif — dipakai sebagai bawaan.' };
   },
+  async simpan(_kred, c) {
+    this.validasi(_kred);
+    const { put } = await import('@vercel/blob');
+    const hasil = await put(c.key, c.bytes, {
+      access: 'private',
+      contentType: c.mime || 'application/octet-stream',
+      addRandomSuffix: false,
+    });
+    /* Path objek di dalam blob diturunkan dari URL publik — blob memakai
+       akhiran acak saat unggah supaya tumbukan nama tak menimpa isi. */
+    const url = new URL(hasil.url);
+    const pathBerkas = url.pathname.replace(/^\/+/, '');
+    return { path: pathBerkas, url: hasil.url };
+  },
 };
 
 daftarkanPenyedia(platformAdapter);

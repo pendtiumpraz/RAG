@@ -76,6 +76,31 @@ async function tokenAkses(sa: SaJson): Promise<string> {
   return j.access_token;
 }
 
+/** Token dengan lingkup TULIS — hanya dipakai rutin unggahan manual. */
+async function tokenTulis(sa: SaJson): Promise<string> {
+  const body = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: jwtTertanda(sa, 'https://www.googleapis.com/auth/devstorage.read_write'),
+  });
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Gagal menukar kredensial tulis GCS: HTTP ${res.status}`);
+  const j = await res.json().catch(() => ({})) as { access_token?: string };
+  if (!j.access_token) throw new Error('Google tak mengembalikan access token.');
+  return j.access_token;
+}
+
+/** Bucket yang menjadi tujuan — diambil dari alamat JSON service account? Tidak; dari kredensial. */
+function bucketGcs(kred: KredensialStorage): string {
+  const b = (kred as { gcsBucket?: string }).gcsBucket?.trim();
+  if (!b) throw new Error('GCS: bucket wajib diiklankan untuk unggahan (gcsBucket).');
+  return b;
+}
+
 export const gcsAdapter: StorageAdapter = {
   provider: 'gcs',
   label: 'Google Cloud Storage',
@@ -83,7 +108,7 @@ export const gcsAdapter: StorageAdapter = {
   scopingDari(kred) {
     try {
       const sa = sabunJava(kred);
-      return { account: sa.client_email };
+      return { account: sa.client_email, bucket: (kred as { gcsBucket?: string }).gcsBucket || null };
     } catch {
       return { account: null };
     }
@@ -100,6 +125,30 @@ export const gcsAdapter: StorageAdapter = {
     });
     if (!res.ok) throw new Error(`Pemeriksaan GCS gagal: HTTP ${res.status}`);
     return { ok: true, detail: `Terhubung sebagai ${sa.client_email}` };
+  },
+  async simpan(kred, c) {
+    const sa = sabunJava(kred);
+    const bucket = bucketGcs(kred);
+    const token = await tokenTulis(sa);
+    /* Upload JSON simple (media only) — sekali PUT ke endpoint upload. */
+    const u = new URL(`https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucket)}/o`);
+    u.searchParams.set('uploadType', 'media');
+    u.searchParams.set('name', c.key);
+    const res = await fetch(u.toString(), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': c.mime || 'application/octet-stream',
+        'Content-Length': String(c.bytes.length),
+      },
+      body: Uint8Array.from(c.bytes).buffer,
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) {
+      const teks = await res.text().catch(() => '');
+      throw new Error(`GCS menolak unggahan (HTTP ${res.status}): ${teks.slice(0, 160)}`);
+    }
+    return { path: c.key };
   },
 };
 

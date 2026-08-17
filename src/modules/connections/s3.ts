@@ -140,6 +140,60 @@ export function tandatanganiGet(
 }
 
 /**
+ * Tanda tangani satu permintaan PUT (menyimpan objek) bertanda tangan.
+ *
+ * Untuk unggahan manual berkas ORISINAL ke penyimpanan objek BYOB. Beda
+ * dari GET: payload bukan kosong, jadi `x-amz-content-sha256` memuat hash
+ * isi dan `content-type` ikut ditandatangani (konsistensi header + payload
+ * adalah apa yang mencegah pertampering-an isi di tengah jalan).
+ */
+export function tandatanganiPut(
+  kred: KredensialS3,
+  jalurObjek: string,
+  body: Buffer,
+  contentType: string | null,
+  amzDate: string,
+): PermintaanTertanda {
+  const tanggal = amzDate.slice(0, 8);
+  const host = hostS3(kred);
+  const jalur = kred.gayaPath
+    ? `/${kred.bucket}${jalurObjek ? `/${lolosJalur(jalurObjek)}` : ''}`
+    : `/${jalurObjek ? lolosJalur(jalurObjek) : ''}`;
+
+  const payloadHash = sha256Hex(body);
+  const jenis = contentType?.trim() || 'application/octet-stream';
+  const headerKanonik =
+    `content-type:${jenis}\n`
+    + `host:${host}\n`
+    + `x-amz-content-sha256:${payloadHash}\n`
+    + `x-amz-date:${amzDate}\n`;
+  const headerDitandatangani = 'content-type;host;x-amz-content-sha256;x-amz-date';
+  const permintaanKanonik = [
+    'PUT', jalur, '', headerKanonik, headerDitandatangani, payloadHash,
+  ].join('\n');
+
+  const lingkup = `${tanggal}/${kred.region}/s3/aws4_request`;
+  const untukDitandatangani = [
+    'AWS4-HMAC-SHA256', amzDate, lingkup, sha256Hex(permintaanKanonik),
+  ].join('\n');
+
+  const tandaTangan = createHmac('sha256', kunciPenandatangan(kred.secretAccessKey, tanggal, kred.region))
+    .update(untukDitandatangani, 'utf8').digest('hex');
+
+  return {
+    url: `${skemaDanHost(kred)}${jalur}`,
+    headers: {
+      'content-type': jenis,
+      host,
+      'x-amz-content-sha256': payloadHash,
+      'x-amz-date': amzDate,
+      authorization: `AWS4-HMAC-SHA256 Credential=${kred.accessKeyId}/${lingkup}, `
+        + `SignedHeaders=${headerDitandatangani}, Signature=${tandaTangan}`,
+    },
+  };
+}
+
+/**
  * Endpoint WAJIB https kecuali loopback — sama seperti pembatasan pada
  * server embedding. Kunci akses dan isi dokumen pelanggan menyeberangi kabel
  * ini; http polos berarti keduanya terbaca siapa pun di jalur itu.

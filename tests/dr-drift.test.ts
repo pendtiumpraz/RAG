@@ -143,8 +143,18 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
      storage_connections.tenant_isolation, dan RLS aktif storage_connections.
      0051 hanya menambah SATU KOLOM (enabled_storage_providers) pada tabel
      yang sudah ada, jadi tak menggerakkan angka patokan. Patokan disegarkan
-     dengan `npm run dr:verify -- --tulis`. */
-  assert.equal(terakhir, '0051_storage_providers_toggle.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+     dengan `npm run dr:verify -- --tulis`.
+     0052 (uploaded_files — berkas orisinal unggahan manual di blob/BYOB)
+     menambah SATU tabel ber-tenant: uploaded_files, tiga indeks, satu
+     kebijakan, dan RLS aktif — didaftarkan ke patokan ini bersama kawat
+     pemicunya. */
+  assert.equal(terakhir, '0052_uploaded_files.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+  assert.ok(patokan.tabel.includes('uploaded_files'), 'uploaded_files belum masuk patokan');
+  assert.ok(patokan.rlsAktif.includes('uploaded_files'), 'uploaded_files tanpa RLS aktif');
+  assert.ok(patokan.kebijakan.includes('uploaded_files.tenant_isolation'), 'kebijakan uploaded_files belum masuk patokan');
+  for (const i of ['idx_uploaded_files_tenant', 'idx_uploaded_files_kb', 'idx_uploaded_files_deleted_at']) {
+    assert.ok(patokan.indeks.includes(i), `indeks ${i} belum masuk patokan`);
+  }
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
   assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),

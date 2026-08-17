@@ -11,6 +11,7 @@ import { documentVectorsService } from './document-vectors.service';
 import { contentFingerprint, fingerprintable, nameSizeKey } from './dedupe';
 import { BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
 import { limitsFor } from '@/modules/core/limits-server';
+import { uploadedFileService } from './uploaded-file.service';
 import { audit } from '@/modules/core/guardrails';
 
 /**
@@ -219,6 +220,10 @@ export const knowledgeService = {
     });
     const batasChunks = isPlatform ? Infinity : l.maxChunks;
     const batasKbs = isPlatform ? Infinity : l.maxKnowledgeBases;
+    /* Pemakaian blob (berkas orisinal unggahan manual) vs kuota `storageBytes`.
+       Drive/SharePoint tidak ikut dihitung — mereka tak menulis ke blob. */
+    const blobBytes = await uploadedFileService.usageBytes(tenantId);
+    const batasBlob = isPlatform ? Infinity : l.storageBytes;
     return {
       plan, isPlatform,
       chunks, maxChunks: batasChunks,
@@ -228,8 +233,53 @@ export const knowledgeService = {
       approxDocuments: Math.round(chunks / CHUNKS_PER_DOC),
       approxBytes: chunks * BYTES_PER_CHUNK,
       percent: batasChunks === Infinity ? 0 : Math.min(100, Math.round((chunks / batasChunks) * 100)),
+      /* Pemakaian blob (byte berkas orisinal unggahan manual). */
+      blobBytes,
+      maxBlobBytes: batasBlob,
+      blobPercent: batasBlob === Infinity ? 0
+        : Math.min(100, Math.round((blobBytes / batasBlob) * 100)),
     };
   },
+
+  /**
+   * Tolak penyimpanan blob yang akan melampaui kuota paket `storageBytes`.
+   *
+   * HANYA dipsanggil jalur UNGGAHAN MANUAL, dan HANYA untuk byte berkas
+   * yang mau disimpan ke blob/BYOB. Drive/SharePoint tak lewat sini (mereka
+   * sync langsung tanpa blob), jadi tak pernah dibatasi oleh jatah ini.
+   *
+   * Lempar QuotaError → pemanggil memetakan ke 402 (perlu upgrade).
+   * Penghitungannya per batch: menjumlahkan SEMUA byte dalam satu unggahan
+   * lalu memeriksa sekali, supaya sebagian berkas tak masuk dan sebagian
+   * ditolak dalam permintaan yang sama.
+   */
+  async assertStorageBlobQuota(tenantId: string, tambahanBytes: number): Promise<void> {
+    if (tambahanBytes <= 0) return;
+    const { plan, isPlatform } = await withTenant(tenantId, async (tx) => {
+      const r = await tx.execute(sql`
+        select plan, is_platform from tenants where id = ${tenantId} limit 1`);
+      const row = (r as unknown as Array<{ plan: string; is_platform: boolean }>)[0];
+      return { plan: row?.plan ?? 'free', isPlatform: row?.is_platform === true };
+    });
+    if (isPlatform) return;
+    const batas = (await limitsFor(plan)).storageBytes;
+    if (batas === Infinity) return;
+    const dipakai = await uploadedFileService.usageBytes(tenantId);
+    if (dipakai + tambahanBytes <= batas) return;
+
+    await audit(tenantId, 'system', AKSI_TOLAK_KUOTA, 'upload-blob', {
+      plan, terpakai: dipakai, batas, diminta: tambahanBytes, jalur: 'upload-blob',
+      kurang: dipakai + tambahanBytes - batas,
+    });
+    throw new QuotaError(
+      `Kuota penyimpanan berkas paket ${plan} terlampaui: `
+      + `${(dipakai / 1048576).toLocaleString('id-ID', { maximumFractionDigits: 1 })} MB dari `
+      + `${(batas / 1048576).toLocaleString('id-ID')} MB terpakai. `
+      + 'Hapus berkas yang tak terpakai atau naikkan paket.',
+      dipakai, batas,
+    );
+  },
+
 
   /**
    * Apakah berkas ini kembar berdasarkan NAMA + UKURAN?

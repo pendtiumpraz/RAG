@@ -38,6 +38,13 @@ const ringkas = (n: number) =>
     : n >= 1e3 ? `${Math.round(n / 1e3)} rb`
     : String(n);
 
+/** Kuota penyimpanan BLOB (byte berkas orisinal unggahan manual) → bacaan ramah. */
+const formatBytes = (n: number) =>
+  n === Infinity ? '∞'
+    : n >= 1e9 ? `${(n / 1e9).toFixed(n < 1e10 ? 1 : 0).replace('.', ',')} GB`
+    : n >= 1e6 ? `${Math.round(n / 1e6)} MB`
+    : `${Math.round(n / 1e3)} KB`;
+
 /** Kuota potongan → perkiraan berkas sumber yang muat. */
 const setaraBerkas = (potongan: number) => {
   if (potongan === Infinity) return '∞';
@@ -60,6 +67,7 @@ export function ScenePlans() {
     { t: 'Laju (burst)', f: (p: string) => `${PLAN_LIMITS[p].chatBurst}/detik` },
     { t: 'Knowledge base', f: (p: string) => angka(PLAN_LIMITS[p].maxKnowledgeBases) },
     { t: 'Potongan dokumen', f: (p: string) => ringkas(PLAN_LIMITS[p].maxChunks) },
+    { t: 'Arsip berkas asli (blob)', f: (p: string) => formatBytes(PLAN_LIMITS[p].storageBytes) },
     {
       t: 'Setara berkas sumber',
       f: (p: string) => setaraBerkas(PLAN_LIMITS[p].maxChunks),

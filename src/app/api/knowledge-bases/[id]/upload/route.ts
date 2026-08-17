@@ -4,7 +4,10 @@ import { dataSources, knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { requireRole } from '@/modules/core/auth';
 import { knowledgeService } from '@/modules/knowledge/knowledge.service';
+import { QuotaError } from '@/modules/knowledge/knowledge.service';
 import { extractText, isExtractable } from '@/modules/knowledge/sync.service';
+import { storageService } from '@/modules/storage';
+import { uploadedFileService } from '@/modules/knowledge/uploaded-file.service';
 import { jobsSettled } from '@/modules/core/jobs';
 import { ensureIntegrations } from '../../../_wire';
 
@@ -20,8 +23,15 @@ export const maxDuration = 60;
  * jadi mereka terpaksa lewat API.
  *
  * Berbeda dari sumber storage, unggahan TIDAK bisa disinkronkan ulang: berkas
- * aslinya tak tinggal di mana pun yang bisa kita tengok lagi. Karena itu
- * ekstraksi + ingest dikerjakan langsung di sini, bukan lewat job sync.
+ * aslinya TAK PERNAH dulu ditinggalkan di mana pun. SEJAK kartu ini, berkas
+ * ORISINAL turut disimpan ke blob/BYOB (jalur unggahan manual saja — Drive/
+ * SharePoint tetap sync langsung tanpa blob). Ekstraksi + ingest tetap dikerjakan
+ * di sini, bukan lewat job sync.
+ *
+ * PEMILIHAN PENYIMPANAN: BYOB terhubung user (default) dipakai dulu; bila tak
+ * ada, jatuh ke blob platform dari env (BLOB_STORE_ID/BLOB_READ_WRITE_TOKEN).
+ * Bersama simpanan, dicatat path/url di tabel `uploaded_files` utk penelusuran
+ * & penghitungan kuota blob per paket (`storageBytes`).
  *
  * Semua berkas satu KB bermuara ke SATU baris sumber "Unggahan manual", dan
  * tiap berkas memakai namanya sebagai `externalId`. Konsekuensinya sengaja:
@@ -35,6 +45,16 @@ export const maxDuration = 60;
 const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 const MAX_FILES = 20;
 const SOURCE_NAME = 'Unggahan manual';
+
+/**
+ * Ringkasan penyimpanan sumber dari batch yang baru saja diunggah — cukup utk
+ * ditulis ke `config.storage` sumber sebagai jejak tingkat-sumber. Detail
+ * per-berkas (path/url/id koneksi) hidup di tabel `uploaded_files`.
+ */
+function simplifikasiStorage(ingested: Array<{ stored: boolean }>): Record<string, unknown> {
+  const tersimpan = ingested.filter((x) => x.stored).length;
+  return { jumlahBerkas: ingested.length, tersimpan, gagalSimpan: ingested.length - tersimpan };
+}
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   ensureIntegrations();
@@ -84,9 +104,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }).returning())[0];
   });
 
-  const ingested: Array<{ name: string; chunks: number }> = [];
+  const ingested: Array<{ name: string; chunks: number; stored: boolean; storagePath?: string | null }> = [];
   const skipped: Array<{ name: string; reason: string }> = [];
 
+  try {
+  /* Kuota blob diperiksa PER-BERKAS, tepat sebelum disimpan: berkas yang tak
+     bisa diekstrak / tanpa teks tak akan disimpan, jadi ia tak boleh ikut
+     menghabiskan jatah. (Drive/SharePoint tak pernah lewat sini — mereka
+     sync langsung tanpa blob dan tak dihitung terhadap kuota ini.) */
   for (const f of files) {
     if (!isExtractable(f.name, f.type)) {
       skipped.push({ name: f.name, reason: 'format tak didukung' });
@@ -101,6 +126,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         skipped.push({ name: f.name, reason: 'tak ada teks yang bisa dibaca (PDF hasil pindai?)' });
         continue;
       }
+
+      /* Simpan berkas ORISINAL ke blob/BYOB (Bos Galih: "sing nyimpen nang
+         blob cuma sing upload aja"). Sebelum itu, pastikan byte-nya muat di
+         kuota paket — kalau tidak, tolak BERKAS INI (QuotaError → 402). */
+      await knowledgeService.assertStorageBlobQuota(user.tenantId, f.size);
+      const simpan = await storageService.simpanBerkasUpload(
+        user.tenantId, user.id,
+        {
+          knowledgeBaseId,
+          nama: f.name,
+          bytes: buf,
+          mime: f.type || null,
+        },
+      ).catch((e: unknown) => {
+        // Gagal menyimpan (credential blob mati, bucket salah, dll) TIDAK
+        // boleh menggagalkan seluruh unggahan: berkas tak tersimpan di blob
+        // namun isi teksnya tetap masuk jalur ingest biasa. Dicatat sebagai
+        // tidak tersimpan supaya pemilik tahu berkas aslinya tak berada di
+        // storage (dan pemakaian blob tak naik).
+        console.error('[upload] gagal simpan ke blob:', (e as Error).message);
+        return null;
+      });
+
       // Potongan lama dengan nama yang sama DIBUANG dulu. `ingest()` tak
       // melakukannya sendiri — jalur sync memanggil removeExternal() secara
       // terpisah sebelum meng-ingest ulang. Tanpa langkah ini, mengunggah
@@ -116,19 +164,62 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         sourceId: source.id,
         externalId: f.name,
         externalVersion: String(f.size),
-        metadata: { uploadedBy: user.id, size: f.size, mime: f.type || null },
+        metadata: {
+          uploadedBy: user.id, size: f.size, mime: f.type || null,
+          ...(simpan ? { storage: { provider: simpan.provider, path: simpan.path, url: simpan.url } } : {}),
+        },
       });
-      ingested.push({ name: f.name, chunks });
+
+      /* Catat jejak berkas-orisinal (untuk pemakaian blob & unduh ulang).
+         Hanya bila benar-benar tersimpan — kalau null, tidak ada baris dan
+         byte-nya tak ikut dihitung. */
+      if (simpan) {
+        await withTenant(user.tenantId, (tx) => uploadedFileService.simpan(tx, {
+          tenantId: user.tenantId,
+          userId: user.id,
+          knowledgeBaseId,
+          sourceId: source.id,
+          filename: f.name,
+          sizeBytes: f.size,
+          provider: simpan.provider,
+          storageConnectionId: simpan.storageConnectionId,
+          path: simpan.path,
+          url: simpan.url,
+          mime: f.type || null,
+        }));
+      }
+
+      ingested.push({
+        name: f.name, chunks,
+        stored: Boolean(simpan),
+        storagePath: simpan?.path ?? null,
+      });
     } catch (e) {
+      // Kuota blob terlampaui → HENTIKAN seluruh unggahan dengan 402 (bukan
+      // sekadar satu berkas "skip"): berkas berikutnya pasti ditolak juga, dan
+      // pemilik data harus tahu jatahnya habis, bukan berkasnya yang rusak.
+      if (e instanceof QuotaError) throw e;
       // Satu berkas rusak tak boleh menggagalkan seluruh unggahan.
       skipped.push({ name: f.name, reason: (e as Error).message.slice(0, 120) });
     }
+  }
+  } catch (e) {
+    // Kuota blob terlampaui di tengah loop → seluruh unggahan dihentikan 402.
+    if (e instanceof QuotaError) {
+      return NextResponse.json(
+        { error: e.message, type: 'quota', used: e.used, limit: e.limit }, { status: 402 });
+    }
+    throw e;
   }
 
   await withTenant(user.tenantId, (tx) => tx.update(dataSources).set({
     status: 'ready', lastSyncedAt: new Date(), updatedAt: new Date(),
     config: {
       name: SOURCE_NAME,
+      // Referensi storage tingkat sumber — menyimpan PALING BANYAK SATU penyedia
+      // yang dipakai batch ini, cukup utk penelusuran. Detail per-berkas hidup
+      // di tabel uploaded_files.
+      storage: simplifikasiStorage(ingested),
       lastSync: { ingested: ingested.length, skipped: skipped.length },
     },
   }).where(eq(dataSources.id, source.id)));

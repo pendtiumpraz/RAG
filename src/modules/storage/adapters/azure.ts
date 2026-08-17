@@ -68,6 +68,45 @@ export const azureAdapter: StorageAdapter = {
     }
     return { ok: true, detail: `Terhubung ke ${host}` };
   },
+  async simpan(kred, c) {
+    this.validasi(kred);
+    const account = kred.azureAccountName!;
+    const host = account.endsWith('.blob.core.windows.net')
+      ? account : `${account}.blob.core.windows.net`;
+    const container = kred.azureContainer!.replace(/^\/+/, '');
+    const jenis = c.mime || 'application/octet-stream';
+    const xMsDate = new Date().toUTCString();
+    /* StringToSign Put Blob (API 2021-12-02):
+       VERB\nContent-Encoding\nContent-Language\nContent-Length\nContent-MD5
+       \nContent-Type\nDate\nIf-Modified-Since\nIf-Match\nIf-None-Match
+       \nIf-Unmodified-Since\nRange\nCanonicalizedHeaders\nCanonicalizedResource */
+    const canonical = `PUT\n\n\n${c.bytes.length}\n\n${jenis}\n\n\n\n\n\n`
+      + `x-ms-blob-type:BlockBlob\nx-ms-date:${xMsDate}\nx-ms-version:${VERSI}\n`
+      + `/${account}/${container}/${c.key}`;
+    const auth = tandaTanganSharedKey(account, kred.azureAccountKey!, canonical);
+
+    const res = await fetch(
+      `https://${host}/${container}/${encodeURIComponent(c.key)}`,
+      {
+        method: 'PUT',
+        headers: {
+          'x-ms-blob-type': 'BlockBlob',
+          'x-ms-date': xMsDate,
+          'x-ms-version': VERSI,
+          'content-type': jenis,
+          'content-length': String(c.bytes.length),
+          Authorization: auth,
+        },
+        body: Uint8Array.from(c.bytes).buffer,
+        signal: AbortSignal.timeout(60_000),
+      },
+    );
+    if (!res.ok) {
+      const teks = await res.text().catch(() => '');
+      throw new Error(`Azure menolak unggahan (HTTP ${res.status}): ${teks.slice(0, 160)}`);
+    }
+    return { path: c.key };
+  },
 };
 
 daftarkanPenyedia(azureAdapter);
