@@ -11,6 +11,7 @@
  * `decryptStorage` (server-side saja) dipakai saat benar-benar mengakses
  * bucket (unggahan/sync masa depan).
  */
+import { randomUUID } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { storageConnections } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
@@ -19,6 +20,17 @@ import { platformSettingsService } from '@/modules/payments/platform-settings.se
 import {
   penyedia, daftarPenyedia, type KredensialStorage, type PenyediaStorage, type HasilUji,
 } from './adapter';
+
+/**
+ * Kunci objek unggahan manual di dalam storage — ber-namespace per tenant
+ * dan per KB, memakai UUID acak + nama berkas jadi bagian akhir. UUID
+ * menjamin dua berkas senama tak saling menimpa; nama di ujung memudahkan
+ * inspeksi manusia di bucket. Nama diloloskan hanya karakter aman folder.
+ */
+export function buildObjectKey(tenantId: string, knowledgeBaseId: string, nama: string): string {
+  const aman = nama.replace(/[^\w.\- ]+/g, '_').replace(/\s+/g, '_').slice(0, 120) || 'berkas';
+  return `uploads/${tenantId}/${knowledgeBaseId}/${randomUUID()}-${aman}`;
+}
 
 /** Baris yang aman untuk UI — tanpa rahasia. */
 export interface TampilanStorage {
@@ -55,6 +67,8 @@ export interface KredensialTersimpan {
   scoping: Record<string, unknown>;
   kred: KredensialStorage;
   isDefault: boolean;
+  /** id baris storage_connections; null utk blob platform (tak pernah di DB). */
+  storageConnectionId: string | null;
 }
 
 export const storageService = {
@@ -205,6 +219,7 @@ export const storageService = {
       scoping: row.scoping as Record<string, unknown>,
       kred: JSON.parse(decryptSecret(row.encryptedCredentials)) as KredensialStorage,
       isDefault: row.isDefault,
+      storageConnectionId: row.id,
     };
   },
 
@@ -236,6 +251,89 @@ export const storageService = {
       });
     }
     return pilihan;
+  },
+
+  /**
+   * Resolusi ke penyimpanan yang TEPAT untuk menulis satu berkas unggahan
+   * manual milik `userId`. Prioritas:
+   *
+   *   1. koneksi BYOB tersambung (id eksplisit, lalu bawaan/default user)
+   *   2. blob platform (env) — bawaan aman untuk siapa pun yang belum
+   *      menghubungkan penyimpanannya sendiri, termasuk superadmin ketika
+   *      tak ada BYOB yang dipilih.
+   *
+   * Mengembalikan adapter terpilih BESERTA kredensial terdekripsi (server
+   * only) — pemanggil memakai adapter.simpan() untuk menulis. `id` eksplisit
+   * tak ditemukan -> lempar Error (tidak diam-diam beralih, supaya UI yang
+   * memilih koneksi yang ternyata terhapus segera tahu).
+   */
+  async pilihTargetTulis(
+    tenantId: string, userId: string, id?: string | null,
+  ): Promise<KredensialTersimpan> {
+    // Pilihan eksplisit (dari body unggahan).
+    if (id) {
+      const t = await this.decryptForAccess(tenantId, userId, id);
+      if (!t) throw new Error('Penyimpanan yang dipilih tak ditemukan.');
+      return t;
+    }
+    // BYOB default user (bila ada).
+    const daftar = await withTenant(tenantId, (tx) => tx.select()
+      .from(storageConnections)
+      .where(and(
+        eq(storageConnections.userId, userId),
+        eq(storageConnections.isDefault, true),
+        isNull(storageConnections.deletedAt),
+      )).limit(1));
+    const isi = daftar[0];
+    if (isi) {
+      return {
+        provider: isi.provider as PenyediaStorage,
+        scoping: isi.scoping as Record<string, unknown>,
+        kred: JSON.parse(decryptSecret(isi.encryptedCredentials)) as KredensialStorage,
+        isDefault: true,
+        storageConnectionId: isi.id,
+      };
+    }
+    // Blob platform (bawaan) — tak pernah tersimpan di DB.
+    const adapter = penyedia('platform');
+    const kred: KredensialStorage = {};
+    adapter.validasi(kred);
+    return {
+      provider: 'platform', scoping: {}, kred, isDefault: false,
+      storageConnectionId: null,
+    };
+  },
+
+  /**
+   * Simpan berkas ORISINAL satu unggahan manual ke penyimpanan yang tepat.
+   *
+   * Membuat kunci objek, memanggil adapter.simpan() penyedia terpilih, dan
+   * mengembalikan referensi yang AMAN dicatat (path + url, TANPA rahasia).
+   * Dipakai rute unggahan — jalur ini adalah satu-satunya yang menulis ke
+   * blob/BYOB; Drive & SharePoint tetap sync langsung tanpa lewat sini.
+   */
+  async simpanBerkasUpload(
+    tenantId: string, userId: string, input: {
+      knowledgeBaseId: string; nama: string; bytes: Buffer; mime?: string | null;
+      /** Koneksi BYOB eksplisit (opsional); default: BYOB bawaan, lalu blob platform. */
+      storageConnectionId?: string | null;
+    },
+  ): Promise<{ provider: PenyediaStorage; storageConnectionId: string | null; path: string; url: string | null }> {
+    const target = await this.pilihTargetTulis(tenantId, userId, input.storageConnectionId ?? null);
+    const key = buildObjectKey(tenantId, input.knowledgeBaseId, input.nama);
+    const adapter = penyedia(target.provider);
+    if (!adapter.simpan) {
+      throw new Error(`Penyedia ${target.provider} belum mendukung unggahan berkas.`);
+    }
+    const hasil = await adapter.simpan(target.kred, {
+      key, bytes: input.bytes, mime: input.mime ?? null,
+    });
+    return {
+      provider: target.provider,
+      storageConnectionId: target.storageConnectionId,
+      path: hasil.path,
+      url: hasil.url ?? null,
+    };
   },
 
   /**

@@ -30,6 +30,7 @@ export function wajibPerPenyedia(
     kred.gayaPath = ambilBool('gayaPath');
   } else if (provider === 'gcs') {
     kred.serviceAccountJson = ambil('serviceAccountJson');
+    kred.gcsBucket = ambil('gcsBucket');
   } else if (provider === 'azure') {
     kred.azureAccountName = ambil('azureAccountName');
     kred.azureAccountKey = ambil('azureAccountKey');

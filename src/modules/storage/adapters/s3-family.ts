@@ -8,7 +8,7 @@
  * dan izin baca cukup.
  */
 import type { KredensialS3 } from '@/modules/connections/s3';
-import { daftarObjek } from '@/modules/knowledge/storage/s3';
+import { daftarObjek, simpanObjek } from '@/modules/knowledge/storage/s3';
 import {
   daftarkanPenyedia, type KredensialStorage, type StorageAdapter,
 } from '../adapter';
@@ -56,6 +56,10 @@ function adapter(provider: 's3' | 'r2' | 's3-compat', label: string): StorageAda
         ok: true,
         detail: `Terhubung ke bucket "${kred.bucket}"${objek.length ? ` · ${objek.length}+ objek` : ''}${terpotong ? ' (daftar lanjutan ada)' : ''}`,
       };
+    },
+    async simpan(kred, c) {
+      this.validasi(kred);
+      return simpanObjek(s3Kred(kred), c.key, c.bytes, c.mime ?? null);
     },
   };
 }

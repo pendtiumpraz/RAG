@@ -1,5 +1,5 @@
 import {
-  parseDaftar, tandatanganiGet, type KredensialS3, type ObjekS3,
+  parseDaftar, tandatanganiGet, tandatanganiPut, type KredensialS3, type ObjekS3,
 } from '@/modules/connections/s3';
 
 /**
@@ -85,6 +85,28 @@ export async function ambilObjek(
     content: Buffer.from(await res.arrayBuffer()),
     mime: (res.headers.get('content-type') ?? '').split(';')[0].trim() || undefined,
   };
+}
+
+/**
+ * Simpan satu objek (unggahan manual) dengan PUT bertanda tangan SigV4.
+ *
+ * Badan dikirim apa adanya — S3 tidak mengubahnya. `content-type` ikut
+ * ditandatangani (lihat tandatanganiPut) supaya isi tak bisa diganti di
+ * tengah jalan tanpa tanda tangan yang batal.
+ */
+export async function simpanObjek(
+  kred: KredensialS3, key: string, bytes: Buffer, mime?: string | null,
+  saat: Date = new Date(),
+): Promise<{ path: string }> {
+  const t = tandatanganiPut(kred, key, bytes, mime || null, stempelAmz(saat));
+  const res = await fetch(t.url, {
+    method: 'PUT',
+    headers: { ...t.headers, 'content-length': String(bytes.length) },
+    body: Uint8Array.from(bytes).buffer,
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) throw new Error(galatS3(res.status, await res.text().catch(() => '')));
+  return { path: key };
 }
 
 /**

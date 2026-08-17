@@ -37,6 +37,8 @@ export interface KredensialStorage {
   gayaPath?: boolean;
   /** GCS — JSON service account (isi mentah, bukan jalur). */
   serviceAccountJson?: string;
+  /** GCS — bucket tujuan unggahan (diisi pemilik, bukan bagian JSON SA). */
+  gcsBucket?: string;
   /** Azure — nama akun + kunci penyimpanan, atau SAS. */
   azureAccountName?: string;
   azureAccountKey?: string;
@@ -62,6 +64,33 @@ export interface HasilUji {
   reason?: string;
 }
 
+/**
+ * Hasil penyimpanan satu berkas — yang dikembalikan rutin unggah MANUAL.
+ *
+ * Hanya referensi/path yang keluar, TIDAK PERNAH rahasia. `url` (jika ada)
+ * adalah tautan publik/tertandatangani tempat berkas asli bisa diunduh
+ * kembali; `path` adalah kunci objek di dalam storage yang dicatat agar
+ * sinkron/unduh ulang mungkin dilakukan belakangan.
+ */
+export interface HasilSimpan {
+  /** Kunci objek di dalam storage, mis. `uploads/<tenant>/<kb>/<uuid>-<nama>`. */
+  path: string;
+  /** Tautan (bila penyedia memberinya) — boleh null utk yang tak punya. */
+  url?: string | null;
+}
+
+/**
+ * Konteks unggahan yang diterima `simpan` — saluran server-side penuh.
+ *
+ * `bytes` adalah isi ORISINAL berkas (bukan hasil ekstraksi teks), `mime`
+ * tipe konten asal, dan `key` jalur objek yang sudah dibentuk pemanggil.
+ */
+export interface KonteksSimpan {
+  key: string;
+  bytes: Buffer;
+  mime?: string | null;
+}
+
 /** Kontrak setiap penyedia penyimpanan. */
 export interface StorageAdapter {
   readonly provider: PenyediaStorage;
@@ -74,6 +103,15 @@ export interface StorageAdapter {
   validasi(kred: KredensialStorage): void;
   /** Uji koneksi nyata ke penyedia. Platform blob dianggap auto-ok. */
   uji(kred: KredensialStorage): Promise<HasilUji>;
+  /**
+   * Simpan satu berkas (unggahan manual) ke storage ini.
+   *
+   * Opsional — penyedia boleh tidak mengimplementasikannya bila tak bisa
+   * menulis (mis. sudah usang); `storageService` lalu melempar galat yang
+   * jelas. Sisi TULIS ini khusus dipakai jalur UNGGAHAN MANUAL; Drive &
+   * SharePoint TIDAK lewat sini (mereka sync langsung, tidak butuh blob).
+   */
+  simpan?(kred: KredensialStorage, c: KonteksSimpan): Promise<HasilSimpan>;
 }
 
 /* ── registry ─────────────────────────────────────────────────────── */
