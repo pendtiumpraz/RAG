@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { irisBlok } from './_iris';
+import { irisBlok, irisAntara } from './_iris';
 import {
   MAKS_EXT, adaSaring, bersihkanSaring, ekstensi, folderDari, waktuUbah,
 } from '../src/modules/knowledge/saring';
@@ -184,8 +184,11 @@ test('konektor yang TAHU jalurnya meneruskannya; yang tidak, tidak mengarang', (
   const sync = readFileSync('src/modules/knowledge/sync.service.ts', 'utf8');
   assert.ok(/path: o\.key/.test(sync), 'S3 tak meneruskan kunci sebagai jalur');
   assert.ok(/path: f\.path/.test(sync), 'jalur tak diteruskan ke ingest');
-  const notion = irisBlok(sync, "if (kind === 'notion') {");
-  assert.ok(!/path:/.test(notion), 'Notion mengarang jalur padahal tak punya folder');
+  /* Notion & Slack dibatasi sampai SEBELUM cabang upload: konektor upload
+     memang punya jalur nyata (kunci objek di blob/BYOB), jadi ia JANGAN
+     ikut diniti sebagai "mengarang jalur". */
+  const notion = irisAntara(sync, "if (kind === 'notion') {", "if (kind === 'upload') {");
+  assert.ok(!/path:/.test(notion), 'Notion/Slack mengarang jalur padahal tak punya folder');
 });
 
 test('API pencarian menerima penyaring lewat pembersih yang SAMA', () => {

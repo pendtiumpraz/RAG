@@ -107,6 +107,40 @@ export const azureAdapter: StorageAdapter = {
     }
     return { path: c.key };
   },
+  async ambil(kred, key) {
+    this.validasi(kred);
+    const account = kred.azureAccountName!;
+    const host = account.endsWith('.blob.core.windows.net')
+      ? account : `${account}.blob.core.windows.net`;
+    const container = kred.azureContainer!.replace(/^\/+/, '');
+    const xMsDate = new Date().toUTCString();
+    /* StringToSign Get Blob — GET tanpa badan: Content-Length & Content-Type
+       KOSONG (baris kosong), hanya x-ms-* + resource. */
+    const canonical = `GET\n\n\n\n\n\n\n\n\n\n\n`
+      + `x-ms-date:${xMsDate}\nx-ms-version:${VERSI}\n`
+      + `/${account}/${container}/${key}`;
+    const auth = tandaTanganSharedKey(account, kred.azureAccountKey!, canonical);
+
+    const res = await fetch(
+      `https://${host}/${container}/${encodeURIComponent(key)}`,
+      {
+        headers: {
+          'x-ms-date': xMsDate,
+          'x-ms-version': VERSI,
+          Authorization: auth,
+        },
+        signal: AbortSignal.timeout(60_000),
+      },
+    );
+    if (!res.ok) {
+      const teks = await res.text().catch(() => '');
+      throw new Error(`Azure menolak unduhan (HTTP ${res.status}): ${teks.slice(0, 160)}`);
+    }
+    return {
+      content: Buffer.from(await res.arrayBuffer()),
+      mime: (res.headers.get('content-type') ?? '').split(';')[0].trim() || null,
+    };
+  },
 };
 
 daftarkanPenyedia(azureAdapter);

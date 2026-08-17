@@ -337,6 +337,47 @@ export const storageService = {
   },
 
   /**
+   * Ambil (unduh) kembali satu berkas ORISINAL unggahan manual dari
+   * penyimpanan yang tercatat di `uploaded_files`.
+   *
+   * Dipakai jalur RE-SYNC sumber `upload`: berkas sudah disimpan ke blob/BYOB
+   * saat unggahan pertama, jadi sinkronisasi ulang membaca ULANG byte-nya dari
+   * storage (bukan dari form multipart yang tak tersedia lagi), lalu ekstraksi
+   * + ingest mengalir seperti biasa. `key` adalah `path` yang dicatat saat
+   * simpan (kunci objek di storage).
+   *
+   * Blob platform (provider 'platform') tak pernah punya baris
+   * storage_connections — kredensialnya dari env. BYOB lain memakai
+   * `storageConnectionId` untuk mendekripsi kredensial server-side.
+   */
+  async ambilBerkasUpload(
+    tenantId: string, userId: string, provider: string, storageConnectionId: string | null, key: string,
+  ): Promise<{ content: Buffer; mime?: string | null }> {
+    const p = provider as PenyediaStorage;
+    const adapter = penyedia(p);
+    if (!adapter.ambil) {
+      throw new Error(`Penyedia ${p} belum mendukung unduh ulang berkas tersimpan.`);
+    }
+
+    let kred: KredensialStorage;
+    if (p === 'platform') {
+      kred = {};
+      adapter.validasi(kred);
+    } else {
+      if (!storageConnectionId) {
+        throw new Error('Berkas tersimpan tanpa koneksi penyimpanan — tak bisa diunduh ulang.');
+      }
+      const tersimpan = await this.decryptForAccess(tenantId, userId, storageConnectionId);
+      if (!tersimpan) {
+        throw new Error('Koneksi penyimpanan berkas sudah terhapus — tak bisa diunduh ulang.');
+      }
+      kred = tersimpan.kred;
+    }
+
+    return adapter.ambil(kred, key);
+  },
+
+  /**
    * Pastikan penyedia boleh dipakai. Pengecualian utk superadmin — ia tetap
    * boleh bekerja dengan penyedia apa pun walau saklar mati (untuk uji,
    * perbaikan, atau pelanggan yang sedang bermigrasi). Lempar bila ditolak.

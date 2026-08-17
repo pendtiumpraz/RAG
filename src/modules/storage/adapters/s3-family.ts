@@ -8,7 +8,7 @@
  * dan izin baca cukup.
  */
 import type { KredensialS3 } from '@/modules/connections/s3';
-import { daftarObjek, simpanObjek } from '@/modules/knowledge/storage/s3';
+import { daftarObjek, simpanObjek, ambilObjek } from '@/modules/knowledge/storage/s3';
 import {
   daftarkanPenyedia, type KredensialStorage, type StorageAdapter,
 } from '../adapter';
@@ -60,6 +60,10 @@ function adapter(provider: 's3' | 'r2' | 's3-compat', label: string): StorageAda
     async simpan(kred, c) {
       this.validasi(kred);
       return simpanObjek(s3Kred(kred), c.key, c.bytes, c.mime ?? null);
+    },
+    async ambil(kred, key) {
+      this.validasi(kred);
+      return ambilObjek(s3Kred(kred), key);
     },
   };
 }

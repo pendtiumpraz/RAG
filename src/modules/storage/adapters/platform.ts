@@ -42,6 +42,31 @@ export const platformAdapter: StorageAdapter = {
     const pathBerkas = url.pathname.replace(/^\/+/, '');
     return { path: pathBerkas, url: hasil.url };
   },
+  async ambil(_kred, key) {
+    this.validasi(_kred);
+    /* Blob platform mengunduh lewat pathname (bukan URL penuh); `path` yang
+       dicatat saat simpan adalah pathname — bersih tanpa query/host, jadi
+       stabil utk re-sync. get() butuh access 'private' (unggahan kita private).
+       Unduhan utk URI ini: statusCode 200 dengan `stream` ReadableStream,
+       atau 304 (tak berubah) dengan stream null — 304 disetel lewat
+       ifNoneMatch, yang tak kita pakai, jadi stream selalu ada di 200. */
+    const { head, get } = await import('@vercel/blob');
+    let mime: string | null = null;
+    try {
+      const meta = await head(key);
+      mime = meta.contentType ?? null;
+    } catch {
+      // head opsional — kalau gagal (mis. 404), unduh saja; get menolak 404.
+    }
+    const hasil = await get(key, { access: 'private' });
+    if (!hasil) throw new Error('Berkas tak ditemukan di blob platform (mungkin terhapus).');
+    if (hasil.statusCode !== 200 || hasil.stream === null) {
+      throw new Error('Berkas di blob platform tak dapat diunduh.');
+    }
+    const kumpulkan = async ()
+      : Promise<Buffer> => Buffer.from(await new Response(hasil.stream).arrayBuffer());
+    return { content: await kumpulkan(), mime };
+  },
 };
 
 daftarkanPenyedia(platformAdapter);
