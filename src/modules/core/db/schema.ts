@@ -547,6 +547,45 @@ export const documents = pgTable('documents', {
 })).enableRLS();
 
 /**
+ * BERKAS ORISINAL UNGGAHAN MANUAL yang TERSIMPAN di blob/BYOB (migrasi 0052).
+ *
+ * Satu baris per berkas yang disimpan lewat jalur unggahan manual — jejak
+ * TERLACAK yang menghubungkan berkas sumber (path/url di storage + id koneksi
+ * BYOB) ke tenant & knowledge base-nya. Dipakai untuk: (1) menghitung pemakaian
+ * blob per tenant terhadap kuota paket `storageBytes`, (2) referensi untuk
+ * mengunduh ulang/sinkron belakangan.
+ *
+ * Drive/SharePoint TIDAK pernah menulis ke sini — mereka sync langsung tanpa
+ * blob; kolom/baris ini khusus jalur unggahan manual.
+ */
+export const uploadedFiles = pgTable('uploaded_files', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  knowledgeBaseId: uuid('knowledge_base_id').notNull(),
+  sourceId: uuid('source_id'),
+  /** Nama berkas asal, utk dibaca manusia. */
+  filename: text('filename').notNull(),
+  /** Ukuran berkas (byte) — dasar penghitungan kuota blob. */
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  /** Penanda penyedia: 'platform' | 's3' | 'r2' | 'gcs' | 'azure' | 's3-compat'. */
+  provider: text('provider').notNull(),
+  /** id baris storage_connections; null utk blob platform (tak pernah di DB). */
+  storageConnectionId: uuid('storage_connection_id'),
+  /** Kunci objek di storage (mis. uploads/<tenant>/<kb>/<uuid>-<nama>). */
+  path: text('path').notNull(),
+  /** Tautan (bila penyedia memberinya) — boleh null. */
+  url: text('url'),
+  /** Tipe konten asal, dicatat untuk unduh ulang yang setia. */
+  mime: text('mime'),
+  ...stamps,
+}, (t) => ({
+  tenantIdx: index('idx_uploaded_files_tenant').on(t.tenantId),
+  kbIdx: index('idx_uploaded_files_kb').on(t.knowledgeBaseId, t.sourceId),
+  delIdx: index('idx_uploaded_files_deleted_at').on(t.deletedAt),
+})).enableRLS();
+
+/**
  * BERKAS KEMBAR yang DILEWATI saat ingest (migrasi 0033).
  *
  * Dicatat, tidak dibuang diam-diam: kalau sebuah berkas hilang begitu saja

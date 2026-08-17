@@ -71,6 +71,7 @@ export async function limitsFor(plan: string | null | undefined): Promise<PlanLi
     maxMembers: ambil('maxMembers'),
     maxKnowledgeBases: ambil('maxKnowledgeBases'),
     maxChunks: ambil('maxChunks'),
+    storageBytes: ambil('storageBytes'),
   };
 }
 

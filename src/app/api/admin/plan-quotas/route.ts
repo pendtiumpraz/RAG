@@ -27,6 +27,7 @@ const Kuota = z.object({
   maxMembers: z.number().min(0).nullable().optional(),
   maxKnowledgeBases: z.number().min(0).nullable().optional(),
   maxChunks: z.number().min(0).nullable().optional(),
+  storageBytes: z.number().min(0).nullable().optional(),
 });
 
 const Body = z.object({

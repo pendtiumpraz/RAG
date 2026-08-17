@@ -31,6 +31,16 @@ export interface PlanLimits {
    * pemenggalannya berubah.
    */
   maxChunks: number;
+  /**
+   * Kuota PENYIMPANAN BLOB (byte) untuk berkas ORISINAL unggahan manual.
+   *
+   * BERBEDA dari `maxChunks`: maksudnya bukan teks yang diverktorkan, melainkan
+   * BYTE mentah berkas sumber yang disimpan ke blob/BYOB (jalur unggahan
+   * manual saja). Drive/SharePoint TIDAK dihitung di sini — mereka sync
+   * langsung tanpa menulis ke blob. `Infinity` = tanpa batas (onprem, dan
+   * operator platform).
+   */
+  storageBytes: number;
 }
 
 /**
@@ -97,6 +107,8 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     // ±1 dokumen pendek. Sengaja: satu berkas cukup membuktikan jawabannya
     // benar-benar bersumber dari dokumen yang diunggah.
     maxKnowledgeBases: 1, maxChunks: 10,
+    // ±8 MB blob — cukup beberapa berkas sumber singkat utk uji coba.
+    storageBytes: 8 * 1024 * 1024,
   },
   pro: {
     messagesPerMonth: 5_000, chatBurst: 40, chatRefillPerSec: 5,
@@ -104,6 +116,8 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     // ±10 dokumen. Cukup untuk chatbot landing page yang sungguhan: profil
     // perusahaan, katalog, daftar harga, FAQ.
     maxKnowledgeBases: 5, maxChunks: 100,
+    // ±256 MB blob — jatah dokumen sumber asli yang wajar utk tim kecil.
+    storageBytes: 256 * 1024 * 1024,
   },
   enterprise: {
     messagesPerMonth: 50_000, chatBurst: 120, chatRefillPerSec: 20,
@@ -113,6 +127,8 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     // dinaikkan per pelanggan lewat panel admin — yang tak boleh adalah tak
     // ada angkanya sama sekali.
     maxKnowledgeBases: 25, maxChunks: 1_000,
+    // ±2 GB blob — arsip dokumen sumber yang masuk akal utk perusahaan besar.
+    storageBytes: 2 * 1024 * 1024 * 1024,
   },
   onprem: {
     // SATU-SATUNYA yang tanpa batas, dan tak bisa ditimpa jadi berhingga
@@ -120,6 +136,8 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
     messagesPerMonth: Infinity, chatBurst: 240, chatRefillPerSec: 40,
     maxChatbots: Infinity, maxMembers: Infinity,
     maxKnowledgeBases: Infinity, maxChunks: Infinity,
+    // Berjalan pada blob milik pelanggan sendiri — tak masuk akal dibatasi.
+    storageBytes: Infinity,
   },
 };
 

@@ -40,6 +40,10 @@ export const TENANT_TABLES = [
   'documents',
   'document_duplicates',
   'document_vectors',
+  /* Berkas orisinal unggahan manual yang disimpan ke blob/BYOB — ikut pindah
+     bersama tenantnya: referensi objeknya (jalur/url) milik pelanggan, dan
+     meninggalkannya berarti putus jejak ke berkas sumber yang sudah diarsip. */
+  'uploaded_files',
 
   // memory (menunjuk chatbot & dokumen)
   'memory_notes',
