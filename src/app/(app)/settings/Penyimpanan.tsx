@@ -184,7 +184,7 @@ export default function Penyimpanan() {
                             {ujianId === k.id ? 'Menguji…' : 'Uji koneksi'}
                           </button>
                           {u && <div className={`microlabel${u.ok ? ' badge-ok' : ''}`}
-                            style={{ marginTop: 4, color: u.ok ? 'var(--ok, #16a34a)' : 'var(--danger, #dc2626)' }}>
+                            style={{ marginTop: 4, color: u.ok ? 'var(--good)' : 'var(--danger)' }}>
                             {u.pesan}
                           </div>}
                         </td>
@@ -245,7 +245,7 @@ export default function Penyimpanan() {
                     {SKEMA[penyedia].map((medan) => (
                       <Field key={medan.kunci} label={medan.label}>
                         {medan.area
-                          ? <textarea className="input" rows={6} style={{ fontFamily: 'var(--mono)', fontSize: 12 }}
+                          ? <textarea className="input" rows={6} style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
                               value={typeof kred[medan.kunci] === 'string' ? kred[medan.kunci] as string : ''}
                               onChange={(e) => set(medan.kunci, e.target.value)}
                               placeholder='{ "type": "service_account", "client_email": "…", "private_key": "…" }' />
