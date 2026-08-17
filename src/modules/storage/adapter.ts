@@ -112,6 +112,31 @@ export interface StorageAdapter {
    * SharePoint TIDAK lewat sini (mereka sync langsung, tidak butuh blob).
    */
   simpan?(kred: KredensialStorage, c: KonteksSimpan): Promise<HasilSimpan>;
+
+  /**
+   * Ambil (unduh) satu berkas ORISINAL yang disimpan lewat `simpan`.
+   *
+   * Dipakai jalur RE-SYNC sumber `upload`: berkas aslinya sudah disimpan di
+   * blob/BYOB saat unggahan pertama, jadi sinkronisasi ulang membaca KEMBALI
+   * byte-nya dari storage (bukan dari form multipart) lalu ekstraksi + ingest
+   * mengalir seperti biasa. `key` adalah `path` yang dicatat di `simpan`.
+   *
+   * Opsional — penyedia boleh tidak mengimplementasikannya; storageService
+   * lalu melempar galat yang jelas saat re-sync membutuhkannya.
+   */
+  ambil?(kred: KredensialStorage, key: string): Promise<HasilAmbil>;
+}
+
+/**
+ * Hasil pengunduhan satu berkas tersimpan — isi ORISINAL + tipe konten.
+ *
+ * `mime` boleh null: ekstraktor sudah memakai nama berkas sebagai sumber
+ * utama (daftar ekstensi di ./format), jadi penyedia yang tak bisa
+ * mengembalikan tipe konten tetap bisa dipakai.
+ */
+export interface HasilAmbil {
+  content: Buffer;
+  mime?: string | null;
 }
 
 /* ── registry ─────────────────────────────────────────────────────── */

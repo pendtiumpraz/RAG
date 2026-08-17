@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
-import { dataSources } from '@/modules/core/db';
+import { dataSources, uploadedFiles } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/modules/core/jobs';
 import { audit } from '@/modules/core/guardrails';
@@ -12,6 +12,7 @@ import { ringkasPerFolder, saringFolderTerpilih, type Pratinjau } from './pratin
 import { dispatch } from '@/modules/core/events';
 import { connectionService } from '@/modules/connections/connection.service';
 import { knowledgeService, QuotaError } from './knowledge.service';
+import { storageService } from '@/modules/storage';
 import { knowledgeBaseService } from './knowledge-base.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { crawlUserDrive, getUserDriveFilesMeta, downloadUserDriveFile, exportUserDriveFile, isGoogleNative, googleNativeExportMime } from './storage/gdrive';
@@ -57,6 +58,9 @@ import { daftarKanal, isiKanal, versiKanal, type KredensialSlack } from './stora
  *  • onedrive      — /me/drive user via Microsoft Graph (OAuth microsoft)
  *  • sharepoint    — document library situs, shared link, atau /me/drive
  *                    (lihat storage/sharepoint.ts)
+ *  • upload        — UNGGAHAN MANUAL: berkas aslinya SUDAH tersimpan di
+ *                    blob/BYOB saat unggahan; re-sync membaca KEMBALI bytes
+ *                    orisinal dari storage (bukan crawler eksternal).
  *
  * Ekstraksi: txt/md/csv/json/html langsung; PDF (pdf-parse), DOCX (mammoth);
  * Google Docs/Sheets/Slides via export teks. Format tak didukung dihitung
@@ -173,7 +177,7 @@ export async function pratinjauSumber(
   if (!source) throw new Error('Sumber data tidak ditemukan');
 
   const config = source.config as Record<string, unknown>;
-  const conn = await connect(tenantId, userId, source.kind, config);
+  const conn = await connect(tenantId, userId, sourceId, source.kind, config);
   const hasil = ringkasPerFolder(conn.files, isExtractable, conn.truncated);
   return {
     ...hasil,
@@ -230,7 +234,7 @@ export async function runSync({ tenantId, userId, sourceId, full }: SyncPayload)
   await setStatus('syncing');
 
   try {
-    const conn = await connect(tenantId, userId, source.kind, source.config as Record<string, unknown>);
+    const conn = await connect(tenantId, userId, sourceId, source.kind, source.config as Record<string, unknown>);
 
     /* FOLDER YANG DICENTANG PEMILIKNYA — disaring SEBELUM apa pun diunduh.
        Daftar kosong berarti SEMUA; arti sebaliknya akan membuat setiap sumber
@@ -485,7 +489,7 @@ interface Connector {
 }
 
 async function connect(
-  tenantId: string, userId: string, kind: string, config: Record<string, unknown>,
+  tenantId: string, userId: string, sourceId: string, kind: string, config: Record<string, unknown>,
 ): Promise<Connector> {
   // scope: 'all' = SELURUH drive (rekursif) · 'folder' = folder tertentu (rekursif)
   const scope = (config.scope === 'all' ? 'all' : 'folder') as 'all' | 'folder';
@@ -743,6 +747,75 @@ async function connect(
       async fetch(f) {
         const teks = await isiKanal(kred, f.externalId, nama.get(f.externalId) ?? f.externalId);
         return { content: Buffer.from(teks, 'utf8'), mime: 'text/markdown' };
+      },
+    };
+  }
+
+  /**
+   * UNGGAHAN MANUAL — berkas aslinya SUDAH tersimpan di blob/BYOB saat
+   * unggahan pertama (jalur `POST /api/knowledge-bases/[id]/upload`).
+   *
+   * Berbeda dari konektor lain: bukan crawler storage eksternal, melainkan
+   * pembacaan ULANG dari penyimpanan yang tercatat di tabel `uploaded_files`
+   * (path/kunci objek + penyedia + koneksi BYOB). Re-sync membaca KEMBALI
+   * byte orisinalnya, lalu ekstraksi + ingest mengalir seperti biasa.
+   *
+   * INKREMENTAL: `version` setiap berkas = ukurannya (String(sizeBytes)) —
+   * sama dengan `externalVersion` yang ditulis ingest saat unggahan. Jadi
+   * re-sync biasa melihat semua berkas `unchanged` dan TIDAK membaca ulang
+   * apa pun; `?full=1` (atau potongan yang lenyap dari manifest) memicu
+   * pembacaan ulang dari storage.
+   *
+   * Delta sync menjaga sumber ini tetap aman: berkas yang baris
+   * `uploaded_files`-nya terhapus (soft-delete) hilang dari listing → dianggap
+   * "lenyap dari upstream" → chunk-nya dibuang dari KB. Konsisten dengan
+   * perilaku sumber lain yang berkasnya dihapus upstream.
+   */
+  if (kind === 'upload') {
+    // Baris jejak berkas-orisinal utk sumber ini (RLS lewat withTenant).
+    const tersimpan = await withTenant(tenantId, (tx) =>
+      tx.select().from(uploadedFiles)
+        .where(and(
+          eq(uploadedFiles.tenantId, tenantId),
+          eq(uploadedFiles.sourceId, sourceId),
+          isNull(uploadedFiles.deletedAt),
+        )));
+
+    // Sumber tanpa berkas tersimpan = kosong; kembalikan konektor kosong
+    // agar sync berjalan mulus (tak ada unduhan, tak ada penghapusan).
+    if (tersimpan.length === 0) {
+      return {
+        files: [],
+        truncated: false,
+        async fetch(): Promise<{ content: Buffer; mime?: string }> {
+          throw new Error('Sumber upload tanpa berkas tersimpan.');
+        },
+      };
+    }
+
+    /* Peta path → baris, dipakai fetch() membedah berkas mana yang diminta
+       (externalId = nama berkas; path menyimpan kunci objek unik). */
+    const byNama = new Map(tersimpan.map((r) => [r.filename, r]));
+
+    return {
+      files: tersimpan.map((r) => ({
+        externalId: r.filename,
+        name: r.filename,
+        mimeType: r.mime ?? undefined,
+        /* Kunci objek unik di storage — utk fetch(); sekaligus jadi folder
+           (jenis sumber ini tak punya hierarki folder nyata). */
+        path: r.path,
+        version: String(r.sizeBytes),
+        size: r.sizeBytes,
+      })),
+      truncated: false,
+      async fetch(f) {
+        const baris = byNama.get(f.externalId);
+        if (!baris) throw new Error(`Referensi berkas ${f.name} tak ditemukan di jejak penyimpanan.`);
+        const unduh = await storageService.ambilBerkasUpload(
+          tenantId, userId, baris.provider, baris.storageConnectionId, baris.path,
+        );
+        return { content: unduh.content, mime: unduh.mime ?? undefined };
       },
     };
   }

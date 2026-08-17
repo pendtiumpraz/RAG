@@ -150,6 +150,28 @@ export const gcsAdapter: StorageAdapter = {
     }
     return { path: c.key };
   },
+  async ambil(kred, key) {
+    const sa = sabunJava(kred);
+    const bucket = bucketGcs(kred);
+    /* Unduh: GET /download/storage/v1/b/{bucket}/o/{key}?alt=media — sama
+       JSON API yang dipakai simpan, hanya tokennya lingkup BACA (menghemat
+       cakupan dibanding menuntut read_write utk sekadar membaca ulang). */
+    const token = await tokenAkses(sa);
+    const u = new URL(`https://storage.googleapis.com/download/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(key)}`);
+    u.searchParams.set('alt', 'media');
+    const res = await fetch(u.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) {
+      const teks = await res.text().catch(() => '');
+      throw new Error(`GCS menolak unduhan (HTTP ${res.status}): ${teks.slice(0, 160)}`);
+    }
+    return {
+      content: Buffer.from(await res.arrayBuffer()),
+      mime: (res.headers.get('content-type') ?? '').split(';')[0].trim() || null,
+    };
+  },
 };
 
 daftarkanPenyedia(gcsAdapter);
