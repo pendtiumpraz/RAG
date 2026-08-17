@@ -36,6 +36,8 @@ const DIKECUALIKAN: Record<string, string> = {
     'kuitansi: satu dokumen cetak, memenggalnya akan menghasilkan bukti bayar yang tak utuh',
   'src/app/(app)/settings/TwoFactor.tsx':
     'tata letak kunci-nilai (tanpa thead), bukan daftar',
+  'src/app/(app)/settings/Penyimpanan.tsx':
+    'daftar koneksi penyimpanan PER-USER — kecil dan terbatas (paling banyak beberapa), memenggal/menyaringnya justru menyulitkan orang melihat semua koneksinya sendiri sekaligus',
   'src/app/_components/answer-blocks.tsx':
     'blok tabel di dalam jawaban chat — isinya dari model, sudah dibatasi 5 kolom di blocks.ts',
   'src/app/status/page.tsx':

@@ -10,6 +10,8 @@ import { Select } from '../../_components/select';
 import Integrations from './Integrations';
 import Peringatan from './Peringatan';
 import TwoFactor from './TwoFactor';
+import Penyimpanan from './Penyimpanan';
+import PanelPenyediaStorage from './PanelPenyediaStorage';
 import { toggleTheme } from '../../providers';
 
 interface Settings { active: { themeConfig: { theme?: { signal?: string; source?: string } } | null } | null }
@@ -84,10 +86,17 @@ export default function SettingsPage() {
 
       <TwoFactor />
 
+      {/* BYOB: seluruh anggota tenant mengelola koneksi penyimpanan objeknya.
+          Diletakkan sebelum panel SSO & superadmin — ini satu-satunya panel
+          yang dipakai siapa pun yang punya data di bucket sendiri. */}
+      <Penyimpanan />
+
       <PanelSso />
       {session?.user?.role === 'superadmin' && <PanelLisensi />}
       {session?.user?.role === 'superadmin' && <PanelRetrieval />}
       {session?.user?.role === 'superadmin' && <PanelKonektor />}
+      {/* Saklar penyedia BYOB — superadmin saja, plus saklar konektor di atasnya. */}
+      {session?.user?.role === 'superadmin' && <PanelPenyediaStorage />}
       {session?.user?.role === 'superadmin' && <PanelDemo />}
       {session?.user?.role === 'superadmin' && <MailSettings />}
     </>

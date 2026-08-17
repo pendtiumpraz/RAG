@@ -133,9 +133,18 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
      SELISIH. Angkanya tak bergerak sama sekali, dan itu memang yang
      diharapkan — 0049 hanya menambah KOLOM pada tabel yang sudah ada,
      sementara patokan ini melacak objek (tabel, indeks, kebijakan, RLS).
-     Layak dicatat justru karena "tak ada yang berubah" adalah hasil yang
-     paling gampang dipalsukan tanpa menjalankan apa pun. */
-  assert.equal(terakhir, '0049_saluran_peringatan.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+
+     Migrasi 0050 (BYOB penyimpanan objek) + 0051 (saklar penyedia)
+     diperiksa 17 Agu 2026 dengan `npm run dr:verify` sungguhan: 34 tabel · 120
+     indeks · 39 kebijakan · RLS di 25 tabel, ENAM objek baru — SEMUANYA
+     terjelaskan migrasi ter-commit, nol hanyutan liar. Objek barunya: tabel
+     storage_connections, indeks idx_storage_connections_{deleted_at,scope},
+     uq_storage_connections_user_provider_label, kebijakan
+     storage_connections.tenant_isolation, dan RLS aktif storage_connections.
+     0051 hanya menambah SATU KOLOM (enabled_storage_providers) pada tabel
+     yang sudah ada, jadi tak menggerakkan angka patokan. Patokan disegarkan
+     dengan `npm run dr:verify -- --tulis`. */
+  assert.equal(terakhir, '0051_storage_providers_toggle.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('divisions'));
   assert.ok(patokan.tabel.includes('rate_buckets'));
   assert.ok(patokan.indeks.includes('idx_conversations_chatbot_started'),
