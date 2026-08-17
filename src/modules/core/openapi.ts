@@ -930,6 +930,51 @@ export const openApiSpec = {
         ],
         responses: { 202: json({ $ref: '#/components/schemas/JobStatus' }) } },
     },
+    '/api/storage': {
+      get: { summary: 'Penyimpanan objek terhubung user (BYOB) + penyedia yang boleh dipilih',
+        security: [sessionAuth],
+        description: '`daftar` TANPA rahasia: hanya lingkup akun (bucket, region, dst.) dan '
+          + '`hasCredentials: boolean`. Kredensial tak pernah kembali. `pilihanPenyedia` hanya '
+          + 'memuat penyedia yang AKTIF (saklar superadmin) + platform blob yang selalu ada — '
+          + 'yang dimatikan tak muncul, sehingga pelanggan tak melihat form yang ditolaknya.',
+        responses: { 200: err('{ daftar, pilihanPenyedia }') } },
+      post: { summary: 'Hubungkan penyimpanan objek BARU (S3/R2/GCS/Azure/s3-compat)',
+        security: [sessionAuth],
+        description: '`credentials` dikirim POLOS sekali lewat HTTPS lalu dienkripsi '
+          + 'AES-256-GCM di server; yang polos tak pernah menyentuh basis data dan tak pernah '
+          + 'dikirim balik. `scoping` diturunkan SERVER dari kredensial (bukan dipercaya dari '
+          + 'klien) — memastikan rahasia tak pernah hijrah ke kolom yang tampil. Penyedia yang '
+          + 'dimatikan superadmin ditolak (422) untuk non-superadmin; superadmin boleh apa pun.',
+        requestBody: json(obj({ provider: str, label: str, credentials: { type: 'object' }, isDefault: { type: 'boolean' } }, ['provider'])),
+        responses: { 201: err('{ storage }'), 400: err('input tidak valid'), 422: err('penyedia dinonaktifkan / kredensial tak lengkap') } },
+    },
+    '/api/storage/{id}': {
+      put: { summary: 'Ubah label & kredensial penyimpanan BYOB', security: [sessionAuth],
+        description: 'Kredensial tak dikirim balik server, jadi EDIT = isi ulang penuh. '
+          + '`scoping` diturunkan ulang dari isian itu. Periksa saklar superadmin seperti POST.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ provider: str, label: str, credentials: { type: 'object' }, isDefault: { type: 'boolean' } }, ['provider'])),
+        responses: { 200: err('{ storage }'), 404: err('penyimpanan tidak ditemukan'), 422: err('penyedia dinonaktifkan') } },
+      post: { summary: 'UJI koneksi nyata ke penyedia (panggil bucket), lalu catat hasilnya',
+        security: [sessionAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok, detail? reason? }'), 404: err('penyimpanan tidak ditemukan'), 422: err('penyedia dinonaktifkan') } },
+      delete: { summary: 'Lepas penyimpanan BYOB (soft-delete)', security: [sessionAuth],
+        description: 'Kredensial & lingkupnya ditandai terhapus; tak bisa dipulihkan dari UI.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }') } },
+    },
+    '/api/admin/storage-providers': {
+      get: { summary: 'SUPERADMIN: saklar penyedia BYOB yang terbuka + labelnya', security: [sessionAuth],
+        responses: { 200: err('{ enabled, penyedia: [{ provider, nyala, label }] }') } },
+      put: { summary: 'SUPERADMIN: nyalakan/matikan penyedia BYOB platform-lebar', security: [sessionAuth],
+        description: 'Peta yang disimpan dipotong ke 5 penyedia yang dikenal — kunci tak '
+          + 'dikenal dibuang, tak disimpan. `platform` (blob Vercel) SELALU tersedia dan tak '
+          + 'pernah bisa dimatikan. Penyedia yang dimatikan langsung tak muncul di form '
+          + 'pelanggan, tapi koneksi yang SUDAH ADA tetap dipakai.',
+        requestBody: json(obj({ enabled: { type: 'object' } }, ['enabled'])),
+        responses: { 200: err('{ ok, enabled }'), 400: err('input tidak valid') } },
+    },
     '/api/settings/test-key': {
       post: {
         summary: 'Uji kunci API TERSIMPAN ke penyedia (endpoint daftar model, tanpa biaya token)',

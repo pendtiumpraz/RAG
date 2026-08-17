@@ -749,6 +749,17 @@ export const platformSettings = pgTable('platform_settings', {
    * seluruh konektor pada detik ia lahir. NULL = semua pakai bawaan.
    */
   connectorsEnabled: jsonb('connectors_enabled').$type<Record<string, boolean>>(),
+  /**
+   * SAKLAR PENYEDIA PENYIMPANAN (migrasi 0051): peta provider -> boolean.
+   *
+   * Superadmin memilih penyedia BYOB mana yang boleh dipakai platform-lebar.
+   * Kunci yang HILANG berarti 'pakai bawaan' (TERNYALAKAN), bukan 'mati' —
+   * kalau hilang berarti mati, kolom ini bakal mematikan seluruh penyedia
+   * pada detik ia lahir, termasuk yang sudah dipakai pelanggan. 'platform'
+   * (blob Vercel) SELALU tersedia dan tak pernah disentuh kolom ini.
+   */
+  enabledStorageProviders: jsonb('enabled_storage_providers')
+    .$type<Record<string, boolean>>(),
   ...stamps,
 });
 
@@ -1026,6 +1037,49 @@ export const oauthConnections = pgTable('oauth_connections', {
   /** Multi-akun: satu koneksi hidup per (user, provider, email) — migrasi 0006. */
   uqAccount: uniqueIndex('uq_oauth_connections_user_provider_account')
     .on(t.userId, t.provider, t.accountEmail).where(sql`deleted_at IS NULL`),
+})).enableRLS();
+
+/* ── BYOB penyimpanan objek per-user (S3/R2/GCS/Azure…) ────────────── */
+/**
+ * KREDENSIAL BYOB — penyimpanan objek MILIK USER (bring-your-own-blob).
+ *
+ * Analog per-user dari oauthConnections, tetapi untuk penyimpanan objek:
+ * AWS S3, Cloudflare R2, Google Cloud Storage (GCS), Azure Blob, dan
+ * penyimpanan S3-compatible lain. Satu baris = SATU kredensial terenkripsi
+ * yang bisa dipakai ulang oleh banyak sumber/unggahan — beda dari konektor
+ * `s3` lama yang menyimpan kunci per-sumber di data_sources.config.
+ *
+ * Kredensial disatukan dalam `encryptedCredentials` (AES-256-GCM, pola
+ * core/crypto) dan TAK PERNAH dikirim balik ke peramban — API hanya
+ * melaporkan ada/tidak sertanya lewat `hasKey: boolean`.
+ *
+ * `isDefault` menandai penyimpanan yang dipakai untuk unggahan langsung ke
+ * KB bila tak ada yang lebih spesifik. Bagi SUPERADMIN platform blob (dari
+ * env BLOB_STORE_ID/BLOB_READ_WRITE_TOKEN) tetap jadi bawaan dan TIDAK
+ * pernah tersimpan di tabel ini.
+ */
+export const storageConnections = pgTable('storage_connections', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  /** 's3' | 'r2' | 'gcs' | 'azure' | 's3-compat' | 'platform'
+   *  'platform' TIDAK pernah tersimpan — hanya didefinisikan adapter-nya. */
+  provider: text('provider').notNull(),
+  /** Nama tampilan yang dipilih user, mis. "Bucket produksi perusahaan". */
+  label: text('label'),
+  /** Info lingkup/akun TANPA rahasia: bucket, endpoint, awalan, dsb. */
+  scoping: jsonb('scoping').$type<Record<string, unknown>>().default({}).notNull(),
+  /** JSON kredensial TERENKRIPSI AES-256-GCM (accessKeyId, secret…). */
+  encryptedCredentials: text('encrypted_credentials').notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  lastCheckedAt: timestamp('last_checked_at'),
+  lastError: text('last_error'),
+  ...stamps,
+}, (t) => ({
+  scopeIdx: index('idx_storage_connections_scope').on(t.tenantId, t.userId),
+  delIdx: index('idx_storage_connections_deleted_at').on(t.deletedAt),
+  uqUser: uniqueIndex('uq_storage_connections_user_provider_label')
+    .on(t.userId, t.provider, sql`coalesce(label, '')`).where(sql`deleted_at IS NULL`),
 })).enableRLS();
 
 /* ── audit log (Guardrail L5) ──────────────────────────────────────── */

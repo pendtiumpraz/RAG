@@ -53,6 +53,10 @@ export const TENANT_TABLES = [
   'api_keys',
   'webhooks',
   'oauth_connections',
+  /* Penyimpanan objek BYOB (S3/R2/GCS/Azure…) per-user — ikut pindah bersama
+     tenantnya: kredensialnya milik pelanggan, dan meninggalkannya berarti
+     memutus akses mereka ke bucket yang sudah mereka konfigurasi. */
+  'storage_connections',
   'usage_counters',
   'payments',
   'audit_logs',

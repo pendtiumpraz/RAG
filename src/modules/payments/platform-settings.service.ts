@@ -33,6 +33,12 @@ export interface PlatformConfig {
   planPrices: Record<string, number>;
   /** null = belum diisi. Halaman kuitansi mengatakannya apa adanya. */
   billingIdentity: BillingIdentity | null;
+  /**
+   * Saklar penyedia BYOB (migrasi 0051). Peta provider -> boolean; kunci yang
+   * HILANG berarti 'pakai bawaan' (terbuka). 'platform' selalu tersedia dan
+   * tak pernah ada di sini.
+   */
+  enabledStorageProviders: Record<string, boolean>;
 }
 
 const TTL = 30_000;
@@ -45,6 +51,11 @@ const DEFAULTS: PlatformConfig = {
      akan tercetak di kuitansi yang masuk pembukuan pelanggan — kesalahan yang
      baru ketahuan saat auditor menanyakannya. Kosong lebih jujur. */
   billingIdentity: null,
+  /* Penyedia S3/R2/GCS/Azure/S3-compat SEMUA tersedia sejak awal. Kunci yang
+     hilang dibaca sebagai 'terbuka' oleh storage.service yang disanggah
+     DEFAULTS ini — tak ada penyedia yang mati diam-diam. 'platform' tak ada
+     di sini karena ia selalu tersedia dan bukan togglable. */
+  enabledStorageProviders: { s3: true, r2: true, gcs: true, azure: true, 's3-compat': true },
 };
 
 export const platformSettingsService = {
@@ -59,6 +70,13 @@ export const platformSettingsService = {
           deploymentMode: row.deploymentMode === 'onprem' ? 'onprem' : 'saas',
           planPrices: row.planPrices ?? DEFAULTS.planPrices,
           billingIdentity: row.billingIdentity ?? null,
+          /* NULL di kolom = semua pakai bawaan (terbuka). Menggabung dengan
+             DEFAULTS membuat penyedia yang kuncinya HILANG di DB tetap
+             terbuka — sama seperti connectorsEnabled. */
+          enabledStorageProviders: {
+            ...DEFAULTS.enabledStorageProviders,
+            ...(row.enabledStorageProviders ?? {}),
+          },
         };
       }
     } catch (err) {
@@ -77,12 +95,14 @@ export const platformSettingsService = {
     deploymentMode?: DeploymentMode;
     planPrices?: Record<string, number>;
     billingIdentity?: BillingIdentity;
+    enabledStorageProviders?: Record<string, boolean>;
   }): Promise<PlatformConfig> {
     await db.insert(platformSettings).values({ id: 1 }).onConflictDoNothing();
     await db.update(platformSettings).set({
       ...(input.deploymentMode ? { deploymentMode: input.deploymentMode } : {}),
       ...(input.planPrices ? { planPrices: input.planPrices } : {}),
       ...(input.billingIdentity ? { billingIdentity: input.billingIdentity } : {}),
+      ...(input.enabledStorageProviders ? { enabledStorageProviders: input.enabledStorageProviders } : {}),
       updatedAt: new Date(),
     }).where(eq(platformSettings.id, 1));
     cache = null;

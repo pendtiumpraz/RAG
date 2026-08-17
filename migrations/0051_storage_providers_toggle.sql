@@ -1,0 +1,18 @@
+-- 0051 — SAKLAR PENYEDIA PENYIMPANAN (platform-lebar)
+--
+-- Superadmin memilih penyedia BYOB mana yang boleh dipakai di seluruh
+-- platform (Nalar: saklar konektor 0045 jadi polanya). Disimpan di
+-- platform_settings (bukan per-tenant): ini keputusan pemasangan, sama
+-- seperti mode deploy & harga plan.
+--
+-- Kunci yang HILANG berarti "pakai bawaan" (TERNYALAKAN), bukan "mati":
+-- kalau yang hilang berarti mati, kolom ini akan mematikan SELURUH penyedia
+-- pada detik ia dijalankan — setiap koneksi yang sudah ada berhenti bisa
+-- diuji/dipakai tanpa satu galat pun menjelaskan sebabnya.
+--
+-- NULL pada kolomnya juga berarti "semua pakai bawaan", jadi baris
+-- platform_settings yang sudah ada tak perlu disentuh.
+--
+-- 'platform' (blob Vercel dari env) SELALU tersedia dan tak pernah dikunci
+-- di sini — ia adalah bawaan aman bila pelanggan belum menghubungkan apa pun.
+alter table platform_settings add column if not exists enabled_storage_providers jsonb;

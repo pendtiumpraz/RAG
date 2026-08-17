@@ -38,7 +38,11 @@ const SOURCE_NAME = 'Unggahan manual';
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   ensureIntegrations();
-  const user = await requireRole('superadmin', 'admin');
+  // Anggota tenant boleh mengunggah ke KB milik TENANT-nya (RLS menjaga ia
+  // tak pernah menyentuh KB/tenant lain). Yang dulu hanya superadmin/admin
+  // kini dibuka ke member — unggahan langsung adalah jalur yang paling sering
+  // dipakai pemilik data yang belum punya storage terhubung.
+  const user = await requireRole('superadmin', 'admin', 'member');
   const { id: knowledgeBaseId } = await ctx.params;
 
   const kb = await withTenant(user.tenantId, async (tx) =>

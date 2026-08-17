@@ -95,7 +95,10 @@ function amankanRahasia(kind: string, config: Record<string, unknown>): Record<s
 /** POST /api/sources — hubungkan sumber → langsung antre sync pertama. */
 export async function POST(req: NextRequest) {
   ensureIntegrations();
-  const user = await requireRole('superadmin', 'admin');
+  // Buka ke member (RLS menjaga hanya tenant-nya sendiri yang terjangkau).
+  // Member kini boleh menghubungkan sumber & memakai BYOB storage mereka —
+  // konsisten dengan peran yang juga boleh mengunggah ke KB.
+  const user = await requireRole('superadmin', 'admin', 'member');
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
 
