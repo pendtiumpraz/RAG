@@ -10,6 +10,7 @@
  * sama untuk semua provider — apples to apples.
  */
 import type { SceneId } from './scene-text';
+import { umkm } from './decks-umkm';
 
 export type Slide =
   | { kind: 'cover'; kicker: string; title: string; subtitle: string; foot: string }
@@ -27,7 +28,7 @@ export type Slide =
   | { kind: 'closing'; title: string; subtitle: string; foot: string };
 
 export interface Deck {
-  id: 'hla' | 'technical' | 'business' | 'proposal';
+  id: 'hla' | 'technical' | 'business' | 'proposal' | 'umkm';
   /** Judul lengkap — dipakai judul dokumen & nama berkas ekspor PPTX. */
   label: string;
   /**
@@ -830,4 +831,5 @@ export const DECKS: Deck[] = [
   { id: 'technical', label: 'Pitch Deck — Technical', tab: 'Technical', slides: technical },
   { id: 'business', label: 'Pitch Deck — Business', tab: 'Business', slides: business },
   { id: 'proposal', label: 'Proposal — On-Premise 1 TB', tab: 'Proposal', slides: proposal },
+  { id: 'umkm', label: 'Proposal — UMKM Lite 500rb/bulan', tab: 'UMKM Lite', slides: umkm },
 ];
