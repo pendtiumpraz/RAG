@@ -22,6 +22,30 @@ npm run db:setup-role  # creates NOBYPASSRLS role `nalar_app` (RLS only works vi
 
 Unit tests stub `DATABASE_URL`/`CREDENTIALS_ENCRYPTION_KEY` at the top of the test file before dynamic-importing modules — follow that pattern for new tests.
 
+## Verification gate (lean)
+
+> Agar tiap commit kecil tidak memicu suite 900+ tes, gunakan gerbang verifikasi bertingkat ini. **`main` harus selalu hijau** (green).
+
+1. **Small/incremental (per-commit) → only typecheck:**
+   ```bash
+   npx tsc --noEmit
+   ```
+   Fast. Feature commits do **not** need the full suite every time.
+
+2. **Pre-merge / pre-push ke `main` → FULL suite + production build mesti lolos:**
+   ```bash
+   npm test                 # unit tests: node --import tsx --test tests/*.test.ts (~968 tests)
+   npm run build            # production build = next build (also the typecheck gate)
+   ```
+   Run both so `main` stays green. Every merge that touches `src/`, `tests/`, or `migrations/` must pass these before being pushed.
+
+3. **Optional lean gate on a feature branch** (kalau full suite terlalu lambat): lint + typecheck + the relevant tests only — but the **FULL** `npm test` + `npm run build` must still pass before merge/push to `main`.
+
+   ```bash
+   npm run lint && npx tsc --noEmit
+   node --import tsx --test tests/core.test.ts   # example: just the relevant file
+   ```
+
 ## Hard rules (loop/RULES-OF-THE-GAME.md — mandatory, no exceptions)
 
 The project follows the "Sainskerta Loop" workflow in `loop/`. The rules that shape all code here:
