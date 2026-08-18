@@ -5,7 +5,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { audit } from '@/modules/core/guardrails';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { platformSettingsService, yearlyPlanPrice } from './platform-settings.service';
-import { paymentGatewayService, type GatewayConfig, type PaymentProvider } from './payment-gateway.service';
+import { paymentGatewayService, type GatewayConfig, type PaymentProvider, type TripayEnv } from './payment-gateway.service';
 
 /**
  * ALUR PEMBAYARAN QRIS (D12) — create → tampil di halaman KITA → callback
@@ -93,6 +93,64 @@ async function chargeTripay(gw: GatewayConfig, ref: string, amount: number, plan
     qrImageUrl: j.data.qr_url ?? null,
     expiresAt: new Date((j.data.expired_time ?? 0) * 1000 || Date.now() + QR_EXPIRY_MIN * 60_000),
   };
+}
+
+/* ── uji koneksi TriPay (superadmin) ──────────────────────────────────
+ * Mengecek kredensial + channel QRIS TANPA membuat transaksi: panggil
+ * GET /merchant/payment-channel (Authorization: Bearer apiKey, tanpa
+ * signature). Ikuti logika proxy chargeTripay: lewat proxy bila diisi,
+ * langsung ke tripay.co.id bila kosong. */
+
+/** Murni: apakah ADA channel QRIS yang `active:true` di daftar payment-channel
+ *  TriPay. Kode QRIS nyata beragam (QRIS, QRISC, QRIS2) — cocokkan longgar. */
+export function qrisChannelActive(data: unknown): boolean {
+  if (!Array.isArray(data)) return false;
+  return data.some((c) => {
+    if (!c || typeof c !== 'object') return false;
+    const ch = c as { code?: unknown; name?: unknown; active?: unknown };
+    const isQris = /qris/i.test(String(ch.code ?? '')) || /qris/i.test(String(ch.name ?? ''));
+    return isQris && ch.active === true;
+  });
+}
+
+export interface TripayTestResult { ok: boolean; message: string; channelQrisActive: boolean }
+
+/** Uji env TriPay yang SUDAH tersimpan. Draf yang belum disimpan tak ikut
+ *  diuji — pengguna harus Simpan dulu. Rahasia tak pernah keluar dari sini. */
+export async function testTripayConnection(env: TripayEnv): Promise<TripayTestResult> {
+  const envs = await paymentGatewayService.getTripayEnvs();
+  const e = envs?.envs[env];
+  if (!e?.apiKey || !e?.privateKey) {
+    return { ok: false, channelQrisActive: false,
+      message: `Kredensial TriPay ${env} belum lengkap — isi API Key & Private Key lalu simpan dulu.` };
+  }
+  const path = env === 'sandbox' ? '/api-sandbox' : '/api';
+  const proxyUrl = (e.proxyUrl ?? '').trim();
+  const base = proxyUrl ? proxyUrl.replace(/\/+$/, '') + path : `https://tripay.co.id${path}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/merchant/payment-channel`, {
+      headers: { Authorization: `Bearer ${e.apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (err) {
+    const why = (err as Error).message;
+    return { ok: false, channelQrisActive: false,
+      message: proxyUrl ? `Proxy tidak tercapai: ${why}` : `TriPay tidak tercapai: ${why}` };
+  }
+
+  let j: { success?: boolean; message?: string; data?: unknown };
+  try { j = await res.json(); }
+  catch { return { ok: false, channelQrisActive: false, message: `Respons TriPay tak terbaca (HTTP ${res.status})` }; }
+
+  if (!res.ok || !j.success) {
+    return { ok: false, channelQrisActive: false, message: `TriPay menolak: ${j.message ?? `HTTP ${res.status}`}` };
+  }
+
+  const channelQrisActive = qrisChannelActive(j.data);
+  return { ok: true, channelQrisActive,
+    message: channelQrisActive ? 'Terhubung • QRIS aktif' : 'Terhubung • tapi channel QRIS nonaktif' };
 }
 
 async function chargeXendit(gw: GatewayConfig, ref: string, amount: number): Promise<ChargeResult> {
