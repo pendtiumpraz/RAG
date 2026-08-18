@@ -11,12 +11,10 @@ import { Skeleton, ErrorState } from '../../../../_components/ui';
  * 3 dtk (webhook yang menandai paid; poll juga menarik status provider
  * sebagai pelindung).
  *
- * Sumber QR UTAMA adalah `qr_string` (payload QRIS resmi dari TriPay). Kita
- * gambar sendiri via `qrcode` pada error-correction level H (recovery ~30%),
- * lalu menumpuk LOGO QRIS resmi di tengah — inilah "QRIS berlogo" yang benar.
- * `qr_url` TriPay hanyalah QR polos hitam-putih tanpa logo, jadi kini cuma
- * dipakai sebagai fallback bila `qr_string` tak tersedia. QR tetap valid
- * dipindai: EC level H menoleransi logo kecil di tengah.
+ * Sumber QR UTAMA adalah `qrImageUrl` — GAMBAR QRIS resmi dari provider
+ * (TriPay `qr_url`, sudah berlogo QRIS). Kita pakai langsung via <img>, tidak
+ * generate/render sendiri. `qr_string` cuma fallback untuk provider yang tak
+ * memberi URL gambar (mis. Xendit): di situ kita render QR polos via `qrcode`.
  */
 
 interface Payment {
@@ -50,45 +48,20 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
     return () => clearInterval(t);
   }, [data?.expiresAt, data?.status]);
 
-  // gambar QRIS berlogo dari qr_string: QR (EC level H) + logo QRIS di tengah
+  // fallback: render QR polos dari qr_string HANYA bila provider tak memberi
+  // gambar resmi (qrImageUrl). TriPay selalu memberi qr_url → cabang ini idle.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !data?.qrString || data.status !== 'pending') return;
+    if (!canvas || data?.qrImageUrl || !data?.qrString || data.status !== 'pending') return;
     let cancelled = false;
-    void import('qrcode').then(async (QR) => {
+    void import('qrcode').then((QR) => {
       if (cancelled) return;
-      // Skannabilitas dulu, baru estetika. Empat setelan yang menentukan
-      // apakah kamera HP asli bisa membacanya (jsQR di bitmap bersih terlalu
-      // longgar untuk jadi patokan):
-      //  • margin 4 → quiet-zone wajib EMVCo/QRIS (margin 2 sebelumnya di
-      //    bawah spek → sebagian scanner gagal kunci).
-      //  • dark #000000 → kontras maksimum; navy #0F172A menurunkan margin
-      //    kontras di ambang beberapa scanner.
-      //  • width 640 lalu ditampilkan 320px (supersample 2:1) → modul tajam,
-      //    bukan blur akibat CSS downscale non-integer (320→280 dulu).
-      //  • EC level H → recovery ~30%, menutup logo kecil di tengah.
-      await QR.toCanvas(canvas, data.qrString!, {
-        errorCorrectionLevel: 'H', width: 640, margin: 4,
-        color: { dark: '#000000', light: '#FFFFFF' },
+      void QR.toCanvas(canvas, data.qrString!, {
+        width: 320, margin: 2, color: { dark: '#0F172A', light: '#FFFFFF' },
       });
-      if (cancelled) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const logo = new Image();
-      logo.onload = () => {
-        if (cancelled) return;
-        const W = canvas.width;               // kanvas persegi (W === H)
-        const lw = W * 0.22;                  // lebar logo 22% — okupansi ~7% luas, aman di bawah EC-H
-        const lh = lw / (logo.width / logo.height);
-        const pad = W * 0.045;                // bantalan putih sekeliling logo
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect((W - lw) / 2 - pad, (W - lh) / 2 - pad, lw + pad * 2, lh + pad * 2);
-        ctx.drawImage(logo, (W - lw) / 2, (W - lh) / 2, lw, lh);
-      };
-      logo.src = '/qris-logo.svg';
     });
     return () => { cancelled = true; };
-  }, [data?.qrString, data?.status]);
+  }, [data?.qrImageUrl, data?.qrString, data?.status]);
 
   if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
   if (!data) return <div className="card"><Skeleton rows={4} /></div>;
@@ -112,11 +85,11 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
           {data.status === 'pending' && (
             <>
               <div className="pay-qrbox">
-                {data.qrString
-                  ? <canvas ref={canvasRef} style={{ width: 320, height: 320 }} />
-                  : data.qrImageUrl
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={data.qrImageUrl} alt="QRIS" width={320} height={320} style={{ objectFit: 'contain' }} />
+                {data.qrImageUrl
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={data.qrImageUrl} alt="QRIS" width={320} height={320} style={{ objectFit: 'contain' }} />
+                  : data.qrString
+                    ? <canvas ref={canvasRef} style={{ width: 320, height: 320 }} />
                     : <span className="microlabel">QR TIDAK TERSEDIA — COBA BUAT ULANG</span>}
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: 380, lineHeight: 1.6 }}>
