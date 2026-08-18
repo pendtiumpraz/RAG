@@ -103,6 +103,10 @@ test('hanya /c yang boleh dibingkai; sisanya tidak', () => {
   assert.ok(/frame-ancestors \*/.test(CFG), 'mode inline akan diblokir peramban');
   assert.ok(/X-Frame-Options/.test(CFG) && /frame-ancestors 'none'/.test(CFG),
     'sisa aplikasi masih bisa dibingkai siapa pun');
-  assert.ok(/source: '\/\(\(\?\!c\/\)\.\*\)'/.test(CFG),
-    'aturan larangan framing tidak mengecualikan /c — mode inline akan mati');
+  // /c DAN /plugin (panel admin embed) sengaja boleh dibingkai; keduanya wajib
+  // dikecualikan dari aturan larangan framing, kalau tidak header DENY ikut
+  // terkirim dan iframe-nya mati.
+  assert.ok(/source: '\/plugin\/:path\*'/.test(CFG), 'panel plugin tak dinyatakan boleh dibingkai');
+  assert.ok(/source: '\/\(\(\?\!c\/\|plugin\)\.\*\)'/.test(CFG),
+    'aturan larangan framing tidak mengecualikan /c & /plugin — mode inline / panel akan mati');
 });

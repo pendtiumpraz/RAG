@@ -41,14 +41,24 @@ const nextConfig = {
         headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }],
       },
       {
+        /* Panel admin plugin (embed-plugin-panel): halaman white-label yang
+           SENGAJA disematkan di situs pemilik chatbot lewat iframe. Sama
+           seperti /c/*, dibolehkan dibingkai lintas origin. Auth-nya sesi
+           NextAuth + RLS tenant seperti biasa; keamanannya bukan dari larangan
+           iframe. */
+        source: '/plugin/:path*',
+        headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }],
+      },
+      {
         /* SISANYA tak boleh dibingkai sama sekali. Sebelumnya tak ada
            proteksi apa pun — dasbor bisa ditumpuk di bawah halaman penyerang
            dan kliknya dicuri (clickjacking). Selama tak ada iframe yang
            dipakai produk ini, celah itu tak kentara; begitu iframe jadi pola
            resmi lewat mode inline, membiarkannya terbuka jadi kelalaian.
            Dua header sekaligus: frame-ancestors untuk peramban modern,
-           X-Frame-Options untuk yang belum mendukungnya. */
-        source: '/((?!c/).*)',
+           X-Frame-Options untuk yang belum mendukungnya. `/plugin` & `/c/`
+           dikecualikan — keduanya memang untuk dibingkai. */
+        source: '/((?!c/|plugin).*)',
         headers: [
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
           { key: 'X-Frame-Options', value: 'DENY' },
