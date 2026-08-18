@@ -57,10 +57,19 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
     let cancelled = false;
     void import('qrcode').then(async (QR) => {
       if (cancelled) return;
-      // EC level H → recovery ~30%, cukup untuk menutup logo kecil di tengah
+      // Skannabilitas dulu, baru estetika. Empat setelan yang menentukan
+      // apakah kamera HP asli bisa membacanya (jsQR di bitmap bersih terlalu
+      // longgar untuk jadi patokan):
+      //  • margin 4 → quiet-zone wajib EMVCo/QRIS (margin 2 sebelumnya di
+      //    bawah spek → sebagian scanner gagal kunci).
+      //  • dark #000000 → kontras maksimum; navy #0F172A menurunkan margin
+      //    kontras di ambang beberapa scanner.
+      //  • width 640 lalu ditampilkan 320px (supersample 2:1) → modul tajam,
+      //    bukan blur akibat CSS downscale non-integer (320→280 dulu).
+      //  • EC level H → recovery ~30%, menutup logo kecil di tengah.
       await QR.toCanvas(canvas, data.qrString!, {
-        errorCorrectionLevel: 'H', width: 320, margin: 2,
-        color: { dark: '#0F172A', light: '#FFFFFF' },
+        errorCorrectionLevel: 'H', width: 640, margin: 4,
+        color: { dark: '#000000', light: '#FFFFFF' },
       });
       if (cancelled) return;
       const ctx = canvas.getContext('2d');
@@ -69,9 +78,9 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
       logo.onload = () => {
         if (cancelled) return;
         const W = canvas.width;               // kanvas persegi (W === H)
-        const lw = W * 0.28;                  // lebar logo 28% dari QR
+        const lw = W * 0.22;                  // lebar logo 22% — okupansi ~7% luas, aman di bawah EC-H
         const lh = lw / (logo.width / logo.height);
-        const pad = W * 0.035;                // bantalan putih sekeliling logo
+        const pad = W * 0.045;                // bantalan putih sekeliling logo
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect((W - lw) / 2 - pad, (W - lh) / 2 - pad, lw + pad * 2, lh + pad * 2);
         ctx.drawImage(logo, (W - lw) / 2, (W - lh) / 2, lw, lh);
@@ -104,10 +113,10 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
             <>
               <div className="pay-qrbox">
                 {data.qrString
-                  ? <canvas ref={canvasRef} style={{ width: 280, height: 280 }} />
+                  ? <canvas ref={canvasRef} style={{ width: 320, height: 320 }} />
                   : data.qrImageUrl
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={data.qrImageUrl} alt="QRIS" width={280} height={280} style={{ objectFit: 'contain' }} />
+                    ? <img src={data.qrImageUrl} alt="QRIS" width={320} height={320} style={{ objectFit: 'contain' }} />
                     : <span className="microlabel">QR TIDAK TERSEDIA — COBA BUAT ULANG</span>}
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: 380, lineHeight: 1.6 }}>

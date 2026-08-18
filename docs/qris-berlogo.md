@@ -36,10 +36,23 @@ Alur render di `pay/[id]/page.tsx`:
 ### Kenapa tetap valid dipindai
 
 QR level H bisa memulihkan hingga ~30% modul yang tertutup. Logo di tengah
-hanya menutup **~6% luas** QR (kotak logo 28% lebar × porsi tinggi wordmark),
+hanya menutup **~7% luas** QR (kotak logo 22% lebar × porsi tinggi wordmark),
 jauh di bawah ambang. Sudah diuji: payload di-generate → logo ditumpuk →
 di-decode ulang dengan `jsQR` → **payload cocok 100%** (round-trip valid).
-Jadi e-wallet / m-banking tetap bisa membacanya.
+
+> **Catatan skannabilitas (perbaikan 2026-08-19).** Round-trip `jsQR` pada
+> bitmap bersih terlalu longgar untuk mewakili kamera HP asli. Laporan "QRIS
+> masih salah" dari lapangan diperbaiki dengan mengencangkan empat setelan
+> render di `pay/[id]/page.tsx` — semuanya menaikkan margin baca di dunia nyata:
+>
+> | Setelan | Sebelum | Sesudah | Alasan |
+> |---|---|---|---|
+> | `margin` (quiet zone) | `2` | `4` | Spek EMVCo/QRIS wajib ≥4 modul; margin 2 di bawah spek → sebagian scanner gagal kunci. |
+> | `color.dark` | `#0F172A` (navy) | `#000000` | Kontras maksimum; navy menurunkan margin kontras di ambang beberapa scanner. |
+> | render `width` / tampil | 320px render, ditampilkan 280px | 640px render, ditampilkan 320px | Downscale CSS non-integer (320→280) memburamkan tepi modul; supersample 2:1 (640→320) menjaga modul tajam. |
+> | lebar logo | 28% | 22% | Okupansi turun ~12%→~7% luas, makin jauh di bawah ambang EC-H. |
+>
+> `qr_url` resmi TriPay tetap jadi **fallback** bila `qr_string` kosong.
 
 ## Aset logo
 
