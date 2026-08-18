@@ -826,6 +826,11 @@ export const openApiSpec = {
         requestBody: json(obj({ deploymentMode: str, planPrices: { type: 'object' }, gateway: { type: 'object' }, activate: str })),
         responses: { 200: err('{ ok }') } },
     },
+    '/api/admin/payment-settings/test-tripay': {
+      post: { summary: 'SUPERADMIN: uji koneksi TriPay env (sandbox/production) — cek kredensial + channel QRIS tanpa transaksi', security: [sessionAuth],
+        requestBody: json(obj({ env: str }, ['env'])),
+        responses: { 200: err('{ ok, message, channelQrisActive }') } },
+    },
     '/api/admin/conversations': {
       get: { summary: 'SUPERADMIN: sesi percakapan tenant mana pun (lintas-tenant, GUC 0017); chatbots=1 = daftar chatbot tenant',
         security: [sessionAuth],

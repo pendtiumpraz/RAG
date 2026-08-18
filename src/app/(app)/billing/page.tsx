@@ -393,27 +393,39 @@ function PaymentSettings() {
         <span className="microlabel">SEMUA DI DATABASE · TANPA ENV</span></div>
       <div className="card-pad stack gap-5">
 
-        {/* mode deploy */}
-        <div className="cluster gap-4" style={{ alignItems: 'flex-end' }}>
-          <Field label="Mode deploy" style={{ width: 260 }}><Select value={data.deploymentMode} disabled={busy}
+        {/* mode deploy + harga plan — tersusun rapi, tak lagi mengapit */}
+        <div className="stack gap-4">
+          <Field label="Mode deploy" style={{ maxWidth: 360 }}><Select value={data.deploymentMode} disabled={busy}
               onChange={(e) => void put({ deploymentMode: e.target.value }, 'Mode deploy tersimpan')}>
               <option value="saas">SaaS — pembayaran & kuota aktif</option>
               <option value="onprem">On-premise — bayar mati, semua unlimited</option>
-            </Select></Field>
-          {/* harga plan */}
-          {(['pro', 'enterprise'] as const).map((p) => (
-            <Field key={p} label={<>Harga {p} (IDR/bln)</>} style={{ width: 180 }}>
-              <input className="input" inputMode="numeric"
-                value={prices[p] ?? String(data.planPrices[p] ?? '')}
-                onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value.replace(/\D/g, '') }))}
-                onBlur={() => {
-                  const v = Number(prices[p]);
-                  if (v && v !== data.planPrices[p]) {
-                    void put({ planPrices: { ...data.planPrices, [p]: v } }, `Harga ${p} tersimpan`);
-                  }
-                }} />
-            </Field>
-          ))}
+            </Select>
+            <p className="microlabel" style={{ marginTop: 6 }}>
+              {data.deploymentMode === 'onprem'
+                ? 'ON-PREMISE — PEMBAYARAN NONAKTIF, SEMUA KUOTA TANPA BATAS.'
+                : 'SAAS — PEMBAYARAN & KUOTA AKTIF. HARGA DI BAWAH DIPAKAI DI HALAMAN UPGRADE.'}
+            </p>
+          </Field>
+
+          <div className="stack gap-2">
+            <span className="microlabel">HARGA PLAN (IDR / BULAN)</span>
+            <div className="grid g2">
+              {(['pro', 'enterprise'] as const).map((p) => (
+                <Field key={p} label={<>Harga {p === 'pro' ? 'Pro' : 'Enterprise'} (IDR/bulan)</>}>
+                  <input className="input mono" inputMode="numeric"
+                    value={prices[p] ?? String(data.planPrices[p] ?? '')}
+                    onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value.replace(/\D/g, '') }))}
+                    onBlur={() => {
+                      const v = Number(prices[p]);
+                      if (v && v !== data.planPrices[p]) {
+                        void put({ planPrices: { ...data.planPrices, [p]: v } }, `Harga ${p} tersimpan`);
+                      }
+                    }} />
+                </Field>
+              ))}
+            </div>
+            <p className="microlabel">DISKON TAHUNAN −20% DITERAPKAN OTOMATIS DI HALAMAN PEMBAYARAN.</p>
+          </div>
         </div>
 
         {/* gateway: pilih SATU aktif + kredensial per provider */}
@@ -496,11 +508,23 @@ function TripayCard({ g, busy, put, callbackUrl }: {
   const activeEnv = g.tripay?.activeEnv ?? 'production';
   const [env, setEnv] = useState<TripayEnv>(activeEnv);
   const [draft, setDraft] = useState<Record<TripayEnv, TripayDraft>>({ sandbox: {}, production: {} });
+  const [test, setTest] = useState<{ loading: boolean; ok?: boolean; msg?: string } | null>(null);
   const ev = g.tripay?.envs[env] ?? { merchantCode: '', proxyUrl: '', apiKeySet: false, privateKeySet: false, ready: false };
   const d = draft[env] ?? {};
   const set = (k: keyof TripayDraft, v: string) => setDraft((s) => ({ ...s, [env]: { ...s[env], [k]: v } }));
 
+  /* Uji kredensial + channel QRIS env yang TERSIMPAN — tak menyentuh draf. */
+  async function testConn() {
+    setTest({ loading: true });
+    try {
+      const r = await api<{ ok: boolean; message: string; channelQrisActive: boolean }>(
+        '/api/admin/payment-settings/test-tripay', { method: 'POST', body: JSON.stringify({ env }) });
+      setTest({ loading: false, ok: r.ok, msg: r.message });
+    } catch (e) { setTest({ loading: false, ok: false, msg: (e as Error).message }); }
+  }
+
   function save() {
+    setTest(null); // rotasi kredensial → hasil uji lama tak lagi berlaku
     const secrets: Record<string, string> = {};
     if (d.apiKey?.trim()) secrets.apiKey = d.apiKey.trim();
     if (d.privateKey?.trim()) secrets.privateKey = d.privateKey.trim();
@@ -529,7 +553,7 @@ function TripayCard({ g, busy, put, callbackUrl }: {
           {TRIPAY_ENVS.map((e) => (
             <button key={e.id} type="button"
               className={`btn btn-sm${env === e.id ? '' : ' btn-ghost'}`}
-              onClick={() => setEnv(e.id)}>
+              onClick={() => { setEnv(e.id); setTest(null); }}>
               {e.label}{e.id === activeEnv ? ' •' : ''}
             </button>
           ))}
@@ -565,7 +589,17 @@ function TripayCard({ g, busy, put, callbackUrl }: {
                 onClick={() => void put({ activateTripayEnv: env }, `TriPay ${TRIPAY_ENVS.find((e) => e.id === env)?.label} diaktifkan`)}>
                 Aktifkan {TRIPAY_ENVS.find((e) => e.id === env)?.label}
               </button>}
+          <button className={`btn btn-sm btn-ghost${test?.loading ? ' is-loading' : ''}`}
+            disabled={busy || test?.loading || !ev.ready}
+            title={ev.ready ? 'Cek kredensial & channel QRIS tanpa membuat transaksi'
+              : 'Isi API Key & Private Key lalu simpan dulu'}
+            onClick={testConn}>Testing Connection</button>
         </div>
+        {test && !test.loading && (
+          <span className={`badge ${test.ok ? 'badge-ok' : 'badge-danger'}`}>
+            <span className={`led ${test.ok ? 'led-live' : 'led-off'}`} />{test.msg}
+          </span>
+        )}
         <p className="microlabel" style={{ wordBreak: 'break-all' }}>
           CALLBACK URL (daftarkan di dashboard tripay):<br />{callbackUrl}
         </p>
