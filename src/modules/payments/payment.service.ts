@@ -4,7 +4,7 @@ import { db, payments, tenants } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { audit } from '@/modules/core/guardrails';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
-import { platformSettingsService } from './platform-settings.service';
+import { platformSettingsService, yearlyPlanPrice } from './platform-settings.service';
 import { paymentGatewayService, type GatewayConfig, type PaymentProvider } from './payment-gateway.service';
 
 /**
@@ -158,14 +158,24 @@ async function markStatus(provider: PaymentProvider, providerRef: string, status
 /* ── API service ──────────────────────────────────────────────────── */
 
 export const paymentService = {
-  /** Buat tagihan QRIS. Mode onprem = pembayaran mati (409 di route). */
-  async createQris(tenantId: string, userId: string, email: string, plan: string, months: number) {
+  /**
+   * Buat tagihan QRIS. Mode onprem = pembayaran mati (409 di route).
+   *
+   * `interval` (opsional) menang atas `months`:
+   *  'monthly' → 1 bulan, harga bulanan penuh.
+   *  'yearly'  → 12 bulan, harga bulanan ×12 −20% (yearlyPlanPrice).
+   * Tanpa `interval`, perilaku lama utuh: months bebas, amount = harga×months
+   * (dipakai pemanggil lama `{plan, months}`).
+   */
+  async createQris(tenantId: string, userId: string, email: string, plan: string, months: number, interval?: 'monthly' | 'yearly') {
     const cfg = await platformSettingsService.get();
     if (cfg.deploymentMode !== 'saas') throw new ValidationError('Pembayaran nonaktif pada mode on-premise');
     const price = cfg.planPrices[plan];
     if (!price) throw new ValidationError(`Plan tidak dikenal: ${plan}`);
-    const m = Math.min(Math.max(Math.trunc(months), 1), 12);
-    const amount = price * m;
+    let m = Math.min(Math.max(Math.trunc(months), 1), 12);
+    let amount = price * m;
+    if (interval === 'yearly') { m = 12; amount = yearlyPlanPrice(price); }
+    else if (interval === 'monthly') { m = 1; amount = price; }
 
     const gw = await paymentGatewayService.getActive();
     if (!gw) throw new ValidationError('Belum ada gateway pembayaran aktif — hubungi pengelola');

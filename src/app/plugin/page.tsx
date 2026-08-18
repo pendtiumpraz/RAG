@@ -154,11 +154,14 @@ function Panel() {
   const [sel, setSel] = useState<string | null>(null);
   const [tab, setTab] = useState<'embed' | 'kb' | 'billing'>('embed');
   const [err, setErr] = useState<string | null>(null);
+  /** Plan kedaluwarsa → banner mengarah ke tab Kuota & Bayar (di dalam panel). */
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     jget<Chatbot[]>('/api/chatbots')
       .then((r) => { setBots(r); if (r.length === 1) setSel(r[0].id); })
       .catch((e) => setErr((e as Error).message));
+    jget<Billing>('/api/billing').then((b) => setExpired(b.expired)).catch(() => { /* biarkan senyap */ });
   }, []);
 
   if (err) return <div className="np-wrap"><BrandBar onLogout={() => signOut({ callbackUrl: '/plugin' })} /><p className="np-err">{err}</p></div>;
@@ -169,6 +172,16 @@ function Panel() {
   return (
     <div className="np-wrap">
       <BrandBar onLogout={() => signOut({ callbackUrl: '/plugin' })} />
+
+      {expired && (
+        <div className="np-card" style={{ borderLeft: '3px solid #dc2626' }}>
+          <p style={{ margin: 0 }}><strong>Paket kedaluwarsa</strong> — chatbot berhenti menjawab. Perpanjang di Kuota &amp; Bayar.</p>
+          <button className="np-sm" style={{ marginTop: 8 }}
+            onClick={() => { setTab('billing'); if (!sel && bots.length) setSel(bots[0].id); }}>
+            Buka Kuota &amp; Bayar
+          </button>
+        </div>
+      )}
 
       {bots.length === 0 && (
         <div className="np-card"><p>Belum ada chatbot di akun ini. Buat chatbot dulu di dasbor Nalar utama, lalu kembali ke panel ini.</p></div>

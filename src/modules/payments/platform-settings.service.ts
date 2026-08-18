@@ -18,6 +18,25 @@ import { audit } from '@/modules/core/guardrails';
 
 export type DeploymentMode = 'saas' | 'onprem';
 
+/** Diskon langganan TAHUNAN vs 12× bulanan (20%). Bukan harga — boleh hardcode. */
+export const YEARLY_DISCOUNT = 0.2;
+
+/**
+ * Harga setahun: 12× bulanan dikurangi diskon, dibulatkan ke ribuan rupiah utuh
+ * (299.000 → 2.870.000). Sumber kebenaran harga tetap `planPrices` (bulanan);
+ * angka tahunan selalu DITURUNKAN dari sini, tak pernah disimpan terpisah.
+ */
+export function yearlyPlanPrice(monthlyPrice: number): number {
+  return Math.round((monthlyPrice * 12 * (1 - YEARLY_DISCOUNT)) / 1000) * 1000;
+}
+
+/** Peta harga tahunan diturunkan dari peta harga bulanan. */
+export function yearlyPlanPrices(planPrices: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(planPrices).map(([plan, price]) => [plan, yearlyPlanPrice(price)]),
+  );
+}
+
 /** Identitas penerbit kuitansi. Kosong = belum diisi, dan itu keadaan yang sah. */
 export interface BillingIdentity {
   legalName?: string;

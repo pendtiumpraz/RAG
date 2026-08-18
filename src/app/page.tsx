@@ -1,7 +1,15 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { platformSettingsService, yearlyPlanPrices } from '@/modules/payments/platform-settings.service';
+import { LandingPricing } from './_components/landing-pricing';
 import './landing.css';
+
+/* Harga dibaca server-side dari DB. Sebuah query DB biasa TIDAK membuat rute
+   dinamis, jadi tanpa ini Next mem-prerender harga saat BUILD (baku sampai
+   redeploy). ISR 1 jam: halaman tetap statis & cepat, tapi perubahan harga
+   oleh superadmin ikut dalam ≤1 jam tanpa deploy ulang. */
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   /**
@@ -77,8 +85,12 @@ const JSON_LD = {
   ],
 };
 
-/** Landing publik (bukan redirect ke login). Brand resmi Nalar. */
-export default function Landing() {
+/** Landing publik (bukan redirect ke login). Brand resmi Nalar.
+ *  Harga dibaca server-side dari DB (fallback DEFAULTS bila DB rewel), lalu
+ *  di-ISR per jam (lihat `revalidate`) — jujur tanpa biaya per-permintaan. */
+export default async function Landing() {
+  const cfg = await platformSettingsService.get();
+  const yearly = yearlyPlanPrices(cfg.planPrices);
   return (
     <>
       <script
@@ -99,7 +111,7 @@ export default function Landing() {
           <nav className="lp-nav-links">
             {/* Kebijakan Privasi ditautkan dari NAVIGASI ATAS, bukan hanya
                 footer — peninjau Google memeriksa keterjangkauannya. */}
-            <a href="#tentang">Tentang</a><a href="#data-google">Data Google</a>
+            <a href="#tentang">Tentang</a><a href="#harga">Harga</a><a href="#data-google">Data Google</a>
             <a href="/privacy">Privasi</a><a href="/terms">Ketentuan</a>
             <a href="#english" lang="en">English</a>
           </nav>
@@ -346,6 +358,9 @@ export default function Landing() {
           <Prop icon={<PathIc d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />} t="Cepat & Efisien" d="Temukan jawaban dari ribuan dokumen dalam hitungan detik." />
         </div>
       </section>
+
+      {/* HARGA — kartu paket + toggle bulanan/tahunan (harga dari DB). */}
+      <LandingPricing monthly={cfg.planPrices} yearly={yearly} />
 
       {/* FLOW */}
       <section className="lp-flow" id="cara">
