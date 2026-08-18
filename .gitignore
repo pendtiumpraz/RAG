@@ -14,3 +14,4 @@ scripts/_papan-tmp.mts
 server*.log
 services/embedding-server/node_modules/
 tsconfig.tsbuildinfo
+.vercel
