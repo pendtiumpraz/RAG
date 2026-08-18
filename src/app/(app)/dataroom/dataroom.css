@@ -123,16 +123,25 @@
   padding:18px; display:flex; flex-direction:column; gap:8px; }
 .as-overall{ background:var(--ink); border-color:var(--ink); }
 .as-overall .microlabel{ color:#93C5FD; }
-.as-overall b{ font-family:var(--font-display); font-size:46px; line-height:1; color:#fff; letter-spacing:-.03em; }
-.as-overall b small{ font-size:18px; color:#64748B; font-weight:600; }
+.as-og{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.as-ol{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.as-overall b{ font-family:var(--font-display); font-size:40px; line-height:1; color:#fff; letter-spacing:-.03em; }
+.as-overall b small{ font-size:16px; color:#64748B; font-weight:600; }
 .as-overall .delta{ font-family:var(--font-mono); font-size:11.5px; color:#34D399; }
-.as-dim b{ font-family:var(--font-display); font-size:30px; line-height:1; letter-spacing:-.02em; }
-/* pita kesiapan: ≥8 baik · 6–7,9 waspada · <6 bahaya (warna status, hanya utk ANGKA) */
-.as-dim b.ok, .sc.ok{ color:var(--ink); }
-.as-dim b.warn, .sc.warn{ color:var(--source); }
-.as-dim b.bad, .sc.bad{ color:var(--danger); }
+.as-overall .sub{ font-size:11.5px; color:#94A3B8; line-height:1.4; }
+/* kartu dimensi: cincin skor di atas, label & meta terpusat di bawah */
+.as-dim{ align-items:center; text-align:center; gap:6px; }
+.as-dim .microlabel{ line-height:1.3; }
+.as-dmeta{ font-family:var(--font-mono); font-size:10.5px; color:var(--faint); letter-spacing:.02em; }
+/* cincin skor SVG — dipakai KESELURUHAN & tiap dimensi */
+.as-gauge{ display:block; flex:none; }
+.as-gauge .as-gval{ font-family:var(--font-display); font-weight:700; letter-spacing:-.02em; }
+/* pita kesiapan: ≥8 baik · 6–7,9 waspada · <6 bahaya (warna status, utk ANGKA & batang area) */
+.sc.ok{ color:var(--ink); } .sc.warn{ color:var(--source); } .sc.bad{ color:var(--danger); }
 .meter{ display:block; height:6px; border-radius:3px; background:var(--card-3); overflow:hidden; }
 .meter > span{ display:block; height:100%; background:var(--signal); border-radius:3px; }
+.meter.warn > span{ background:var(--source); }
+.meter.bad > span{ background:var(--danger); }
 
 .as-sec{ background:var(--card); border:1px solid var(--line); border-radius:var(--rad-lg); padding:20px 22px; }
 .as-sec header{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -223,12 +232,47 @@
 .kb-tk.on.agent .n{ color:var(--signal); } .kb-tk.on.human .n{ color:var(--source); }
 .kb-sub{ margin:0; font-size:13px; color:var(--muted); }
 
-.kb-bar{ display:flex; align-items:center; gap:12px; }
-.kb-bar .meter{ flex:1; display:flex; height:6px; }
-/* dua segmen bersebelahan: selesai (hijau) lalu berjalan (biru), sisanya kosong */
-.kb-bar .fill-done{ background:var(--good-mark); }
-.kb-bar .fill-doing{ background:var(--signal); border-left:2px solid var(--card); }
-.kb-bar .mono{ font-family:var(--font-mono); font-size:11px; color:var(--faint); white-space:nowrap; }
+/* ── ringkasan visual di atas papan ─────────────────────────────────
+   Tiga sudut pandang: KEMAJUAN (batang bertumpuk status), TEKANAN (sebaran
+   prioritas), BEBAN (sebaran dimensi — barisnya sekaligus tombol saring). */
+.kb-stats{ display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:16px; align-items:start;
+  padding:13px 15px; background:var(--card-2); border:1px solid var(--line); border-radius:var(--rad-lg); }
+@media(max-width:760px){ .kb-stats{ grid-template-columns:1fr; gap:14px; } }
+.kb-stat{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+.kb-stat-h{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+.kb-stat-h > span:first-child{ font-size:11px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); }
+.kb-stat-h .mono{ font-family:var(--font-mono); font-size:10.5px; color:var(--faint); }
+/* batang bertumpuk status — celah 2px antar segmen via ring permukaan */
+.kb-stack{ display:flex; height:10px; border-radius:5px; overflow:hidden; background:var(--card-3); }
+.kb-stack > i{ display:block; height:100%; }
+.kb-stack > i + i{ box-shadow:-2px 0 0 var(--card-2); }
+.kb-stack .s-done{ background:var(--good-mark); }
+.kb-stack .s-doing{ background:var(--signal); }
+.kb-stack .s-todo{ background:var(--line-strong); }
+.kb-stack .empty{ width:100%; }
+.kb-legend{ display:flex; flex-wrap:wrap; gap:12px; font-size:11px; color:var(--muted); }
+.kb-legend span{ display:inline-flex; align-items:center; gap:5px; }
+.kb-legend b{ font-family:var(--font-mono); color:var(--ink); }
+.kb-legend i{ width:9px; height:9px; border-radius:2px; flex:none; }
+.kb-legend .d-done{ background:var(--good-mark); }
+.kb-legend .d-doing{ background:var(--signal); }
+.kb-legend .d-todo{ background:var(--line-strong); }
+/* sebaran prioritas / dimensi — baris mini-bar */
+.kb-dist{ display:flex; flex-direction:column; gap:5px; }
+.kb-distrow{ display:grid; grid-template-columns:66px 1fr 22px; gap:8px; align-items:center;
+  border:0; background:none; padding:0; font-family:inherit; text-align:left; }
+.kb-distrow > .kb-pri, .kb-distrow > .kb-dim{ justify-self:start; }
+.kb-distrow.lnk{ cursor:pointer; }
+.kb-distrow.lnk:hover .kb-dim{ color:var(--signal); border-color:var(--signal); }
+.kb-distrow.on .kb-dim{ background:var(--tint-signal); color:var(--signal); }
+.kb-distrow > b{ font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--muted); text-align:right; }
+.kb-dist .meter{ height:7px; }
+.kb-dist .meter > span.p-P0{ background:var(--danger); }
+.kb-dist .meter > span.p-P1{ background:var(--source); }
+.kb-dist .meter > span.p-P2{ background:var(--signal); }
+.kb-dist .meter > span.p-P3{ background:var(--line-strong); }
+@media print{ .kb-stats{ break-inside:avoid; } .kb-distrow.lnk{ cursor:default; } }
 
 .kb-board{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
 @media(max-width:900px){ .kb-board{ grid-template-columns:1fr; } }
