@@ -1,0 +1,90 @@
+/* Panel plugin — gaya self-contained, semua di bawah `.nplug`.
+   Tidak mewarisi shell aplikasi. Warna brand Nalar (D4v3) di-hardcode di sini
+   supaya panel tetap konsisten walau di-iframe di situs pihak ketiga yang
+   punya CSS sendiri. */
+
+.nplug {
+  --np-navy: #0f172a;
+  --np-blue: #2563eb;
+  --np-emerald: #059669;
+  --np-amber: #d97706;
+  --np-bg: #f8fafc;
+  --np-card: #ffffff;
+  --np-border: #e2e8f0;
+  --np-text: #0f172a;
+  --np-muted: #64748b;
+  --np-radius: 10px;
+
+  font-family: var(--font-ui), "Segoe UI", system-ui, sans-serif;
+  color: var(--np-text);
+  background: var(--np-bg);
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.nplug *, .nplug *::before, .nplug *::after { box-sizing: border-box; }
+
+.nplug .np-wrap { max-width: 760px; margin: 0 auto; }
+.nplug .np-card {
+  background: var(--np-card);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.nplug h1 { font-family: var(--font-display), inherit; font-size: 20px; margin: 0 0 4px; }
+.nplug h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+.nplug p { margin: 0 0 10px; }
+.nplug .np-muted { color: var(--np-muted); font-size: 13px; }
+.nplug .np-brandbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.nplug .np-logo { font-family: var(--font-display), inherit; font-weight: 700; font-size: 16px; color: var(--np-navy); }
+.nplug .np-logo b { color: var(--np-blue); }
+
+.nplug label { display: block; font-size: 12px; font-weight: 600; color: var(--np-muted); margin: 0 0 4px; }
+.nplug input, .nplug textarea, .nplug select {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--np-border);
+  border-radius: 8px; font: inherit; color: var(--np-text); background: #fff; margin-bottom: 12px;
+}
+.nplug textarea { min-height: 70px; resize: vertical; }
+.nplug input:focus, .nplug textarea:focus { outline: 2px solid var(--np-blue); outline-offset: -1px; }
+
+.nplug button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px;
+  padding: 9px 16px; border: 1px solid transparent; background: var(--np-blue); color: #fff;
+}
+.nplug button:disabled { opacity: 0.55; cursor: default; }
+.nplug button.np-ghost { background: transparent; color: var(--np-blue); border-color: var(--np-border); }
+.nplug button.np-danger { background: transparent; color: #dc2626; border-color: #fecaca; padding: 5px 10px; font-size: 12px; }
+.nplug button.np-sm { padding: 6px 12px; font-size: 13px; }
+
+.nplug .np-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.nplug .np-tab {
+  background: transparent; color: var(--np-muted); border: 1px solid var(--np-border);
+}
+.nplug .np-tab[aria-selected="true"] { background: var(--np-navy); color: #fff; border-color: var(--np-navy); }
+
+.nplug .np-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.nplug .np-row > * { margin-bottom: 0; }
+.nplug .np-list { list-style: none; padding: 0; margin: 0; }
+.nplug .np-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid var(--np-border);
+}
+.nplug .np-list li:last-child { border-bottom: none; }
+
+.nplug .np-snippet {
+  background: var(--np-navy); color: #e2e8f0; font-family: var(--font-mono), monospace;
+  font-size: 12px; padding: 12px; border-radius: 8px; word-break: break-all; margin-bottom: 8px;
+}
+.nplug .np-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.nplug .np-badge.ok { background: #d1fae5; color: var(--np-emerald); }
+.nplug .np-badge.warn { background: #fef3c7; color: var(--np-amber); }
+
+.nplug .np-err { color: #dc2626; font-size: 13px; margin: 0 0 12px; }
+.nplug .np-notice { color: var(--np-blue); font-size: 13px; margin: 0 0 12px; }
+.nplug .np-bar { height: 8px; background: var(--np-border); border-radius: 999px; overflow: hidden; margin: 6px 0 4px; }
+.nplug .np-bar > span { display: block; height: 100%; background: var(--np-blue); }
+.nplug .np-bar.full > span { background: var(--np-amber); }
+.nplug .np-tabbtns { display: flex; gap: 8px; margin-bottom: 14px; }
