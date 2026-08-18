@@ -9,9 +9,14 @@ import { Skeleton, ErrorState } from '../../../../_components/ui';
  * HALAMAN BAYAR QRIS — MILIK SENDIRI (D12): QR ditampilkan di sini memakai
  * design system, TIDAK redirect ke halaman gateway. Status di-poll tiap
  * 3 dtk (webhook yang menandai paid; poll juga menarik status provider
- * sebagai pelindung). Sumber QR UTAMA adalah `qr_url` (gambar QRIS resmi
- * TriPay) ditampilkan sebagai gambar; bila provider hanya memberi
- * `qr_string`, itu digambar lokal via `qrcode` sebagai fallback.
+ * sebagai pelindung).
+ *
+ * Sumber QR UTAMA adalah `qr_string` (payload QRIS resmi dari TriPay). Kita
+ * gambar sendiri via `qrcode` pada error-correction level H (recovery ~30%),
+ * lalu menumpuk LOGO QRIS resmi di tengah — inilah "QRIS berlogo" yang benar.
+ * `qr_url` TriPay hanyalah QR polos hitam-putih tanpa logo, jadi kini cuma
+ * dipakai sebagai fallback bila `qr_string` tak tersedia. QR tetap valid
+ * dipindai: EC level H menoleransi logo kecil di tengah.
  */
 
 interface Payment {
@@ -45,14 +50,35 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
     return () => clearInterval(t);
   }, [data?.expiresAt, data?.status]);
 
-  // fallback: gambar QR lokal dari qr_string bila qr_url tidak ada
+  // gambar QRIS berlogo dari qr_string: QR (EC level H) + logo QRIS di tengah
   useEffect(() => {
-    if (data?.qrImageUrl || !data?.qrString || !canvasRef.current || data.status !== 'pending') return;
-    void import('qrcode').then((QR) =>
-      QR.toCanvas(canvasRef.current!, data.qrString!, {
-        width: 280, margin: 2,
+    const canvas = canvasRef.current;
+    if (!canvas || !data?.qrString || data.status !== 'pending') return;
+    let cancelled = false;
+    void import('qrcode').then(async (QR) => {
+      if (cancelled) return;
+      // EC level H → recovery ~30%, cukup untuk menutup logo kecil di tengah
+      await QR.toCanvas(canvas, data.qrString!, {
+        errorCorrectionLevel: 'H', width: 320, margin: 2,
         color: { dark: '#0F172A', light: '#FFFFFF' },
-      }));
+      });
+      if (cancelled) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const logo = new Image();
+      logo.onload = () => {
+        if (cancelled) return;
+        const W = canvas.width;               // kanvas persegi (W === H)
+        const lw = W * 0.28;                  // lebar logo 28% dari QR
+        const lh = lw / (logo.width / logo.height);
+        const pad = W * 0.035;                // bantalan putih sekeliling logo
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect((W - lw) / 2 - pad, (W - lh) / 2 - pad, lw + pad * 2, lh + pad * 2);
+        ctx.drawImage(logo, (W - lw) / 2, (W - lh) / 2, lw, lh);
+      };
+      logo.src = '/qris-logo.svg';
+    });
+    return () => { cancelled = true; };
   }, [data?.qrString, data?.status]);
 
   if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
@@ -77,11 +103,11 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
           {data.status === 'pending' && (
             <>
               <div className="pay-qrbox">
-                {data.qrImageUrl
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  ? <img src={data.qrImageUrl} alt="QRIS" width={280} height={280} style={{ objectFit: 'contain' }} />
-                  : data.qrString
-                    ? <canvas ref={canvasRef} />
+                {data.qrString
+                  ? <canvas ref={canvasRef} style={{ width: 280, height: 280 }} />
+                  : data.qrImageUrl
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={data.qrImageUrl} alt="QRIS" width={280} height={280} style={{ objectFit: 'contain' }} />
                     : <span className="microlabel">QR TIDAK TERSEDIA — COBA BUAT ULANG</span>}
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: 380, lineHeight: 1.6 }}>
