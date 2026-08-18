@@ -1,4 +1,4 @@
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { and, eq, isNull, desc, sql } from 'drizzle-orm';
 import { db, payments, tenants } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
@@ -180,14 +180,19 @@ export const paymentService = {
     const gw = await paymentGatewayService.getActive();
     if (!gw) throw new ValidationError('Belum ada gateway pembayaran aktif — hubungi pengelola');
 
+    // Order id unik & pendek — dibuat LEBIH DULU dari uuid baru, bukan dari
+    // row.id: mencegah tumbukan pada unique (provider, provider_ref).
+    // Sebelumnya provider_ref diisi 'init' untuk SEMUA payment, lalu diganti
+    // setelah charge — dan karena ada uq_payments_provider_ref (partial,
+    // deleted_at IS NULL), dua percobaan bayar yang belum selesai bentrok
+    // ('init' duplikat) → 23505 → HTTP 500.
+    const ref = `NLR-${randomUUID().replace(/-/g, '').slice(0, 20)}`;
+
     const row = await withTenant(tenantId, async (tx) =>
       (await tx.insert(payments).values({
         tenantId, userId, plan, months: m, amount,
-        provider: gw.provider, providerRef: 'init',
+        provider: gw.provider, providerRef: ref,
       }).returning())[0]);
-
-    // order id unik & pendek — dibuat dari id payment (uuid tanpa strip)
-    const ref = `NLR-${row.id.replace(/-/g, '').slice(0, 20)}`;
     let charge: ChargeResult;
     try {
       charge = gw.provider === 'midtrans' ? await chargeMidtrans(gw, ref, amount)
