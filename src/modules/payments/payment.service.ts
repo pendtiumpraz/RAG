@@ -65,7 +65,9 @@ async function chargeMidtrans(gw: GatewayConfig, ref: string, amount: number): P
   };
 }
 
-async function chargeTripay(gw: GatewayConfig, ref: string, amount: number, plan: string, email: string): Promise<ChargeResult> {
+// method = kode channel TriPay. Default 'QRIS2' — kode QRIS TriPay yang benar
+// (kode 'QRIS' polos TIDAK di-enable → error "Payment channel is not enabled").
+async function chargeTripay(gw: GatewayConfig, ref: string, amount: number, plan: string, email: string, method = 'QRIS2'): Promise<ChargeResult> {
   const path = gw.publicConfig.sandbox ? '/api-sandbox' : '/api';
   // proxyUrl opsional: teruskan lewat VPS ber-IP statis agar TriPay melihat IP
   // tetap, bukan IP dinamis Vercel. Proxy meneruskan path yang sama ke TriPay.
@@ -78,7 +80,7 @@ async function chargeTripay(gw: GatewayConfig, ref: string, amount: number, plan
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${gw.secrets.apiKey}` },
     body: JSON.stringify({
-      method: 'QRIS', merchant_ref: ref, amount,
+      method, merchant_ref: ref, amount,
       customer_name: 'Tenant Nalar', customer_email: email,
       order_items: [{ name: `Nalar plan ${plan}`, price: amount, quantity: 1 }],
       expired_time: Math.floor(Date.now() / 1000) + QR_EXPIRY_MIN * 60,
@@ -225,7 +227,7 @@ export const paymentService = {
    * Tanpa `interval`, perilaku lama utuh: months bebas, amount = harga×months
    * (dipakai pemanggil lama `{plan, months}`).
    */
-  async createQris(tenantId: string, userId: string, email: string, plan: string, months: number, interval?: 'monthly' | 'yearly') {
+  async createQris(tenantId: string, userId: string, email: string, plan: string, months: number, interval?: 'monthly' | 'yearly', method?: string) {
     const cfg = await platformSettingsService.get();
     if (cfg.deploymentMode !== 'saas') throw new ValidationError('Pembayaran nonaktif pada mode on-premise');
     const price = cfg.planPrices[plan];
@@ -254,7 +256,7 @@ export const paymentService = {
     let charge: ChargeResult;
     try {
       charge = gw.provider === 'midtrans' ? await chargeMidtrans(gw, ref, amount)
-        : gw.provider === 'tripay' ? await chargeTripay(gw, ref, amount, plan, email)
+        : gw.provider === 'tripay' ? await chargeTripay(gw, ref, amount, plan, email, method)
         : await chargeXendit(gw, ref, amount);
     } catch (e) {
       await withTenant(tenantId, (tx) => tx.update(payments)

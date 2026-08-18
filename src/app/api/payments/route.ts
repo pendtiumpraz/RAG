@@ -17,6 +17,8 @@ const Body = z.object({
   months: z.number().int().min(1).max(12).default(1),
   /** Menang atas months bila diisi: monthly=1 bln, yearly=12 bln −20%. */
   interval: z.enum(['monthly', 'yearly']).optional(),
+  /** Kode channel TriPay (mis. QRIS2). Diteruskan apa adanya; default QRIS2. */
+  method: z.string().regex(/^[A-Z0-9]{2,20}$/).optional(),
 });
 
 /** POST /api/payments — buat tagihan QRIS (admin tenant). 409 saat on-prem. */
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest) {
   try {
     // email hanya dipakai Tripay sbg identitas pelanggan di dashboard mereka
     const r = await paymentService.createQris(
-      user.tenantId, user.id, 'billing@nalar.tenant', parsed.data.plan, parsed.data.months, parsed.data.interval);
+      user.tenantId, user.id, 'billing@nalar.tenant', parsed.data.plan, parsed.data.months, parsed.data.interval, parsed.data.method);
     return NextResponse.json(r, { status: 201 });
   } catch (e) {
     if (e instanceof ValidationError) {
