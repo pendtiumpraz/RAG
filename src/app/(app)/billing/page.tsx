@@ -354,6 +354,7 @@ const GATEWAY_FIELDS: Record<string, Array<{ key: string; label: string; secret:
     { key: 'apiKey', label: 'API Key', secret: true },
     { key: 'privateKey', label: 'Private Key', secret: true },
     { key: 'merchantCode', label: 'Kode Merchant', secret: false },
+    { key: 'proxyUrl', label: 'Proxy URL (opsional — IP statis lalu lintas API TriPay, mis. http://43.156.122.83:8888)', secret: false },
   ],
   xendit: [
     { key: 'secretKey', label: 'Secret Key', secret: true },
