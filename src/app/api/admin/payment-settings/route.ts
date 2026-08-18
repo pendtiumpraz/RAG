@@ -36,14 +36,18 @@ const Body = z.object({
     email: z.string().max(200).optional(),
     phone: z.string().max(60).optional(),
   }).optional(),
-  /** simpan kredensial satu provider (secrets kosong = pertahankan) */
+  /** simpan kredensial satu provider (secrets kosong = pertahankan).
+   *  tripay: `env` menargetkan sandbox/production; env lain tak tersentuh. */
   gateway: z.object({
     provider: z.enum(['midtrans', 'tripay', 'xendit']),
     secrets: z.record(z.string()).optional(),
     publicConfig: z.record(z.union([z.string(), z.boolean()])).optional(),
+    env: z.enum(['sandbox', 'production']).optional(),
   }).optional(),
   /** aktifkan SATU provider (menonaktifkan lainnya) */
   activate: z.enum(['midtrans', 'tripay', 'xendit']).optional(),
+  /** tripay: pilih env aktif (sandbox/production) lalu aktifkan tripay */
+  activateTripayEnv: z.enum(['sandbox', 'production']).optional(),
 });
 
 export const PUT = superadminRoute(async (req, _ctx, actor) => {
@@ -51,15 +55,16 @@ export const PUT = superadminRoute(async (req, _ctx, actor) => {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Input tidak valid' }, { status: 400 });
   }
-  const { deploymentMode, planPrices, gateway, activate, billingIdentity } = parsed.data;
+  const { deploymentMode, planPrices, gateway, activate, activateTripayEnv, billingIdentity } = parsed.data;
   if (deploymentMode || planPrices || billingIdentity) {
     await platformSettingsService.update(actor, { deploymentMode, planPrices, billingIdentity });
   }
   if (gateway) {
     await paymentGatewayService.upsert(actor, gateway.provider as PaymentProvider, {
-      secrets: gateway.secrets, publicConfig: gateway.publicConfig,
+      secrets: gateway.secrets, publicConfig: gateway.publicConfig, env: gateway.env,
     });
   }
-  if (activate) await paymentGatewayService.setActive(actor, activate as PaymentProvider);
+  if (activateTripayEnv) await paymentGatewayService.setTripayActiveEnv(actor, activateTripayEnv);
+  else if (activate) await paymentGatewayService.setActive(actor, activate as PaymentProvider);
   return NextResponse.json({ ok: true });
 });

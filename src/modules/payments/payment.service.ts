@@ -266,10 +266,16 @@ export const paymentService = {
   },
 
   async handleTripayCallback(rawBody: string, signatureHeader: string | null): Promise<{ ok: boolean }> {
-    const gw = await paymentGatewayService.get('tripay');
-    if (!gw) return { ok: false };
-    const expect = createHmac('sha256', gw.secrets.privateKey ?? '').update(rawBody).digest('hex');
-    if (!signatureHeader || expect !== signatureHeader) return { ok: false };
+    // TriPay sandbox & production punya privateKey berbeda; callback bisa dari
+    // env manapun yang punya tagihan pending. Verifikasi terhadap SEMUA
+    // privateKey non-kosong — key kosong dibuang agar tak jadi celah forge.
+    const envs = await paymentGatewayService.getTripayEnvs();
+    if (!envs) return { ok: false };
+    const keys = [envs.envs.production.privateKey, envs.envs.sandbox.privateKey]
+      .filter((k): k is string => !!k && k.length > 0);
+    if (!signatureHeader || keys.length === 0) return { ok: false };
+    const ok = keys.some((k) => createHmac('sha256', k).update(rawBody).digest('hex') === signatureHeader);
+    if (!ok) return { ok: false };
 
     const body = JSON.parse(rawBody) as Record<string, unknown>;
     const ref = String(body.merchant_ref);
