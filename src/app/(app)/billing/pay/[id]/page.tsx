@@ -6,11 +6,12 @@ import { useApi } from '../../../../_lib/api';
 import { Skeleton, ErrorState } from '../../../../_components/ui';
 
 /**
- * HALAMAN BAYAR QRIS — MILIK SENDIRI (D12): QR digambar di sini memakai
+ * HALAMAN BAYAR QRIS — MILIK SENDIRI (D12): QR ditampilkan di sini memakai
  * design system, TIDAK redirect ke halaman gateway. Status di-poll tiap
  * 3 dtk (webhook yang menandai paid; poll juga menarik status provider
- * sebagai pelindung). qr_string digambar lokal via `qrcode`; bila provider
- * hanya memberi URL gambar, itu fallback-nya.
+ * sebagai pelindung). Sumber QR UTAMA adalah `qr_url` (gambar QRIS resmi
+ * TriPay) ditampilkan sebagai gambar; bila provider hanya memberi
+ * `qr_string`, itu digambar lokal via `qrcode` sebagai fallback.
  */
 
 interface Payment {
@@ -44,9 +45,9 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
     return () => clearInterval(t);
   }, [data?.expiresAt, data?.status]);
 
-  // gambar QR dari qr_string — halaman kita, gaya kita
+  // fallback: gambar QR lokal dari qr_string bila qr_url tidak ada
   useEffect(() => {
-    if (!data?.qrString || !canvasRef.current || data.status !== 'pending') return;
+    if (data?.qrImageUrl || !data?.qrString || !canvasRef.current || data.status !== 'pending') return;
     void import('qrcode').then((QR) =>
       QR.toCanvas(canvasRef.current!, data.qrString!, {
         width: 280, margin: 2,
@@ -73,11 +74,11 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
           {data.status === 'pending' && (
             <>
               <div className="pay-qrbox">
-                {data.qrString
-                  ? <canvas ref={canvasRef} />
-                  : data.qrImageUrl
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={data.qrImageUrl} alt="QRIS" width={280} height={280} />
+                {data.qrImageUrl
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={data.qrImageUrl} alt="QRIS" width={280} height={280} style={{ objectFit: 'contain' }} />
+                  : data.qrString
+                    ? <canvas ref={canvasRef} />
                     : <span className="microlabel">QR TIDAK TERSEDIA — COBA BUAT ULANG</span>}
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: 380, lineHeight: 1.6 }}>
