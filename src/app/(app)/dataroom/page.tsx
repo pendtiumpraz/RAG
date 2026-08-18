@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import './dataroom.css';
 import { DECKS, type Deck, type Slide } from './decks';
 import { SCENES } from './scenes';
-import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT } from './assessment';
+import { DIMENSIONS, PRIORITIES, OVERALL, PREV, ASSESSED_AT, type AssessArea } from './assessment';
 import { SHIPPED, SHIPPED_AT } from './updates';
 import Kanban from './Kanban';
 import Calculator from './Calculator';
@@ -277,6 +277,31 @@ function band(score: number): string {
   return score >= 8 ? 'ok' : score >= 6 ? 'warn' : 'bad';
 }
 const fmtScore = (n: number) => n.toFixed(1).replace('.', ',');
+const avgOf = (a: AssessArea[]) => a.reduce((s, x) => s + x.score, 0) / (a.length || 1);
+
+/* Cincin skor SVG — busur terisi sepanjang skor/10, warnanya pita kesiapan.
+   Murni SVG (tanpa pustaka), skala dari viewBox jadi tetap tajam di segala
+   ukuran. `dark` menyalakan varian utk kartu KESELURUHAN yang berlatar navy. */
+function Gauge({ score, size, dark }: { score: number; size: number; dark?: boolean }) {
+  const r = size / 2 - 6;
+  const c = 2 * Math.PI * r;
+  const b = band(score);
+  const col = b === 'ok' ? 'var(--signal)' : b === 'warn' ? 'var(--source)' : 'var(--danger)';
+  return (
+    <svg className="as-gauge" width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+      role="img" aria-label={`Skor ${fmtScore(score)} dari 10`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth="6"
+        stroke={dark ? '#334155' : 'var(--card-3)'} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth="6" strokeLinecap="round"
+        stroke={col} strokeDasharray={c} strokeDashoffset={c * (1 - score / 10)}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
+        className="as-gval" fill={dark ? '#fff' : col} style={{ fontSize: size * 0.3 }}>
+        {fmtScore(score)}
+      </text>
+    </svg>
+  );
+}
 
 function AssessmentView() {
   return (
@@ -284,14 +309,20 @@ function AssessmentView() {
       <div className="as-summary">
         <div className="as-overall">
           <span className="microlabel">KESELURUHAN · {ASSESSED_AT}</span>
-          <b>{fmtScore(OVERALL)}<small>/10</small></b>
-          <span className="delta">↑ dari {fmtScore(PREV.score)} ({PREV.at})</span>
+          <div className="as-og">
+            <Gauge score={OVERALL} size={92} dark />
+            <div className="as-ol">
+              <b>{fmtScore(OVERALL)}<small>/10</small></b>
+              <span className="delta">↑ dari {fmtScore(PREV.score)} ({PREV.at})</span>
+              <span className="sub">{DIMENSIONS.length} dimensi · {DIMENSIONS.reduce((n, d) => n + d.areas.length, 0)} area dinilai</span>
+            </div>
+          </div>
         </div>
         {DIMENSIONS.map((d) => (
           <div key={d.id} className="as-dim">
+            <Gauge score={d.score} size={68} />
             <span className="microlabel">{d.label.toUpperCase()}</span>
-            <b className={band(d.score)}>{fmtScore(d.score)}</b>
-            <span className="meter"><span style={{ width: `${d.score * 10}%` }} /></span>
+            <span className="as-dmeta">{d.areas.length} area · rata-rata {fmtScore(avgOf(d.areas))}</span>
           </div>
         ))}
       </div>
@@ -305,9 +336,9 @@ function AssessmentView() {
           <p className="desc">{d.desc}</p>
           <div className="as-rows">
             {d.areas.map((a) => (
-              <div key={a.name} className="row">
+              <div key={a.name} className="row" title={`Celah: ${a.gap}`}>
                 <span className="nm">{a.name}</span>
-                <span className="meter"><span style={{ width: `${a.score * 10}%` }} /></span>
+                <span className={`meter ${band(a.score)}`}><span style={{ width: `${a.score * 10}%` }} /></span>
                 <b className={`sc ${band(a.score)}`}>{fmtScore(a.score)}</b>
                 <span className="gap">{a.gap}</span>
               </div>

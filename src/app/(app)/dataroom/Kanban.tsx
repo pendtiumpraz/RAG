@@ -109,6 +109,22 @@ export default function Kanban() {
 
   const done = byTrack.filter((i) => i.status === 'done').length;
   const doing = byTrack.filter((i) => i.status === 'doing').length;
+  const todo = byTrack.length - done - doing;
+
+  /** Distribusi utk panel statistik — dihitung dari track aktif (byTrack),
+   *  bukan dari saringan dimensi, supaya gambaran keseluruhan tetap stabil
+   *  saat pengguna menyaring papan. */
+  const stats = useMemo(() => {
+    const count = <T extends string>(keys: readonly T[], of: (r: Row) => T) =>
+      keys.map((k) => ({ k, n: byTrack.filter((r) => of(r) === k).length }));
+    return {
+      pri: count(Object.keys(PRI_LABEL) as Pri[], (r) => r.priority),
+      dim: count(Object.keys(DIM_LABEL) as Dim[], (r) => r.dimension),
+    };
+  }, [byTrack]);
+  const priMax = Math.max(1, ...stats.pri.map((x) => x.n));
+  const dimMax = Math.max(1, ...stats.dim.map((x) => x.n));
+  const pct = (n: number) => (byTrack.length ? (n / byTrack.length) * 100 : 0);
 
   /** Menempatkan `id` di kolom `status`, sebelum `beforeId` (atau di ujung). */
   async function place(id: string, status: Status, beforeId?: string) {
@@ -205,12 +221,61 @@ export default function Kanban() {
         })}
       </div>
 
-      <div className="kb-bar">
-        <span className="meter">
-          <span className="fill-done" style={{ width: `${byTrack.length ? (done / byTrack.length) * 100 : 0}%` }} />
-          <span className="fill-doing" style={{ width: `${byTrack.length ? (doing / byTrack.length) * 100 : 0}%` }} />
-        </span>
-        <span className="mono">{done} selesai · {doing} berjalan · {byTrack.length - done - doing} belum</span>
+      {/* ── ringkasan visual di atas papan ──────────────────────────────
+          Tiga sudut pandang: KEMAJUAN (batang bertumpuk status), TEKANAN
+          (sebaran prioritas), dan BEBAN (sebaran dimensi — sekaligus tombol
+          saring). Semua dari track aktif; angkanya ikut hidup saat kartu
+          dipindah karena bersumber dari state yang sama. */}
+      <div className="kb-stats">
+        <div className="kb-stat">
+          <div className="kb-stat-h"><span>Kemajuan</span><span className="mono">{byTrack.length} kartu</span></div>
+          <span className="kb-stack" role="img"
+            aria-label={`${done} selesai, ${doing} berjalan, ${todo} belum`}>
+            {byTrack.length === 0
+              ? <i className="empty" />
+              /* Hanya segmen berisi yang dirender — segmen lebar-0 meninggalkan
+                 sliver 2px dari ring permukaan. */
+              : ([['s-done', done, 'Selesai'], ['s-doing', doing, 'Berjalan'], ['s-todo', todo, 'Belum']] as const)
+                  .filter(([, n]) => n > 0)
+                  .map(([cls, n, lab]) => (
+                    <i key={cls} className={cls} style={{ width: `${pct(n)}%` }} title={`${lab} ${n}`} />
+                  ))}
+          </span>
+          <div className="kb-legend">
+            <span><i className="d-done" />Selesai <b>{done}</b></span>
+            <span><i className="d-doing" />Berjalan <b>{doing}</b></span>
+            <span><i className="d-todo" />Belum <b>{todo}</b></span>
+          </div>
+        </div>
+
+        <div className="kb-stat">
+          <div className="kb-stat-h"><span>Prioritas</span></div>
+          <div className="kb-dist">
+            {stats.pri.map((p) => (
+              <div key={p.k} className="kb-distrow" title={PRI_LABEL[p.k as Pri]}>
+                <span className={`kb-pri p-${p.k}`}>{p.k}</span>
+                <span className="meter"><span className={`p-${p.k}`} style={{ width: `${(p.n / priMax) * 100}%` }} /></span>
+                <b>{p.n}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="kb-stat">
+          <div className="kb-stat-h"><span>Dimensi</span><span className="mono">saring</span></div>
+          <div className="kb-dist">
+            {stats.dim.map((d) => (
+              <button key={d.k} type="button"
+                className={`kb-distrow lnk${dim === d.k ? ' on' : ''}`}
+                aria-pressed={dim === d.k}
+                onClick={() => setDim(dim === d.k ? 'all' : (d.k as Dim))}>
+                <span className={`kb-dim d-${d.k}`}>{DIM_LABEL[d.k as Dim]}</span>
+                <span className="meter"><span style={{ width: `${(d.n / dimMax) * 100}%` }} /></span>
+                <b>{d.n}</b>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="kb-board">
