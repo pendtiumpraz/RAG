@@ -66,7 +66,11 @@ async function chargeMidtrans(gw: GatewayConfig, ref: string, amount: number): P
 }
 
 async function chargeTripay(gw: GatewayConfig, ref: string, amount: number, plan: string, email: string): Promise<ChargeResult> {
-  const base = gw.publicConfig.sandbox ? 'https://tripay.co.id/api-sandbox' : 'https://tripay.co.id/api';
+  const path = gw.publicConfig.sandbox ? '/api-sandbox' : '/api';
+  // proxyUrl opsional: teruskan lewat VPS ber-IP statis agar TriPay melihat IP
+  // tetap, bukan IP dinamis Vercel. Proxy meneruskan path yang sama ke TriPay.
+  const proxyUrl = typeof gw.publicConfig.proxyUrl === 'string' ? gw.publicConfig.proxyUrl.trim() : '';
+  const base = proxyUrl ? proxyUrl.replace(/\/+$/, '') + path : `https://tripay.co.id${path}`;
   const merchantCode = String(gw.publicConfig.merchantCode ?? '');
   const signature = createHmac('sha256', gw.secrets.privateKey ?? '')
     .update(merchantCode + ref + amount).digest('hex');

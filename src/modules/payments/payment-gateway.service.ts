@@ -24,7 +24,9 @@ export interface GatewaySecrets {
 export interface GatewayConfig {
   provider: PaymentProvider;
   secrets: GatewaySecrets;
-  /** non-rahasia: { merchantCode? , clientKey?, sandbox: boolean } */
+  /** non-rahasia: { merchantCode?, clientKey?, proxyUrl?, sandbox: boolean }
+   *  proxyUrl (tripay, opsional): base VPS ber-IP statis, mis.
+   *  http://43.156.122.83:8888 — meneruskan /api & /api-sandbox ke TriPay. */
   publicConfig: Record<string, string | boolean>;
 }
 
