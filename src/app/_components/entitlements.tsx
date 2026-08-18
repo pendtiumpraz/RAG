@@ -24,6 +24,7 @@ export interface Entitlements {
   /** superadmin platform — semua fitur terbuka utk pemeriksaan & demo */
   platformOperator: boolean;
   planPrices: Record<string, number>;
+  planPricesYearly: Record<string, number>;
   usage: { messages: number; messagesLimit: number | null };
 }
 

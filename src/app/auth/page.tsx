@@ -18,6 +18,9 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({ orgName: '', name: '', email: '', password: '' });
+  /** Paket & interval terpilih dari halaman pricing (?plan=&interval=). */
+  const [plan, setPlan] = useState<'pro' | 'enterprise' | null>(null);
+  const [interval, setInterval] = useState<'monthly' | 'yearly'>('monthly');
   /** Kode faktor kedua — kolomnya baru muncul setelah password terbukti benar. */
   const [totp, setTotp] = useState('');
   const [mintaTotp, setMintaTotp] = useState(false);
@@ -35,12 +38,23 @@ export default function AuthPage() {
   }, []);
 
   // Jalur OAuth ditolak di callback signIn dan dikembalikan ke sini dgn alasan.
+  // Sekaligus baca paket terpilih dari halaman pricing (?plan=&interval=) →
+  // buka tab Daftar dengan paket sudah terpasang.
   useEffect(() => {
-    const err = new URLSearchParams(window.location.search).get('error');
+    const q = new URLSearchParams(window.location.search);
+    const err = q.get('error');
     if (err === 'pending') setNotice(PENDING_MSG);
     else if (err === 'rejected') setError(REJECTED_MSG);
     else if (err === 'oauth_no_email') setError('Provider tak memberikan alamat email.');
-    if (err) window.history.replaceState({}, '', '/auth');
+
+    const p = q.get('plan');
+    if (p === 'pro' || p === 'enterprise') {
+      setPlan(p);
+      setTab('register');
+      const iv = q.get('interval');
+      if (iv === 'monthly' || iv === 'yearly') setInterval(iv);
+    }
+    if (err || p) window.history.replaceState({}, '', '/auth');
   }, []);
 
   async function doLogin(e: React.FormEvent) {
@@ -95,14 +109,44 @@ export default function AuthPage() {
 
   async function doRegister(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null); setNotice(null);
-    const res = await fetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    setBusy(false);
-    if (!res.ok) { const j = await res.json().catch(() => ({})); setError(j.error ?? 'Pendaftaran gagal.'); return; }
-    // TIDAK auto-login lagi: akun baru berstatus pending sampai diverifikasi.
-    // Mencoba masuk lalu gagal hanya akan membingungkan.
-    setTab('login');
-    setForm((f) => ({ ...f, orgName: '', name: '', password: '' }));
-    setNotice(PENDING_MSG);
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...form, plan: plan ?? undefined, interval: plan ? interval : undefined }),
+    });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); setBusy(false); setError(j.error ?? 'Pendaftaran gagal.'); return; }
+
+    // Akun LANGSUNG AKTIF → auto-login, lalu arahkan ke bayar (paket berbayar)
+    // atau langsung masuk app (free).
+    const login = await signIn('credentials', { email: form.email, password: form.password, redirect: false });
+    if (login?.error) {
+      // Satu-satunya alasan sah gagal di sini: gerbang verifikasi email (D13,
+      // hanya bila SMTP aktif). Jelaskan, jangan diam.
+      setBusy(false);
+      const why = await fetch('/api/auth/login-status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, password: form.password }),
+      }).then((r) => r.json()).catch(() => ({ outcome: 'invalid' }));
+      setTab('login');
+      setNotice(why.outcome === 'unverified' ? UNVERIFIED_MSG : 'Akun dibuat. Silakan masuk untuk melanjutkan.');
+      return;
+    }
+
+    if (plan) {
+      // Paket berbayar → buat tagihan QRIS lalu ke halaman bayar.
+      try {
+        const r = await fetch('/api/payments', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, interval }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.id) { window.location.href = `/billing/pay/${j.id}`; return; }
+      } catch { /* jatuh ke onboarding di bawah */ }
+      // Pembayaran belum siap (mis. gateway belum aktif) → masuk app, bisa
+      // bayar kapan saja dari halaman paket.
+      window.location.href = '/welcome';
+      return;
+    }
+    window.location.href = '/chat';
   }
 
   return (
@@ -151,18 +195,33 @@ export default function AuthPage() {
           </form>
         ) : (
           <form onSubmit={doRegister} className="stack gap-4">
+            {plan && (
+              <div className="plan-pick">
+                <div className="pp-top">
+                  <span className="pp-name">Paket {plan}</span>
+                  <button type="button" className="tautan" onClick={() => setPlan(null)}>Pilih Free saja</button>
+                </div>
+                <div className="pp-intv" role="tablist" aria-label="Interval">
+                  <button type="button" role="tab" aria-selected={interval === 'monthly'}
+                    className={interval === 'monthly' ? 'on' : ''} onClick={() => setInterval('monthly')}>Bulanan</button>
+                  <button type="button" role="tab" aria-selected={interval === 'yearly'}
+                    className={interval === 'yearly' ? 'on' : ''} onClick={() => setInterval('yearly')}>Tahunan −20%</button>
+                </div>
+                <span className="microlabel">SETELAH DAFTAR, KAMU LANGSUNG DIARAHKAN KE PEMBAYARAN QRIS.</span>
+              </div>
+            )}
             <Field label="Nama organisasi"><input className="input" required value={form.orgName} onChange={set('orgName')} placeholder="PT Nusantara" /></Field>
             <Field label="Nama lengkap"><input className="input" required value={form.name} onChange={set('name')} /></Field>
             <Field label="Email"><input className="input" type="email" required value={form.email} onChange={set('email')} placeholder="nama@perusahaan.com" /></Field>
             <Field label="Password"><input className="input" type="password" required minLength={8} value={form.password} onChange={set('password')} placeholder="Minimal 8 karakter" /></Field>
             {error && <span className="error">{error}</span>}
             {notice && <span className="notice">{notice}</span>}
-            <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>Buat workspace</button>
+            <button className={`btn btn-primary btn-lg${busy ? ' is-loading' : ''}`} style={{ width: '100%' }} disabled={busy}>{plan ? 'Daftar & bayar' : 'Buat workspace'}</button>
             <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Sudah punya akun? <button type="button" className="tautan" onClick={() => setTab('login')}>Masuk</button></p>
           </form>
         )}
         <p className="microlabel" style={{ textAlign: 'center', marginTop: 26 }}>
-          PENDAFTARAN TERBUKA · AKUN AKTIF SETELAH DIVERIFIKASI ADMIN
+          PENDAFTARAN TERBUKA · AKUN LANGSUNG AKTIF
         </p>
         {/* Ditampilkan sebelum orang membuat akun, bukan disembunyikan di footer. */}
         <p style={{ textAlign: 'center', marginTop: 10, fontSize: 12.5, color: 'var(--muted)' }}>
@@ -182,6 +241,15 @@ export default function AuthPage() {
         .notice{ font-size:13px; line-height:1.5; color:var(--ink); background:var(--card-2);
           border:1px solid var(--line); border-left:3px solid var(--source);
           border-radius:var(--rad-sm); padding:10px 12px; }
+        .plan-pick{ background:var(--card-2); border:1px solid var(--line);
+          border-radius:var(--rad-sm); padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+        .plan-pick .pp-top{ display:flex; align-items:center; justify-content:space-between; }
+        .plan-pick .pp-name{ font-weight:700; text-transform:capitalize; }
+        .plan-pick .pp-intv{ display:inline-flex; gap:4px; padding:3px; background:var(--bg);
+          border:1px solid var(--line); border-radius:999px; }
+        .plan-pick .pp-intv button{ border:0; background:transparent; cursor:pointer; padding:6px 14px;
+          border-radius:999px; font-size:12.5px; font-weight:600; color:var(--muted); }
+        .plan-pick .pp-intv button.on{ background:var(--signal); color:#fff; }
       `}</style>
     </main>
   );

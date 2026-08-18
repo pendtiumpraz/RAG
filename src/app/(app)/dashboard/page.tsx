@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useApi } from '../../_lib/api';
+import { useEntitlements } from '../../_components/entitlements';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
@@ -32,6 +33,7 @@ export default function DashboardPage() {
 
   return (
     <>
+      <ExpiredBanner />
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
@@ -288,6 +290,32 @@ function TabelPerChatbot({ rows }: { rows: BarisChatbot[] }) {
         ))}
       </tbody></table></div>
       <TabelKaki t={t} satuan="chatbot" />
+    </div>
+  );
+}
+
+/**
+ * BANNER PLAN KEDALUWARSA — muncul di dashboard pemilik saat plan berbayar
+ * lewat masa berlaku (ent.expired). Chatbot embed sudah otomatis berhenti
+ * menjawab (gerbang kuota → 429), jadi banner ini yang memberi tahu SEBABNYA
+ * dan jalan keluarnya. Berbeda dari pesan embed ke pengunjung yang tetap netral.
+ */
+function ExpiredBanner() {
+  const { data: ent } = useEntitlements();
+  if (!ent?.expired) return null;
+  return (
+    <div className="card card-pad" style={{
+      borderLeft: '3px solid var(--danger)', marginBottom: 'var(--sp-4)',
+      display: 'flex', gap: 'var(--sp-3)', alignItems: 'center',
+      justifyContent: 'space-between', flexWrap: 'wrap',
+    }}>
+      <div>
+        <b>Planmu kedaluwarsa</b> <span className="badge badge-warn">chatbot berhenti menjawab</span>
+        <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '6px 0 0' }}>
+          Plan berbayarmu lewat masa berlaku dan turun ke Free. Perpanjang agar chatbot embed &amp; app menjawab lagi.
+        </p>
+      </div>
+      <a className="btn btn-primary" href="/billing">Perpanjang di Billing</a>
     </div>
   );
 }

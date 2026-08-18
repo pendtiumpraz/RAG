@@ -35,8 +35,22 @@ export type CredentialOutcome = 'invalid' | 'unverified' | 'pending' | 'rejected
  *    migrations/0002_auth.sql). Di luar jalur ini isolasi tetap mutlak.
  */
 export const authService = {
-  /** Daftar baru: 1 signup = 1 tenant terisolasi + user admin + settings default. */
-  async signup(input: { orgName: string; name: string; email: string; password: string }): Promise<AuthUser> {
+  /**
+   * Daftar baru: 1 signup = 1 tenant terisolasi + user admin + settings default.
+   *
+   * Status `active` LANGSUNG (alur pricing→register→bayar): pendaftar bisa
+   * memakai workspace & membayar plan seketika tanpa menunggu verifikasi admin.
+   * Kapabilitas admin men-SUSPEND tetap ada lewat /api/admin/users/[id]/status
+   * (set status non-active). Berbeda dari jalur OAuth/SSO yang SENGAJA tetap
+   * `pending` (lihat findOrCreateFromOAuth/Sso) — di sana "langsung aktif"
+   * berarti siapa pun di direktori perusahaan bisa masuk tanpa dilihat manusia.
+   *
+   * `plan`/`interval` opsional hanya dicatat di audit (paket dibeli setelah
+   * login lewat /api/payments, bukan di sini) — plan tenant tetap `free`
+   * sampai pembayaran lunas (markPaid), karena effectivePlan menganggap plan
+   * berbayar tanpa masa berlaku sebagai aktif tanpa batas.
+   */
+  async signup(input: { orgName: string; name: string; email: string; password: string; plan?: string; interval?: string }): Promise<AuthUser> {
     const email = input.email.trim().toLowerCase();
     const existing = await findByEmailForAuth(email);
     if (existing) throw new ValidationError('Email sudah terdaftar');
@@ -53,6 +67,7 @@ export const authService = {
 
       const [user] = await tx.insert(users).values({
         tenantId: tenant.id, email, name: input.name, role: 'admin', passwordHash,
+        status: 'active',
       }).returning();
 
       await tx.insert(tenantSettings).values({ tenantId: tenant.id });
@@ -62,7 +77,9 @@ export const authService = {
         name: user.name, role: user.role, status: user.status,
       };
     }).then(async (u) => {
-      await audit(u.tenantId, u.id, 'auth.signup', undefined, { email: u.email, status: u.status });
+      await audit(u.tenantId, u.id, 'auth.signup', undefined, {
+        email: u.email, status: u.status, plan: input.plan, interval: input.interval,
+      });
       // D13: kirim tautan verifikasi bila SMTP dikonfigurasi — best-effort,
       // pendaftaran tak boleh mati karena mail server rewel.
       const { mailerService } = await import('@/modules/mail/mailer.service');

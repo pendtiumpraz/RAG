@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/modules/core/auth';
 import { usageService } from '@/modules/usage/usage.service';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { chatbots } from '@/modules/core/db';
-import { platformSettingsService } from '@/modules/payments/platform-settings.service';
+import { platformSettingsService, yearlyPlanPrices } from '@/modules/payments/platform-settings.service';
 import { paymentGatewayService } from '@/modules/payments/payment-gateway.service';
 import { PLAN_FEATURES, FEATURE_MIN_PLAN } from '@/modules/core/limits';
 
@@ -58,6 +58,8 @@ export async function GET() {
     mode: cfg.deploymentMode,
     platformOperator,
     planPrices: cfg.planPrices,
+    /** Harga setahun (−20%) diturunkan dari planPrices — untuk toggle tahunan. */
+    planPricesYearly: yearlyPlanPrices(cfg.planPrices),
     usage: {
       messages: snap.messages,
       messagesLimit: snap.limits.messagesPerMonth === Infinity ? null : snap.limits.messagesPerMonth,
