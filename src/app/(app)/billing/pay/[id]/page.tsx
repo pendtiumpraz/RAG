@@ -62,12 +62,15 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
     <div className="pay-wrap">
       <div className="card pay-card">
         <div className="panel-head">
-          <span className="t">pembayaran qris</span>
-          <span className="badge">{data.provider}</span>
+          <span className="t">selesaikan pembayaran</span>
+          {/* ponytail: metode selalu QRIS (sistem ini QRIS-only). Bila kelak
+              channel non-QRIS (VA/e-wallet) ditambah, simpan `method` di row
+              payments dan tampilkan namanya di sini. */}
+          <span className="badge badge-signal">QRIS</span>
         </div>
         <div className="card-pad stack gap-4" style={{ alignItems: 'center', textAlign: 'center' }}>
           <div>
-            <span className="microlabel">PLAN {data.plan.toUpperCase()} · {data.months} BULAN</span>
+            <span className="microlabel">PLAN {data.plan.toUpperCase()} · {data.months} BULAN · METODE QRIS</span>
             <div className="pay-amount">{rupiah(data.amount)}</div>
           </div>
 
@@ -82,17 +85,20 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
                     : <span className="microlabel">QR TIDAK TERSEDIA — COBA BUAT ULANG</span>}
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: 380, lineHeight: 1.6 }}>
-                Pindai dengan aplikasi pembayaran apa pun yang mendukung <b>QRIS</b>
-                {' '}(GoPay, OVO, DANA, ShopeePay, mobile banking). Halaman ini
-                memperbarui dirinya otomatis begitu pembayaran masuk.
+                Pindai dengan aplikasi e-wallet atau mobile banking mana pun
+                {' '}yang mendukung <b>QRIS</b> (GoPay, OVO, DANA, ShopeePay,
+                {' '}mobile banking).
               </p>
-              <div className="cluster gap-2" style={{ justifyContent: 'center' }}>
+              {left !== null && (
+                <div className="pay-timer mono" style={{ color: left < 120 ? 'var(--danger)' : 'var(--ink)' }}>
+                  {String(Math.floor(left / 60)).padStart(2, '0')}:{String(left % 60).padStart(2, '0')}
+                </div>
+              )}
+              {/* blok status/log — kepastian bahwa kuota masuk sendiri */}
+              <div className="pay-log">
                 <span className="badge badge-signal"><span className="led led-live" />menunggu pembayaran</span>
-                {left !== null && (
-                  <span className="mono" style={{ fontSize: 13, color: left < 120 ? 'var(--danger)' : 'var(--muted)' }}>
-                    {String(Math.floor(left / 60)).padStart(2, '0')}:{String(left % 60).padStart(2, '0')}
-                  </span>
-                )}
+                <p>Menunggu pembayaran — kuota masuk otomatis begitu dana diterima.
+                  Halaman ini memperbarui dirinya sendiri, tak perlu di-refresh.</p>
               </div>
             </>
           )}
@@ -134,6 +140,11 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
           font-size:34px; font-weight:800; }
         .pay-done.ok{ background:var(--tint-good); color:var(--good); }
         .pay-done.bad{ background:var(--tint-danger); color:var(--danger); }
+        .pay-timer{ font-family:var(--font-display); font-size:26px; font-weight:800; letter-spacing:.02em; }
+        .pay-log{ width:100%; max-width:400px; background:var(--card-2); border:1px solid var(--line);
+          border-radius:var(--rad-md); padding:12px 14px; display:flex; flex-direction:column;
+          align-items:center; gap:8px; }
+        .pay-log p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
       `}</style>
     </div>
   );

@@ -798,6 +798,10 @@ export const openApiSpec = {
         requestBody: json(obj({ plan: str, months: num }, ['plan'])),
         responses: { 201: err('{ id } → buka /billing/pay/{id}'), 409: err('pembayaran nonaktif (on-prem)'), 422: err('gateway/plan tidak valid') } },
     },
+    '/api/payments/channels': {
+      get: { summary: 'Channel/metode pembayaran aktif (TriPay) untuk modal pilih metode', security: [sessionAuth],
+        responses: { 200: err('{ success, channels: [{ code, name, group, icon_url, fee_customer }] }'), 503: err('belum ada gateway aktif') } },
+    },
     '/api/payments/{id}': {
       get: { summary: 'Status transaksi utk halaman bayar (poll; menarik status provider saat pending)', security: [sessionAuth],
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],

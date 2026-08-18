@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { Select } from '../../_components/select';
+import { PayChannelModal } from '../../_components/pay-channel-modal';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
 
@@ -302,23 +302,11 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
 /* ── upgrade via QRIS (tenant, mode saas + gateway aktif) ───────────── */
 
 function UpgradeQris({ prices, currentPlan }: { prices: Record<string, number>; currentPlan: string }) {
-  const router = useRouter();
-  const toast = useToast();
   const buyable = ['pro', 'enterprise'].filter((p) => prices[p]);
   const [plan, setPlan] = useState(buyable.find((p) => p !== currentPlan) ?? buyable[0] ?? 'pro');
   const [months, setMonths] = useState(1);
-  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false); // buka modal "Metode pembayaran"
   const total = (prices[plan] ?? 0) * months;
-
-  async function pay() {
-    setBusy(true);
-    try {
-      const r = await api<{ id: string }>('/api/payments', {
-        method: 'POST', body: JSON.stringify({ plan, months }),
-      });
-      router.push(`/billing/pay/${r.id}`); // halaman QRIS milik sendiri
-    } catch (e) { toast((e as Error).message, 'error'); setBusy(false); }
-  }
 
   return (
     <div className="stack gap-3">
@@ -330,10 +318,13 @@ function UpgradeQris({ prices, currentPlan }: { prices: Record<string, number>; 
         <Select style={{ width: 130 }} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
           {[1, 3, 6, 12].map((m) => <option key={m} value={m}>{m} bulan</option>)}
         </Select>
-        <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={pay}>
+        <button className="btn btn-primary" onClick={() => setOpen(true)}>
           Bayar Rp {fmt(total)}
         </button>
       </div>
+      {open && (
+        <PayChannelModal plan={plan} months={months} amount={total} onClose={() => setOpen(false)} />
+      )}
     </div>
   );
 }

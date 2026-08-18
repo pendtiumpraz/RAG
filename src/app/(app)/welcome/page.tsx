@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '../../_lib/api';
 import { useEntitlements, SKIP_ONBOARD_KEY } from '../../_components/entitlements';
-import { Skeleton, useToast } from '../../_components/ui';
+import { Skeleton } from '../../_components/ui';
+import { PayChannelModal } from '../../_components/pay-channel-modal';
 import { PLAN_LIMITS } from '@/modules/core/limits';
 
 /**
@@ -61,21 +61,11 @@ const rupiah = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
 export default function WelcomePage() {
   const router = useRouter();
-  const toast = useToast();
   const { data: ent, loading } = useEntitlements();
-  const [busy, setBusy] = useState<string | null>(null);
+  // paket berbayar dipilih → buka modal "Metode pembayaran" (langkah 1)
+  const [pay, setPay] = useState<{ plan: string; amount: number } | null>(null);
 
   if (loading || !ent) return <div className="card"><Skeleton rows={4} /></div>;
-
-  async function buy(plan: string) {
-    setBusy(plan);
-    try {
-      const r = await api<{ id: string }>('/api/payments', {
-        method: 'POST', body: JSON.stringify({ plan, months: 1 }),
-      });
-      router.push(`/billing/pay/${r.id}`);
-    } catch (e) { toast((e as Error).message, 'error'); setBusy(null); }
-  }
 
   return (
     <div className="wlc">
@@ -107,8 +97,8 @@ export default function WelcomePage() {
               ) : p === 'free' ? (
                 <button className="btn" onClick={() => { sessionStorage.setItem(SKIP_ONBOARD_KEY, '1'); router.push('/dashboard'); }}>Lanjut dengan Free</button>
               ) : ent.canUpgrade ? (
-                <button className={`btn btn-primary${busy === p ? ' is-loading' : ''}`}
-                  disabled={!!busy} onClick={() => buy(p)}>Bayar QRIS</button>
+                <button className="btn btn-primary"
+                  onClick={() => setPay({ plan: p, amount: price ?? 0 })}>Bayar QRIS</button>
               ) : (
                 <button className="btn" disabled title="Pembayaran belum aktif">Hubungi pengelola</button>
               )}
@@ -147,6 +137,10 @@ export default function WelcomePage() {
           border-radius:1px; background:var(--signal); }
         .wlc footer{ text-align:center; margin-top:var(--sp-5); }
       `}</style>
+
+      {pay && (
+        <PayChannelModal plan={pay.plan} months={1} amount={pay.amount} onClose={() => setPay(null)} />
+      )}
     </div>
   );
 }

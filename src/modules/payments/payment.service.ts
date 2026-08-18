@@ -155,6 +155,46 @@ export async function testTripayConnection(env: TripayEnv): Promise<TripayTestRe
     message: channelQrisActive ? 'Terhubung • QRIS aktif' : 'Terhubung • tapi channel QRIS nonaktif' };
 }
 
+/* ── daftar channel pembayaran aktif (untuk modal pilih metode) ───────
+ * Sama seperti testTripayConnection: GET /merchant/payment-channel (Bearer
+ * apiKey, tanpa signature), ikuti proxy bila diisi. Bedanya: kembalikan
+ * daftar channel AKTIF apa adanya untuk dirender di UI. Non-tripay atau
+ * belum siap → daftar kosong (UI pakai QRIS default). */
+export interface TripayChannelPublic {
+  code: string; name: string; group: string;
+  icon_url: string | null; fee_customer: unknown;
+}
+
+export async function fetchTripayChannels(gw: GatewayConfig): Promise<TripayChannelPublic[]> {
+  if (gw.provider !== 'tripay' || !gw.secrets.apiKey) return [];
+  const path = gw.publicConfig.sandbox ? '/api-sandbox' : '/api';
+  const proxyUrl = typeof gw.publicConfig.proxyUrl === 'string' ? gw.publicConfig.proxyUrl.trim() : '';
+  const base = proxyUrl ? proxyUrl.replace(/\/+$/, '') + path : `https://tripay.co.id${path}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/merchant/payment-channel`, {
+      headers: { Authorization: `Bearer ${gw.secrets.apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch { return []; }
+
+  let j: { success?: boolean; data?: unknown };
+  try { j = await res.json(); } catch { return []; }
+  if (!res.ok || !j.success || !Array.isArray(j.data)) return [];
+
+  return j.data
+    .filter((c): c is Record<string, unknown> =>
+      !!c && typeof c === 'object' && (c as { active?: unknown }).active === true)
+    .map((c) => ({
+      code: String(c.code ?? ''),
+      name: String(c.name ?? ''),
+      group: String(c.group ?? ''),
+      icon_url: c.icon_url != null ? String(c.icon_url) : null,
+      fee_customer: c.fee_customer ?? null,
+    }));
+}
+
 async function chargeXendit(gw: GatewayConfig, ref: string, amount: number): Promise<ChargeResult> {
   const res = await fetch('https://api.xendit.co/qr_codes', {
     method: 'POST',
