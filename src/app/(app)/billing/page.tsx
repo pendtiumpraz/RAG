@@ -340,22 +340,27 @@ function UpgradeQris({ prices, currentPlan }: { prices: Record<string, number>; 
 
 /* ── pengaturan pembayaran & mode deploy (superadmin, D12) ──────────── */
 
+type TripayEnv = 'sandbox' | 'production';
+interface GatewayEnvView {
+  merchantCode: string; proxyUrl: string;
+  apiKeySet: boolean; privateKeySet: boolean; ready: boolean;
+}
+interface GatewayRow {
+  provider: string; active: boolean; configured: boolean;
+  publicConfig: Record<string, string | boolean>;
+  tripay?: { activeEnv: TripayEnv; envs: Record<TripayEnv, GatewayEnvView> };
+}
 interface PaySettings {
   deploymentMode: 'saas' | 'onprem';
   planPrices: Record<string, number>;
-  gateways: Array<{ provider: string; active: boolean; configured: boolean; publicConfig: Record<string, string | boolean> }>;
+  gateways: GatewayRow[];
   callbackUrls: Record<string, string>;
 }
 
-/** Field kredensial per provider — nilainya TIDAK pernah dibaca balik. */
+/** Field kredensial per provider (midtrans/xendit flat) — nilainya TIDAK
+ *  pernah dibaca balik. TriPay dirender terpisah oleh TripayCard (per-env). */
 const GATEWAY_FIELDS: Record<string, Array<{ key: string; label: string; secret: boolean }>> = {
   midtrans: [{ key: 'serverKey', label: 'Server Key', secret: true }],
-  tripay: [
-    { key: 'apiKey', label: 'API Key', secret: true },
-    { key: 'privateKey', label: 'Private Key', secret: true },
-    { key: 'merchantCode', label: 'Kode Merchant', secret: false },
-    { key: 'proxyUrl', label: 'Proxy URL (opsional — IP statis lalu lintas API TriPay, mis. http://43.156.122.83:8888)', secret: false },
-  ],
   xendit: [
     { key: 'secretKey', label: 'Secret Key', secret: true },
     { key: 'callbackToken', label: 'Callback Verification Token', secret: true },
@@ -413,7 +418,9 @@ function PaymentSettings() {
 
         {/* gateway: pilih SATU aktif + kredensial per provider */}
         <div className="grid g3">
-          {data.gateways.map((g) => (
+          {data.gateways.map((g) => g.provider === 'tripay'
+            ? <TripayCard key={g.provider} g={g} busy={busy} put={put} callbackUrl={data.callbackUrls[g.provider]} />
+            : (
             <div key={g.provider} className="card" style={{ boxShadow: 'none' }}>
               <div className="panel-head">
                 <span className="t">{g.provider}</span>
@@ -466,6 +473,101 @@ function PaymentSettings() {
           Metode pembayaran: <b>QRIS saja</b>. QR digambar di halaman situs ini
           sendiri (<code>/billing/pay/…</code>) — pelanggan tidak pernah
           dialihkan ke halaman gateway. Hanya satu gateway aktif pada satu waktu.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── kartu TriPay: tab Sandbox/Production, kredensial per env ──────────
+ * Tiap env simpan kredensialnya sendiri — pindah tab tak menghapus env
+ * lain. Rahasia (API/Private Key) TAK pernah dikirim balik ke browser;
+ * yang tampak hanya penanda "tersimpan". Kosongkan = pertahankan lama. */
+const TRIPAY_ENVS: Array<{ id: TripayEnv; label: string }> = [
+  { id: 'production', label: 'Production' },
+  { id: 'sandbox', label: 'Sandbox' },
+];
+type TripayDraft = { apiKey?: string; privateKey?: string; merchantCode?: string; proxyUrl?: string };
+
+function TripayCard({ g, busy, put, callbackUrl }: {
+  g: GatewayRow; busy: boolean; callbackUrl: string;
+  put: (body: Record<string, unknown>, okMsg: string) => Promise<void>;
+}) {
+  const activeEnv = g.tripay?.activeEnv ?? 'production';
+  const [env, setEnv] = useState<TripayEnv>(activeEnv);
+  const [draft, setDraft] = useState<Record<TripayEnv, TripayDraft>>({ sandbox: {}, production: {} });
+  const ev = g.tripay?.envs[env] ?? { merchantCode: '', proxyUrl: '', apiKeySet: false, privateKeySet: false, ready: false };
+  const d = draft[env] ?? {};
+  const set = (k: keyof TripayDraft, v: string) => setDraft((s) => ({ ...s, [env]: { ...s[env], [k]: v } }));
+
+  function save() {
+    const secrets: Record<string, string> = {};
+    if (d.apiKey?.trim()) secrets.apiKey = d.apiKey.trim();
+    if (d.privateKey?.trim()) secrets.privateKey = d.privateKey.trim();
+    const publicConfig = {
+      merchantCode: d.merchantCode ?? ev.merchantCode,
+      proxyUrl: d.proxyUrl ?? ev.proxyUrl,
+    };
+    const label = TRIPAY_ENVS.find((e) => e.id === env)?.label ?? env;
+    void put(
+      { gateway: { provider: 'tripay', env, ...(Object.keys(secrets).length ? { secrets } : {}), publicConfig } },
+      `Kredensial TriPay ${label} tersimpan`,
+    ).then(() => setDraft((s) => ({ ...s, [env]: {} })));
+  }
+
+  return (
+    <div className="card" style={{ boxShadow: 'none' }}>
+      <div className="panel-head">
+        <span className="t">tripay</span>
+        {g.active
+          ? <span className="badge badge-ok"><span className="led led-live" />aktif · {activeEnv}</span>
+          : <span className="badge"><span className="led led-off" />nonaktif</span>}
+      </div>
+      <div className="card-pad stack gap-3">
+        {/* tab env */}
+        <div className="cluster gap-2">
+          {TRIPAY_ENVS.map((e) => (
+            <button key={e.id} type="button"
+              className={`btn btn-sm${env === e.id ? '' : ' btn-ghost'}`}
+              onClick={() => setEnv(e.id)}>
+              {e.label}{e.id === activeEnv ? ' •' : ''}
+            </button>
+          ))}
+        </div>
+
+        <Field label="API Key">
+          <input className="input mono" type="password"
+            placeholder={ev.apiKeySet ? '•••••••• tersimpan (kosongkan = tak diubah)' : 'belum diisi'}
+            value={d.apiKey ?? ''} onChange={(e) => set('apiKey', e.target.value)} />
+        </Field>
+        <Field label="Private Key">
+          <input className="input mono" type="password"
+            placeholder={ev.privateKeySet ? '•••••••• tersimpan (kosongkan = tak diubah)' : 'belum diisi'}
+            value={d.privateKey ?? ''} onChange={(e) => set('privateKey', e.target.value)} />
+        </Field>
+        <Field label="Kode Merchant">
+          <input className="input mono" type="text"
+            value={d.merchantCode ?? ev.merchantCode}
+            onChange={(e) => set('merchantCode', e.target.value)} />
+        </Field>
+        <Field label="Proxy URL (opsional — IP statis lalu lintas API TriPay, mis. http://43.156.122.83:8888)">
+          <input className="input mono" type="text"
+            value={d.proxyUrl ?? ev.proxyUrl}
+            onChange={(e) => set('proxyUrl', e.target.value)} />
+        </Field>
+
+        <div className="cluster gap-2">
+          <button className="btn btn-sm" disabled={busy} onClick={save}>Simpan {TRIPAY_ENVS.find((e) => e.id === env)?.label}</button>
+          {env === activeEnv && g.active
+            ? <span className="badge badge-ok"><span className="led led-live" />env aktif</span>
+            : <button className="btn btn-sm btn-ghost" disabled={busy || !ev.ready}
+                title={ev.ready ? '' : 'Isi API Key & Private Key dulu'}
+                onClick={() => void put({ activateTripayEnv: env }, `TriPay ${TRIPAY_ENVS.find((e) => e.id === env)?.label} diaktifkan`)}>
+                Aktifkan {TRIPAY_ENVS.find((e) => e.id === env)?.label}
+              </button>}
+        </div>
+        <p className="microlabel" style={{ wordBreak: 'break-all' }}>
+          CALLBACK URL (daftarkan di dashboard tripay):<br />{callbackUrl}
         </p>
       </div>
     </div>
