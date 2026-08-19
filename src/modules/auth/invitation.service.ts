@@ -6,7 +6,7 @@ import { hashPassword } from './password';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
 import { audit } from '@/modules/core/guardrails';
 import { limitsFor } from '@/modules/core/limits-server';
-import { effectivePlan } from '@/modules/usage/usage.service';
+import { effectivePlan, QuotaError } from '@/modules/usage/usage.service';
 import type { AuthUser } from './auth.service';
 
 /**
@@ -174,9 +174,12 @@ export const invitationService = {
     const onprem = (await platformSettingsService.mode()) === 'onprem';
     const limits = await limitsFor(onprem ? 'onprem' : plan);
     if (memberCount + pendingCount >= limits.maxMembers) {
-      throw new ValidationError(
+      // Kuota kursi habis → 402 (sebab + jalan keluar), bukan 422: jatahnya
+      // penuh, bukan permintaannya salah.
+      throw new QuotaError(
         `Kuota anggota plan "${plan}" penuh (${limits.maxMembers} kursi, terpakai `
         + `${memberCount} anggota + ${pendingCount} undangan). Naikkan plan untuk menambah kursi.`,
+        memberCount + pendingCount, limits.maxMembers,
       );
     }
 

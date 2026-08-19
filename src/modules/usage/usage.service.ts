@@ -10,6 +10,21 @@ export class QuotaExceededError extends Error {
   }
 }
 
+/**
+ * Penolakan kuota yang MENYEBUT sebab + jalan keluar → dipetakan route ke HTTP
+ * 402 (bukan 422 "permintaanmu salah", bukan 500 diam). Batas yang menolak
+ * tanpa menjelaskan dibaca sebagai produk rusak; `used`/`limit` memberi UI
+ * angka untuk mengarahkan upgrade. Rumah kanonisnya di sini — modul knowledge
+ * me-re-export kelas yang SAMA supaya `instanceof` lintas modul tak diam-diam
+ * meleset.
+ */
+export class QuotaError extends Error {
+  constructor(message: string, readonly used: number, readonly limit: number) {
+    super(message);
+    this.name = 'QuotaError';
+  }
+}
+
 function currentPeriod(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;

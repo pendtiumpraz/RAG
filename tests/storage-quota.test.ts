@@ -109,7 +109,11 @@ test('QuotaError terpisah dari ValidationError', () => {
   // Rute perlu membedakan "jatahmu habis" (402, perlu upgrade) dari
   // "permintaanmu salah" (422). Menyamakannya membuat pemilik data mengira
   // berkasnya rusak.
-  assert.ok(/export class QuotaError extends Error/.test(KS));
+  // Kelas kanonisnya kini di modul usage (satu kelas dipakai lintas modul agar
+  // `instanceof` tak meleset); knowledge me-re-export-nya untuk pemanggil lama.
+  const usage = readFileSync('src/modules/usage/usage.service.ts', 'utf8');
+  assert.ok(/export class QuotaError extends Error/.test(usage), 'QuotaError bukan kelas tersendiri');
+  assert.ok(/export \{ QuotaError \}/.test(KS), 'knowledge tak lagi mengekspor QuotaError');
   const route = readFileSync('src/app/api/knowledge-bases/route.ts', 'utf8');
   assert.ok(/QuotaError.*status: 402/s.test(route), 'rute tak memetakan kuota ke 402');
 });

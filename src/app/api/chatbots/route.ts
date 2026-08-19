@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser, requireRole } from '@/modules/core/auth';
 import { AksesDitolakError, chatbotService, ValidationError } from '@/modules/chatbot/chatbot.service';
+import { QuotaError } from '@/modules/usage/usage.service';
 import { divisionService } from '@/modules/settings/division.service';
 import { ensureIntegrations } from '../_wire';
 
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
       snippet: chatbotService.embedSnippet(chatbot.publicKey) }, { status: 201 });
   } catch (e) {
     if (e instanceof AksesDitolakError) return NextResponse.json({ error: e.message }, { status: 403 });
+    // 402 memisahkan "jatahmu habis" (upgrade) dari "permintaanmu salah" (422).
+    if (e instanceof QuotaError) return NextResponse.json({ error: e.message, quota: { used: e.used, limit: e.limit } }, { status: 402 });
     if (e instanceof ValidationError) return NextResponse.json({ error: e.message }, { status: 422 });
     throw e;
   }

@@ -6,7 +6,7 @@ import {
   normalizePolicy, type LanguageMode, type Tone, type Grounding,
 } from '@/modules/chat/answer-policy';
 import { dispatch } from '@/modules/core/events';
-import { usageService } from '@/modules/usage/usage.service';
+import { usageService, QuotaError } from '@/modules/usage/usage.service';
 import { chatbotRepository as repo } from './chatbot.repository';
 import { bolehLihat, lintasDivisi, PESAN_DILUAR_DIVISI, type AktorDivisi } from './divisi';
 import { encryptSecret } from '@/modules/core/crypto';
@@ -78,7 +78,12 @@ export const chatbotService = {
     const usage = await usageService.snapshot(tenantId);
     const activeCount = await withTenant(tenantId, (tx) => repo.countActive(tx, tenantId));
     if (activeCount >= usage.limits.maxChatbots) {
-      throw new ValidationError(`Plan ${usage.plan} maksimal ${usage.limits.maxChatbots} chatbot. Upgrade untuk menambah.`);
+      // Kuota habis MENYEBUT sebab + jalan keluar → 402, bukan 422 "permintaan
+      // salah": jatahnya penuh, bukan inputnya keliru.
+      throw new QuotaError(
+        `Plan ${usage.plan} maksimal ${usage.limits.maxChatbots} chatbot. Upgrade untuk menambah.`,
+        activeCount, usage.limits.maxChatbots,
+      );
     }
 
     const created = await withTenant(tenantId, async (tx) => {

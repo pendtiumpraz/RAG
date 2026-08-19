@@ -39,20 +39,32 @@ const Body = z.object({
   // bayar sendiri. Ditolak di sini DAN diabaikan di limitsFor().
 });
 
+/* Hanya kolom yang dipakai halaman ini yang dipilih. `select()` polos ikut
+   membaca SETIAP kolom platform_settings — jadi satu kolom yang tertinggal di
+   basis data (mis. migrasi terbaru belum jalan) membuat GET 500, padahal kuota
+   tak butuh kolom itu. Pola sempit yang sama dipakai limits-server.overrides(). */
+const KOLOM = { id: platformSettings.id, planQuotas: platformSettings.planQuotas };
+
 async function baris() {
-  const r = await db.select().from(platformSettings).where(eq(platformSettings.id, 1)).limit(1);
+  const r = await db.select(KOLOM).from(platformSettings).where(eq(platformSettings.id, 1)).limit(1);
   if (r[0]) return r[0];
-  return (await db.insert(platformSettings).values({ id: 1 }).returning())[0];
+  return (await db.insert(platformSettings).values({ id: 1 }).returning(KOLOM))[0];
 }
 
 /** GET — default kode + penimpa yang berlaku, supaya UI bisa menampilkan keduanya. */
 export async function GET() {
   await requireRole('superadmin');
-  const row = await baris();
-  return NextResponse.json({
-    defaults: PLAN_LIMITS,
-    overrides: row.planQuotas ?? {},
-  });
+  let overrides: Record<string, Record<string, number | null>> = {};
+  try {
+    overrides = (await baris()).planQuotas ?? {};
+  } catch (err) {
+    // Basis data bermasalah tak boleh mematikan halaman: tampilkan default
+    // dengan penimpa kosong — pola yang sama dipakai platformSettingsService
+    // .get() & limits-server.overrides(). Superadmin tetap bisa melihat &
+    // menyetel; simpanan yang gagal akan bersuara lewat PUT, bukan diam.
+    console.error('[plan-quotas] gagal baca penimpa, memakai default:', err);
+  }
+  return NextResponse.json({ defaults: PLAN_LIMITS, overrides });
 }
 
 /** PUT — simpan penimpa. Kunci yang dihapus kembali ke default kode. */

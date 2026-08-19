@@ -11,6 +11,10 @@ import { documentVectorsService } from './document-vectors.service';
 import { contentFingerprint, fingerprintable, nameSizeKey } from './dedupe';
 import { BYTES_PER_CHUNK, CHUNKS_PER_DOC } from '@/modules/core/limits';
 import { limitsFor } from '@/modules/core/limits-server';
+/* Kelas kanonisnya hidup di modul usage; di-re-export di bawah supaya pemanggil
+   lama yang mengimpornya dari knowledge tetap jalan DAN `instanceof` menunjuk
+   satu kelas yang sama lintas modul. */
+import { QuotaError } from '@/modules/usage/usage.service';
 import { uploadedFileService } from './uploaded-file.service';
 import { audit } from '@/modules/core/guardrails';
 
@@ -113,12 +117,7 @@ async function recordDuplicate(tenantId: string, d: {
  * keduanya membuat pemilik data mengira berkasnya rusak, padahal yang perlu
  * mereka lakukan adalah menaikkan paket.
  */
-export class QuotaError extends Error {
-  constructor(message: string, readonly used: number, readonly limit: number) {
-    super(message);
-    this.name = 'QuotaError';
-  }
-}
+export { QuotaError };
 
 /** Berapa potongan hidup yang sudah dipakai tenant ini. */
 async function chunkUsage(tenantId: string): Promise<number> {

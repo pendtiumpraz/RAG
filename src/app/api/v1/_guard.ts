@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { apikeyService, type ApiCaller, type Scope } from '@/modules/integrations/apikey.service';
 import { ensureIntegrations } from '@/app/api/_wire';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { QuotaError } from '@/modules/usage/usage.service';
 
 /**
  * Pembungkus rute API PUBLIK v1 — autentikasi lewat API key, bukan sesi.
@@ -50,6 +51,10 @@ export function apiRoute<C>(
     try {
       return await handler(req, ctx, caller);
     } catch (e) {
+      // Kuota habis → 402 (sebab + jalan keluar), bukan 422 "permintaan salah".
+      if (e instanceof QuotaError) {
+        return NextResponse.json({ error: e.message, quota: { used: e.used, limit: e.limit } }, { status: 402 });
+      }
       if (e instanceof ValidationError) {
         return NextResponse.json({ error: e.message }, { status: 422 });
       }
