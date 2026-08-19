@@ -8,6 +8,11 @@ import { Select } from '../../_components/select';
 import { PayChannelModal } from '../../_components/pay-channel-modal';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
+import { PageTabs, type TabDef } from '../../_components/page-tabs';
+import { useHashTab } from '../../_lib/useTab';
+
+type BillTab = 'plan' | 'riwayat' | 'platform';
+const BILL_KEYS: readonly BillTab[] = ['plan', 'riwayat', 'platform'];
 
 interface PlanSpec { id: string; messagesPerMonth: number | null; maxChatbots: number | null; maxMembers: number | null }
 interface Billing {
@@ -30,6 +35,14 @@ const fmt = (n: number) => n.toLocaleString('id-ID');
 export default function BillingPage() {
   const { data: session } = useSession();
   const { data, loading, error, refetch } = useApi<Billing>('/api/billing');
+  const isSuper = session?.user?.role === 'superadmin';
+  const tabs = ([
+    { key: 'plan', label: 'Plan & Paket' },
+    { key: 'riwayat', label: 'Riwayat' },
+    { key: 'platform', label: 'Platform', super: true },
+  ] as readonly TabDef<BillTab>[]).filter((t) => !t.super || isSuper);
+  const [tab, setTab] = useHashTab(BILL_KEYS, 'plan');
+  const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
 
   if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
   if (loading || !data) return <div className="card"><Skeleton rows={4} /></div>;
@@ -41,7 +54,8 @@ export default function BillingPage() {
       </div>
 
       {/* Plan kedaluwarsa BUKAN sekadar catatan — kuotanya sudah benar-benar
-          turun ke free, jadi katakan apa adanya. */}
+          turun ke free, jadi katakan apa adanya. Tetap DI ATAS tab supaya tak
+          pernah tersembunyi, apa pun tab yang dibuka. */}
       {data.expired && (
         <div className="card" style={{ borderLeft: '3px solid var(--danger)', marginBottom: 'var(--sp-4)' }}>
           <div className="card-pad">
@@ -53,6 +67,10 @@ export default function BillingPage() {
           </div>
         </div>
       )}
+
+      <PageTabs tabs={tabs} active={active} onPick={setTab} label="Bagian billing" />
+
+      {active === 'plan' && <>
 
       <div className="grid g2">
         <div className="card">
@@ -114,13 +132,16 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
+      </>}
 
-      <RiwayatPembayaran />
+      {active === 'riwayat' && <RiwayatPembayaran />}
 
-      {session?.user?.role === 'superadmin' && <IdentitasPenerbit />}
-      {session?.user?.role === 'superadmin' && <PaymentSettings />}
-      {session?.user?.role === 'superadmin' && <PlanQuotas />}
-      {session?.user?.role === 'superadmin' && <AllTenants />}
+      {active === 'platform' && isSuper && <>
+        <IdentitasPenerbit />
+        <PaymentSettings />
+        <PlanQuotas />
+        <AllTenants />
+      </>}
     </>
   );
 }

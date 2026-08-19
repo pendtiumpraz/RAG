@@ -9,6 +9,11 @@ import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast, Pager, type PageMeta, Field, Drawer } from '../../_components/ui';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
+import { PageTabs, type TabDef } from '../../_components/page-tabs';
+import { useHashTab } from '../../_lib/useTab';
+
+type TeamTab = 'anggota' | 'undangan' | 'verifikasi';
+const TEAM_KEYS: readonly TeamTab[] = ['anggota', 'undangan', 'verifikasi'];
 
 interface PendingUser {
   id: string; email: string; name: string | null; role: string; status: string;
@@ -54,6 +59,17 @@ function TeamPageInner() {
   const toast = useToast();
   const t = useTabel(members.data ?? [], OPSI_ANGGOTA);
 
+  const canSee: Record<TeamTab, boolean> = {
+    anggota: true, undangan: canInvite, verifikasi: u?.role === 'superadmin',
+  };
+  const tabs = ([
+    { key: 'anggota', label: 'Anggota' },
+    { key: 'undangan', label: 'Undangan' },
+    { key: 'verifikasi', label: 'Verifikasi' },
+  ] as const satisfies readonly TabDef<TeamTab>[]).filter((tb) => canSee[tb.key]);
+  const [tab, setTab] = useHashTab(TEAM_KEYS, 'anggota');
+  const active = tabs.some((tb) => tb.key === tab) ? tab : tabs[0].key;
+
   /* RBAC tenant: admin bisa mengubah peran & mengeluarkan anggota.
      Superadmin & diri sendiri tak bisa disentuh dari sini; pengaman admin
      terakhir ditegakkan server (jangan percaya UI saja). */
@@ -96,6 +112,9 @@ function TeamPageInner() {
         )}
       </div>
 
+      <PageTabs tabs={tabs} active={active} onPick={setTab} label="Bagian tim" />
+
+      {active === 'anggota' &&
       <div className="card">
         <div className="panel-head"><span className="t">anggota</span>
           <span className="microlabel">{members.data?.length ?? 0} ORANG</span></div>
@@ -188,16 +207,18 @@ function TeamPageInner() {
             <TabelKaki t={t} satuan="anggota" />
             </div>
           )}
-      </div>
+      </div>}
 
-      {canInvite && <Invitations feed={invites} onInvite={() => setInviting(true)} />}
-      {inviting && <InviteDrawer onClose={() => setInviting(false)}
-        onSent={() => { invites.refetch(); members.refetch(); }} />}
-      {pulih && <PulihkanDrawer member={pulih} onClose={() => setPulih(null)} />}
+      {active === 'undangan' && canInvite && <Invitations feed={invites} onInvite={() => setInviting(true)} />}
 
       {/* Antrean verifikasi menembus batas tenant (tiap signup = tenant sendiri),
           jadi hanya peran platform yang boleh melihatnya. */}
-      {u?.role === 'superadmin' && <SignupApprovals />}
+      {active === 'verifikasi' && u?.role === 'superadmin' && <SignupApprovals />}
+
+      {/* Drawer/overlay tetap di luar tab — dipicu dari tabel anggota. */}
+      {inviting && <InviteDrawer onClose={() => setInviting(false)}
+        onSent={() => { invites.refetch(); members.refetch(); }} />}
+      {pulih && <PulihkanDrawer member={pulih} onClose={() => setPulih(null)} />}
     </>
   );
 }

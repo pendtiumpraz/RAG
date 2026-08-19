@@ -62,18 +62,6 @@
 .nav-item[data-locked]:hover{ color:var(--muted); }
 .nav-lock{ margin-left:auto; display:inline-flex; color:var(--source); opacity:.85; }
 
-/* Tab organisasi — deret navigasi horizontal untuk enam area setelan tenant
-   (Settings/Observability/Billing/Usage/Team/Models). Mengikuti pola .dr-tab
-   Dataroom, tapi berbasis <Link> (tiap tab rute sendiri). Digulir mendatar di
-   layar sempit, tak pernah membungkus dua baris. */
-.area-tabs{ display:flex; gap:6px; margin-bottom:var(--sp-5); border-bottom:1px solid var(--line);
-  overflow-x:auto; scrollbar-width:thin; }
-.area-tab{ appearance:none; text-decoration:none; padding:10px 14px;
-  font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--muted);
-  border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; flex:none; transition:.14s; }
-.area-tab.on{ color:var(--signal); border-bottom-color:var(--signal); }
-.area-tab:hover{ color:var(--ink); text-decoration:none; }
-
 /* Visualisasi ringan (Observability) — bar CSS + sparkline/donut SVG, tanpa
    pustaka chart. Warna dari token brand: signal (biru) untuk pemakaian,
    source (amber) untuk sorotan, danger (merah) untuk galat. */
