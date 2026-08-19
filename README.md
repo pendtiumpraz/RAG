@@ -302,6 +302,169 @@ karena tanpa itu siapa pun yang tahu URL-mu bisa mengirim kejadian palsu.
 
 ---
 
+## Integrasi & Embed
+
+Tiga cara memakai Nalar dari luar dashboard: **menempel widget chatbot** di
+situs pelanggan, **mengunci origin** yang boleh memanggilnya, dan
+**men-provision tenant lewat server** (S2S) tanpa buka UI.
+
+### A. Embed chatbot ke situs mana pun
+
+**1. Ambil `publicKey`.** Buka **Chatbots**, pilih chatbot → tab **Embed**.
+`publicKey` berbentuk `cb_live_xxxxxxxx`. Kunci ini **aman disebar** —
+dirancang tampil di HTML halaman pelanggan; ia hanya boleh dipakai dari origin
+yang kamu izinkan (lihat bagian B). Ini **bukan** API key (`nk_live_…`) yang
+harus dirahasiakan.
+
+**2. Tempel snippet** sebelum `</body>`:
+
+```html
+<!-- Mode floating (default): bubble di pojok kanan-bawah -->
+<script src="https://rag.sainskerta.net/embed.js"
+        data-chatbot="cb_live_xxxxxxxxxxxx"></script>
+```
+
+**Mode inline** — tanam chat langsung di dalam elemen halaman, bukan bubble:
+
+```html
+<div id="chat" style="height:600px"></div>
+<script src="https://rag.sainskerta.net/embed.js"
+        data-chatbot="cb_live_xxxxxxxxxxxx"
+        data-mode="inline" data-target="#chat"></script>
+```
+
+Tanpa `data-target`, chat inline dipasang tepat di posisi `<script>`-nya.
+
+**Atribut `data-*` yang dikenali `embed.js`:**
+
+| Atribut            | Wajib | Guna                                                        |
+| ------------------ | :---: | ----------------------------------------------------------- |
+| `data-chatbot`     |   ✓   | `publicKey` chatbot (`cb_live_…`)                           |
+| `data-mode`        |       | `floating` (bawaan) atau `inline`                          |
+| `data-target`      |       | Selektor CSS wadah untuk mode `inline` (mis. `#chat`)     |
+| `data-visitor`     |       | ID pengunjung yang **sudah login di situsmu** (SSO ringan) |
+| `data-visitor-sig` |       | Tanda tangan HMAC untuk `data-visitor` — **harus berpasangan** dengan atribut di atas |
+
+> Snippet siap-pakai juga tersedia dari API: `GET /api/v1/chatbots` dan
+> `POST /api/v1/chatbots` mengembalikan field `snippet` per chatbot.
+
+### B. Embed setting — kunci origin (allowed origins)
+
+Widget di atas memanggil `POST /api/chat/[chatbotId]` dari peramban pengunjung.
+Tanpa penjagaan, siapa pun yang menyalin `publicKey`-mu bisa menempelkannya di
+situs lain. Karena itu tiap chatbot punya daftar **`allowedOrigins`** yang
+ditegakkan lewat **CORS + cek Origin** di sisi server (`/api/chat/[chatbotId]`,
+`/history`, `/sessions`). Origin situs yang **tidak** terdaftar → request chat
+**ditolak**.
+
+- Bawaan `allowedOrigins` = `[]` (kosong). **Isi minimal satu origin** sebelum
+  go-live, jika tidak widget tak akan menjawab dari situs pelanggan.
+- Format origin = skema + host + port, **tanpa path**: `https://tokoku.com`,
+  `https://app.tokoku.com`, `http://localhost:3000` (untuk uji lokal).
+- Subdomain **tidak** otomatis tercakup — daftarkan tiap origin persis.
+
+**Lewat dashboard:** Chatbots → chatbot → tab **Embed** → *Allowed origins* →
+tambah origin → simpan.
+
+**Lewat API** (`PATCH /api/chatbots/[id]`, sesi login / API key `write`):
+
+```bash
+curl -X PATCH https://rag.sainskerta.net/api/chatbots/<chatbotId> \
+  -H "Authorization: Bearer nk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"allowedOrigins":["https://tokoku.com","https://app.tokoku.com"]}'
+```
+
+Saat membuat chatbot via S2S (`POST /api/v1/chatbots`), `allowedOrigins` bisa
+langsung disertakan di body.
+
+### C. Provisioning S2S — bikin tenant dari server
+
+Untuk platform yang mendaftarkan banyak pelanggan otomatis (mis. **Mairasales**):
+provision tenant + langsung dapat API key-nya, tanpa buka UI. Jalur ini
+**bertoken master**, di luar scope per-tenant biasa.
+
+**1. Siapkan `NALAR_MASTER_KEY`** (env server Nalar). Minimal **32 karakter** —
+di bawah itu seluruh jalur provisioning dianggap *tidak dikonfigurasi* dan
+membalas `503`. Env kosong **tidak** boleh jadi pintu terbuka.
+
+```bash
+# contoh membangkitkan kunci acak 48-byte
+openssl rand -hex 48    # → set sebagai NALAR_MASTER_KEY
+```
+
+> **Cek dari superadmin:** tombol *Tes koneksi* di panel superadmin memanggil
+> `POST /api/admin/s2s-master-test`, yang memverifikasi env ter-set & cukup
+> panjang **tanpa** pernah membocorkan nilainya
+> (`{ ok, configured, lengthOk, minLength, domainCount }`).
+
+**2. Whitelist domain (opsional, lapisan tambahan).** Di atas token master ada
+daftar domain yang boleh memanggil provisioning **dari peramban**. Request S2S
+murni (fetch sisi-server, tanpa header `Origin`) **selalu lolos** — hanya
+dijaga token master. Request yang **membawa** `Origin`/`Referer` di luar
+whitelist → `403`. Daftar ini dikelola superadmin (`platform_settings.
+s2s_allowed_domains`, API `GET/POST/DELETE /api/admin/s2s-whitelist`); bawaan
+`mairasales.com` (mencakup subdomainnya) selagi DB kosong.
+
+**3. Provision tenant** — `POST /api/v1/tenants`. Token dikirim seperti API key:
+`Authorization: Bearer <NALAR_MASTER_KEY>` atau header `X-Api-Key`.
+
+```bash
+curl -X POST https://rag.sainskerta.net/api/v1/tenants \
+  -H "Authorization: Bearer $NALAR_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "orgName": "Toko Kita",
+        "name":    "Admin Toko",
+        "email":   "admin@tokokita.com",
+        "password": "rahasia-min-8-char",
+        "keyName": "Maira S2S",
+        "scopes":  ["write", "chat"]
+      }'
+```
+
+Respons `201`:
+
+```json
+{
+  "tenantId": "…",
+  "userId":   "…",
+  "apiKey":   "nk_live_…",
+  "apiKeyId": "…",
+  "scopes":   ["write", "chat"]
+}
+```
+
+- `keyName` & `scopes` opsional; bawaan scope `["write","chat"]`
+  (`write` sudah mencakup `read`).
+- `apiKey` (`nk_live_…`) **hanya muncul sekali** — simpan aman, ini kunci
+  penuh tenant baru.
+
+**4. Pakai `apiKey` tenant** untuk membuat resource — mis. bikin chatbot +
+langsung dapat snippet embed-nya:
+
+```bash
+curl -X POST https://rag.sainskerta.net/api/v1/chatbots \
+  -H "Authorization: Bearer nk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CS Toko Kita","allowedOrigins":["https://tokokita.com"]}'
+# → { "chatbot": { … "publicKey": "cb_live_…" }, "snippet": "<script …></script>" }
+```
+
+Endpoint S2S lain memakai `apiKey` yang sama: `POST /api/v1/knowledge-bases`,
+`POST /api/v1/payments` (→ `{ id, qrString, qrImageUrl }`), `POST /api/v1/search`.
+
+**Mint kunci tambahan** untuk tenant yang sudah ada (tetap bertoken master):
+
+```bash
+curl -X POST https://rag.sainskerta.net/api/v1/tenants/<tenantId>/keys \
+  -H "Authorization: Bearer $NALAR_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Kunci CI","scopes":["read"]}'
+```
+
+---
+
 ## Perintah
 
 ```bash
