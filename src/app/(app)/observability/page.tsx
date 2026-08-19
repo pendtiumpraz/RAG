@@ -98,6 +98,8 @@ export default function ObservabilityPage() {
       {error ? <div className="card"><ErrorState message={error} onRetry={refetch} /></div>
         : loading || !data ? <div className="card"><Skeleton rows={4} /></div>
         : (
+          <>
+          <VizSection data={data} hours={hours} />
           <div className="grid g2">
             <div className="card">
               <div className="panel-head"><span className="t">aktivitas ({data.window})</span></div>
@@ -121,8 +123,120 @@ export default function ObservabilityPage() {
                 : <TabelTenantSibuk rows={data.topTenants} />}
             </div>
           </div>
+          </>
         )}
     </>
+  );
+}
+
+/* ── Visualisasi ─────────────────────────────────────────────────────────
+   Tiga chart ringan tanpa pustaka: bar CSS untuk peringkat, sparkline SVG
+   untuk tren galat sepanjang jendela waktu. Semuanya dari data useApi yang
+   sudah ada — tabel di bawahnya tetap ada untuk detail yang bisa dicari. */
+
+/** Agregasi aksi per modul: `chat.answer` + `chat.stream` → satu batang
+ *  `chat`. Cara orang benar-benar membaca beban sistem. */
+function perModul(actions: Aksi[]) {
+  const m = new Map<string, number>();
+  for (const a of actions) m.set(modul(a.action), (m.get(modul(a.action)) ?? 0) + a.count);
+  return [...m.entries()].map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value).slice(0, 7);
+}
+
+/** Galat dibagi ke 12 selang sepanjang `hours` — indeks 0 = paling lama,
+ *  terakhir = paling baru. Timestamp di luar jendela diabaikan. */
+function trenGalat(errors: Galat[], hours: number): number[] {
+  const now = Date.now();
+  const span = hours * 3600_000;
+  const buckets = 12;
+  const out = new Array<number>(buckets).fill(0);
+  for (const e of errors) {
+    const age = now - new Date(e.at).getTime();
+    if (!(age >= 0) || age > span) continue;
+    const idx = Math.min(buckets - 1, Math.floor(((span - age) / span) * buckets));
+    out[idx] += 1;
+  }
+  return out;
+}
+
+function VizSection({ data, hours }: { data: Ops; hours: number }) {
+  const modules = perModul(data.actions);
+  const tenants = data.topTenants.slice(0, 7).map((t) => ({ label: t.name, value: t.messages }));
+  const tren = trenGalat(data.errors, hours);
+  const totalGalat = tren.reduce((a, b) => a + b, 0);
+  return (
+    <div className="grid g3" style={{ marginBottom: 'var(--sp-4)' }}>
+      <div className="card">
+        <div className="panel-head"><span className="t">aktivitas per modul</span></div>
+        <div className="card-pad">
+          {modules.length === 0
+            ? <EmptyState title="Belum ada aktivitas" hint="Batang muncul begitu ada chat, ingest, atau aksi admin." />
+            : <BarViz rows={modules} />}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="panel-head"><span className="t">tren galat</span>
+          <span className="microlabel">{fmt(totalGalat)} DALAM {data.window}</span></div>
+        <div className="card-pad stack gap-3">
+          <Sparkline points={tren} color="var(--danger)" />
+          <div className="viz-legend">
+            <span><span className="dot" style={{ background: 'var(--danger)' }} />
+              galat per selang ({data.window})</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="panel-head"><span className="t">distribusi tenant</span></div>
+        <div className="card-pad">
+          {tenants.length === 0
+            ? <EmptyState title="Belum ada pemakaian" hint="Peringkat muncul setelah ada percakapan bulan ini." />
+            : <BarViz rows={tenants} color="var(--source)" />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Bar horizontal murni CSS: panjang batang = nilai relatif terhadap maksimum,
+ *  angka absolut di kanan. Tanpa SVG, tanpa pustaka. */
+function BarViz({ rows, color }: { rows: { label: string; value: number }[]; color?: string }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <div className="viz-bars">
+      {rows.map((r) => (
+        <div key={r.label} className="viz-row">
+          <span className="lbl" title={r.label}>{r.label}</span>
+          <div className="viz-track">
+            <div className="viz-fill" style={{ width: `${(r.value / max) * 100}%`, background: color ?? 'var(--signal)' }} />
+          </div>
+          <span className="viz-val mono">{fmt(r.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Sparkline area SVG: viewBox 100×32 diregangkan penuh lebar kartu
+ *  (preserveAspectRatio none), garis tak ikut menebal (non-scaling-stroke). */
+function Sparkline({ points, color }: { points: number[]; color: string }) {
+  const w = 100, h = 32;
+  const max = Math.max(1, ...points);
+  const n = points.length;
+  const coords = points.map((v, i) => {
+    const x = n === 1 ? 0 : (i / (n - 1)) * w;
+    const y = h - (v / max) * (h - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const line = coords.join(' ');
+  const area = `0,${h} ${line} ${w},${h}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
+      style={{ width: '100%', height: 52, display: 'block' }} aria-hidden>
+      <polygon points={area} fill={color} opacity={0.12} />
+      <polyline points={line} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 
