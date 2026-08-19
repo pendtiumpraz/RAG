@@ -26,6 +26,31 @@ function masterKeyOk(raw: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/**
+ * Whitelist DOMAIN — lapisan tambahan di atas token master. Hanya
+ * mairasales.com (+ subdomain: app./admin./dst.) yang boleh memanggil
+ * provisioning dari peramban. Domain dasar bisa dioverride via
+ * `NALAR_S2S_ALLOWED_DOMAIN` (staging), default 'mairasales.com'.
+ *
+ * KEPUTUSAN kasus Origin kosong: request S2S dari server Maira adalah fetch
+ * sisi-server dan LAZIM tanpa header Origin/Referer. Karena token master
+ * sudah jadi kontrol utama, request tanpa Origin DIIZINKAN — whitelist domain
+ * hanya menyaring request yang MEMBAWA Origin (yaitu dari peramban). Origin
+ * ADA tapi bukan mairasales.com → 403.
+ */
+export function originAllowed(req: NextRequest): boolean {
+  const base = (process.env.NALAR_S2S_ALLOWED_DOMAIN || 'mairasales.com').toLowerCase();
+  const source = req.headers.get('origin') || req.headers.get('referer');
+  if (!source) return true; // S2S tanpa Origin → dikawal token master saja.
+  let host: string;
+  try {
+    host = new URL(source).hostname.toLowerCase();
+  } catch {
+    return false; // Origin/Referer ada tapi tak bisa di-parse → tolak.
+  }
+  return host === base || host.endsWith('.' + base);
+}
+
 export function masterRoute<C>(
   handler: (req: NextRequest, ctx: C) => Promise<NextResponse>,
 ) {
@@ -44,6 +69,11 @@ export function masterRoute<C>(
         status: 401,
         headers: { 'WWW-Authenticate': 'Bearer realm="Nalar Master"' },
       });
+    }
+
+    if (!originAllowed(req)) {
+      return NextResponse.json(
+        { error: 'Origin tidak diizinkan untuk provisioning S2S.' }, { status: 403 });
     }
 
     try {
