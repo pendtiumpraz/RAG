@@ -11,10 +11,16 @@ import { Skeleton, ErrorState } from '../../../../_components/ui';
  * 3 dtk (webhook yang menandai paid; poll juga menarik status provider
  * sebagai pelindung).
  *
- * Sumber QR UTAMA adalah `qrImageUrl` — GAMBAR QRIS resmi dari provider
- * (TriPay `qr_url`, sudah berlogo QRIS). Kita pakai langsung via <img>, tidak
- * generate/render sendiri. `qr_string` cuma fallback untuk provider yang tak
- * memberi URL gambar (mis. Xendit): di situ kita render QR polos via `qrcode`.
+ * Sumber QR UTAMA adalah `qrImageUrl` — GAMBAR QR resmi dari provider
+ * (TriPay `qr_url`). Kita pakai langsung via <img>, tidak generate/render
+ * sendiri. `qr_string` cuma fallback untuk provider yang tak memberi URL
+ * gambar (mis. Xendit): di situ kita render QR polos via `qrcode`.
+ *
+ * CATATAN sandbox TriPay: di mode uji, TriPay mengembalikan `qr_string` =
+ * "SANDBOX MODE" dan `qr_url` berisi QR placeholder yang BUKAN payload QRIS
+ * nyata — e-wallet (GoPay/OVO/DANA) akan menolak dengan "Pastikan QR berlogo
+ * QRIS". Karena itu: (1) fallback canvas TIDAK boleh menggambar payload non-QRIS,
+ * (2) tampilkan peringatan jelas agar tak dikira bug render.
  */
 
 interface Payment {
@@ -31,6 +37,13 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
   const { data, error, refetch } = useApi<Payment>(`/api/payments/${id}`);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [left, setLeft] = useState<number | null>(null);
+
+  // TriPay sandbox mengirim qr_string = "SANDBOX MODE" (bukan payload QRIS).
+  // qrPayable = qr_string beneran bisa digambar & dibayar. isSandboxQr =
+  // tanda gateway masih mode uji → QR tak akan diterima e-wallet nyata.
+  const qrString = data?.qrString ?? null;
+  const isSandboxQr = (qrString ?? '').trim().toUpperCase() === 'SANDBOX MODE';
+  const qrPayable = !!qrString && qrString.trim() !== '' && !isSandboxQr;
 
   // poll status — berhenti begitu final
   useEffect(() => {
@@ -52,16 +65,16 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
   // gambar resmi (qrImageUrl). TriPay selalu memberi qr_url → cabang ini idle.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || data?.qrImageUrl || !data?.qrString || data.status !== 'pending') return;
+    if (!canvas || data?.qrImageUrl || !qrPayable || data?.status !== 'pending') return;
     let cancelled = false;
     void import('qrcode').then((QR) => {
       if (cancelled) return;
-      void QR.toCanvas(canvas, data.qrString!, {
+      void QR.toCanvas(canvas, qrString!, {
         width: 320, margin: 2, color: { dark: '#0F172A', light: '#FFFFFF' },
       });
     });
     return () => { cancelled = true; };
-  }, [data?.qrImageUrl, data?.qrString, data?.status]);
+  }, [data?.qrImageUrl, qrString, qrPayable, data?.status]);
 
   if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
   if (!data) return <div className="card"><Skeleton rows={4} /></div>;
@@ -88,10 +101,19 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
                 {data.qrImageUrl
                   /* eslint-disable-next-line @next/next/no-img-element */
                   ? <img src={data.qrImageUrl} alt="QRIS" width={320} height={320} style={{ objectFit: 'contain' }} />
-                  : data.qrString
+                  : qrPayable
                     ? <canvas ref={canvasRef} style={{ width: 320, height: 320 }} />
                     : <span className="microlabel">QR TIDAK TERSEDIA — COBA BUAT ULANG</span>}
               </div>
+
+              {isSandboxQr && (
+                <div className="pay-sandbox">
+                  <b>MODE UJI (SANDBOX)</b>
+                  <p>QR ini dari TriPay <b>sandbox</b> — bukan QRIS nyata, jadi
+                    {' '}GoPay/OVO/DANA menolaknya (&ldquo;Pastikan QR berlogo QRIS&rdquo;).
+                    {' '}Aktifkan <b>TriPay Production</b> di Pengaturan Pembayaran agar QR bisa dibayar.</p>
+                </div>
+              )}
               <p style={{ color: 'var(--muted)', fontSize: 13.5, maxWidth: 380, lineHeight: 1.6 }}>
                 Pindai dengan aplikasi e-wallet atau mobile banking mana pun
                 {' '}yang mendukung <b>QRIS</b> (GoPay, OVO, DANA, ShopeePay,
@@ -153,6 +175,11 @@ export default function PayPage({ params }: { params: Promise<{ id: string }> })
           border-radius:var(--rad-md); padding:12px 14px; display:flex; flex-direction:column;
           align-items:center; gap:8px; }
         .pay-log p{ margin:0; color:var(--muted); font-size:12.5px; line-height:1.6; }
+        .pay-sandbox{ width:100%; max-width:400px; background:var(--tint-danger);
+          border:1px solid var(--danger); border-radius:var(--rad-md); padding:12px 14px;
+          text-align:left; }
+        .pay-sandbox b{ color:var(--danger); }
+        .pay-sandbox p{ margin:6px 0 0; color:var(--ink); font-size:12.5px; line-height:1.6; }
       `}</style>
     </div>
   );
