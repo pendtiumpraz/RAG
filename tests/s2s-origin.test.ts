@@ -43,6 +43,20 @@ test('originAllowed: whitelist mairasales.com', async () => {
     { headers: { origin: 'https://foo.com' } }), ['mairasales.com', 'foo.com']), true);
 });
 
+/* TES KONEKSI master key (superadmin) — hanya status, tak pernah bocorkan nilai. */
+test('masterKeyStatus: ter-set & panjang >= MIN_KEY_LEN', async () => {
+  const { masterKeyStatus, MIN_KEY_LEN } = await import('../src/app/api/v1/_master');
+  const orig = process.env.NALAR_MASTER_KEY;
+  try {
+    process.env.NALAR_MASTER_KEY = 'x'.repeat(MIN_KEY_LEN);
+    assert.deepEqual(masterKeyStatus(), { configured: true, lengthOk: true });
+    process.env.NALAR_MASTER_KEY = 'x'.repeat(MIN_KEY_LEN - 1);
+    assert.deepEqual(masterKeyStatus(), { configured: true, lengthOk: false });
+    process.env.NALAR_MASTER_KEY = '';
+    assert.deepEqual(masterKeyStatus(), { configured: false, lengthOk: false });
+  } finally { process.env.NALAR_MASTER_KEY = orig; }
+});
+
 /* Normalisasi input domain dari UI superadmin. */
 test('normalizeS2sDomain: bersihkan & tolak yang tak sah', async () => {
   const { normalizeS2sDomain } = await import('../src/app/api/v1/_master');

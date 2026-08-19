@@ -17,7 +17,17 @@ import { platformSettingsService } from '@/modules/payments/platform-settings.se
  * jalurnya dianggap TIDAK DIKONFIGURASI (503) — env kosong tak boleh jadi
  * pintu terbuka.
  */
-const MIN_KEY_LEN = 32;
+export const MIN_KEY_LEN = 32;
+
+/**
+ * Status konfigurasi NALAR_MASTER_KEY untuk TES KONEKSI superadmin — SSOT dari
+ * ambang yang sama (`MIN_KEY_LEN`) yang dipakai `masterRoute`. TIDAK pernah
+ * membocorkan nilai kunci; hanya melaporkan apakah ter-set & cukup panjang.
+ */
+export function masterKeyStatus(): { configured: boolean; lengthOk: boolean } {
+  const key = process.env.NALAR_MASTER_KEY ?? '';
+  return { configured: key.length > 0, lengthOk: key.length >= MIN_KEY_LEN };
+}
 
 function masterKeyOk(raw: string): boolean {
   const expected = process.env.NALAR_MASTER_KEY ?? '';

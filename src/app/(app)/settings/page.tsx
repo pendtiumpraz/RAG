@@ -522,8 +522,19 @@ function PanelWhitelistS2S() {
   const { data, loading, refetch } = useApi<{ domains: string[] }>('/api/admin/s2s-whitelist');
   const [domain, setDomain] = useState('');
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [keyStatus, setKeyStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const toast = useToast();
   const domains = data?.domains ?? [];
+
+  async function tesKunci() {
+    setTesting(true);
+    try {
+      const r = await api<{ ok: boolean; message: string }>('/api/admin/s2s-master-test', { method: 'POST' });
+      setKeyStatus({ ok: r.ok, message: r.message });
+      toast(r.message, r.ok ? 'ok' : 'error');
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setTesting(false); }
+  }
 
   async function tambah() {
     if (!domain.trim()) return;
@@ -545,8 +556,22 @@ function PanelWhitelistS2S() {
   return (
     <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
       <div className="panel-head"><span className="t">whitelist provisioning S2S (superadmin)</span>
-        <span className="microlabel">{domains.length} DOMAIN</span></div>
+        <span className="cluster gap-2">
+          {keyStatus && (
+            <span className="microlabel" style={{ color: keyStatus.ok ? 'var(--good-mark)' : 'var(--danger)' }}>
+              {keyStatus.ok ? 'MASTER KEY OK' : 'MASTER KEY BERMASALAH'}
+            </span>
+          )}
+          <button className={`btn btn-sm btn-ghost${testing ? ' is-loading' : ''}`}
+            disabled={testing} onClick={() => void tesKunci()}>Test master key</button>
+          <span className="microlabel">{domains.length} DOMAIN</span>
+        </span></div>
       <div className="card-pad stack gap-4">
+        {keyStatus && (
+          <p className="microlabel" style={{ color: keyStatus.ok ? 'var(--good-mark)' : 'var(--danger)', lineHeight: 1.7 }}>
+            {keyStatus.message.toUpperCase()}
+          </p>
+        )}
         {loading ? <Skeleton rows={3} /> : (
           <>
             {domains.length > 0 ? (
