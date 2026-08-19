@@ -58,6 +58,13 @@ export interface PlatformConfig {
    * tak pernah ada di sini.
    */
   enabledStorageProviders: Record<string, boolean>;
+  /**
+   * Domain yang boleh memanggil provisioning S2S /api/v1 DARI PERAMBAN
+   * (migrasi 0053). Token master tetap kontrol utama; ini lapisan tambahan
+   * untuk request yang membawa Origin. Daftar KOSONG = S2S-only (tak ada
+   * peramban yang diizinkan).
+   */
+  s2sAllowedDomains: string[];
 }
 
 const TTL = 30_000;
@@ -75,6 +82,10 @@ const DEFAULTS: PlatformConfig = {
      DEFAULTS ini — tak ada penyedia yang mati diam-diam. 'platform' tak ada
      di sini karena ia selalu tersedia dan bukan togglable. */
   enabledStorageProviders: { s3: true, r2: true, gcs: true, azure: true, 's3-compat': true },
+  /* Bawaan disemai dari env agar staging (NALAR_S2S_ALLOWED_DOMAIN) tetap
+     jalan saat baris DB masih baru. Sekali superadmin mengubahnya dari UI,
+     nilai DB yang menang dan env tak lagi dibaca di jalur request. */
+  s2sAllowedDomains: [(process.env.NALAR_S2S_ALLOWED_DOMAIN || 'mairasales.com').toLowerCase()],
 };
 
 export const platformSettingsService = {
@@ -96,6 +107,10 @@ export const platformSettingsService = {
             ...DEFAULTS.enabledStorageProviders,
             ...(row.enabledStorageProviders ?? {}),
           },
+          /* `?? default` — bukan spread: daftar KOSONG `[]` itu keadaan sah
+             (S2S-only) yang harus lolos apa adanya; hanya NULL yang jatuh ke
+             bawaan. */
+          s2sAllowedDomains: row.s2sAllowedDomains ?? DEFAULTS.s2sAllowedDomains,
         };
       }
     } catch (err) {
@@ -115,6 +130,8 @@ export const platformSettingsService = {
     planPrices?: Record<string, number>;
     billingIdentity?: BillingIdentity;
     enabledStorageProviders?: Record<string, boolean>;
+    /* Boleh `[]` (S2S-only) → cek `!== undefined`, bukan truthiness. */
+    s2sAllowedDomains?: string[];
   }): Promise<PlatformConfig> {
     await db.insert(platformSettings).values({ id: 1 }).onConflictDoNothing();
     await db.update(platformSettings).set({
@@ -122,6 +139,7 @@ export const platformSettingsService = {
       ...(input.planPrices ? { planPrices: input.planPrices } : {}),
       ...(input.billingIdentity ? { billingIdentity: input.billingIdentity } : {}),
       ...(input.enabledStorageProviders ? { enabledStorageProviders: input.enabledStorageProviders } : {}),
+      ...(input.s2sAllowedDomains !== undefined ? { s2sAllowedDomains: input.s2sAllowedDomains } : {}),
       updatedAt: new Date(),
     }).where(eq(platformSettings.id, 1));
     cache = null;

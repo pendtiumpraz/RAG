@@ -799,6 +799,16 @@ export const platformSettings = pgTable('platform_settings', {
    */
   enabledStorageProviders: jsonb('enabled_storage_providers')
     .$type<Record<string, boolean>>(),
+  /**
+   * WHITELIST DOMAIN PROVISIONING S2S (migrasi 0053): daftar domain yang boleh
+   * memanggil surface /api/v1 (provisioning bertoken master) DARI PERAMBAN.
+   *
+   * Token master (NALAR_MASTER_KEY) tetap kontrol utama; kolom ini hanya
+   * menyaring request yang MEMBAWA Origin/Referer. NULL/hilang = pakai bawaan
+   * (env NALAR_S2S_ALLOWED_DOMAIN atau 'mairasales.com'). Daftar KOSONG itu sah
+   * dan berarti "S2S-only" — tak ada peramban yang diizinkan, dikawal token.
+   */
+  s2sAllowedDomains: jsonb('s2s_allowed_domains').$type<string[]>(),
   ...stamps,
 });
 

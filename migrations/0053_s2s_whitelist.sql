@@ -1,0 +1,14 @@
+-- 0053 — WHITELIST DOMAIN PROVISIONING S2S (platform-lebar, editable)
+--
+-- Bos minta whitelist domain yang boleh memanggil provisioning /api/v1 bisa
+-- diatur superadmin dari UI — bukan hardcode 'mairasales.com'. Disimpan di
+-- platform_settings (bukan per-tenant): ini keputusan integrasi platform,
+-- sama seperti mode deploy, saklar konektor (0045), & saklar storage (0051).
+--
+-- NULL berarti "pakai bawaan" (env NALAR_S2S_ALLOWED_DOMAIN atau
+-- 'mairasales.com'), jadi baris platform_settings yang sudah ada tak perlu
+-- disentuh dan Maira tetap jalan tanpa migrasi data.
+--
+-- Daftar KOSONG (`[]`) itu keadaan yang SAH: berarti tak ada peramban yang
+-- boleh provisioning (S2S-only) — token master tetap jadi kontrol utama.
+alter table platform_settings add column if not exists s2s_allowed_domains jsonb;

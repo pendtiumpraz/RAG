@@ -97,6 +97,8 @@ export default function SettingsPage() {
       {session?.user?.role === 'superadmin' && <PanelKonektor />}
       {/* Saklar penyedia BYOB — superadmin saja, plus saklar konektor di atasnya. */}
       {session?.user?.role === 'superadmin' && <PanelPenyediaStorage />}
+      {/* Whitelist domain provisioning S2S (/api/v1) — superadmin, editable dari DB. */}
+      {session?.user?.role === 'superadmin' && <PanelWhitelistS2S />}
       {session?.user?.role === 'superadmin' && <PanelDemo />}
       {session?.user?.role === 'superadmin' && <MailSettings />}
     </>
@@ -486,6 +488,83 @@ function PanelDemo() {
               <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy}
                 onClick={() => void simpan()}>Simpan pengaturan demo</button>
             </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── whitelist domain provisioning S2S (superadmin, migrasi 0053) ─────
+   Bos minta whitelist domain yang boleh memanggil provisioning /api/v1
+   (bertoken master NALAR_MASTER_KEY) bisa ditambah & dikurangi dari UI —
+   bukan hardcode 'mairasales.com'. Token master tetap kontrol utama; daftar
+   ini hanya menyaring request DARI PERAMBAN (yang membawa Origin). Server
+   Maira (fetch S2S tanpa Origin) tetap lolos dikawal token. Daftar kosong =
+   S2S-only, tak ada peramban yang diizinkan. */
+function PanelWhitelistS2S() {
+  const { data, loading, refetch } = useApi<{ domains: string[] }>('/api/admin/s2s-whitelist');
+  const [domain, setDomain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const domains = data?.domains ?? [];
+
+  async function tambah() {
+    if (!domain.trim()) return;
+    setBusy(true);
+    try {
+      await api('/api/admin/s2s-whitelist', { method: 'POST', body: JSON.stringify({ domain }) });
+      setDomain(''); toast('Domain ditambahkan ke whitelist'); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  async function hapus(d: string) {
+    if (!confirm(`Hapus ${d} dari whitelist? Peramban di domain ini tak lagi bisa memanggil provisioning S2S.`)) return;
+    try {
+      await api(`/api/admin/s2s-whitelist?domain=${encodeURIComponent(d)}`, { method: 'DELETE' });
+      toast('Domain dihapus'); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      <div className="panel-head"><span className="t">whitelist provisioning S2S (superadmin)</span>
+        <span className="microlabel">{domains.length} DOMAIN</span></div>
+      <div className="card-pad stack gap-4">
+        {loading ? <Skeleton rows={3} /> : (
+          <>
+            {domains.length > 0 ? (
+              <div className="table-wrap"><table className="table"><tbody>
+                {domains.map((d) => (
+                  <tr key={d}>
+                    <td className="mono"><b>{d}</b>
+                      <span className="microlabel" style={{ marginLeft: 8 }}>+ SUBDOMAIN</span></td>
+                    <td className="num" style={{ width: 1 }}>
+                      <button className="btn btn-sm btn-ghost" onClick={() => void hapus(d)}>Hapus</button></td>
+                  </tr>
+                ))}
+              </tbody></table></div>
+            ) : (
+              <p className="microlabel" style={{ color: 'var(--source)' }}>
+                DAFTAR KOSONG — TAK ADA PERAMBAN YANG BOLEH PROVISIONING (S2S-ONLY). SERVER YANG
+                MEMANGGIL TANPA ORIGIN TETAP JALAN SELAMA TOKEN MASTER SAH.
+              </p>
+            )}
+
+            <Field label="Tambah domain">
+              <div className="cluster gap-2">
+                <input className="input mono" placeholder="mairasales.com" value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void tambah(); }} />
+                <button className={`btn btn-primary${busy ? ' is-loading' : ''}`}
+                  disabled={busy || !domain.trim()} onClick={() => void tambah()}>Tambah</button>
+              </div>
+              <p className="microlabel" style={{ marginTop: 6, lineHeight: 1.7 }}>
+                DOMAIN INI + SEMUA SUBDOMAINNYA (app./admin./dst.) BOLEH MEMANGGIL /API/V1 DARI
+                PERAMBAN. TOKEN MASTER (NALAR_MASTER_KEY) TETAP KONTROL UTAMA — DAFTAR INI HANYA
+                LAPISAN TAMBAHAN UNTUK REQUEST YANG MEMBAWA ORIGIN.
+              </p>
+            </Field>
           </>
         )}
       </div>

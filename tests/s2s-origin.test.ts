@@ -7,13 +7,15 @@ process.env.CREDENTIALS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 process.env.DATABASE_URL = 'postgres://u:p@localhost:5432/db';
 process.env.NALAR_MASTER_KEY = 'x'.repeat(40);
 
-/* Whitelist DOMAIN provisioning S2S — mairasales.com + subdomain saja. */
+/* Whitelist DOMAIN provisioning S2S — daftar domain kini di-inject (dari DB),
+   originAllowed dibuat MURNI supaya bisa diuji tanpa DB. */
 test('originAllowed: whitelist mairasales.com', async () => {
   const { NextRequest } = await import('next/server');
   const { originAllowed } = await import('../src/app/api/v1/_master');
+  const ALLOWED = ['mairasales.com'];
   const withOrigin = (o?: string) =>
     originAllowed(new NextRequest('https://nalar.example/api/v1/tenants',
-      { headers: o ? { origin: o } : {} }));
+      { headers: o ? { origin: o } : {} }), ALLOWED);
 
   // Origin kosong (S2S server Maira) → diizinkan, dikawal token master.
   assert.equal(withOrigin(undefined), true);
@@ -28,5 +30,29 @@ test('originAllowed: whitelist mairasales.com', async () => {
   // Referer sebagai fallback saat Origin absen.
   assert.equal(
     originAllowed(new NextRequest('https://nalar.example/api/v1/tenants',
-      { headers: { referer: 'https://app.mairasales.com/dash' } })), true);
+      { headers: { referer: 'https://app.mairasales.com/dash' } }), ALLOWED), true);
+
+  // Daftar KOSONG (S2S-only): peramban ditolak, S2S tanpa Origin tetap lolos.
+  assert.equal(originAllowed(new NextRequest('https://nalar.example/api/v1/tenants',
+    { headers: { origin: 'https://mairasales.com' } }), []), false);
+  assert.equal(originAllowed(new NextRequest('https://nalar.example/api/v1/tenants',
+    { headers: {} }), []), true);
+
+  // Beberapa domain di-whitelist sekaligus.
+  assert.equal(originAllowed(new NextRequest('https://nalar.example/api/v1/tenants',
+    { headers: { origin: 'https://foo.com' } }), ['mairasales.com', 'foo.com']), true);
+});
+
+/* Normalisasi input domain dari UI superadmin. */
+test('normalizeS2sDomain: bersihkan & tolak yang tak sah', async () => {
+  const { normalizeS2sDomain } = await import('../src/app/api/v1/_master');
+  assert.equal(normalizeS2sDomain('mairasales.com'), 'mairasales.com');
+  assert.equal(normalizeS2sDomain('  MairaSales.COM '), 'mairasales.com');
+  assert.equal(normalizeS2sDomain('https://mairasales.com/apa/pun'), 'mairasales.com');
+  assert.equal(normalizeS2sDomain('http://app.foo.co.id'), 'app.foo.co.id');
+  // Tak sah → null.
+  assert.equal(normalizeS2sDomain(''), null);
+  assert.equal(normalizeS2sDomain('localhost'), null);
+  assert.equal(normalizeS2sDomain('127.0.0.1'), null);
+  assert.equal(normalizeS2sDomain('nodot'), null);
 });
