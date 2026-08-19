@@ -13,7 +13,7 @@
 | **Fase Aktif** | `07-IMPROVEMENT` — Fase 01–06 SELESAI; siklus Deploy → Monitor → Improve |
 | **Status Loop** | `active` |
 | **Dimulai** | `2026-07-23` |
-| **Live sejak** | `2026-07-24` di `rag.sainskerta.net` (Vercel + Neon PG17/pgvector 0.8) |
+| **Live sejak** | `2026-07-24` di `nalar.sainskerta.net` (Vercel + Neon PG17/pgvector 0.8) |
 | **Terakhir diperbarui** | `2026-07-31` |
 | **Antrean kerja** | **Papan backlog** (Dataroom ▸ Update & Backlog) — 17 selesai · 53 tersisa (P0=3 · P1=13 · P2=25 · P3=12) |
 | **Migrasi produksi** | `0001–0036 TERPASANG (31 Jul 2026)` — diverifikasi kolom per kolom; RLS utuh 22 tabel / 35 kebijakan |
@@ -236,7 +236,7 @@
         kartu per scope Drive yang menyebut eksplisit apa yang **tidak** bisa
         dilakukannya, plus strip jaminan penanganan data.
       · *“homepage/privacy unresponsive”* — **bukan** soal halaman: record DNS
-        `rag.sainskerta.net` hilang sama sekali. Cek dari resolver publik, bukan
+        `nalar.sainskerta.net` hilang sama sekali. Cek dari resolver publik, bukan
         mesin sendiri (cache lokal menipu). Sudah pulih; `/`, `/privacy`,
         `/terms`, `/robots.txt` semua 200.
       Ketiganya dicatat di tabel penolakan→tindakan `public/docs/oauth-setup.html`.
@@ -301,11 +301,11 @@
       (index lama dilewati bila pengganti 0006 sudah ada).
       Smoke akhir: bocor=TIDAK, lintas-tenant ditolak, D11 pra/pasca-assign OK.
 
-### ✅ Fase 06: Deployment — `LIVE di rag.sainskerta.net`
+### ✅ Fase 06: Deployment — `LIVE di nalar.sainskerta.net`
 - [x] Vercel + Neon Postgres (PG17 + pgvector 0.8), tanpa Docker
 - [x] Penyesuaian serverless (db pool, lazy embeddings, vercel.json) + `docs/DEPLOY-VERCEL.md`
 - [x] DB dimigrasi ke Neon (0001–0006); role `nalar_app` NOBYPASSRLS utk RLS
-- [x] Push GitHub `pendtiumpraz/RAG` + deploy production **rag.sainskerta.net** (landing light + auth light + PNG logo LIVE, diverifikasi via HTTP)
+- [x] Push GitHub `pendtiumpraz/RAG` + deploy production **nalar.sainskerta.net** (landing light + auth light + PNG logo LIVE, diverifikasi via HTTP)
 
 ### Fitur pasca-deploy (2026-07-24/25)
 - [x] **Multi-akun** Google/Microsoft (connect banyak akun) + **scan seluruh Drive rekursif** (scope all/folder)
@@ -321,7 +321,7 @@
       dilewati; chunk warisan pra-delta dibuang sekali; `?full=1` utk ingest ulang penuh.
       UI Knowledge menampilkan hasil (+baru ~ubah −hapus · tetap/dilewati/antre).
       **Menutup bug**: sebelumnya tiap re-sync menduplikasi seluruh KB + bayar embedding ulang.
-      **LIVE di production** 2026-07-26 (commit `d8df7a0` → rag.sainskerta.net; migrasi 0007
+      **LIVE di production** 2026-07-26 (commit `d8df7a0` → nalar.sainskerta.net; migrasi 0007
       diterapkan ke Neon SEBELUM push, jadi tak ada jendela kode-baru vs skema-lama).
 - [x] **Model host di Vercel Blob** (2026-07-26, D6): bobot embedding diunggah ke
       blob publik 10 GB dengan tata letak `models/<hfRepo>/…`; sisi baca hanya

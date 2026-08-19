@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**Nalar** — multi-tenant RAG engine (SaaS + on-prem). Next.js 15 App Router + React 19, Drizzle ORM, Postgres + pgvector. Production runs on Vercel + Neon (`rag.sainskerta.net`); on-prem via `docker-compose.yml`. Much of the docs/comments are in Indonesian — keep that bilingual style when editing them.
+**Nalar** — multi-tenant RAG engine (SaaS + on-prem). Next.js 15 App Router + React 19, Drizzle ORM, Postgres + pgvector. Production runs on Vercel + Neon (`nalar.sainskerta.net`); on-prem via `docker-compose.yml`. Much of the docs/comments are in Indonesian — keep that bilingual style when editing them.
 
 ## Commands
 

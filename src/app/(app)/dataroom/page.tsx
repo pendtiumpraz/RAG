@@ -358,7 +358,7 @@ function AssessmentView() {
 
       <p className="as-method">
         Metodologi: seluruh halaman dijelajahi &amp; di-screenshot via
-        agent-browser pada <b>lingkungan staging</b> (<code>rag.sainskerta.net</code>,
+        agent-browser pada <b>lingkungan staging</b> (<code>nalar.sainskerta.net</code>,
         login superadmin demo); chat &amp; widget diuji dengan pertanyaan nyata.
         Tak ada skor untuk fitur yang belum disaksikan bekerja.
         Bukti: <code>docs/assessment/</code> &amp; tab Bukti Fitur.

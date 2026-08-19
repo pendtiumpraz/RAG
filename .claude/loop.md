@@ -27,7 +27,7 @@ loop:
     status: "active"
     since: "2026-07-28"
     note: >
-      Produk tayang di rag.sainskerta.net sejak 2026-07-24. Siklusnya kini
+      Produk tayang di nalar.sainskerta.net sejak 2026-07-24. Siklusnya kini
       Deploy → Monitor → Improve, dengan papan backlog sebagai daftar kerja.
 
   phase_history:

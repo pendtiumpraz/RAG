@@ -7,7 +7,7 @@
  * disaksikan bekerja.
  *
  * STAGING, BUKAN PEMASANGAN PELANGGAN. Seluruh bukti berasal dari
- * rag.sainskerta.net. Korpusnya kecil, jadi apa pun yang bergantung pada UKURAN
+ * nalar.sainskerta.net. Korpusnya kecil, jadi apa pun yang bergantung pada UKURAN
  * DATA — latensi, rencana kueri, perilaku pada korpus ratusan GB — TIDAK
  * terwakili di sini. Menyebutnya "produksi" (seperti versi sebelum 3 Agu)
  * membuat pembaca menyimpulkan lebih banyak daripada yang dibuktikan.

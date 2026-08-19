@@ -63,7 +63,7 @@ ke Nalar — untuk login sosial sekaligus sinkronisasi dokumen.</p>
 
 <div class="note danger">
   <b>Status saat ini di produksi: BELUM AKTIF <span class="tag no">belum</span></b>
-  <p>Diperiksa pada <code>rag.sainskerta.net</code>: hanya provider
+  <p>Diperiksa pada <code>nalar.sainskerta.net</code>: hanya provider
   <code>credentials</code> (email + password) yang terdaftar. <code>GOOGLE_CLIENT_ID</code>
   dan <code>MS_CLIENT_ID</code> belum ada di environment Vercel, sehingga NextAuth
   melewatkan kedua provider itu sepenuhnya — 0 akun terhubung, 0 sumber data.</p>
@@ -116,7 +116,7 @@ berbeda</b>, dan masing-masing punya alamat callback sendiri:</p>
   <p>Alamat callback dibentuk dari variabel itu (lihat <code>oauth-flow.ts</code>).
   Kalau isinya tidak persis sama dengan yang didaftarkan — beda <code>http/https</code>,
   ada garis miring di ujung, atau masih <code>localhost</code> — OAuth akan ditolak.</p>
-  <p>Produksi: <code>https://rag.sainskerta.net</code></p>
+  <p>Produksi: <code>https://nalar.sainskerta.net</code></p>
 </div>
 
 <h2 id="google">2. Google — Drive</h2>
@@ -163,8 +163,8 @@ https://www.googleapis.com/auth/drive.file</code></pre>
   <li><b>Credentials → Create Credentials → OAuth client ID</b>.</li>
   <li>Application type: <b>Web application</b>.</li>
   <li><b>Authorized redirect URIs</b> — masukkan KEDUANYA:
-    <pre><code>https://rag.sainskerta.net/api/auth/callback/google
-https://rag.sainskerta.net/api/connections/google/callback</code></pre>
+    <pre><code>https://nalar.sainskerta.net/api/auth/callback/google
+https://nalar.sainskerta.net/api/connections/google/callback</code></pre>
     Untuk pengembangan lokal, tambahkan juga:
     <pre><code>http://localhost:3000/api/auth/callback/google
 http://localhost:3000/api/connections/google/callback</code></pre>
@@ -226,7 +226,7 @@ yang paling sering, beserta cara menutupnya:</p>
     <td><b>Sudah ditangani.</b> Dua hal berbeda yang sering tertukar:
       <ol style="margin:6px 0 0 18px;padding:0">
         <li><b>App name di Console</b> harus nama produk, bukan alamat domain —
-          isi persis <b>Nalar</b>, bukan <code>rag.sainskerta.net</code>.</li>
+          isi persis <b>Nalar</b>, bukan <code>nalar.sainskerta.net</code>.</li>
         <li><b>Judul beranda</b> harus sama persis dengan App name itu. Ini yang
           sempat terlewat: Console sudah “Nalar”, tapi
           <code>&lt;title&gt;</code> beranda berbunyi
@@ -245,9 +245,9 @@ yang paling sering, beserta cara menutupnya:</p>
     <td><i>“Your homepage / privacy policy URL is unresponsive.”</i></td>
     <td><b>Periksa DNS lebih dulu, jangan halamannya.</b> Penolakan ini pernah
       muncul bukan karena halamannya rusak, melainkan karena data DNS
-      <code>rag.sainskerta.net</code> hilang sama sekali sehingga domainnya tak
+      <code>nalar.sainskerta.net</code> hilang sama sekali sehingga domainnya tak
       teresolusi. Uji dari luar mesinmu — cache resolver lokal bisa menipu:
-      <code>https://dns.google/resolve?name=rag.sainskerta.net&amp;type=A</code>.
+      <code>https://dns.google/resolve?name=nalar.sainskerta.net&amp;type=A</code>.
       Kalau kosong, pasang lagi record dari dasbor domain sesuai instruksi
       Vercel, tunggu propagasi, baru ajukan verifikasi ulang.</td>
   </tr>
@@ -332,8 +332,8 @@ yang paling sering, beserta cara menutupnya:</p>
       bila penggunanya lintas organisasi. Pilihan ini menentukan nilai
       <code>MS_TENANT_ID</code> di langkah berikutnya.</li>
   <li><b>Redirect URI</b> → platform <b>Web</b>, masukkan KEDUANYA:
-    <pre><code>https://rag.sainskerta.net/api/auth/callback/azure-ad
-https://rag.sainskerta.net/api/connections/microsoft/callback</code></pre>
+    <pre><code>https://nalar.sainskerta.net/api/auth/callback/azure-ad
+https://nalar.sainskerta.net/api/connections/microsoft/callback</code></pre>
   </li>
 </ol>
 
@@ -417,7 +417,7 @@ NEXTAUTH_URL=http://localhost:3000</code></pre>
 
 <p>Cara tercepat memastikan provider benar-benar terdaftar — endpoint ini publik
 dan tidak membocorkan apa pun:</p>
-<pre><code>curl -s https://rag.sainskerta.net/api/auth/providers</code></pre>
+<pre><code>curl -s https://nalar.sainskerta.net/api/auth/providers</code></pre>
 
 <p>Sebelum dikonfigurasi, balasannya hanya berisi <code>credentials</code>.
 Setelah berhasil, <code>google</code> dan/atau <code>azure-ad</code> ikut muncul.</p>

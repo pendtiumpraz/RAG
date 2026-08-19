@@ -9,7 +9,7 @@ import type { MetadataRoute } from 'next';
  * dilarang — isinya butuh sesi dan tak ada gunanya di indeks.
  */
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXTAUTH_URL ?? 'https://rag.sainskerta.net';
+  const base = process.env.NEXTAUTH_URL ?? 'https://nalar.sainskerta.net';
   return {
     rules: [{
       userAgent: '*',

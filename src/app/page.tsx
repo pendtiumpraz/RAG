@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     siteName: 'Nalar',
     description:
       'Aplikasi tanya-jawab atas dokumen perusahaan, dengan sitasi ke dokumen sumbernya.',
-    url: 'https://rag.sainskerta.net',
+    url: 'https://nalar.sainskerta.net',
     type: 'website',
   },
 };
@@ -50,19 +50,19 @@ const JSON_LD = {
   '@graph': [
     {
       '@type': 'Organization',
-      '@id': 'https://rag.sainskerta.net/#organization',
+      '@id': 'https://nalar.sainskerta.net/#organization',
       name: 'Nalar',
-      url: 'https://rag.sainskerta.net',
-      logo: 'https://rag.sainskerta.net/brand/nalar-logo-400.png',
+      url: 'https://nalar.sainskerta.net',
+      logo: 'https://nalar.sainskerta.net/brand/nalar-logo-400.png',
       email: 'pendtiumpraz@gmail.com',
     },
     {
       '@type': 'WebSite',
-      '@id': 'https://rag.sainskerta.net/#website',
+      '@id': 'https://nalar.sainskerta.net/#website',
       name: 'Nalar',
-      url: 'https://rag.sainskerta.net',
+      url: 'https://nalar.sainskerta.net',
       inLanguage: 'id-ID',
-      publisher: { '@id': 'https://rag.sainskerta.net/#organization' },
+      publisher: { '@id': 'https://nalar.sainskerta.net/#organization' },
     },
     {
       '@type': 'SoftwareApplication',
@@ -70,16 +70,16 @@ const JSON_LD = {
       alternateName: 'Nalar',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
-      url: 'https://rag.sainskerta.net',
+      url: 'https://nalar.sainskerta.net',
       description:
         'Nalar is a question-answering application for an organisation’s own documents. '
         + 'It connects to a document source you choose — Google Drive, OneDrive, SharePoint, '
         + 'or a direct upload — extracts the text, and answers questions based on that text, '
         + 'citing the source file for every answer. The result can be embedded as a chatbot on '
         + 'your own website.',
-      privacyPolicy: 'https://rag.sainskerta.net/privacy',
-      termsOfService: 'https://rag.sainskerta.net/terms',
-      publisher: { '@id': 'https://rag.sainskerta.net/#organization' },
+      privacyPolicy: 'https://nalar.sainskerta.net/privacy',
+      termsOfService: 'https://nalar.sainskerta.net/terms',
+      publisher: { '@id': 'https://nalar.sainskerta.net/#organization' },
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'IDR' },
     },
   ],

@@ -619,7 +619,7 @@ async function connect(
     const url = assertPublicHttpUrl(String(config.url ?? ''), { label: 'URL sumber' });
     const res = await fetch(url, {
       redirect: 'follow',
-      headers: { 'User-Agent': 'NalarBot/1.0 (+https://rag.sainskerta.net)' },
+      headers: { 'User-Agent': 'NalarBot/1.0 (+https://nalar.sainskerta.net)' },
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) throw new Error(`Halaman menjawab ${res.status} — tak bisa dibaca.`);

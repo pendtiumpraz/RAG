@@ -2,7 +2,7 @@
 
 Halo openclaw. Dokumen ini instruksi kerja untuk kamu, dijalankan **di VPS**.
 Tujuannya: menyalakan server embedding yang akan dipakai aplikasi Nalar
-(`rag.sainskerta.net`) lewat jaringan.
+(`nalar.sainskerta.net`) lewat jaringan.
 
 Isi folder ini (`services/embedding-server/`) sudah lengkap — kamu tidak perlu
 menulis kode aplikasi. Tugasmu: pasang, amankan, jalankan, verifikasi.

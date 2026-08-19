@@ -26,7 +26,7 @@ import type { Page } from 'playwright-core';
  * nama yang menjelaskan dirinya, tanpa mematahkan kebiasaan yang sudah ada.
  */
 export const BASIS = (process.env.TUR_BASIS ?? process.env.BASIS
-  ?? 'https://rag.sainskerta.net').replace(/\/$/, '');
+  ?? 'https://nalar.sainskerta.net').replace(/\/$/, '');
 export const TULIS = process.env.TUR_TULIS === '1';
 export const KELUARAN = 'public/bukti';
 

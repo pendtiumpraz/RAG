@@ -199,7 +199,7 @@ Tergantung UKURAN modelnya — dan ini sudah diukur langsung di produksi
 
 | Model | di lambda Vercel | catatan |
 |---|---|---|
-| MiniLM 22 MB | ✅ **jalan** — 3,8 dtk cold, **0,5 dtk warm** | terverifikasi lewat `POST /api/chat/<publicKey>` di rag.sainskerta.net |
+| MiniLM 22 MB | ✅ **jalan** — 3,8 dtk cold, **0,5 dtk warm** | terverifikasi lewat `POST /api/chat/<publicKey>` di nalar.sainskerta.net |
 | BGE-M3 543 MB | ❌ | melebihi `/tmp` ~512 MB; muat pertama 377 dtk vs batas chat 60 dtk |
 | BGE-M3 2,16 GB | ❌ | bobot eksternal, tak bisa dimuat transformers v2 sama sekali |
 

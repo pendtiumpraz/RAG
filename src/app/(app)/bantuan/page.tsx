@@ -196,7 +196,7 @@ function daftarBagian(): Bagian[] {
           <pre className="mono" style={{
             margin: 0, fontSize: 12, overflowX: 'auto', background: 'var(--card-2)',
             padding: 'var(--sp-3)', borderRadius: 'var(--rad-xs)',
-          }}>{'<script src="https://rag.sainskerta.net/embed.js"\n  data-key="cb_live_…"></script>'}</pre>
+          }}>{'<script src="https://nalar.sainskerta.net/embed.js"\n  data-key="cb_live_…"></script>'}</pre>
           <p style={{ margin: 0 }}>
             <b>Inline</b> — chat memenuhi satu elemen di halaman, lengkap dengan daftar sesi di
             sampingnya. Cocok untuk halaman bantuan atau portal internal.
@@ -204,7 +204,7 @@ function daftarBagian(): Bagian[] {
           <pre className="mono" style={{
             margin: 0, fontSize: 12, overflowX: 'auto', background: 'var(--card-2)',
             padding: 'var(--sp-3)', borderRadius: 'var(--rad-xs)',
-          }}>{'<div id="chat" style="height:600px"></div>\n<script src="https://rag.sainskerta.net/embed.js"\n  data-key="cb_live_…" data-mode="inline" data-target="#chat"></script>'}</pre>
+          }}>{'<div id="chat" style="height:600px"></div>\n<script src="https://nalar.sainskerta.net/embed.js"\n  data-key="cb_live_…" data-mode="inline" data-target="#chat"></script>'}</pre>
           <p style={{ margin: 0, color: 'var(--muted)' }}>
             Kunci <code>cb_live_…</code> memang boleh terlihat di halaman — ia hanya mengizinkan
             bertanya, tak pernah mengubah apa pun. Yang menjaga penyalahgunaan adalah daftar domain

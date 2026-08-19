@@ -4,7 +4,7 @@ Penilaian menyeluruh 4 dimensi, skala 1–10. Padanan naratif dari
 `src/app/(app)/dataroom/assessment.ts`; angkanya sama, alasannya di sini.
 
 **Digrounding pada tur peramban otomatis.** `npm run tur` menjalankan peramban
-sungguhan (playwright-core + Edge) terhadap **rag.sainskerta.net**, masuk
+sungguhan (playwright-core + Edge) terhadap **nalar.sainskerta.net**, masuk
 sebagai superadmin demo, menekan tombolnya, dan memotret tiap langkah — 30
 fitur, ~120 langkah. Hasilnya tampil apa adanya di tab **Bukti Fitur**,
 termasuk yang gagal. Tak ada skor untuk fitur yang belum terlihat bekerja.

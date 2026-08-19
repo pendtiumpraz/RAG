@@ -28,7 +28,7 @@ $secret   = getenv('NALAR_VISITOR_SECRET');   // rahasia dari dashboard Nalar
 $visitor  = (string) $currentUser->id;        // penanda pengguna Anda sendiri
 $signature = hash_hmac('sha256', $visitor, $secret);
 ?>
-<script src="https://rag.sainskerta.net/embed.js"
+<script src="https://nalar.sainskerta.net/embed.js"
         data-chatbot="cb_live_xxx"
         data-visitor="<?= htmlspecialchars($visitor) ?>"
         data-visitor-sig="<?= $signature ?>"></script>`;
@@ -41,7 +41,7 @@ const visitor = String(currentUser.id);            // penanda pengguna Anda
 const signature = createHmac('sha256', secret).update(visitor).digest('hex');
 
 // Kirim \`visitor\` dan \`signature\` ke template, lalu:
-// <script src="https://rag.sainskerta.net/embed.js"
+// <script src="https://nalar.sainskerta.net/embed.js"
 //         data-chatbot="cb_live_xxx"
 //         data-visitor="\${visitor}" data-visitor-sig="\${signature}"></script>`;
 
@@ -53,7 +53,7 @@ visitor = str(current_user.id).encode()                # penanda pengguna Anda
 signature = hmac.new(secret, visitor, hashlib.sha256).hexdigest()
 
 # Kirim visitor & signature ke template, lalu:
-# <script src="https://rag.sainskerta.net/embed.js"
+# <script src="https://nalar.sainskerta.net/embed.js"
 #         data-chatbot="cb_live_xxx"
 #         data-visitor="{{ visitor }}" data-visitor-sig="{{ signature }}"></script>`;
 
@@ -75,7 +75,7 @@ func tandaTanganPengunjung(visitor string) string {
 }
 
 // Sisipkan hasilnya ke template:
-// <script src="https://rag.sainskerta.net/embed.js"
+// <script src="https://nalar.sainskerta.net/embed.js"
 //         data-chatbot="cb_live_xxx"
 //         data-visitor="{{.Visitor}}" data-visitor-sig="{{.Signature}}"></script>`;
 
@@ -93,7 +93,7 @@ public static String tandaTanganPengunjung(String visitor) throws Exception {
 }
 
 // Sisipkan hasilnya ke template:
-// <script src="https://rag.sainskerta.net/embed.js"
+// <script src="https://nalar.sainskerta.net/embed.js"
 //         data-chatbot="cb_live_xxx"
 //         data-visitor="\${visitor}" data-visitor-sig="\${signature}"></script>`;
 

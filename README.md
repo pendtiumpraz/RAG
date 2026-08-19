@@ -8,7 +8,7 @@ SaaS dan on-premise dari satu basis kode. Isolasi tenant ditegakkan database,
 bukan `WHERE` clause.
 
 [![Lisensi](https://img.shields.io/badge/lisensi-BSL%201.1-0F172A)](LICENSE)
-[![Status](https://img.shields.io/badge/status-produksi-047857)](https://rag.sainskerta.net)
+[![Status](https://img.shields.io/badge/status-produksi-047857)](https://nalar.sainskerta.net)
 [![Next.js](https://img.shields.io/badge/Next.js-15-2563EB)](https://nextjs.org)
 [![Postgres](https://img.shields.io/badge/Postgres-17%20%2B%20pgvector-2563EB)](https://github.com/pgvector/pgvector)
 
@@ -33,7 +33,7 @@ belakangan justru jadi fondasi:
 - **Jawaban yang bisa diperiksa.** Sitasi wajib, jejak retrieval terbuka, dan
   setiap giliran chat tercatat di audit log.
 
-Produksi: **[rag.sainskerta.net](https://rag.sainskerta.net)**
+Produksi: **[nalar.sainskerta.net](https://nalar.sainskerta.net)**
 
 ---
 
@@ -268,7 +268,7 @@ pemutakhiran versi, dan **apa yang belum tercakup** — ada di
 ### Menyematkan widget di situs mana pun
 
 ```html
-<script src="https://rag.sainskerta.net/embed.js"
+<script src="https://nalar.sainskerta.net/embed.js"
         data-chatbot="cb_live_xxxxxxxxxxxx"></script>
 ```
 
@@ -282,12 +282,12 @@ Terbitkan kunci di **Settings → API key** (izin `read` / `write` / `chat`).
 
 ```bash
 curl -H "Authorization: Bearer nk_live_..." \
-     https://rag.sainskerta.net/api/v1/me
+     https://nalar.sainskerta.net/api/v1/me
 ```
 
 ```bash
 # Pencarian semantik murni — tanpa LLM, tanpa memotong kuota pesan.
-curl -X POST https://rag.sainskerta.net/api/v1/search \
+curl -X POST https://nalar.sainskerta.net/api/v1/search \
   -H "Authorization: Bearer nk_live_..." \
   -H "Content-Type: application/json" \
   -d '{"chatbotId":"...","query":"berapa lama masa garansi?","k":5}'
@@ -320,7 +320,7 @@ harus dirahasiakan.
 
 ```html
 <!-- Mode floating (default): bubble di pojok kanan-bawah -->
-<script src="https://rag.sainskerta.net/embed.js"
+<script src="https://nalar.sainskerta.net/embed.js"
         data-chatbot="cb_live_xxxxxxxxxxxx"></script>
 ```
 
@@ -328,7 +328,7 @@ harus dirahasiakan.
 
 ```html
 <div id="chat" style="height:600px"></div>
-<script src="https://rag.sainskerta.net/embed.js"
+<script src="https://nalar.sainskerta.net/embed.js"
         data-chatbot="cb_live_xxxxxxxxxxxx"
         data-mode="inline" data-target="#chat"></script>
 ```
@@ -369,7 +369,7 @@ tambah origin → simpan.
 **Lewat API** (`PATCH /api/chatbots/[id]`, sesi login / API key `write`):
 
 ```bash
-curl -X PATCH https://rag.sainskerta.net/api/chatbots/<chatbotId> \
+curl -X PATCH https://nalar.sainskerta.net/api/chatbots/<chatbotId> \
   -H "Authorization: Bearer nk_live_..." \
   -H "Content-Type: application/json" \
   -d '{"allowedOrigins":["https://tokoku.com","https://app.tokoku.com"]}'
@@ -410,7 +410,7 @@ s2s_allowed_domains`, API `GET/POST/DELETE /api/admin/s2s-whitelist`); bawaan
 `Authorization: Bearer <NALAR_MASTER_KEY>` atau header `X-Api-Key`.
 
 ```bash
-curl -X POST https://rag.sainskerta.net/api/v1/tenants \
+curl -X POST https://nalar.sainskerta.net/api/v1/tenants \
   -H "Authorization: Bearer $NALAR_MASTER_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -444,7 +444,7 @@ Respons `201`:
 langsung dapat snippet embed-nya:
 
 ```bash
-curl -X POST https://rag.sainskerta.net/api/v1/chatbots \
+curl -X POST https://nalar.sainskerta.net/api/v1/chatbots \
   -H "Authorization: Bearer nk_live_..." \
   -H "Content-Type: application/json" \
   -d '{"name":"CS Toko Kita","allowedOrigins":["https://tokokita.com"]}'
@@ -457,7 +457,7 @@ Endpoint S2S lain memakai `apiKey` yang sama: `POST /api/v1/knowledge-bases`,
 **Mint kunci tambahan** untuk tenant yang sudah ada (tetap bertoken master):
 
 ```bash
-curl -X POST https://rag.sainskerta.net/api/v1/tenants/<tenantId>/keys \
+curl -X POST https://nalar.sainskerta.net/api/v1/tenants/<tenantId>/keys \
   -H "Authorization: Bearer $NALAR_MASTER_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"Kunci CI","scopes":["read"]}'

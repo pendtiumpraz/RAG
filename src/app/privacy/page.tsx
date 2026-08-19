@@ -65,7 +65,7 @@ export default function PrivacyPage() {
       <h2>1. Siapa yang bertanggung jawab</h2>
       <p>
         Layanan ini dioperasikan oleh <b>Sainskerta</b> melalui{' '}
-        <code>rag.sainskerta.net</code>. Untuk pertanyaan terkait data pribadi,
+        <code>nalar.sainskerta.net</code>. Untuk pertanyaan terkait data pribadi,
         hubungi pengelola melalui kanal yang tercantum di beranda.
       </p>
       <p>

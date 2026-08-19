@@ -7,7 +7,7 @@ import type { MetadataRoute } from 'next';
  * ketentuan layanan — ketiganya diperiksa saat pengajuan scope sensitif.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = (process.env.NEXTAUTH_URL ?? 'https://rag.sainskerta.net').replace(/\/+$/, '');
+  const base = (process.env.NEXTAUTH_URL ?? 'https://nalar.sainskerta.net').replace(/\/+$/, '');
   const now = new Date();
   return [
     { url: `${base}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },

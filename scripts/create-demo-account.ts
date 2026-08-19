@@ -108,7 +108,7 @@ async function main() {
   console.log('\n' + '─'.repeat(58));
   console.log('  AKUN DEMO (superadmin)');
   console.log('─'.repeat(58));
-  console.log(`  URL       : ${process.env.NEXTAUTH_URL ?? 'https://rag.sainskerta.net'}/auth`);
+  console.log(`  URL       : ${process.env.NEXTAUTH_URL ?? 'https://nalar.sainskerta.net'}/auth`);
   console.log(`  Email     : ${email}`);
   console.log(`  Password  : ${password}`);
   console.log(`  Peran     : ${role}`);   // dibaca ULANG dari DB, bukan diasumsikan

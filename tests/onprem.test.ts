@@ -143,7 +143,7 @@ test('panduan memberi cara MEMBUKTIKAN isolasi menyala', () => {
 });
 
 test('dataroom menyebut lingkungannya STAGING, bukan produksi', () => {
-  /* Dikoreksi pemilik produk 3 Agu 2026: rag.sainskerta.net adalah STAGING
+  /* Dikoreksi pemilik produk 3 Agu 2026: nalar.sainskerta.net adalah STAGING
      Vercel, bukan pemasangan pelanggan. Dataroom yang menyebutnya "produksi"
      membuat pembacanya menyimpulkan lebih banyak daripada yang dibuktikan —
      terutama soal perilaku di bawah beban, yang justru pertanyaan pertama

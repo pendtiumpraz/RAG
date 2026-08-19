@@ -13,7 +13,7 @@ atau billing baru, tidak ada tabel/migrasi baru.
 
 | Halaman | URL |
 |---|---|
-| Panel | `https://rag.sainskerta.net/plugin` |
+| Panel | `https://nalar.sainskerta.net/plugin` |
 
 Satu halaman saja. State-nya internal (auth → pilih chatbot → tab Embed / KB /
 Kuota). Dibuka langsung (standalone) atau di dalam `<iframe>`.
@@ -22,7 +22,7 @@ Kuota). Dibuka langsung (standalone) atau di dalam `<iframe>`.
 
 ```html
 <iframe
-  src="https://rag.sainskerta.net/plugin"
+  src="https://nalar.sainskerta.net/plugin"
   style="width:100%;min-height:720px;border:0"
   title="Panel Nalar"
 ></iframe>
@@ -76,7 +76,7 @@ Tab **Embed** untuk chatbot terpilih:
    lewat `PATCH /api/chatbots/{id}` (`allowedOrigins`). Kosong = izinkan semua.
 3. **Snippet embed** dibuat otomatis dan bisa disalin:
    ```html
-   <script src="https://rag.sainskerta.net/embed.js" data-chatbot="cb_live_…"></script>
+   <script src="https://nalar.sainskerta.net/embed.js" data-chatbot="cb_live_…"></script>
    ```
    `src` dibangun dari `window.location.origin` (panel dihosting di domain
    Nalar). Ini pola "1 sumber": atur KB + domain + branding di sini, snippet

@@ -2,7 +2,7 @@
 import type { LaporanTur } from './bukti-tipe';
 
 export const BUKTI: LaporanTur = {
-  "basis": "https://rag.sainskerta.net",
+  "basis": "https://nalar.sainskerta.net",
   "pada": "2026-08-02T05:01:32.020Z",
   "masuk": true,
   "mode": "baca+tulis",
