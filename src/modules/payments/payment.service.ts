@@ -310,7 +310,15 @@ export const paymentService = {
     }).where(eq(payments.id, row.id)));
 
     await audit(tenantId, userId, 'payment.created', row.id, { provider: gw.provider, plan, months: m, amount });
-    return { id: row.id };
+    /* Kembalikan QR SEKALIGUS — jalur S2S (POST /api/v1/payments) butuh
+       {id, qrString, qrImageUrl} dalam satu respons agar Maira tak perlu
+       memanggil GET [id] lagi. Tambahan field ini aditif: pemanggil lama
+       (/api/payments) hanya membaca `id`. */
+    return {
+      id: row.id, plan, months: m, amount, provider: gw.provider,
+      qrString: charge.qrString, qrImageUrl: charge.qrImageUrl,
+      expiresAt: charge.expiresAt,
+    };
   },
 
   /** Status utk halaman bayar (poll). Bila masih pending & bukan xendit,
