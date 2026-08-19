@@ -251,6 +251,18 @@ table.table thead th.col-no{ text-align:right; }
   color:var(--muted); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; }
 .tab[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--signal); }
 
+/* Tab internal halaman — memecah halaman panjang (Settings/Models/Billing/…)
+   jadi beberapa bagian, satu tampil sekali. Pola sama dengan .dr-tab Dataroom
+   (permintaan Bos), tapi global agar dipakai lintas halaman. Digulir mendatar
+   di layar sempit, tak pernah membungkus dua baris. */
+.page-tabs{ display:flex; gap:6px; margin-bottom:var(--sp-4); border-bottom:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:thin; }
+.page-tab{ appearance:none; background:none; border:none; cursor:pointer; padding:10px 14px;
+  font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--muted);
+  border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; flex:none; }
+.page-tab.on{ color:var(--signal); border-bottom-color:var(--signal); }
+.page-tab:hover{ color:var(--ink); }
+
 .toast{ position:fixed; bottom:var(--sp-6); left:50%; translate:-50% 20px; display:flex; align-items:center; gap:var(--sp-2);
   background:var(--card); border:1px solid var(--line-strong); color:var(--ink); padding:12px var(--sp-4); border-radius:var(--rad-sm);
   font-size:var(--fs-sm); box-shadow:var(--pop); opacity:0; pointer-events:none; z-index:60;

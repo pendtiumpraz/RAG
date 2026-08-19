@@ -13,18 +13,6 @@ import type { Feature } from '@/modules/core/limits';
 
 interface NavItem { href: string; label: string; icon: IconName; superadmin?: boolean; feature?: Feature }
 
-/* Tab organisasi (permintaan Bos Galih): enam area setelan tenant disatukan
-   dalam satu deret tab horizontal — pola yang sama dengan Dataroom. Tab hanya
-   NAVIGASI (tiap area tetap rutenya sendiri), bukan pengganti halaman. */
-const AREA_TABS: Array<{ href: string; label: string }> = [
-  { href: '/settings', label: 'Settings' },
-  { href: '/observability', label: 'Observability' },
-  { href: '/billing', label: 'Billing' },
-  { href: '/usage', label: 'Usage' },
-  { href: '/team', label: 'Team' },
-  { href: '/models', label: 'Models' },
-];
-
 const NAV: Array<{ group: string; items: NavItem[] }> = [
   { group: 'Workspace', items: [
     { href: '/chat', label: 'Chat', icon: 'chat' },
@@ -82,8 +70,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ...g,
     items: g.items.filter((it) => !it.superadmin || user?.role === 'superadmin'),
   }));
-  const inArea = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const showTabs = AREA_TABS.some((t) => inArea(t.href));
 
   return (
     <ToastProvider>
@@ -131,19 +117,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button className="icon-btn" aria-label="Ganti tema" onClick={toggleTheme}><Icon name="sun" size={18} /></button>
           </header>
           <div className="content">
-            {showTabs && (
-              <nav className="area-tabs" role="tablist" aria-label="Setelan organisasi">
-                {AREA_TABS.map((t) => {
-                  const on = inArea(t.href);
-                  return (
-                    <Link key={t.href} href={t.href} role="tab" aria-selected={on}
-                      className={`area-tab${on ? ' on' : ''}`} onClick={() => setOpen(false)}>
-                      {t.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
             {children}
           </div>
         </div>

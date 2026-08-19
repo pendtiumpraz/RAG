@@ -7,6 +7,16 @@ import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
 import { Select } from '../../_components/select';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
+import { PageTabs, type TabDef } from '../../_components/page-tabs';
+import { useHashTab } from '../../_lib/useTab';
+
+type ObsTab = 'ringkasan' | 'visual' | 'detail';
+const OBS_KEYS: readonly ObsTab[] = ['ringkasan', 'visual', 'detail'];
+const OBS_TABS: readonly TabDef<ObsTab>[] = [
+  { key: 'ringkasan', label: 'Ringkasan' },
+  { key: 'visual', label: 'Visualisasi' },
+  { key: 'detail', label: 'Detail' },
+];
 
 interface Aksi { action: string; count: number }
 interface Galat { at: string; tenantId: string; message: string }
@@ -49,6 +59,7 @@ export default function ObservabilityPage() {
   const [hours, setHours] = useState(24);
   const { data, loading, error, refetch } = useApi<Ops>(`/api/admin/ops?hours=${hours}`);
   const health = useApi<{ ok: boolean; db: { ok: boolean; latencyMs: number | null }; mode: string }>('/api/health');
+  const [tab, setTab] = useHashTab(OBS_KEYS, 'ringkasan');
 
   if (session?.user?.role !== 'superadmin') {
     return <div className="card"><EmptyState title="Khusus superadmin"
@@ -67,7 +78,10 @@ export default function ObservabilityPage() {
         </Select>
       </div>
 
-      <div className="grid g2" style={{ marginBottom: 'var(--sp-4)' }}>
+      <PageTabs tabs={OBS_TABS} active={tab} onPick={setTab} label="Bagian observability" />
+
+      {tab === 'ringkasan' &&
+      <div className="grid g2">
         <div className="card">
           <div className="panel-head"><span className="t">kesehatan</span></div>
           <div className="card-pad stack gap-2">
@@ -93,13 +107,18 @@ export default function ObservabilityPage() {
                 {fmt(data?.guardrail.flagged ?? 0)}</span>} />
           </div>
         </div>
-      </div>
+      </div>}
 
-      {error ? <div className="card"><ErrorState message={error} onRetry={refetch} /></div>
+      {tab === 'visual' && (
+        error ? <div className="card"><ErrorState message={error} onRetry={refetch} /></div>
+        : loading || !data ? <div className="card"><Skeleton rows={4} /></div>
+        : <VizSection data={data} hours={hours} />
+      )}
+
+      {tab === 'detail' && (
+        error ? <div className="card"><ErrorState message={error} onRetry={refetch} /></div>
         : loading || !data ? <div className="card"><Skeleton rows={4} /></div>
         : (
-          <>
-          <VizSection data={data} hours={hours} />
           <div className="grid g2">
             <div className="card">
               <div className="panel-head"><span className="t">aktivitas ({data.window})</span></div>
@@ -123,8 +142,8 @@ export default function ObservabilityPage() {
                 : <TabelTenantSibuk rows={data.topTenants} />}
             </div>
           </div>
-          </>
-        )}
+        )
+      )}
     </>
   );
 }

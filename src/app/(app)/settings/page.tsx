@@ -13,6 +13,11 @@ import TwoFactor from './TwoFactor';
 import Penyimpanan from './Penyimpanan';
 import PanelPenyediaStorage from './PanelPenyediaStorage';
 import { toggleTheme } from '../../providers';
+import { PageTabs, type TabDef } from '../../_components/page-tabs';
+import { useHashTab } from '../../_lib/useTab';
+
+type SetTab = 'tampilan' | 'integrasi' | 'keamanan' | 'platform';
+const SET_KEYS: readonly SetTab[] = ['tampilan', 'integrasi', 'keamanan', 'platform'];
 
 interface Settings { active: { themeConfig: { theme?: { signal?: string; source?: string } } | null } | null }
 
@@ -24,6 +29,15 @@ export default function SettingsPage() {
   const [source, setSource] = useState('#F59E0B');
   const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const isSuper = session?.user?.role === 'superadmin';
+  const tabs = ([
+    { key: 'tampilan', label: 'Tampilan' },
+    { key: 'integrasi', label: 'Integrasi' },
+    { key: 'keamanan', label: 'Keamanan' },
+    { key: 'platform', label: 'Platform', super: true },
+  ] as readonly TabDef<SetTab>[]).filter((t) => !t.super || isSuper);
+  const [tab, setTab] = useHashTab(SET_KEYS, 'tampilan');
+  const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
 
   useEffect(() => {
     const t = data?.active?.themeConfig?.theme;
@@ -42,10 +56,12 @@ export default function SettingsPage() {
     <>
       <div className="page-head">
         <div><h1>Settings</h1><p className="sub">Tenant, tampilan, dan white-label workspace.</p></div>
-        <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} onClick={save} disabled={busy}>Simpan</button>
+        {active === 'tampilan' && <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} onClick={save} disabled={busy}>Simpan</button>}
       </div>
 
-      {loading ? <div className="card"><Skeleton rows={3} /></div> : (
+      <PageTabs tabs={tabs} active={active} onPick={setTab} label="Bagian setelan" />
+
+      {active === 'tampilan' && (loading ? <div className="card"><Skeleton rows={3} /></div> : (
         <div className="grid g3">
           <div className="card"><div className="panel-head"><span className="t">tampilan</span></div>
             <div className="card-pad stack gap-3">
@@ -75,32 +91,32 @@ export default function SettingsPage() {
               <tr><td>API docs</td><td className="num"><a href="/api/openapi" target="_blank">OpenAPI ↗</a></td></tr>
             </tbody></table></div></div>
         </div>
-      )}
+      ))}
 
-      <Integrations />
+      {active === 'integrasi' && <>
+        <Integrations />
+        {/* BYOB: seluruh anggota tenant mengelola koneksi penyimpanan objeknya. */}
+        <Penyimpanan />
+      </>}
 
-      {/* Peringatan duduk SEBELUM 2FA & SSO: ia satu-satunya panel di halaman
-          ini yang menentukan apakah kerusakan diketahui atau tidak, dan panel
-          yang harus digulir untuk ditemukan tak pernah diisi. */}
-      <Peringatan />
+      {active === 'keamanan' && <>
+        {/* Peringatan menentukan apakah kerusakan diketahui atau tidak. */}
+        <Peringatan />
+        <TwoFactor />
+        <PanelSso />
+      </>}
 
-      <TwoFactor />
-
-      {/* BYOB: seluruh anggota tenant mengelola koneksi penyimpanan objeknya.
-          Diletakkan sebelum panel SSO & superadmin — ini satu-satunya panel
-          yang dipakai siapa pun yang punya data di bucket sendiri. */}
-      <Penyimpanan />
-
-      <PanelSso />
-      {session?.user?.role === 'superadmin' && <PanelLisensi />}
-      {session?.user?.role === 'superadmin' && <PanelRetrieval />}
-      {session?.user?.role === 'superadmin' && <PanelKonektor />}
-      {/* Saklar penyedia BYOB — superadmin saja, plus saklar konektor di atasnya. */}
-      {session?.user?.role === 'superadmin' && <PanelPenyediaStorage />}
-      {/* Whitelist domain provisioning S2S (/api/v1) — superadmin, editable dari DB. */}
-      {session?.user?.role === 'superadmin' && <PanelWhitelistS2S />}
-      {session?.user?.role === 'superadmin' && <PanelDemo />}
-      {session?.user?.role === 'superadmin' && <MailSettings />}
+      {active === 'platform' && isSuper && <>
+        <PanelLisensi />
+        <PanelRetrieval />
+        <PanelKonektor />
+        {/* Saklar penyedia BYOB — superadmin saja, plus saklar konektor di atasnya. */}
+        <PanelPenyediaStorage />
+        {/* Whitelist domain provisioning S2S (/api/v1) — superadmin, editable dari DB. */}
+        {session?.user?.role === 'superadmin' && <PanelWhitelistS2S />}
+        <PanelDemo />
+        <MailSettings />
+      </>}
     </>
   );
 }

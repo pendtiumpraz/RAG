@@ -8,6 +8,8 @@ import { useApi } from '../../_lib/api';
 import { Skeleton, ErrorState, EmptyState } from '../../_components/ui';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
+import { PageTabs, type TabDef } from '../../_components/page-tabs';
+import { useHashTab } from '../../_lib/useTab';
 
 /**
  * USAGE — dashboard monitoring pemakaian.
@@ -60,6 +62,14 @@ const OPSI_TENANT: OpsiTabel<TenantBaris> = {
   },
 };
 
+type UsageTab = 'harian' | 'chatbot' | 'tenant';
+const USAGE_KEYS: readonly UsageTab[] = ['harian', 'chatbot', 'tenant'];
+const USAGE_TABS: readonly TabDef<UsageTab>[] = [
+  { key: 'harian', label: 'Harian' },
+  { key: 'chatbot', label: 'Per chatbot' },
+  { key: 'tenant', label: 'Per tenant', super: true },
+];
+
 const n = (v: number) => v.toLocaleString('id-ID');
 const cost = (tin: number, tout: number, p: { in: number; out: number } | null) =>
   p ? `$${((tin * p.in + tout * p.out) / 1_000_000).toFixed(2)}` : '—';
@@ -78,6 +88,10 @@ function UsagePageInner() {
   const totalMsgs = br.data?.perChatbot.reduce((a, c) => a + c.messages, 0) ?? 0;
   const maxDaily = Math.max(...(br.data?.daily.map((d) => d.messages) ?? [0]), 1);
 
+  const tabs = USAGE_TABS.filter((t) => !t.super || isSuper);
+  const [tab, setTab] = useHashTab(USAGE_KEYS, 'harian');
+  const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
+
   return (
     <>
       <div className="page-head">
@@ -90,6 +104,9 @@ function UsagePageInner() {
         </Select>
       </div>
 
+      <PageTabs tabs={tabs} active={active} onPick={setTab} label="Bagian pemakaian" />
+
+      {active === 'harian' && <>
       {/* kartu ringkasan periode berjalan */}
       {sum.error ? <ErrorState message={sum.error} onRetry={sum.refetch} />
         : !sum.data ? <Skeleton rows={2} />
@@ -133,9 +150,11 @@ function UsagePageInner() {
             )}
         </div>
       </div>
+      </>}
 
-      {/* rincian per chatbot */}
-      <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      {active === 'chatbot' &&
+      /* rincian per chatbot */
+      <div className="card">
         <div className="panel-head"><span className="t">per chatbot · {days} hari</span></div>
         {!br.data ? <Skeleton rows={3} />
           : br.data.perChatbot.length === 0 ? <EmptyState title="Belum ada pemakaian" hint="Angka muncul begitu chatbot dipakai." />
@@ -178,11 +197,11 @@ function UsagePageInner() {
               <TabelKaki t={tCb} satuan="chatbot" />
             </div>
           )}
-      </div>
+      </div>}
 
       {/* superadmin: per tenant */}
-      {isSuper && (
-        <div className="card" style={{ marginTop: 'var(--sp-4)' }}>
+      {active === 'tenant' && isSuper && (
+        <div className="card">
           <div className="panel-head"><span className="t">per tenant · periode berjalan</span>
             <span className="microlabel">SUPERADMIN · LINTAS TENANT (GUC 0017)</span></div>
           {admin.error ? <ErrorState message={admin.error} onRetry={admin.refetch} />

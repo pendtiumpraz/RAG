@@ -7,6 +7,11 @@ import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
+import { PageTabs, type TabDef } from '../../_components/page-tabs';
+import { useHashTab } from '../../_lib/useTab';
+
+type ModelTab = 'model' | 'server';
+const MODEL_KEYS: readonly ModelTab[] = ['model', 'server'];
 
 /** Keadaan server, dipakai bersama penyaring & kolom Status — satu sumber
  *  supaya yang disaring persis yang terbaca di layar. */
@@ -84,6 +89,14 @@ export default function ModelsPage() {
     finally { setBusy(false); }
   }
 
+  const isSuper = data?.role === 'superadmin';
+  const tabs = ([
+    { key: 'model', label: 'Model & Keys' },
+    { key: 'server', label: 'Server & OAuth', super: true },
+  ] as readonly TabDef<ModelTab>[]).filter((t) => !t.super || isSuper);
+  const [tab, setTab] = useHashTab(MODEL_KEYS, 'model');
+  const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
+
   if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
   if (loading || !data) return <div className="card"><Skeleton rows={4} /></div>;
 
@@ -103,9 +116,12 @@ export default function ModelsPage() {
     <>
       <div className="page-head">
         <div><h1>Models &amp; Keys</h1><p className="sub">Satu model chat &amp; satu embedding aktif per tenant. API key disimpan terenkripsi, dipakai server-to-server.</p></div>
-        <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} onClick={save} disabled={busy}>Simpan</button>
+        {active === 'model' && <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} onClick={save} disabled={busy}>Simpan</button>}
       </div>
 
+      <PageTabs tabs={tabs} active={active} onPick={setTab} label="Bagian model" />
+
+      {active === 'model' &&
       <div className="grid g2">
         <div className="stack gap-4">
           <div className="card"><div className="panel-head"><span className="t">model chat aktif</span><span className="badge badge-signal">1 aktif</span></div>
@@ -187,14 +203,16 @@ export default function ModelsPage() {
             </p>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Infrastruktur platform — hanya superadmin. Server ini dipakai BERSAMA
           semua tenant, dan menerima alamat dari pihak tak tepercaya akan
           membuka SSRF; karena itu panel & API-nya dikunci peran. */}
-      {data.role === 'superadmin' && <LlmServers onChanged={refetch} />}
-      {data.role === 'superadmin' && <EmbeddingServers onChanged={refetch} />}
-      {data.role === 'superadmin' && <OAuthApps />}
+      {active === 'server' && isSuper && <>
+        <LlmServers onChanged={refetch} />
+        <EmbeddingServers onChanged={refetch} />
+        <OAuthApps />
+      </>}
     </>
   );
 }
