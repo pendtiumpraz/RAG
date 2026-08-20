@@ -51,9 +51,9 @@ const SOURCE_NAME = 'Unggahan manual';
  * ditulis ke `config.storage` sumber sebagai jejak tingkat-sumber. Detail
  * per-berkas (path/url/id koneksi) hidup di tabel `uploaded_files`.
  */
-function simplifikasiStorage(ingested: Array<{ stored: boolean }>): Record<string, unknown> {
-  const tersimpan = ingested.filter((x) => x.stored).length;
-  return { jumlahBerkas: ingested.length, tersimpan, gagalSimpan: ingested.length - tersimpan };
+function simplifikasiStorage(berkas: Array<{ stored: boolean }>): Record<string, unknown> {
+  const tersimpan = berkas.filter((x) => x.stored).length;
+  return { jumlahBerkas: berkas.length, tersimpan, gagalSimpan: berkas.length - tersimpan };
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -105,13 +105,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   });
 
   const ingested: Array<{ name: string; chunks: number; stored: boolean; storagePath?: string | null }> = [];
+  // Tersimpan di blob TAPI belum ter-ingest ke KB (parser gagal / teks kosong).
+  // Berkas aslinya aman; tinggal di-ingest ulang begitu extractor bisa membacanya.
+  const disimpan: Array<{ name: string; reason: string; stored: boolean }> = [];
   const skipped: Array<{ name: string; reason: string }> = [];
 
   try {
-  /* Kuota blob diperiksa PER-BERKAS, tepat sebelum disimpan: berkas yang tak
-     bisa diekstrak / tanpa teks tak akan disimpan, jadi ia tak boleh ikut
-     menghabiskan jatah. (Drive/SharePoint tak pernah lewat sini — mereka
-     sync langsung tanpa blob dan tak dihitung terhadap kuota ini.) */
+  /* SIMPAN DULU, BARU PARSE. Berkas orisinal harus aman di blob sebelum apa
+     pun — kalau parser gagal (itu tak berarti dokumennya rusak / hasil pindai),
+     berkasnya tetap tersimpan & tercatat, bisa di-ingest ulang nanti. Kuota
+     blob diperiksa PER-BERKAS sebelum simpan; kalau habis → QuotaError (402)
+     menghentikan seluruh unggahan. (Drive/SharePoint tak pernah lewat sini —
+     mereka sync langsung tanpa blob dan tak dihitung terhadap kuota ini.) */
   for (const f of files) {
     if (!isExtractable(f.name, f.type)) {
       skipped.push({ name: f.name, reason: 'format tak didukung' });
@@ -119,17 +124,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     try {
       const buf = Buffer.from(await f.arrayBuffer());
-      const text = await extractText(f.name, buf, f.type);
-      if (!text?.trim()) {
-        // PDF hasil pindaian tanpa lapisan teks adalah kasus paling sering di
-        // sini — sebutkan spesifik, jangan cuma "gagal".
-        skipped.push({ name: f.name, reason: 'tak ada teks yang bisa dibaca (PDF hasil pindai?)' });
-        continue;
-      }
 
-      /* Simpan berkas ORISINAL ke blob/BYOB (Bos Galih: "sing nyimpen nang
-         blob cuma sing upload aja"). Sebelum itu, pastikan byte-nya muat di
-         kuota paket — kalau tidak, tolak BERKAS INI (QuotaError → 402). */
+      /* 1. Kuota + SIMPAN berkas ORISINAL ke blob/BYOB (Bos Galih: "sing
+         nyimpen nang blob cuma sing upload aja"). Pastikan byte-nya muat di
+         kuota paket dulu — kalau tidak, tolak BERKAS INI (QuotaError → 402). */
       await knowledgeService.assertStorageBlobQuota(user.tenantId, f.size);
       const simpan = await storageService.simpanBerkasUpload(
         user.tenantId, user.id,
@@ -141,13 +139,48 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         },
       ).catch((e: unknown) => {
         // Gagal menyimpan (credential blob mati, bucket salah, dll) TIDAK
-        // boleh menggagalkan seluruh unggahan: berkas tak tersimpan di blob
-        // namun isi teksnya tetap masuk jalur ingest biasa. Dicatat sebagai
-        // tidak tersimpan supaya pemilik tahu berkas aslinya tak berada di
-        // storage (dan pemakaian blob tak naik).
+        // boleh menggagalkan seluruh unggahan. Dicatat sebagai tidak tersimpan
+        // supaya pemilik tahu berkas aslinya tak berada di storage (dan
+        // pemakaian blob tak naik) — teksnya tetap coba di-ingest di bawah.
         console.error('[upload] gagal simpan ke blob:', (e as Error).message);
         return null;
       });
+
+      /* 2. Catat jejak berkas-orisinal SEGERA setelah tersimpan (bukan setelah
+         ingest) — berkas yang tersimpan tapi gagal di-parse pun tetap tercatat
+         di uploaded_files supaya aslinya tak hilang & bisa diunduh/di-ingest
+         ulang. Hanya bila benar-benar tersimpan; kalau null tak ada baris dan
+         byte-nya tak ikut dihitung. */
+      if (simpan) {
+        await withTenant(user.tenantId, (tx) => uploadedFileService.simpan(tx, {
+          tenantId: user.tenantId,
+          userId: user.id,
+          knowledgeBaseId,
+          sourceId: source.id,
+          filename: f.name,
+          sizeBytes: f.size,
+          provider: simpan.provider,
+          storageConnectionId: simpan.storageConnectionId,
+          path: simpan.path,
+          url: simpan.url,
+          mime: f.type || null,
+        }));
+      }
+
+      /* 3. BARU ekstraksi teks. Gagal/kosong ⇒ berkas TETAP tersimpan, hanya
+         tak di-ingest ke KB. BUKAN "hasil pindai" — parser bisa gagal karena
+         banyak sebab; error asli sudah dilog di extractText(). */
+      const text = await extractText(f.name, buf, f.type);
+      if (!text?.trim()) {
+        disimpan.push({
+          name: f.name,
+          reason: simpan
+            ? 'disimpan, tapi teksnya belum bisa dibaca — belum diingest ke KB'
+            : 'gagal disimpan & teksnya belum bisa dibaca — belum diingest',
+          stored: Boolean(simpan),
+        });
+        continue;
+      }
 
       // Potongan lama dengan nama yang sama DIBUANG dulu. `ingest()` tak
       // melakukannya sendiri — jalur sync memanggil removeExternal() secara
@@ -169,25 +202,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           ...(simpan ? { storage: { provider: simpan.provider, path: simpan.path, url: simpan.url } } : {}),
         },
       });
-
-      /* Catat jejak berkas-orisinal (untuk pemakaian blob & unduh ulang).
-         Hanya bila benar-benar tersimpan — kalau null, tidak ada baris dan
-         byte-nya tak ikut dihitung. */
-      if (simpan) {
-        await withTenant(user.tenantId, (tx) => uploadedFileService.simpan(tx, {
-          tenantId: user.tenantId,
-          userId: user.id,
-          knowledgeBaseId,
-          sourceId: source.id,
-          filename: f.name,
-          sizeBytes: f.size,
-          provider: simpan.provider,
-          storageConnectionId: simpan.storageConnectionId,
-          path: simpan.path,
-          url: simpan.url,
-          mime: f.type || null,
-        }));
-      }
 
       ingested.push({
         name: f.name, chunks,
@@ -219,8 +233,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Referensi storage tingkat sumber — menyimpan PALING BANYAK SATU penyedia
       // yang dipakai batch ini, cukup utk penelusuran. Detail per-berkas hidup
       // di tabel uploaded_files.
-      storage: simplifikasiStorage(ingested),
-      lastSync: { ingested: ingested.length, skipped: skipped.length },
+      storage: simplifikasiStorage([...ingested, ...disimpan]),
+      lastSync: { ingested: ingested.length, disimpan: disimpan.length, skipped: skipped.length },
     },
   }).where(eq(dataSources.id, source.id)));
 
@@ -232,6 +246,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     ok: true,
     sourceId: source.id,
     ingested,
+    disimpan,
     skipped,
     chunks: ingested.reduce((n, x) => n + x.chunks, 0),
   }, { status: 201 });

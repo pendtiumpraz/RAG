@@ -890,10 +890,17 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
       if (!r.ok) throw new Error(j.error ?? 'Gagal mengunggah');
       const n = j.ingested?.length ?? 0;
       const s = j.skipped?.length ?? 0;
-      // Berkas yang dilewati disebut satu per satu beserta sebabnya — "3 dari
-      // 5 berhasil" tanpa keterangan memaksa orang menebak yang mana.
-      toast(s
-        ? `${n} berkas masuk (${j.chunks} potongan) · ${s} dilewati: ${(j.skipped as Array<{ name: string; reason: string }>).map((x) => `${x.name} — ${x.reason}`).join('; ')}`
+      const d = j.disimpan?.length ?? 0;
+      // Berkas yang dilewati / tersimpan-tapi-belum-diingest disebut satu per
+      // satu beserta sebabnya — "3 dari 5 berhasil" tanpa keterangan memaksa
+      // orang menebak yang mana. `disimpan` = aslinya AMAN di storage, cuma
+      // teksnya belum terbaca (bukan hilang, bukan "hasil pindai").
+      const rincian = [
+        ...(j.disimpan as Array<{ name: string; reason: string }> ?? []),
+        ...(j.skipped as Array<{ name: string; reason: string }> ?? []),
+      ].map((x) => `${x.name} — ${x.reason}`).join('; ');
+      toast(s || d
+        ? `${n} berkas masuk (${j.chunks} potongan) · ${d} disimpan tanpa diingest · ${s} dilewati: ${rincian}`
         : `${n} berkas masuk (${j.chunks} potongan)`);
       onSaved();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
