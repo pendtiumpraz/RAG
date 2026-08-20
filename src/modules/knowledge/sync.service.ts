@@ -868,9 +868,14 @@ export async function extractText(name: string, buf: Buffer, mime?: string): Pro
 
   if (lower.endsWith('.pdf')) {
     try {
-      const pdfParse = (await import('pdf-parse')).default;
-      const data = await pdfParse(buf);
-      return data.text?.trim() || null;
+      const { PDFParse } = await import('pdf-parse');
+      const parser = new PDFParse({ data: buf });
+      try {
+        const data = await parser.getText();
+        return data.text?.trim() || null;
+      } finally {
+        await parser.destroy();
+      }
     } catch (err) {
       console.error(`[sync] gagal parse PDF ${name}:`, err);
       return null;
