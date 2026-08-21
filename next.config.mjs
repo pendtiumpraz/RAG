@@ -1,6 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@xenova/transformers', 'postgres', 'pdf-parse', 'mammoth', 'googleapis'],
+  /* WORKER pdf.js HARUS IKUT KE LAMBDA — kalau tidak, TIAP PDF gagal dibaca
+     di produksi (dan hanya di produksi).
+     Di Node, pdf.js mematikan worker sungguhan lalu memuat "fake worker"-nya
+     lewat import DINAMIS: `GlobalWorkerOptions.workerSrc ||= "./pdf.worker.mjs"`
+     lalu `await import(this.workerSrc)`. Specifier-nya dirakit saat runtime,
+     jadi file-tracing Vercel (statis) tak pernah melihatnya: trace rute hanya
+     membawa `legacy/build/pdf.mjs`. Di laptop berkasnya ada di node_modules
+     sehingga selalu lolos; di lambda ia tak ikut → getDocument() menolak →
+     extractText() mengembalikan null → berkas tercatat "teksnya belum bisa
+     dibaca" padahal PDF-nya sehat.
+     Disebut per-rute, bukan global: berkasnya 2 MB dan hanya empat rute ini
+     yang benar-benar mengekstrak teks PDF. */
+  outputFileTracingIncludes: {
+    '/api/knowledge-bases/[id]/upload': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+    '/api/sources': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+    '/api/sources/[id]/sync': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+    '/api/sources/[id]/pratinjau': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+  },
   images: { unoptimized: true },  // logo PNG statis — tak perlu sharp
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
