@@ -6,6 +6,7 @@ import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/
 import { audit } from '@/modules/core/guardrails';
 import { periksaSync, terbitkanPeringatan } from '@/modules/core/alerts';
 import { TEXT_EXT, DOC_EXT } from './format';
+import { pastikanPolyfillPdf } from './pdf-bootstrap';
 import { batasSync } from './sync-limits';
 import { masihMuat } from './anggaran-sync';
 import { ringkasPerFolder, saringFolderTerpilih, type Pratinjau } from './pratinjau';
@@ -868,6 +869,11 @@ export async function extractText(name: string, buf: Buffer, mime?: string): Pro
 
   if (lower.endsWith('.pdf')) {
     try {
+      /* pdf.js butuh DOMMatrix/Path2D/ImageData yang tak ada di Node serverless
+         (Vercel). Tanpa ini, native canvas tak bisa dimuat → `new DOMMatrix()`
+         melempar ReferenceError dan PDF valid tercatat skipped. Pasang polyfill
+         dulu (idempoten) supaya jalur ekstraksi teks jalan di serverless. */
+      pastikanPolyfillPdf();
       const { PDFParse } = await import('pdf-parse');
       const parser = new PDFParse({ data: buf });
       try {

@@ -31,8 +31,14 @@ export const platformAdapter: StorageAdapter = {
   async simpan(_kred, c) {
     this.validasi(_kred);
     const { put } = await import('@vercel/blob');
+    /* Mode access HARUS match dengan konfigurasi store Vercel. Produk ini
+       memakai STORE PUBLIK (lihat EMBEDDING_MODEL_BLOB_URL yang berdomain
+       `*.public.blob.vercel-storage.com` dan store id yang sama). Kalau
+       dipaksa `private` di store publik, Vercel menolak unggahan:
+       "Cannot use private access on a public store". Untuk instalasi yang
+       memakai STORE PRIVAT, akses ini wajib diganti `private` juga. */
     const hasil = await put(c.key, c.bytes, {
-      access: 'private',
+      access: 'public',
       contentType: c.mime || 'application/octet-stream',
       addRandomSuffix: false,
     });
@@ -46,7 +52,7 @@ export const platformAdapter: StorageAdapter = {
     this.validasi(_kred);
     /* Blob platform mengunduh lewat pathname (bukan URL penuh); `path` yang
        dicatat saat simpan adalah pathname — bersih tanpa query/host, jadi
-       stabil utk re-sync. get() butuh access 'private' (unggahan kita private).
+       stabil utk re-sync. get() butuh access yang SAMA dengan store (public).
        Unduhan utk URI ini: statusCode 200 dengan `stream` ReadableStream,
        atau 304 (tak berubah) dengan stream null — 304 disetel lewat
        ifNoneMatch, yang tak kita pakai, jadi stream selalu ada di 200. */
@@ -58,7 +64,7 @@ export const platformAdapter: StorageAdapter = {
     } catch {
       // head opsional — kalau gagal (mis. 404), unduh saja; get menolak 404.
     }
-    const hasil = await get(key, { access: 'private' });
+    const hasil = await get(key, { access: 'public' });
     if (!hasil) throw new Error('Berkas tak ditemukan di blob platform (mungkin terhapus).');
     if (hasil.statusCode !== 200 || hasil.stream === null) {
       throw new Error('Berkas di blob platform tak dapat diunduh.');
