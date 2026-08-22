@@ -1,0 +1,253 @@
+================================================================================
+INSTRUKSI KERJA DI VPS — CRON MEMORY AGENT untuk nalar.sainskerta.net
+Ditulis: 2026-08-22 · dijalankan DI VPS, bukan di laptop
+================================================================================
+
+Halo openclaw. Tugasmu di dokumen ini: menyalakan cron yang memaksa Memory
+Agent Nalar berjalan sampai tuntas, dipicu DARI VPS ini.
+
+
+KENAPA CRON-NYA DI SINI, BUKAN DI VERCEL
+--------------------------------------------------------------------------------
+Pipeline memory memanggil LLM sekali per dokumen. Terukur pada KB nyata
+(21 Agustus 2026): 25 dokumen -> 116 catatan -> 1.277 detik. Batas fungsi
+Vercel 300 detik. Jadi satu jalan tak akan pernah menuntaskan KB sungguhan;
+yang dibutuhkan adalah pemicu berulang yang menyapu sisanya sampai habis.
+
+Vercel Cron bisa dipakai, tapi jadwal per menit itu fitur paket Pro dan
+tetap tunduk pada batas 300 detik yang sama. VPS ini tak punya dua batasan
+itu, dan sudah memegang token Vercel — jadi ia bisa sekaligus memasang
+rahasianya sendiri ke Vercel.
+
+
+KEADAAN SEKARANG — BACA DULU SEBELUM MENGERJAKAN
+--------------------------------------------------------------------------------
+Endpoint  POST /api/cron/memory  BELUM ADA di produksi (per 2026-08-22).
+Yang sudah ada di repo: `npm run memory:worker` (pekerja memory tanpa batas
+waktu) dan pemicu otomatis saat unggah/assign KB.
+
+Maka kerjakan berurutan:
+
+  BAGIAN 1  rahasia + env Vercel      -> BISA SEKARANG
+  BAGIAN 2  cron ke API               -> pasang sekarang, aktif setelah
+                                         endpointnya live (lihat VERIFIKASI)
+  BAGIAN 3  jalur cadangan (worker)   -> BISA SEKARANG, tak butuh endpoint
+
+Kalau BAGIAN 2 kamu jalankan sebelum endpointnya ada, curl akan mengembalikan
+404 tiap 10 menit dan mengotori log. Itu tidak merusak apa pun, tapi jangan
+dibiarkan berhari-hari.
+
+
+================================================================================
+BAGIAN 1 — BUAT CRON_SECRET DAN PASANG KE VERCEL
+================================================================================
+
+1.1  Buat rahasianya (32 byte acak, hex):
+
+     SECRET=$(openssl rand -hex 32)
+     echo "$SECRET"          # simpan sebentar, dipakai 1.4
+
+1.2  Pastikan Vercel CLI ada dan tokennya terbaca:
+
+     npm i -g vercel                       # kalau belum ada
+     vercel --version
+     echo "${VERCEL_TOKEN:0:8}…"           # harus tampil; kalau kosong,
+                                           # export dulu dari tempat kamu
+                                           # menyimpannya
+
+     # Kalau belum tahu nama project / scope-nya:
+     vercel projects ls --token="$VERCEL_TOKEN"
+
+1.3  Tautkan direktori kerja ke project (sekali saja). Jalankan dari salinan
+     repo di VPS; kalau belum ada, clone dulu:
+
+     git clone https://github.com/pendtiumpraz/RAG.git /opt/nalar
+     cd /opt/nalar
+     vercel link --yes --project <NAMA_PROJECT> --token="$VERCEL_TOKEN"
+     # tambahkan --scope <TEAM> bila project-nya milik tim, bukan akun pribadi
+
+1.4  Pasang rahasianya sebagai environment variable produksi.
+     `vercel env add` membaca NILAINYA dari stdin — jangan menuliskannya
+     sebagai argumen (argumen terbaca oleh `ps` milik pengguna lain):
+
+     printf '%s' "$SECRET" | vercel env add CRON_SECRET production \
+       --token="$VERCEL_TOKEN"
+
+     vercel env ls --token="$VERCEL_TOKEN" | grep CRON_SECRET   # pastikan ada
+
+1.5  REDEPLOY. Ini langkah yang paling sering terlupa: environment variable
+     baru TIDAK terbaca oleh deployment yang sudah berjalan. Tanpa langkah
+     ini, endpointnya akan menolak semua panggilanmu dengan 401 dan kamu akan
+     menyangka rahasianya salah.
+
+     vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+     # atau, kalau tak ingin build baru:
+     # vercel redeploy <url-deployment-produksi-terakhir> --token="$VERCEL_TOKEN"
+
+1.6  Simpan rahasianya di VPS untuk dipakai cron — file terpisah, hak akses
+     ketat, BUKAN di dalam baris crontab:
+
+     sudo mkdir -p /etc/nalar
+     printf 'CRON_SECRET=%s\n' "$SECRET" | sudo tee /etc/nalar/cron.env >/dev/null
+     sudo chmod 600 /etc/nalar/cron.env
+     sudo chown root:root /etc/nalar/cron.env
+     unset SECRET
+
+
+================================================================================
+BAGIAN 2 — PASANG CRONJOB
+================================================================================
+
+Kontrak endpointnya (yang akan dibangun):
+
+     POST https://nalar.sainskerta.net/api/cron/memory
+     Header: Authorization: Bearer <CRON_SECRET>
+     Balasan 200: {"ok":true,"diproses":[{"chatbot":"hr","dokumen":6,"catatan":28}],"sisa":19}
+     Balasan 200 saat tak ada pekerjaan: {"ok":true,"diproses":[],"sisa":0}
+     Balasan 401: rahasia salah / env belum ter-redeploy
+     Balasan 404: endpoint belum ada di deployment yang aktif
+
+`sisa` > 0 berarti masih ada dokumen yang belum diringkas; panggilan
+berikutnya melanjutkan. Itu sebabnya cukup dipanggil berkala — tak ada state
+yang perlu kamu simpan di VPS.
+
+2.1  Tulis skrip pemanggilnya (biar baris crontab tetap pendek dan lognya rapi):
+
+     sudo tee /usr/local/bin/nalar-cron-memory.sh >/dev/null <<'EOF'
+     #!/bin/sh
+     # Memicu Memory Agent Nalar. Dipanggil cron; lihat VPS/cronjob.txt.
+     set -eu
+     . /etc/nalar/cron.env
+
+     # -m 280: berhenti sebelum lambda 300 detik menutup sendiri, supaya cron
+     #         tak menumpuk koneksi yang sudah pasti mati.
+     # --retry 2 --retry-delay 5: 502/503 sesaat dari Vercel bukan alasan
+     #         melewatkan satu putaran sepuluh menit.
+     HASIL=$(curl -fsS -m 280 --retry 2 --retry-delay 5 \
+       -X POST \
+       -H "Authorization: Bearer ${CRON_SECRET}" \
+       -H 'Content-Type: application/json' \
+       https://nalar.sainskerta.net/api/cron/memory) || {
+         echo "$(date -Is) GAGAL memanggil endpoint (curl keluar $?)"
+         exit 1
+       }
+     echo "$(date -Is) $HASIL"
+     EOF
+
+     sudo chmod 700 /usr/local/bin/nalar-cron-memory.sh
+
+2.2  Uji manual DULU, sebelum dijadwalkan:
+
+     sudo /usr/local/bin/nalar-cron-memory.sh
+
+     Harapan: satu baris JSON berisi "ok":true.
+     Kalau 404 -> endpointnya memang belum ada; lanjut ke BAGIAN 3 dan
+     tunda 2.3 sampai dikabari.
+     Kalau 401 -> ulangi 1.5 (redeploy), rahasianya belum terpasang.
+
+2.3  Jadwalkan tiap 10 menit:
+
+     sudo crontab -l 2>/dev/null > /tmp/cron.bak || true
+     echo '*/10 * * * * /usr/local/bin/nalar-cron-memory.sh >> /var/log/nalar-memory.log 2>&1' \
+       | sudo tee -a /tmp/cron.bak >/dev/null
+     sudo crontab /tmp/cron.bak
+     sudo crontab -l | tail -3
+
+     Sepuluh menit, bukan satu menit: tiap putaran memanggil LLM dan itu
+     dibayar per dokumen. Sepuluh menit sudah menuntaskan KB 25 dokumen
+     dalam ± satu jam tanpa memicu tumpang tindih.
+
+2.4  Rotasi lognya supaya tak menggelembung:
+
+     sudo tee /etc/logrotate.d/nalar-memory >/dev/null <<'EOF'
+     /var/log/nalar-memory.log {
+         weekly
+         rotate 4
+         compress
+         missingok
+         notifempty
+         copytruncate
+     }
+     EOF
+
+
+================================================================================
+BAGIAN 3 — JALUR CADANGAN: PEKERJA MEMORY DI VPS (BISA HARI INI)
+================================================================================
+
+Tidak butuh endpoint, tidak butuh cron secret. Ia menulis ke basis data yang
+SAMA dengan yang dibaca Vercel, dan tak punya batas waktu sama sekali.
+
+3.1  Siapkan repo + env di VPS (kalau 1.3 sudah dijalankan, tinggal env-nya):
+
+     cd /opt/nalar
+     npm ci
+     # .env WAJIB berisi minimal:
+     #   DATABASE_URL=…            (peran nalar_app, sama dengan produksi)
+     #   CREDENTIALS_ENCRYPTION_KEY=…   (harus SAMA dengan Vercel, kalau beda
+     #                                   kunci LLM tenant tak bisa didekripsi)
+     chmod 600 .env
+
+3.2  Lihat dulu berapa yang akan dikerjakan — ini TIDAK memanggil LLM:
+
+     npm run memory:worker -- --daftar
+     npm run memory:worker -- --chatbot=hr --daftar
+
+3.3  Jalankan:
+
+     npm run memory:worker -- --chatbot=hr      # satu chatbot
+     npm run memory:worker                      # semua yang punya dokumen
+
+     Tiap dokumen = satu panggilan LLM dengan kunci API tenant tersebut.
+     Angka di `--daftar` adalah jumlah panggilan yang akan dibayar.
+
+3.4  (Opsional) Jadwalkan yang ini saja, kalau endpoint cron belum ada:
+
+     0 */6 * * * cd /opt/nalar && /usr/bin/npm run memory:worker >> /var/log/nalar-memory.log 2>&1
+
+
+================================================================================
+VERIFIKASI — TAHU BAHWA IA BENAR-BENAR BEKERJA
+================================================================================
+
+Log:      sudo tail -20 /var/log/nalar-memory.log
+Cron:     sudo grep CRON /var/log/syslog | tail -5      (Debian/Ubuntu)
+UI:       nalar.sainskerta.net/memory -> pilih chatbot -> catatan bertambah
+
+Yang paling meyakinkan, dari basis data: baris audit `memory.run` ditulis di
+UJUNG pipeline, jadi keberadaannya membuktikan run benar-benar tuntas, bukan
+sekadar dimulai.
+
+  psql "$DATABASE_URL" -c \
+    "select created_at, meta->>'documents' as dok, meta->>'notes' as catatan
+       from audit_logs where action='memory.run'
+      order by created_at desc limit 5;"
+
+
+================================================================================
+KALAU MACET
+================================================================================
+
+401 terus-menerus
+    Rahasia di /etc/nalar/cron.env berbeda dengan yang ada di Vercel, ATAU
+    env-nya sudah dipasang tapi belum di-redeploy (langkah 1.5). Periksa:
+    vercel env ls --token="$VERCEL_TOKEN" | grep CRON_SECRET
+
+404
+    Deployment yang aktif belum punya rute /api/cron/memory. Bukan salahmu —
+    tunda BAGIAN 2, pakai BAGIAN 3.
+
+504 / curl timeout
+    Lambda menyentuh 300 detik. Bukan kegagalan: putaran berikutnya
+    melanjutkan dari dokumen yang belum diringkas. Kalau terjadi TIAP kali,
+    lapor — berarti batas per-putaran di sisi aplikasi kelewat besar.
+
+"Memory agent butuh API key provider …"
+    Tenant itu belum mengisi kunci LLM-nya. Tindakan ada di pemilik tenant
+    (Models & Keys), bukan di VPS.
+
+Catatan biaya
+    Cron ini membakar panggilan LLM tiap kali ada dokumen baru. Kalau suatu
+    saat log menunjukkan pekerjaan berulang pada dokumen yang SAMA, matikan
+    cron-nya dan lapor: itu berarti checkpoint per-dokumen tak bekerja, dan
+    membiarkannya jalan berarti membayar ulang hal yang sama tiap 10 menit.
