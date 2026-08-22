@@ -5,8 +5,18 @@ import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { jobsSettled } from '@/modules/core/jobs';
 
 export const runtime = 'nodejs';
-/** Memory agent (distill/link/graph) butuh waktu setelah respons 202. */
-export const maxDuration = 60;
+/**
+ * Memory agent (distill/link/graph) butuh waktu setelah respons 202.
+ *
+ * 300, bukan 60. Pipeline memanggil LLM SEKALI PER DOKUMEN (sampai
+ * MAX_DOCS_PER_RUN = 40) dan baru menyimpan catatannya di L4, setelah semua
+ * dokumen selesai — jadi lambda yang mati di detik ke-60 tidak menghasilkan
+ * "sebagian catatan", melainkan NOL catatan, tanpa galat yang terlihat
+ * pengguna. KB dengan 25 dokumen sudah cukup untuk memicunya (kejadian nyata
+ * 2026-08-21). Angka ini juga yang sudah dinyatakan vercel.json untuk rute
+ * ini; segment config di sini yang sebelumnya diam-diam menurunkannya jadi 60.
+ */
+export const maxDuration = 300;
 
 const Body = z.object({ chatbotId: z.string().uuid() });
 

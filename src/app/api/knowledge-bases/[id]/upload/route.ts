@@ -6,14 +6,22 @@ import { requireRole } from '@/modules/core/auth';
 import { knowledgeService } from '@/modules/knowledge/knowledge.service';
 import { QuotaError } from '@/modules/knowledge/knowledge.service';
 import { extractText, isExtractable } from '@/modules/knowledge/sync.service';
+import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
+import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { storageService } from '@/modules/storage';
 import { uploadedFileService } from '@/modules/knowledge/uploaded-file.service';
 import { jobsSettled } from '@/modules/core/jobs';
 import { ensureIntegrations } from '../../../_wire';
 
 export const runtime = 'nodejs';
-/** Ekstraksi + embed beberapa berkas butuh waktu setelah respons terkirim. */
-export const maxDuration = 60;
+/**
+ * Ekstraksi + embed beberapa berkas butuh waktu setelah respons terkirim —
+ * DITAMBAH satu run Memory Agent yang dipicu di akhir (lihat rantai D11 di
+ * bawah). 60 detik cukup untuk mengunggah, tapi tidak untuk memanggil LLM
+ * sekali per dokumen; lambda yang mati di tengah membuang seluruh run itu
+ * tanpa menyisakan satu catatan pun. Disamakan dengan rute sync (300).
+ */
+export const maxDuration = 300;
 
 /**
  * POST /api/knowledge-bases/{id}/upload — unggah berkas langsung ke KB.
@@ -237,6 +245,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       lastSync: { ingested: ingested.length, disimpan: disimpan.length, skipped: skipped.length },
     },
   }).where(eq(dataSources.id, source.id)));
+
+  /* RANTAI OTOMATIS (D11) — KB berubah ⇒ petakan ulang memory untuk SETIAP
+     chatbot yang memakai KB ini. Sama persis dengan yang dilakukan runSync().
+     TANPA baris ini dokumen hasil unggahan manual TAK PERNAH punya catatan
+     memory: pemicu memory agent di seluruh kode cuma dua — runSync() dan
+     tombol manual /api/memory/run — dan menekan Sync setelah unggah pun tak
+     menolong, karena berkasnya sudah masuk lewat rute ini sehingga sync
+     melihatnya `unchanged` dan penjaga `if (ingested||updated||removed)`
+     melewatkan rantainya. Terbukti live 2026-08-21: KB SOP terisi 8 potongan,
+     chatbot "hr" ter-assign, memory-nya tetap kosong. */
+  if (ingested.length) {
+    const botIds = await knowledgeBaseService.assignedChatbots(user.tenantId, knowledgeBaseId);
+    for (const botId of botIds) memoryAgent.enqueueRun(user.tenantId, botId);
+  }
 
   // Vercel membekukan lambda begitu respons terkirim; agen memory yang
   // terpicu oleh ingest akan mati di tengah tanpa ini.

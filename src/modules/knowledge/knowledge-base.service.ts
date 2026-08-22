@@ -4,6 +4,7 @@ import { knowledgeBases, chatbotKnowledgeBases, chatbots, dataSources, documents
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { audit } from '@/modules/core/guardrails';
 import { ValidationError } from '@/modules/chatbot/chatbot.service';
+import { memoryAgent } from '@/modules/memory/memory-agent.service';
 
 /**
  * KNOWLEDGE BASE — entitas mandiri per tenant (D11).
@@ -146,6 +147,13 @@ export const knowledgeBaseService = {
    */
   async setAssignments(tenantId: string, actorId: string, kbId: string, chatbotIds: string[]) {
     const unique = [...new Set(chatbotIds)];
+    /* Chatbot yang BARU mendapat KB ini — dipakai di luar transaksi untuk
+       memicu Memory Agent. Sebelumnya tak ada pemicu sama sekali di jalur ini:
+       chatbot baru yang diberi KB berisi ratusan dokumen LAMA tak pernah punya
+       catatan memory, karena satu-satunya rantai otomatis ada di runSync() dan
+       itu hanya jalan kalau ada dokumen yang berubah. Assignment adalah
+       perubahan pada sisi chatbot, bukan pada dokumennya. */
+    let baruDitambahkan: string[] = [];
     await withTenant(tenantId, async (tx) => {
       const kb = (await tx.select({ id: knowledgeBases.id }).from(knowledgeBases)
         .where(and(eq(knowledgeBases.id, kbId), isNull(knowledgeBases.deletedAt))).limit(1))[0];
@@ -173,8 +181,12 @@ export const knowledgeBaseService = {
         await tx.insert(chatbotKnowledgeBases).values(
           toAdd.map((chatbotId) => ({ tenantId, chatbotId, knowledgeBaseId: kbId })));
       }
+      baruDitambahkan = toAdd;
     });
     await audit(tenantId, actorId, 'kb.assigned', kbId, { chatbotIds: unique });
+    /* Hanya yang BARU: chatbot yang sudah lama memakai KB ini tak berubah
+       apa-apa, dan menjalankan agen untuknya berarti biaya LLM tanpa sebab. */
+    for (const botId of baruDitambahkan) memoryAgent.enqueueRun(tenantId, botId);
   },
 
   /** KB ids yang ter-assign ke satu chatbot (utk sync→memory & UI). */
