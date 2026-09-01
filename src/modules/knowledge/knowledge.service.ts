@@ -119,11 +119,20 @@ async function recordDuplicate(tenantId: string, d: {
  */
 export { QuotaError };
 
-/** Berapa potongan hidup yang sudah dipakai tenant ini. */
+/**
+ * Berapa potongan hidup yang sudah dipakai tenant ini.
+ *
+ * PENYARING TENANT EKSPLISIT, bukan bersandar RLS saja. Penghitung kuota adalah
+ * tempat kebocoran RLS paling menyakitkan: tenant yang belum punya satu pun
+ * knowledge base ditolak membuat yang PERTAMA dengan "dibatasi 1 (sekarang 24)"
+ * — 24 itu milik seluruh tenant. Kebocoran baca berubah jadi fitur yang mati,
+ * dan pemakainya tidak punya satu pun petunjuk kenapa.
+ */
 async function chunkUsage(tenantId: string): Promise<number> {
   return withTenant(tenantId, async (tx) => {
     const r = await tx.execute(sql`
-      select count(*)::int n from documents where deleted_at is null`);
+      select count(*)::int n from documents
+       where tenant_id = ${tenantId}::uuid and deleted_at is null`);
     return Number((r as unknown as Array<{ n: number }>)[0]?.n ?? 0);
   });
 }
@@ -214,7 +223,8 @@ export const knowledgeService = {
     const chunks = await chunkUsage(tenantId);
     const kbs = await withTenant(tenantId, async (tx) => {
       const r = await tx.execute(sql`
-        select count(*)::int n from knowledge_bases where deleted_at is null`);
+        select count(*)::int n from knowledge_bases
+         where tenant_id = ${tenantId}::uuid and deleted_at is null`);
       return Number((r as unknown as Array<{ n: number }>)[0]?.n ?? 0);
     });
     const batasChunks = isPlatform ? Infinity : l.maxChunks;
