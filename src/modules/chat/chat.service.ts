@@ -14,6 +14,7 @@ import {
 import { nilaiKeyakinan, penolakanTanpaKonteks, type Keyakinan } from './confidence';
 import { estimateTokens } from '@/modules/core/limits';
 import { usageService } from '@/modules/usage/usage.service';
+import { platformSettingsService } from '@/modules/payments/platform-settings.service';
 import {
   guardInput, sanitizeChunk, CONTEXT_HARDENING, EXEC_LIMITS,
   newBudget, budgetAllows, redactSecrets, checkCitations, audit,
@@ -200,7 +201,7 @@ export async function chatTurn(
   onConversation?.(conversationId);
 
   const embeddingModel = settings?.activeEmbeddingModel ?? 'all-MiniLM-L6-v2';
-  const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';
+  const llmModel = settings?.activeLlmModel ?? await platformSettingsService.modelCadangan();
 
   const context = await retrievalService.retrieve(
     input.tenantId, input.chatbotId, embeddingModel, input.question, undefined, input.saring);
@@ -260,17 +261,59 @@ export async function chatTurn(
      tidak (0,420–0,581 melawan 0,382–0,546, bertindih penuh). */
   const pintasTanpaKonteks = policy.grounding === 'strict' && context.length === 0;
   let fallback = false;
+  /* Berapa delta sudah sampai ke pengguna — penentu boleh-tidaknya failover. */
+  let deltaDiterima = 0;
+  /** Model yang BENAR-BENAR menjawab; bisa berbeda dari yang aktif bila failover. */
+  let modelTerpakai = llmModel;
+  let dipakaiCadangan = false;
 
   if (pintasTanpaKonteks) {
     emit({ type: 'text', text: penolakanTanpaKonteks(input.question) });
   } else {
-    // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
-    // kredensialnya dari pendaftaran server — bukan dari argumen ini.
-    for await (const delta of streamChat(llmModel, prompt, apiKey ?? '', samplingFor(policy))) {
-      parser.push(delta);
-      // Budget dihitung dari delta MENTAH — model tetap menghasilkan token
-      // walau parser masih menahan blok yang belum lengkap.
-      if (!budgetAllows(budget, delta.length)) { truncated = true; break; }
+    /* Satu putaran streaming, dipakai dua kali: model aktif lalu — bila ia
+       gagal SEBELUM sepatah kata pun keluar — model cadangan. */
+    const alirkan = async (model: string, key: string) => {
+      // `apiKey` null hanya mungkin untuk provider 'selfhosted', yang mengambil
+      // kredensialnya dari pendaftaran server — bukan dari argumen ini.
+      for await (const delta of streamChat(model, prompt, key, samplingFor(policy))) {
+        deltaDiterima++;
+        parser.push(delta);
+        // Budget dihitung dari delta MENTAH — model tetap menghasilkan token
+        // walau parser masih menahan blok yang belum lengkap.
+        if (!budgetAllows(budget, delta.length)) { truncated = true; break; }
+      }
+    };
+
+    try {
+      await alirkan(llmModel, apiKey ?? '');
+    } catch (err) {
+      /* FAILOVER — hanya bila BELUM ada satu delta pun.
+
+         Syarat itu bukan kehati-hatian berlebih: begitu potongan jawaban sudah
+         terkirim ke peramban, mengulang dengan model lain menyambung dua
+         jawaban berbeda di tengah kalimat — dan hasil tempelan itu jauh lebih
+         membingungkan daripada satu pesan galat yang jujur.
+
+         Yang ditangkap di sini terutama kuota & rate limit penyedia (429),
+         penyedia mati (5xx), dan model yang ditarik. Sejak model gratis
+         dipakai di produksi, keadaan itu bukan kemungkinan melainkan jadwal:
+         batas hariannya pasti tertabrak, dan tanpa cadangan chat berhenti
+         menjawab sama sekali. */
+      const cadangan = await platformSettingsService.modelCadangan();
+      if (deltaDiterima > 0 || cadangan === llmModel) throw err;
+
+      const provCad = (await resolveLlmModel(cadangan))?.provider;
+      if (!provCad) throw err;   // cadangan tak dikenal katalog — jangan sembunyikan galat aslinya
+      const keyCad = provCad !== 'selfhosted' ? await getApiKey(provCad) : null;
+      if (!keyCad && provCad !== 'selfhosted') throw err;
+
+      /* Dicatat sebagai peringatan, bukan diam-diam: chat yang tiba-tiba
+         dijawab model lain (dan ditagih ke akun lain) harus meninggalkan
+         jejak, kalau tidak biaya yang membengkak tak punya penjelasan. */
+      console.warn(`[chat] model aktif "${llmModel}" gagal → cadangan "${cadangan}": ${(err as Error).message}`);
+      modelTerpakai = cadangan;
+      dipakaiCadangan = true;
+      await alirkan(cadangan, keyCad ?? '');
     }
     // Model yang mengabaikan format JSON jatuh ke fallback: prosa dipecah jadi
     // blok text/list — pengguna tetap menerima jawaban terstruktur.
@@ -326,7 +369,8 @@ export async function chatTurn(
   // Guardrail L5: audit setiap giliran + flag pelanggaran lapis mana pun.
   await audit(input.tenantId, input.visitorId ? `visitor:${input.visitorId}` : 'anonymous',
     'chat.turn', input.chatbotId, {
-      conversationId, model: llmModel, tokensIn, tokensOut,
+      conversationId, model: modelTerpakai, tokensIn, tokensOut,
+      ...(dipakaiCadangan ? { modelCadangan: true, modelDiminta: llmModel } : {}),
       chunks: context.length,
       topScore: context[0]?.score ?? null,
       /* Keadaan jawaban ikut dicatat. Skor teratas TETAP disimpan, tapi ia

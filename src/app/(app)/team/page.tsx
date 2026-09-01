@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast, Pager, type PageMeta, Field, Drawer } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
 import { PageTabs, type TabDef } from '../../_components/page-tabs';
@@ -94,7 +95,11 @@ function TeamPageInner() {
     } catch (e) { toast((e as Error).message, 'error'); members.refetch(); }
   }
   async function removeMember(m: Member) {
-    if (!confirm(`Keluarkan ${m.email} dari organisasi? Aksesnya dicabut seketika.`)) return;
+    if (!await konfirmasi({
+      judul: `Keluarkan ${m.email}?`,
+      pesan: 'Aksesnya ke seluruh chatbot dan knowledge base dicabut seketika.',
+      tegas: 'Keluarkan', merusak: true,
+    })) return;
     try {
       await api(`/api/team/members/${m.id}`, { method: 'DELETE' });
       toast(`${m.email} dikeluarkan`); members.refetch();

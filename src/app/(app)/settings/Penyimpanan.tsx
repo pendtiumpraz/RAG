@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Field, Skeleton, EmptyState, useToast } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { Icon } from '../../_components/icons';
 
 /** Isi satu form kredensial penyedia — DIKIRIM SEKALI, dienkripsi di server. */
@@ -128,7 +129,11 @@ export default function Penyimpanan() {
   }
 
   async function hapus(k: TampilanKoneksi) {
-    if (!confirm(`Lepas koneksi "${k.label ?? LABEL_PENYEDIA[k.provider] ?? k.provider}"? Kredensialnya akan dihapus tak bisa dipulihkan.`)) return;
+    if (!await konfirmasi({
+      judul: `Lepas koneksi "${k.label ?? LABEL_PENYEDIA[k.provider] ?? k.provider}"?`,
+      pesan: 'Kredensialnya dihapus dan <b>tak bisa dipulihkan</b> — berkas yang sudah tersimpan di sana tak lagi bisa dibaca ulang oleh Nalar.',
+      tegas: 'Lepas koneksi', merusak: true,
+    })) return;
     try { await api(`/api/storage/${k.id}`, { method: 'DELETE' }); toast('Koneksi dilepas'); await refetch(); }
     catch (e) { toast((e as Error).message, 'error'); }
   }

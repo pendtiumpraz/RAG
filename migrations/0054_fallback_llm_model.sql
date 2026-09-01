@@ -1,0 +1,25 @@
+-- 0054 — MODEL CADANGAN (fallback) TINGKAT PLATFORM
+--
+-- Sampai sekarang "fallback" model hanya ada sebagai literal `'claude-sonnet-5'`
+-- yang tersebar di tiga berkas (chat.service, memory-agent, recategorize) plus
+-- default kolom tenant_settings. Bentuk itu punya dua cacat:
+--
+--   1. Ia hanya menyala ketika tenant BELUM memilih model sama sekali —
+--      keadaan yang hampir tak pernah terjadi, karena kolomnya punya default.
+--      Jadi ia praktis tak pernah menolong siapa pun.
+--   2. Ia mengunci nama model ke dalam kode. Mengganti model cadangan berarti
+--      deploy, padahal ini keputusan PEMASANGAN (siapa yang menanggung biaya,
+--      penyedia mana yang dipercaya) — sekelas mode deploy & harga plan, yang
+--      semuanya sudah tinggal di platform_settings.
+--
+-- Kolom ini menjadikannya satu nilai yang bisa disetel superadmin tanpa deploy,
+-- dan dipakai DUA KALI: sebagai bawaan bila tenant belum memilih, DAN sebagai
+-- tujuan failover ketika model aktif menolak (kuota habis, 429, penyedia mati).
+-- Kebutuhan kedua itu nyata sejak model gratis dipakai di produksi
+-- (qwen3.8-max-free): batas paket gratis akan tertabrak, dan tanpa cadangan
+-- chat berhenti menjawab sama sekali.
+--
+-- NULL = pakai bawaan di kode. Baris platform_settings yang sudah ada tak perlu
+-- disentuh, dan pemasangan yang tak pernah menyetelnya berperilaku persis
+-- seperti sebelum migrasi ini.
+alter table platform_settings add column if not exists fallback_llm_model text;

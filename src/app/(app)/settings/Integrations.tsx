@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, useToast, Field } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
 
@@ -81,7 +82,11 @@ function ApiKeys() {
   }
 
   async function revoke(k: KeyRow) {
-    if (!confirm(`Cabut kunci "${k.name}"? Sistem yang memakainya akan langsung ditolak.`)) return;
+    if (!await konfirmasi({
+      judul: `Cabut kunci "${k.name}"?`,
+      pesan: 'Sistem yang masih memakainya akan langsung ditolak. Kunci yang sudah dicabut tak bisa dipakai lagi.',
+      tegas: 'Cabut kunci', merusak: true,
+    })) return;
     try {
       await api(`/api/keys?id=${k.id}`, { method: 'DELETE' });
       toast('Kunci dicabut'); refetch();
@@ -249,7 +254,11 @@ function Webhooks() {
   }
 
   async function remove(w: WebhookRow) {
-    if (!confirm('Hapus webhook ini?')) return;
+    if (!await konfirmasi({
+      judul: 'Hapus webhook ini?',
+      pesan: 'Kejadian berikutnya tak lagi dikirim ke URL tersebut.',
+      tegas: 'Hapus webhook', merusak: true,
+    })) return;
     try { await api(`/api/webhooks?id=${w.id}`, { method: 'DELETE' }); toast('Webhook dihapus'); refetch(); }
     catch (e) { toast((e as Error).message, 'error'); }
   }

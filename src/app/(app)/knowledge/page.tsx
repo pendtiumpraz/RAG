@@ -5,6 +5,7 @@ import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Select } from '../../_components/select';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { QuotaBar } from '../../_components/quota-bar';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
@@ -164,7 +165,11 @@ export default function KnowledgePage() {
     toast('Knowledge base dibuat'); setCreatingKb(false); setKbId(kb.id); kbs.refetch();
   }
   async function removeKb(kb: Kb) {
-    if (!confirm(`Hapus KB "${kb.name}"? Sumber & dokumennya ikut ke Sampah; chatbot yang memakainya kehilangan konteks ini.`)) return;
+    if (!await konfirmasi({
+      judul: `Hapus knowledge base "${kb.name}"?`,
+      pesan: 'Sumber & dokumennya ikut ke Sampah, dan chatbot yang memakainya kehilangan konteks ini sampai dipulihkan.',
+      tegas: 'Hapus KB', merusak: true,
+    })) return;
     try {
       await api(`/api/knowledge-bases/${kb.id}`, { method: 'DELETE' });
       toast('KB dipindah ke Sampah'); if (kbId === kb.id) setKbId(''); kbs.refetch();

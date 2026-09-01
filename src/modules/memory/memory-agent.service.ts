@@ -1,7 +1,7 @@
 import { sql, and, eq, isNull } from 'drizzle-orm';
 import { tenantSettings, memoryNotes, memoryEdges } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { getLlmModel } from '@/modules/core/registry';
+import { resolveLlmModel } from '@/modules/chat/llm-catalog';
 import { registerJobHandler, enqueueJob, getJobStatus, type JobStatus } from '@/modules/core/jobs';
 import { audit } from '@/modules/core/guardrails';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
@@ -10,6 +10,7 @@ import { FALLBACK_SLUG, categorySlug } from './categories';
 import { categoryService } from './category.service';
 import { embed } from '@/modules/knowledge/embeddings';
 import { memoryService, slugify } from './memory.service';
+import { platformSettingsService } from '@/modules/payments/platform-settings.service';
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -92,11 +93,20 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
   // model & key tenant (dipakai L2/L3)
   const settings = await withTenant(tenantId, async (tx) =>
     (await tx.select().from(tenantSettings).where(eq(tenantSettings.tenantId, tenantId)).limit(1))[0]);
-  const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';
+  const llmModel = settings?.activeLlmModel ?? await platformSettingsService.modelCadangan();
   const embeddingModel = settings?.activeEmbeddingModel ?? 'all-MiniLM-L6-v2';
-  const provider = getLlmModel(llmModel)?.provider;
-  const apiKey = provider ? await getApiKey(provider) : null;
-  if (!apiKey) throw new Error(`Memory agent butuh API key provider ${provider}`);
+  /* Katalog, BUKAN registry statis. Model yang datang dari server LLM sendiri
+     (id berawalan `vps:` — termasuk agregator OpenAI-compatible seperti
+     Sumopod) tak ada di registry, jadi getLlmModel() mengembalikan undefined
+     dan agen ini menolak jalan dengan "butuh API key provider undefined" —
+     padahal kredensialnya memang bukan milik tenant, melainkan token server
+     yang tersimpan di llm_servers. chat.service.ts sudah lama benar; dua
+     tempat inilah yang tertinggal. */
+  const provider = (await resolveLlmModel(llmModel))?.provider;
+  const apiKey = provider && provider !== 'selfhosted' ? await getApiKey(provider) : null;
+  if (!apiKey && provider !== 'selfhosted') {
+    throw new Error(`Memory agent butuh API key provider ${provider}`);
+  }
 
   /* ── L1 · CAPTURE — agregasi chunk per judul dokumen ──────────────
      D11: sumber pengetahuan chatbot = union dokumen semua KB yang
@@ -167,7 +177,9 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
         'itu bukan kategori, dan jawaban semacam itu tak berguna bagi siapa pun. ' +
         'Bahasa mengikuti dokumen.' },
       { role: 'user', content: `Judul: ${doc.title}\n\n${excerpt}` },
-    ], apiKey, { maxTokens: MAX_TOKEN_DISTILL });
+    /* null hanya mungkin utk provider 'selfhosted', yang kredensialnya diambil
+       dari pendaftaran server — bukan dari argumen ini (sama seperti chat.service). */
+    ], apiKey ?? '', { maxTokens: MAX_TOKEN_DISTILL });
 
     let abstract = '', keyPoints: string[] = [], entities: string[] = [];
     // Penampung berlaku juga saat JSON gagal diurai: dokumen tetap masuk graf,

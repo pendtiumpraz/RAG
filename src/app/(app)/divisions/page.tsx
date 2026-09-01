@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Drawer, Field, Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
 
@@ -46,7 +47,11 @@ export default function DivisionsPage() {
   const toast = useToast();
 
   async function hapus(d: Divisi) {
-    if (!confirm(`Hapus divisi "${d.name}"? ${d.anggota} anggota dan ${d.chatbot} chatbot akan dilepas jadi tanpa divisi.`)) return;
+    if (!await konfirmasi({
+      judul: `Hapus divisi "${d.name}"?`,
+      pesan: `${d.anggota} anggota dan ${d.chatbot} chatbot dilepas jadi tanpa divisi. Divisinya masuk Sampah dan masih bisa dipulihkan.`,
+      tegas: 'Hapus divisi', merusak: true,
+    })) return;
     setBusy(d.id);
     try {
       await api(`/api/divisions/${d.id}`, { method: 'DELETE' });

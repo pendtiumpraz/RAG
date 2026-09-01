@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
+import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useRef } from 'react';
+import { toastPlatform } from './alert';
 
 /* ── Logo resmi (PNG di public/brand) ─────────────────────────────── */
 export function Logo({ variant = 'full', height = 28 }:
@@ -15,27 +16,29 @@ export function Logo({ variant = 'full', height = 28 }:
 }
 
 /* ── Toast ─────────────────────────────────────────────────────────── */
-type ToastKind = 'ok' | 'error';
+/**
+ * Isinya kini SweetAlert2 (lihat _components/alert.tsx), tapi tanda tangannya
+ * SENGAJA tak berubah: `toast(pesan)` / `toast(pesan, 'error')`. Ada 160+
+ * pemanggil di 20 halaman, dan mengubah bentuk panggilannya berarti 160
+ * kesempatan salah ketik demi keuntungan nol — yang perlu berganti hanya
+ * rupanya, bukan caranya dipanggil.
+ *
+ * Provider ini tak lagi menggambar apa pun; SweetAlert memasang simpulnya
+ * sendiri ke <body>. Ia tetap ada supaya `useToast()` punya sumber, dan supaya
+ * halaman yang lupa dibungkus tetap gagal dengan cara yang sama seperti dulu.
+ */
+type ToastKind = 'ok' | 'error' | 'warn' | 'info';
 const ToastCtx = createContext<(msg: string, kind?: ToastKind) => void>(() => {});
 export const useToast = () => useContext(ToastCtx);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [msg, setMsg] = useState<{ text: string; kind: ToastKind } | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const show = useCallback((text: string, kind: ToastKind = 'ok') => {
-    setMsg({ text, kind });
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMsg(null), 2600);
+    /* Tak di-await: pemanggil tak boleh menunggu toast selesai tampil, dan
+       kegagalan memuat modulnya tak boleh menjatuhkan aksi yang baru saja
+       berhasil — kabarnya hilang, pekerjaannya tidak. */
+    void toastPlatform(text, kind).catch(() => {});
   }, []);
-  return (
-    <ToastCtx.Provider value={show}>
-      {children}
-      <div className={`toast${msg ? ' show' : ''}`} role="status" aria-live="polite">
-        <span className="led" style={{ background: msg?.kind === 'error' ? 'var(--danger)' : 'var(--good-mark)' }} />
-        <span>{msg?.text}</span>
-      </div>
-    </ToastCtx.Provider>
-  );
+  return <ToastCtx.Provider value={show}>{children}</ToastCtx.Provider>;
 }
 
 /* ── Skeleton / states ─────────────────────────────────────────────── */

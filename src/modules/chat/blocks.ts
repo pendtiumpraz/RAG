@@ -246,11 +246,37 @@ export function createBlockStreamParser(onBlock: (b: AnswerBlock) => void) {
     finalize(): { fallback: boolean; raw: string } {
       tryExtract();
       if (emitted > 0) return { fallback: false, raw };
-      // Model mengabaikan format → jadikan teks polosnya blok-blok.
-      for (const block of plainTextToBlocks(raw)) { emitted++; onBlock(block); }
+      // Model mengabaikan format → jadikan teks polosnya blok-blok. Penalaran
+      // yang disiarkan model bernalar dibuang DULU; ia bukan jawaban, dan pada
+      // chatbot pelanggan ia membocorkan cara kerja di baliknya.
+      for (const block of plainTextToBlocks(buangPenalaran(raw))) { emitted++; onBlock(block); }
       return { fallback: true, raw };
     },
   };
+}
+
+/**
+ * Buang penalaran yang disiarkan model bernalar (`<think>…</think>`).
+ *
+ * ADA KARENA jalur JSON tak terganggu olehnya — tryExtract hanya memungut objek
+ * blok — tapi jalur FALLBACK menampilkan `raw` apa adanya. Jadi begitu model
+ * bernalar membalas prosa (persis saat ia paling mungkin bingung), pengguna
+ * melihat isi kepalanya: "The user is asking in Indonesian… let me think about
+ * whether the documents contain…". Itu bukan jawaban, dan pada chatbot
+ * pelanggan ia membocorkan prompt sistem beserta cara kerja retrieval-nya.
+ *
+ * Nyata, bukan hipotetis: MiniMax-M2.7 (Sumopod) mengalirkan `<think>` pada
+ * permintaan pertama yang diuji, dan DeepSeek V4 berperilaku sama.
+ *
+ * Blok yang TAK PERNAH DITUTUP juga dibuang sampai akhir teks — model yang
+ * kehabisan anggaran token berhenti di tengah penalaran, dan sisa itu justru
+ * yang paling tak berbentuk.
+ */
+export function buangPenalaran(text: string): string {
+  return text
+    .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, ' ')
+    .replace(/<think(?:ing)?>[\s\S]*$/i, ' ')
+    .trim();
 }
 
 /** Fallback: prosa → blok. Paragraf jadi `text`; deretan baris "1. …"/"- …"

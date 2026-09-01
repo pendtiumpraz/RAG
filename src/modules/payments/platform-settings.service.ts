@@ -65,6 +65,18 @@ export interface PlatformConfig {
    * peramban yang diizinkan).
    */
   s2sAllowedDomains: string[];
+  /**
+   * Model chat CADANGAN (migrasi 0054), mis. `vps:qwen3.7-flash-2026-07-15`.
+   *
+   * Dipakai DUA KALI, dan itu yang membuatnya berguna: (a) bawaan bila tenant
+   * belum memilih model, (b) tujuan FAILOVER ketika model aktif menolak —
+   * kuota habis, 429, penyedia mati. Kebutuhan (b) nyata sejak model gratis
+   * dipakai di produksi: batas paket gratis pasti tertabrak, dan tanpa
+   * cadangan chat berhenti menjawab sama sekali.
+   *
+   * null = pakai bawaan di kode (MODEL_CADANGAN_BAWAAN).
+   */
+  fallbackLlmModel: string | null;
 }
 
 const TTL = 30_000;
@@ -86,7 +98,18 @@ const DEFAULTS: PlatformConfig = {
      jalan saat baris DB masih baru. Sekali superadmin mengubahnya dari UI,
      nilai DB yang menang dan env tak lagi dibaca di jalur request. */
   s2sAllowedDomains: [(process.env.NALAR_S2S_ALLOWED_DOMAIN || 'mairasales.com').toLowerCase()],
+  /* null, BUKAN nama model tertentu: menebak cadangan berarti memilihkan
+     penyedia yang mungkin tak punya kunci di pemasangan itu — dan gagalnya
+     baru terlihat saat model utama sudah jatuh, yaitu saat paling buruk untuk
+     menemukan bahwa cadangannya pun tak bisa dipakai. */
+  fallbackLlmModel: null,
 };
+
+/**
+ * Cadangan terakhir bila superadmin belum menyetel apa pun. Sama dengan nilai
+ * yang dulu tersebar sebagai literal di tiga berkas.
+ */
+export const MODEL_CADANGAN_BAWAAN = 'claude-sonnet-5';
 
 export const platformSettingsService = {
   async get(): Promise<PlatformConfig> {
@@ -111,6 +134,7 @@ export const platformSettingsService = {
              (S2S-only) yang harus lolos apa adanya; hanya NULL yang jatuh ke
              bawaan. */
           s2sAllowedDomains: row.s2sAllowedDomains ?? DEFAULTS.s2sAllowedDomains,
+          fallbackLlmModel: row.fallbackLlmModel ?? null,
         };
       }
     } catch (err) {
@@ -132,6 +156,8 @@ export const platformSettingsService = {
     enabledStorageProviders?: Record<string, boolean>;
     /* Boleh `[]` (S2S-only) → cek `!== undefined`, bukan truthiness. */
     s2sAllowedDomains?: string[];
+    /* `null` sah — artinya "kembali ke bawaan kode", jadi cek !== undefined. */
+    fallbackLlmModel?: string | null;
   }): Promise<PlatformConfig> {
     await db.insert(platformSettings).values({ id: 1 }).onConflictDoNothing();
     await db.update(platformSettings).set({
@@ -140,11 +166,20 @@ export const platformSettingsService = {
       ...(input.billingIdentity ? { billingIdentity: input.billingIdentity } : {}),
       ...(input.enabledStorageProviders ? { enabledStorageProviders: input.enabledStorageProviders } : {}),
       ...(input.s2sAllowedDomains !== undefined ? { s2sAllowedDomains: input.s2sAllowedDomains } : {}),
+      ...(input.fallbackLlmModel !== undefined ? { fallbackLlmModel: input.fallbackLlmModel } : {}),
       updatedAt: new Date(),
     }).where(eq(platformSettings.id, 1));
     cache = null;
     await audit(actor.tenantId, actor.id, 'platform.settings_updated', 'platform', input);
     return this.get();
+  },
+
+  /**
+   * Model yang dipakai saat tenant belum memilih, DAN saat model aktif gagal.
+   * Satu pintu supaya nama model cadangan tak lagi tersebar sebagai literal.
+   */
+  async modelCadangan(): Promise<string> {
+    return (await this.get()).fallbackLlmModel ?? MODEL_CADANGAN_BAWAAN;
   },
 
   /** utk tes/dev */

@@ -263,11 +263,70 @@ table.table thead th.col-no{ text-align:right; }
 .page-tab.on{ color:var(--signal); border-bottom-color:var(--signal); }
 .page-tab:hover{ color:var(--ink); }
 
-.toast{ position:fixed; bottom:var(--sp-6); left:50%; translate:-50% 20px; display:flex; align-items:center; gap:var(--sp-2);
-  background:var(--card); border:1px solid var(--line-strong); color:var(--ink); padding:12px var(--sp-4); border-radius:var(--rad-sm);
-  font-size:var(--fs-sm); box-shadow:var(--pop); opacity:0; pointer-events:none; z-index:60;
-  transition:opacity var(--dur-base), translate var(--dur-base) var(--ease-out); }
-.toast.show{ opacity:1; translate:-50% 0; }
+/* ── DIALOG & TOAST (SweetAlert2) ─────────────────────────────────────
+   SEMUA alert produk ini lewat sini — window.confirm/alert/prompt dilarang
+   (lihat _components/alert.tsx). Penataannya HANYA memakai token, tak satu
+   pun warna ditulis harfiah, sehingga dialog ikut mode gelap dan ikut
+   white-label tenant (--wl-signal) tanpa aturan tambahan. Tombolnya bukan
+   milik SweetAlert melainkan .btn kita sendiri (buttonsStyling:false), jadi
+   ia tak akan pernah menyimpang dari tombol di halaman di belakangnya. */
+.nalar-swal-wadah{ z-index:80; }                       /* di atas drawer (50) & toast lama (60) */
+.nalar-swal-wadah.swal2-backdrop-show{ background:var(--overlay); }
+.nalar-swal.swal2-popup{ width:min(440px,94vw); padding:var(--sp-6); gap:0;
+  background:var(--panel); border:1px solid var(--line-strong); border-radius:var(--rad-lg);
+  box-shadow:var(--pop); color:var(--ink); font-family:var(--font-ui); }
+.nalar-swal-judul{ padding:0; margin:0 0 var(--sp-2); font-family:var(--font-display);
+  font-size:var(--fs-lg); font-weight:700; line-height:var(--lh-snug); letter-spacing:var(--tk-tight);
+  color:var(--ink); text-align:left; }
+.nalar-swal-isi{ padding:0; margin:0; font-size:var(--fs-base); line-height:var(--lh-base);
+  color:var(--muted); text-align:left; }
+.nalar-swal-aksi{ margin:var(--sp-6) 0 0; padding:0; justify-content:flex-end; gap:var(--sp-2); }
+.nalar-swal-input.swal2-input{ margin:var(--sp-4) 0 0; }
+.nalar-swal-galat{ margin:var(--sp-3) 0 0; padding:var(--sp-2) var(--sp-3); border-radius:var(--rad-xs);
+  background:var(--tint-danger); color:var(--danger); font-size:var(--fs-sm); }
+/* Ikon SweetAlert diwarnai token, bukan palet bawaannya (hijau/merah asing). */
+.nalar-swal .swal2-icon{ margin:0 0 var(--sp-4); width:44px; height:44px; border-width:2px; }
+.nalar-swal .swal2-icon .swal2-icon-content{ font-size:24px; }
+.nalar-swal .swal2-icon.swal2-success{ border-color:var(--good-mark); color:var(--good); }
+.nalar-swal .swal2-icon.swal2-success [class^='swal2-success-line']{ background:var(--good-mark); }
+.nalar-swal .swal2-icon.swal2-success .swal2-success-ring{ border-color:var(--tint-good); }
+.nalar-swal .swal2-icon.swal2-error{ border-color:var(--danger); color:var(--danger); }
+.nalar-swal .swal2-icon.swal2-error [class^='swal2-x-mark-line']{ background:var(--danger); }
+.nalar-swal .swal2-icon.swal2-warning{ border-color:var(--source-mark); color:var(--warn); }
+.nalar-swal .swal2-icon.swal2-question,
+.nalar-swal .swal2-icon.swal2-info{ border-color:var(--signal); color:var(--signal); }
+@keyframes nalar-swal-masuk{ from{ opacity:0; transform:translateY(8px) scale(.98); } to{ opacity:1; transform:none; } }
+@keyframes nalar-swal-keluar{ to{ opacity:0; transform:translateY(4px) scale(.99); } }
+.nalar-swal-masuk{ animation:nalar-swal-masuk var(--dur-base) var(--ease-out); }
+.nalar-swal-keluar{ animation:nalar-swal-keluar var(--dur-fast) var(--ease-out) forwards; }
+
+/* Toast — bentuk yang SAMA dengan .toast lama (pil di bawah-tengah) supaya
+   perpindahan ke SweetAlert tak terasa sebagai perubahan rupa produk. */
+.nalar-toast-wadah{ z-index:80; padding:0 0 var(--sp-6); }
+.nalar-toast.swal2-popup.swal2-toast{ display:flex; align-items:center; gap:var(--sp-2);
+  width:auto; max-width:min(520px,92vw); padding:12px var(--sp-4);
+  background:var(--card); border:1px solid var(--line-strong); border-radius:var(--rad-pill);
+  box-shadow:var(--pop); font-family:var(--font-ui); }
+.nalar-toast-judul{ margin:0; padding:0; font-size:var(--fs-sm); line-height:1.45;
+  font-weight:500; color:var(--ink); text-align:left; }
+.nalar-toast .swal2-icon{ width:18px; height:18px; min-width:18px; margin:0; border-width:2px; }
+.nalar-toast .swal2-icon .swal2-icon-content{ font-size:12px; }
+.nalar-toast .swal2-icon.swal2-success{ border-color:var(--good-mark); color:var(--good); }
+.nalar-toast .swal2-icon.swal2-success [class^='swal2-success-line']{ background:var(--good-mark); }
+.nalar-toast .swal2-icon.swal2-error{ border-color:var(--danger); color:var(--danger); }
+.nalar-toast .swal2-icon.swal2-error [class^='swal2-x-mark-line']{ background:var(--danger); }
+.nalar-toast .swal2-icon.swal2-warning{ border-color:var(--source-mark); color:var(--warn); }
+.nalar-toast .swal2-icon.swal2-info{ border-color:var(--signal); color:var(--signal); }
+.nalar-toast-bilah{ background:var(--signal); opacity:.5; }
+@keyframes nalar-toast-masuk{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:none; } }
+@keyframes nalar-toast-keluar{ to{ opacity:0; transform:translateY(6px); } }
+.nalar-toast-masuk{ animation:nalar-toast-masuk var(--dur-base) var(--ease-out); }
+.nalar-toast-keluar{ animation:nalar-toast-keluar var(--dur-fast) var(--ease-out) forwards; }
+
+/* Hormati pengguna yang meminta gerak dikurangi (WCAG 2.3.3). */
+@media (prefers-reduced-motion:reduce){
+  .nalar-swal-masuk,.nalar-swal-keluar,.nalar-toast-masuk,.nalar-toast-keluar{ animation:none; }
+}
 
 .backdrop{ position:fixed; inset:0; background:var(--overlay); opacity:0; pointer-events:none; transition:opacity var(--dur-slow); z-index:40; }
 .backdrop.show{ opacity:1; pointer-events:auto; }

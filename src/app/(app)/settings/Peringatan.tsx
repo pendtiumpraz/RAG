@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, useToast, Field } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { Select } from '../../_components/select';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
@@ -76,7 +77,11 @@ export default function Peringatan() {
   }
 
   async function cabutSlack() {
-    if (!confirm('Cabut URL Slack? Peringatan berhenti dikirim ke kanal itu.')) return;
+    if (!await konfirmasi({
+      judul: 'Cabut URL Slack?',
+      pesan: 'Peringatan berhenti dikirim ke kanal itu sampai URL baru dipasang.',
+      tegas: 'Cabut URL', merusak: true,
+    })) return;
     setBusy(true);
     try {
       await api('/api/alerts', { method: 'PATCH', body: JSON.stringify({ slackUrl: '' }) });

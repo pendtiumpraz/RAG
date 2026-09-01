@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api, useApi } from '../../_lib/api';
 import { Skeleton, useToast, Field } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
 import { Select } from '../../_components/select';
@@ -323,7 +324,11 @@ function PanelSso() {
   }
 
   async function cabut(id: string, domain: string) {
-    if (!confirm(`Cabut SSO untuk ${domain}? Orang yang biasa masuk lewat direktori perusahaan akan kehilangan jalan masuknya.`)) return;
+    if (!await konfirmasi({
+      judul: `Cabut SSO untuk ${domain}?`,
+      pesan: 'Orang yang biasa masuk lewat direktori perusahaan kehilangan jalan masuknya sampai SSO dipasang ulang.',
+      tegas: 'Cabut SSO', merusak: true,
+    })) return;
     try { await api(`/api/sso?id=${id}`, { method: 'DELETE' }); toast('Koneksi dicabut'); refetch(); }
     catch (e) { toast((e as Error).message, 'error'); }
   }
@@ -546,7 +551,11 @@ function PanelWhitelistS2S() {
   }
 
   async function hapus(d: string) {
-    if (!confirm(`Hapus ${d} dari whitelist? Peramban di domain ini tak lagi bisa memanggil provisioning S2S.`)) return;
+    if (!await konfirmasi({
+      judul: `Hapus ${d} dari whitelist?`,
+      pesan: 'Peramban di domain ini tak lagi bisa memanggil provisioning S2S.',
+      tegas: 'Hapus domain', merusak: true,
+    })) return;
     try {
       await api(`/api/admin/s2s-whitelist?domain=${encodeURIComponent(d)}`, { method: 'DELETE' });
       toast('Domain dihapus'); refetch();

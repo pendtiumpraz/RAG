@@ -209,11 +209,71 @@ export default function ModelsPage() {
           semua tenant, dan menerima alamat dari pihak tak tepercaya akan
           membuka SSRF; karena itu panel & API-nya dikunci peran. */}
       {active === 'server' && isSuper && <>
+        <ModelCadangan />
         <LlmServers onChanged={refetch} />
         <EmbeddingServers onChanged={refetch} />
         <OAuthApps />
       </>}
     </>
+  );
+}
+
+/* ── model cadangan platform (superadmin) ──────────────────────────── */
+
+/**
+ * Satu setelan, dua tugas: bawaan bagi tenant yang belum memilih model, DAN
+ * tujuan failover ketika model aktif menolak (kuota habis, 429, penyedia
+ * mati). Ditaruh di sini — bersama server LLM — karena pilihannya justru
+ * paling berguna diisi model dari server sendiri/agregator yang murah.
+ */
+function ModelCadangan() {
+  const { data, loading, error, refetch } =
+    useApi<{ fallbackLlmModel: string | null; bawaan: string; model: Array<{ id: string; label: string }> }>(
+      '/api/admin/llm-fallback');
+  const [pilih, setPilih] = useState<string>('');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => { setPilih(data?.fallbackLlmModel ?? ''); }, [data?.fallbackLlmModel]);
+
+  async function simpan() {
+    setBusy(true);
+    try {
+      await api('/api/admin/llm-fallback', {
+        method: 'PUT',
+        body: JSON.stringify({ fallbackLlmModel: pilih || null }),
+      });
+      toast('Model cadangan disimpan'); refetch();
+    } catch (e) { toast((e as Error).message, 'error'); } finally { setBusy(false); }
+  }
+
+  if (loading) return <div className="card"><Skeleton rows={2} /></div>;
+  if (error) return <div className="card"><ErrorState message={error} onRetry={refetch} /></div>;
+
+  return (
+    <div className="card card-pad stack gap-4">
+      <div>
+        <h3 style={{ margin: 0 }}>Model cadangan</h3>
+        <p style={{ margin: '6px 0 0', color: 'var(--muted)', fontSize: 'var(--fs-sm)' }}>
+          Dipakai saat model aktif sebuah tenant <b>menolak</b> — kuota habis, dibatasi,
+          atau penyedianya mati — dan sebagai bawaan bagi tenant yang belum memilih model.
+          Pergantian hanya terjadi bila kegagalannya datang <b>sebelum</b> jawaban mulai
+          mengalir; menyambung dua model di tengah kalimat lebih membingungkan daripada
+          satu galat yang jujur.
+        </p>
+      </div>
+      <Field label="Model" hint={`Kosongkan untuk memakai bawaan: ${data?.bawaan ?? ''}`}>
+        <select className="select" value={pilih} onChange={(e) => setPilih(e.target.value)} disabled={busy}>
+          <option value="">— pakai bawaan —</option>
+          {(data?.model ?? []).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+      </Field>
+      <div className="cluster" style={{ justifyContent: 'flex-end' }}>
+        <button className={`btn btn-primary${busy ? ' is-loading' : ''}`} disabled={busy} onClick={simpan}>
+          Simpan
+        </button>
+      </div>
+    </div>
   );
 }
 

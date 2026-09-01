@@ -809,6 +809,13 @@ export const platformSettings = pgTable('platform_settings', {
    * dan berarti "S2S-only" — tak ada peramban yang diizinkan, dikawal token.
    */
   s2sAllowedDomains: jsonb('s2s_allowed_domains').$type<string[]>(),
+  /**
+   * Model chat CADANGAN (migrasi 0054) — dipakai dua kali: sebagai bawaan
+   * bila tenant belum memilih model, DAN sebagai tujuan failover ketika model
+   * aktif menolak (kuota habis, 429, penyedia mati). NULL = pakai bawaan di
+   * kode. Keputusan pemasangan, sama seperti mode deploy & harga plan.
+   */
+  fallbackLlmModel: text('fallback_llm_model'),
   ...stamps,
 });
 

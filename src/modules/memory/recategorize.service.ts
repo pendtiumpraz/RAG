@@ -1,13 +1,14 @@
 import { sql } from 'drizzle-orm';
 import { tenantSettings } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
-import { getLlmModel } from '@/modules/core/registry';
+import { resolveLlmModel } from '@/modules/chat/llm-catalog';
 import { apiKeyResolver } from '@/modules/settings/credentials.repository';
 import { completeChat } from '@/modules/chat/llm';
 import { audit } from '@/modules/core/guardrails';
 import { eq } from 'drizzle-orm';
 import { FALLBACK_SLUG, categorySlug, namaTerlaluSamar } from './categories';
 import { categoryService } from './category.service';
+import { platformSettingsService } from '@/modules/payments/platform-settings.service';
 
 /**
  * KATEGORISASI ULANG DARI RINGKASAN — membereskan dokumen yang tersangkut di
@@ -190,10 +191,15 @@ export const recategorizeService = {
     const settings = await withTenant(tenantId, async (tx) =>
       (await tx.select().from(tenantSettings)
         .where(eq(tenantSettings.tenantId, tenantId)).limit(1))[0]);
-    const llmModel = settings?.activeLlmModel ?? 'claude-sonnet-5';
-    const provider = getLlmModel(llmModel)?.provider;
-    const apiKey = provider ? await apiKeyResolver(tenantId)(provider) : null;
-    if (!apiKey) throw new Error(`Kategorisasi butuh API key provider ${provider}`);
+    const llmModel = settings?.activeLlmModel ?? await platformSettingsService.modelCadangan();
+    /* Katalog, bukan registry statis — lihat alasan yang sama di
+       memory-agent.service.ts: model dari server LLM sendiri (`vps:…`)
+       memakai token server, bukan kunci provider milik tenant. */
+    const provider = (await resolveLlmModel(llmModel))?.provider;
+    const apiKey = provider && provider !== 'selfhosted' ? await apiKeyResolver(tenantId)(provider) : null;
+    if (!apiKey && provider !== 'selfhosted') {
+      throw new Error(`Kategorisasi butuh API key provider ${provider}`);
+    }
 
     const hasil = new Map<string, string>();   // noteId → slug
     const usulanBaru = new Set<string>();
@@ -220,7 +226,8 @@ export const recategorizeService = {
           'itu bukan kategori. Bila ragu antara dua, pilih yang lebih spesifik. ' +
           'Sertakan SEMUA nomor yang diberikan, satu entri masing-masing.' },
         { role: 'user', content: daftarDok },
-      ], apiKey, { maxChars: 8_000, maxTokens: MAX_TOKEN_BATCH });
+      /* null hanya mungkin utk 'selfhosted' — kredensial diambil dari server. */
+      ], apiKey ?? '', { maxChars: 8_000, maxTokens: MAX_TOKEN_BATCH });
 
       try {
         const parsed = JSON.parse(

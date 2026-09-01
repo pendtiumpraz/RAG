@@ -54,7 +54,11 @@ test('anggaran token dikirim lewat sampling, BUKAN lewat maxChars', () => {
      dan kegagalannya tadi justru bukti bahwa ia mengunci bentuk yang benar. */
   assert.ok(/opsi: OpsiCompletion = \{\}/.test(LLM),
     'bentuk completeChat berubah — periksa ulang argumennya');
-  assert.ok(/\], apiKey, \{ maxChars: 8_000, maxTokens: MAX_TOKEN_BATCH \}\)/.test(SVC),
+  /* `apiKey ?? ''` diterima sejak model dari server LLM sendiri (`vps:…`,
+     mis. Sumopod) bisa jadi model aktif: kredensialnya milik SERVER, bukan
+     tenant, jadi apiKey-nya memang null di jalur itu. Yang dikunci uji ini
+     tetap sama — anggaran token lewat opsi BERNAMA, bukan argumen keempat. */
+  assert.ok(/\], apiKey(?: \?\? '')?, \{ maxChars: 8_000, maxTokens: MAX_TOKEN_BATCH \}\)/.test(SVC),
     'anggaran token tak dikirim lewat opsi bernama');
   assert.ok(!/\], apiKey, 2000\)/.test(SVC), 'angka token masih dikirim sebagai maxChars');
 });

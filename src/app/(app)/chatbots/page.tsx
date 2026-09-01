@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast, Field, Drawer } from '../../_components/ui';
+import { konfirmasi } from '../../_components/alert';
 import { Select } from '../../_components/select';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
@@ -367,8 +368,16 @@ function IdentitasPengunjung({ bot }: { bot: Chatbot }) {
   const toast = useToast();
 
   async function ubah(mau: boolean) {
-    if (!mau && !confirm('Matikan identitas pengunjung? Widget yang memakai tanda tangan akan ditolak, dan riwayat lintas perangkat berhenti bekerja.')) return;
-    if (mau && nyala && !confirm('Putar rahasia? SEMUA tanda tangan lama langsung ditolak sampai server Anda memakai rahasia baru.')) return;
+    if (!mau && !await konfirmasi({
+      judul: 'Matikan identitas pengunjung?',
+      pesan: 'Widget yang memakai tanda tangan akan ditolak, dan riwayat lintas perangkat berhenti bekerja.',
+      tegas: 'Matikan', merusak: true,
+    })) return;
+    if (mau && nyala && !await konfirmasi({
+      judul: 'Putar rahasia sekarang?',
+      pesan: '<b>SEMUA</b> tanda tangan lama langsung ditolak sampai server Anda memakai rahasia baru.',
+      tegas: 'Putar rahasia', merusak: true,
+    })) return;
     setBusy(true);
     try {
       const r = await api<{ rahasia: string | null; contoh: typeof contoh }>(

@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { konfirmasi } from '../_components/alert';
 
 type Chatbot = { id: string; name: string; publicKey: string; allowedOrigins: string[] | null };
 type KB = { id: string; name: string; description: string | null; sources: number; chunks: number; chatbots: { id: string; name: string }[] };
@@ -344,7 +345,14 @@ function KbTab({ chatbotId, canEdit }: { chatbotId: string; canEdit: boolean }) 
                     <input type="file" style={{ display: 'none' }} disabled={busy}
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(kb.id, f); e.target.value = ''; }} />
                   </label>
-                  <button className="np-danger" onClick={() => confirm(`Hapus KB "${kb.name}"?`) && act(() => jsend(`/api/knowledge-bases/${kb.id}`, 'DELETE'))} disabled={busy}>Hapus</button>
+                  <button className="np-danger" disabled={busy} onClick={async () => {
+                    if (!await konfirmasi({
+                      judul: `Hapus KB "${kb.name}"?`,
+                      pesan: 'Sumber & dokumennya ikut ke Sampah. Chatbot yang memakainya kehilangan konteks ini sampai dipulihkan.',
+                      tegas: 'Hapus KB', merusak: true,
+                    })) return;
+                    act(() => jsend(`/api/knowledge-bases/${kb.id}`, 'DELETE'));
+                  }}>Hapus</button>
                 </div>
               )}
             </li>

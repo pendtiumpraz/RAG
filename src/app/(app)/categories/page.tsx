@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api, useApi, ApiError } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
+import { konfirmasi, tanya } from '../../_components/alert';
 import { BarisKosong, TabelAlat, TabelKaki, TdNo, Th, ThNo, useTabel } from '../../_components/tabel';
 import type { OpsiTabel } from '../../_lib/tabel';
 import { VISUAL_SLOTS, FALLBACK_SLUG } from '@/modules/memory/categories';
@@ -67,7 +68,12 @@ export default function CategoriesPage() {
   }
 
   async function ganti(c: Cat) {
-    const baru = prompt('Nama baru kategori', c.label);
+    const baru = await tanya({
+      judul: 'Ubah nama kategori',
+      pesan: `Catatan yang memakai <b>${c.label}</b> ikut berpindah ke nama baru.`,
+      nilaiAwal: c.label,
+      periksa: (v) => (v.trim() ? null : 'Nama kategori tak boleh kosong.'),
+    });
     if (!baru || baru === c.label) return;
     setBusy(c.id);
     try {
@@ -77,7 +83,13 @@ export default function CategoriesPage() {
   }
 
   async function hapus(c: Cat) {
-    if (!confirm(`Hapus "${c.label}"?${c.notes ? ` ${c.notes} catatan akan dipindah ke Belum dikategorikan.` : ''}`)) return;
+    if (!await konfirmasi({
+      judul: `Hapus kategori "${c.label}"?`,
+      pesan: c.notes
+        ? `${c.notes} catatan yang memakainya dipindah ke <b>Belum dikategorikan</b>.`
+        : 'Belum ada catatan yang memakainya.',
+      tegas: 'Hapus kategori', merusak: true,
+    })) return;
     setBusy(c.id);
     try {
       await api(`/api/categories/${c.id}`, { method: 'DELETE' });
