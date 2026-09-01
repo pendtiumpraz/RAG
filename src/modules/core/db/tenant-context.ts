@@ -57,6 +57,14 @@ export async function periksaPeranRls(): Promise<{ aman: boolean; peran: string 
   return { aman, peran: r?.peran ?? '(tidak diketahui)' };
 }
 
+/** Peran aplikasi yang RLS-nya berlaku. Bisa ditimpa untuk pemasangan lain. */
+const PERAN_APP = process.env.DB_APP_ROLE || 'nalar_app';
+
+/** Hasil pemeriksaan peran, di-cache setelah panggilan pertama. */
+let peranAman: boolean | null = null;
+/** Sudah pernah gagal `SET LOCAL ROLE`? Jangan coba terus tiap transaksi. */
+let turunPeranGagal = false;
+
 export async function withTenant<T>(
   tenantId: string,
   fn: (tx: typeof db) => Promise<T>,
@@ -65,9 +73,47 @@ export async function withTenant<T>(
     // Ditandai lebih dulu: pemeriksaan yang gagal tidak boleh diulang tiap
     // permintaan, dan tidak boleh menahan permintaan pertama.
     peranSudahDiperiksa = true;
-    await periksaPeranRls().catch(() => undefined);
+    peranAman = await periksaPeranRls().then((r) => r.aman).catch(() => null);
   }
+
   return db.transaction(async (tx) => {
+    /**
+     * TURUNKAN PERAN kalau peran koneksinya bisa melewati RLS.
+     *
+     * ── KENAPA DI SINI, BUKAN DI TIAP KUERI ──────────────────────────────────
+     *
+     * Puluhan kueri kuota & analitik menghitung dengan `count(*)` polos di
+     * dalam `withTenant`, dan itu MEMANG BENAR — RLS yang seharusnya
+     * menyaringnya. Menambahkan penyaring tenant ke tiap satu per satu berarti
+     * puluhan tempat yang harus diingat, dan yang ke-51 pasti terlupa.
+     *
+     * Gejalanya bukan cuma data terbaca. Penghitung kuota ikut bocor: tenant
+     * yang belum punya knowledge base sama sekali ditolak membuat KB pertamanya
+     * dengan "Paket free dibatasi 1 knowledge base (sekarang 24)" — 24 itu
+     * milik seluruh tenant. Kebocoran baca berubah jadi fitur yang mati.
+     *
+     * `SET LOCAL ROLE` mengembalikan penegakan RLS untuk SELURUH pernyataan di
+     * transaksi ini sekaligus, tanpa menyentuh satu pun kueri. Postgres menilai
+     * RLS terhadap peran yang sedang berlaku, dan `LOCAL` membuatnya luruh
+     * sendiri saat transaksi selesai — aman di koneksi ter-pool.
+     *
+     * Gagal diam-diam kalau tidak boleh (mis. peran koneksinya bukan anggota
+     * peran aplikasi): sudah ada galat keras dari `periksaPeranRls`, dan
+     * menjatuhkan transaksi di sini akan mematikan layanan yang tadinya masih
+     * jalan. Dicoba sekali; kalau ditolak, tidak dicoba lagi.
+     */
+    if (peranAman === false && !turunPeranGagal) {
+      try {
+        await tx.execute(sql.raw(`set local role ${PERAN_APP}`));
+      } catch {
+        turunPeranGagal = true;
+        console.error(
+          `[ISOLASI TENANT] Gagal turun ke peran "${PERAN_APP}". RLS tetap dilewati. ` +
+            `Ganti DATABASE_URL ke peran itu, atau beri peran koneksi keanggotaannya ` +
+            `(GRANT ${PERAN_APP} TO <peran_koneksi>).`,
+        );
+      }
+    }
     // set_config(..., true) => scoped to this transaction only.
     await tx.execute(sql`select set_config('app.current_tenant', ${tenantId}, true)`);
     return fn(tx as unknown as typeof db);
