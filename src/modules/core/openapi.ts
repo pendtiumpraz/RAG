@@ -70,6 +70,16 @@ export const openApiSpec = {
       get: { summary: 'Identitas pemegang kunci + kuota berjalan', security: [apiKeyAuth],
         responses: { 200: err('{ tenant, key, plan, usage }'), 401: err('kunci tidak sah/dicabut/kedaluwarsa') } },
     },
+    '/api/v1/master/ping': {
+      get: {
+        summary: 'Uji koneksi master key — TANPA efek samping',
+        description: 'Dipakai panel "Test Connection" di sisi pemanggil (Maira) untuk memastikan '
+          + 'base URL + master key benar SEBELUM ada tenant yang diprovisikan. Sengaja tak '
+          + 'menyentuh data apa pun: uji koneksi yang membuat baris akan meninggalkan sampah '
+          + 'setiap kali tombolnya ditekan.',
+        responses: { 200: err('{ ok, service }'), 401: err('master key salah/kurang panjang') },
+      },
+    },
     '/api/v1/chatbots': {
       get: { summary: 'Daftar chatbot tenant (termasuk publicKey)', security: [apiKeyAuth],
         responses: { 200: err('{ chatbots }'), 403: err('kunci tanpa izin read') } },
@@ -109,6 +119,30 @@ export const openApiSpec = {
     '/api/v1/knowledge-bases': {
       get: { summary: 'Daftar knowledge base + jumlah potongan', security: [apiKeyAuth],
         responses: { 200: err('{ knowledgeBases }') } },
+    },
+    '/api/v1/knowledge-bases/{id}/upload': {
+      post: {
+        summary: 'Unggah BERKAS ke KB lewat kunci API (multipart, field `files`)',
+        description: 'Kembaran ber-API-key dari `/api/knowledge-bases/{id}/upload` yang dijaga sesi. '
+          + 'Ada supaya sistem pemanggil (mis. Maira) bisa mengunggah PDF/DOCX tanpa pemakainya '
+          + 'punya akun Nalar — sebelum ini jalur API hanya menerima teks tempel lewat '
+          + '`/api/v1/documents`, sehingga PDF tak bisa masuk sama sekali. Alurnya sama persis: '
+          + 'berkas asli disimpan DULU, baru diekstrak + di-ingest; parser gagal ⇒ berkas tetap '
+          + 'tersimpan (masuk `storedOnly[]`), bukan hilang. Nama berkas jadi externalId, jadi '
+          + 'nama yang sama MENGGANTI isi lamanya. Batas 2 MB — lebih ketat dari jalur sesi karena '
+          + 'permintaannya melewati dua fungsi serverless yang masing-masing dibatasi ~4,5 MB.',
+        security: [apiKeyAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: {
+          201: err('{ ok, sourceId, ingested[], storedOnly[{name,reason}], skipped[{name,reason}], chunks }'),
+          400: err('tak ada berkas / terlalu banyak'),
+          402: err('kuota penyimpanan atau potongan habis'),
+          403: err('kunci tanpa izin write'),
+          404: err('KB tidak ditemukan'),
+          409: err('tenant tak punya admin aktif sebagai pemilik berkas'),
+          413: err('melebihi batas 2 MB'),
+        },
+      },
     },
     '/api/v1/documents': {
       get: { summary: 'Dokumen logis dalam KB (potongan dikelompokkan per `ref`)', security: [apiKeyAuth],
