@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { desc, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { chatbots } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { chatbotService } from '@/modules/chatbot/chatbot.service';
@@ -24,7 +24,10 @@ export const GET = apiRoute('read', async (_req, _ctx, caller) => {
       enabled: chatbots.enabled, context: chatbots.context,
       greeting: chatbots.greeting, createdAt: chatbots.createdAt,
     }).from(chatbots)
-      .where(isNull(chatbots.deletedAt))
+      // Penyaring tenant EKSPLISIT di samping RLS. RLS tetap penjaga utama,
+      // tapi ia lumpuh total bila peran database boleh melewatinya — dan itu
+      // pernah terjadi di produksi. Baris ini yang menahan datanya saat itu.
+      .where(and(eq(chatbots.tenantId, caller.tenantId), isNull(chatbots.deletedAt)))
       .orderBy(desc(chatbots.createdAt)));
   return NextResponse.json({
     chatbots: rows.map((r) => ({ ...r, snippet: chatbotService.embedSnippet(r.publicKey) })),

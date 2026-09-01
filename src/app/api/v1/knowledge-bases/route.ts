@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { desc, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 export const GET = apiRoute('read', async (_req, _ctx, caller) => {
   const rows = await withTenant(caller.tenantId, async (tx) => {
     const kbs = await tx.select().from(knowledgeBases)
-      .where(isNull(knowledgeBases.deletedAt))
+      // Penyaring tenant eksplisit — lihat catatan di rute chatbots.
+      .where(and(eq(knowledgeBases.tenantId, caller.tenantId), isNull(knowledgeBases.deletedAt)))
       .orderBy(desc(knowledgeBases.createdAt));
     // Satu agregat untuk semua KB — bukan satu query per KB, karena daftar ini
     // ikut tumbuh seiring pemakaian pelanggan.

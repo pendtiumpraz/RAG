@@ -35,7 +35,7 @@ const bangun = async () => {
     bangunKueriDaftar(db, opsi).toSQL().sql;
 };
 
-const DASAR = { sejak: null, chatbotId: null, batas: 50 };
+const DASAR = { tenantId: 'aaaaaaaa-0000-4000-8000-000000000001', sejak: null, chatbotId: null, batas: 50 };
 
 test('perbandingan antar-tabel DIKUALIFIKASI nama tabelnya', () => {
   /* Inti cacatnya. Tanpa kualifikasi, perbandingan tetap SQL yang sah — jadi

@@ -113,7 +113,11 @@ export function halaman<T extends { updatedAt: Date | string }>(
  * Postgres menolak yang kurang, dan Drizzle tak menambahkannya sendiri.
  */
 export function bangunKueriDaftar(
-  tx: Db, opsi: { sejak: Date | null; chatbotId: string | null; batas: number },
+  tx: Db,
+  /** `tenantId` WAJIB: penyaring eksplisit di samping RLS — lihat catatan di
+   *  withTenant. RLS lumpuh bila peran database boleh melewatinya, dan tanpa
+   *  baris ini percakapan seluruh tenant ikut terbaca. */
+  opsi: { tenantId: string; sejak: Date | null; chatbotId: string | null; batas: number },
 ) {
   return tx
     .select({
@@ -133,6 +137,7 @@ export function bangunKueriDaftar(
       isNull(messages.deletedAt),
     ))
     .where(and(
+      eq(conversations.tenantId, opsi.tenantId),
       isNull(conversations.deletedAt),
       opsi.sejak ? gt(conversations.updatedAt, opsi.sejak) : undefined,
       opsi.chatbotId ? eq(conversations.chatbotId, opsi.chatbotId) : undefined,

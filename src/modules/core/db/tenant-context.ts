@@ -9,10 +9,64 @@ import { db, client } from './index';
  * every statement on a tenant-scoped table is constrained to that tenant —
  * cross-tenant access is impossible by construction, even on buggy queries.
  */
+/**
+ * PENJAGA PERAN — RLS yang dilewati harus BERTERIAK, bukan bocor diam-diam.
+ *
+ * ── KEJADIAN NYATA YANG MELAHIRKAN INI ──────────────────────────────────────
+ *
+ * Kalimat di atas — "cross-tenant access is impossible by construction" —
+ * benar HANYA bila peran database tidak boleh melewati RLS. Di produksi,
+ * `DATABASE_URL` memakai peran ber-`rolbypassrls`. Akibatnya RLS tidak berlaku
+ * sama sekali: satu tenant melihat 33 chatbot, 24 knowledge base, dan 35
+ * dokumen milik SELURUH tenant — hidup maupun yang sudah dihapus.
+ *
+ * Tidak ada satu pun galat, tidak ada peringatan, dan `withTenant` tetap
+ * dipanggil dengan benar di setiap rute. Cacatnya bukan di kode; cacatnya satu
+ * variabel lingkungan, dan tidak ada apa pun yang menyebutkannya.
+ *
+ * Kegagalan senyap adalah yang paling mahal — ia baru ketahuan saat pelanggan
+ * melihat data pelanggan lain.
+ *
+ * Sengaja TIDAK menjatuhkan proses: mematikan layanan karena konfigurasi
+ * database mengubah kebocoran jadi padam total, dan pada pemasangan on-prem
+ * yang memang berjalan sebagai owner tunggal itu hukuman yang salah. Yang
+ * dijamin di sini cuma satu: ia tidak bisa lagi terjadi tanpa ada yang
+ * berteriak di log. Penahan datanya ada di lapis kedua — penyaring tenant
+ * eksplisit di tiap kueri.
+ */
+let peranSudahDiperiksa = false;
+
+export async function periksaPeranRls(): Promise<{ aman: boolean; peran: string }> {
+  const rows = (await client`
+    select current_user as peran, r.rolbypassrls, r.rolsuper
+      from pg_roles r where r.rolname = current_user`) as unknown as Array<{
+    peran: string;
+    rolbypassrls: boolean;
+    rolsuper: boolean;
+  }>;
+  const r = rows?.[0];
+  const aman = Boolean(r) && !r.rolbypassrls && !r.rolsuper;
+  if (r && !aman) {
+    console.error(
+      `[ISOLASI TENANT LUMPUH] Peran database "${r.peran}" bisa melewati RLS ` +
+        `(rolbypassrls=${r.rolbypassrls}, rolsuper=${r.rolsuper}). ` +
+        `Setiap tenant dapat membaca data tenant lain. ` +
+        `Ganti DATABASE_URL ke peran aplikasi (scripts/create-app-role.mjs), lalu redeploy.`,
+    );
+  }
+  return { aman, peran: r?.peran ?? '(tidak diketahui)' };
+}
+
 export async function withTenant<T>(
   tenantId: string,
   fn: (tx: typeof db) => Promise<T>,
 ): Promise<T> {
+  if (!peranSudahDiperiksa) {
+    // Ditandai lebih dulu: pemeriksaan yang gagal tidak boleh diulang tiap
+    // permintaan, dan tidak boleh menahan permintaan pertama.
+    peranSudahDiperiksa = true;
+    await periksaPeranRls().catch(() => undefined);
+  }
   return db.transaction(async (tx) => {
     // set_config(..., true) => scoped to this transaction only.
     await tx.execute(sql`select set_config('app.current_tenant', ${tenantId}, true)`);

@@ -33,7 +33,10 @@ export const GET = apiRoute('read', async (req, _ctx, caller) => {
            max(updated_at)                        as updated_at,
            max(knowledge_base_id::text)           as knowledge_base_id
     from documents
-    where deleted_at is null
+    -- Penyaring tenant EKSPLISIT di samping RLS: RLS lumpuh total bila peran
+    -- database boleh melewatinya, dan itu pernah terjadi di produksi.
+    where tenant_id = ${caller.tenantId}::uuid
+      and deleted_at is null
       ${kbId ? sql`and knowledge_base_id = ${kbId}::uuid` : sql``}
     group by coalesce(external_id, title, id::text)
     order by max(updated_at) desc
@@ -83,7 +86,11 @@ export const DELETE = apiRoute('write', async (req, _ctx, caller) => {
 
   const rows = await withTenant(caller.tenantId, (tx) => tx.execute(sql`
     update documents set deleted_at = now(), updated_at = now()
-    where deleted_at is null
+    -- Tenant eksplisit juga di jalur TULIS. Tanpa ini, RLS yang lumpuh berarti
+    -- satu tenant bisa MENGHAPUS dokumen tenant lain hanya dengan menebak ref —
+    -- kerusakan yang jauh lebih sulit dipulihkan daripada sekadar terbaca.
+    where tenant_id = ${caller.tenantId}::uuid
+      and deleted_at is null
       and coalesce(external_id, title, id::text) = ${ref}
     returning id`));
   const removed = (rows as unknown as Array<unknown>).length;

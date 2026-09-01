@@ -44,7 +44,7 @@ export const GET = apiRoute('read', async (req, _ctx, caller) => {
   }
 
   const baris = await withTenant(caller.tenantId, (tx) =>
-    bangunKueriDaftar(tx, { sejak, chatbotId: q.get('chatbotId'), batas }));
+    bangunKueriDaftar(tx, { tenantId: caller.tenantId, sejak, chatbotId: q.get('chatbotId'), batas }));
 
   const h = halaman(baris, batas);
   return NextResponse.json({
