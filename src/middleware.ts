@@ -44,11 +44,6 @@ export const config = {
     '/settings/:path*',
     '/usage/:path*',
     '/dataroom/:path*',
-    '/arsitektur/:path*',
-    /* Berkas HTML peta arsitektur itu sendiri. Ia statis di public/, jadi
-       tanpa baris ini siapa pun yang tahu URL-nya bisa membacanya — dan
-       gerbang superadmin di halamannya jadi pagar tanpa tembok. */
-    '/hla/:path*',
     '/welcome',
     // API ber-sesi
     '/api/chatbots/:path*',
