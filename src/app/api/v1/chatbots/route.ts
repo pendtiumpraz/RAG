@@ -11,6 +11,22 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Batas waktu DINAIKKAN dari bawaan Vercel (10-15 detik) karena bawaan itu
+ * lebih pendek daripada penyambungan basis data yang sebenarnya.
+ *
+ * Terukur (db/koneksi.ts, 1 Agu 2026): panggilan pertama dari lambda dingin
+ * memakan ~57 detik; dengan connect_timeout 15 detik polanya jadi "gagal
+ * sekali, ulang, berhasil" ~30 detik. Rute ini tak menyebut maxDuration sama
+ * sekali, jadi Vercel membunuhnya di detik ~10-15 — SEBELUM percobaan ulang
+ * yang akan berhasil sempat datang. Pemakai tak pernah sampai ke bagian
+ * "berhasil"-nya: ia melihat 500 tanpa pesan, setiap kali lambdanya dingin.
+ *
+ * Ini MENAIKKAN ATAP, bukan memperbaiki sebabnya. Perbaikan sebenarnya adalah
+ * menghapus penyambungan TCP dari lambda dingin (driver serverless Neon).
+ */
+export const maxDuration = 60;
+
+/**
  * GET /api/v1/chatbots — daftar chatbot tenant.
  *
  * `publicKey` sengaja IKUT: ia memang dirancang untuk disebar (dipasang di
