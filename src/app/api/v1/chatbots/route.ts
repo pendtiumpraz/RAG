@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, isNull } from 'drizzle-orm';
 import { chatbots } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { chatbotService } from '@/modules/chatbot/chatbot.service';
 import { apiRoute } from '../_guard';
 import { API_AKTOR, tenantOwner } from '../_actor';
+import { bacaPaging, balasanDaftar } from '../_paging';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,21 +34,34 @@ export const maxDuration = 60;
  * halaman pelanggan lewat embed.js). `snippet` (B5) ikut juga supaya
  * integrator bisa langsung mengambil kode embed tanpa membuka dashboard.
  */
-export const GET = apiRoute('read', async (_req, _ctx, caller) => {
-  const rows = await withTenant(caller.tenantId, (tx) =>
-    tx.select({
+export const GET = apiRoute('read', async (req, _ctx, caller) => {
+  const paging = bacaPaging(req);
+  const { rows, total } = await withTenant(caller.tenantId, async (tx) => {
+    // Penyaring tenant EKSPLISIT di samping RLS. RLS tetap penjaga utama,
+    // tapi ia lumpuh total bila peran database boleh melewatinya — dan itu
+    // pernah terjadi di produksi. Baris ini yang menahan datanya saat itu.
+    const saring = and(eq(chatbots.tenantId, caller.tenantId), isNull(chatbots.deletedAt));
+    const daftar = await tx.select({
       id: chatbots.id, name: chatbots.name, publicKey: chatbots.publicKey,
       enabled: chatbots.enabled, context: chatbots.context,
-      greeting: chatbots.greeting, createdAt: chatbots.createdAt,
+      greeting: chatbots.greeting, themeConfig: chatbots.themeConfig,
+      createdAt: chatbots.createdAt,
     }).from(chatbots)
-      // Penyaring tenant EKSPLISIT di samping RLS. RLS tetap penjaga utama,
-      // tapi ia lumpuh total bila peran database boleh melewatinya — dan itu
-      // pernah terjadi di produksi. Baris ini yang menahan datanya saat itu.
-      .where(and(eq(chatbots.tenantId, caller.tenantId), isNull(chatbots.deletedAt)))
-      .orderBy(desc(chatbots.createdAt)));
-  return NextResponse.json({
-    chatbots: rows.map((r) => ({ ...r, snippet: chatbotService.embedSnippet(r.publicKey) })),
+      .where(saring)
+      .orderBy(desc(chatbots.createdAt))
+      .limit(paging.limit).offset(paging.offset);
+    // Jumlah total memakai penyaring yang SAMA, bukan count(*) polos. Penghitung
+    // yang lebih longgar daripada daftarnya persis cacat yang dulu membuat kuota
+    // milik seluruh tenant terbaca sebagai milik satu tenant.
+    const [c] = await tx.select({ n: count() }).from(chatbots).where(saring);
+    return { rows: daftar, total: Number(c?.n ?? 0) };
   });
+  return NextResponse.json(balasanDaftar(
+    'chatbots',
+    rows.map((r) => ({ ...r, snippet: chatbotService.embedSnippet(r.publicKey) })),
+    total,
+    paging,
+  ));
 });
 
 /* Field kustomisasi = re-expose CreateBody dashboard (chatbots/route.ts).

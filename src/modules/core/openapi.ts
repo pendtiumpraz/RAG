@@ -117,8 +117,112 @@ export const openApiSpec = {
         responses: { 200: err('{ conversation }'), 404: err('tidak ditemukan') } },
     },
     '/api/v1/knowledge-bases': {
-      get: { summary: 'Daftar knowledge base + jumlah potongan', security: [apiKeyAuth],
-        responses: { 200: err('{ knowledgeBases }') } },
+      get: { summary: 'Daftar knowledge base + jumlah potongan (berhalaman)', security: [apiKeyAuth],
+        description: 'Menerima `limit` (maks 200, bawaan 50) dan `offset`. Balasan memuat `total` '
+          + 'dan `hasMore` supaya klien bisa menggambar nomor halaman, bukan sekadar tombol '
+          + '"berikutnya" yang tak pernah tahu kapan berhenti.',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: { 200: err('{ knowledgeBases, total, limit, offset, hasMore }') } },
+    },
+    '/api/v1/documents/chunks': {
+      get: {
+        summary: 'ISI satu dokumen — potongan yang benar-benar dibaca chatbot',
+        description: '`/api/v1/documents` sengaja hanya mengembalikan metadata; satu PDF bisa jadi '
+          + 'ratusan potongan dan menyertakan isinya membuat daftar berbobot belasan megabyte. '
+          + 'Tapi akibatnya pemilik KB tak punya cara melihat APA yang terbaca chatbotnya — ia hanya '
+          + 'melihat "22 potongan" dan harus percaya. Endpoint ini membuka isinya per dokumen, '
+          + 'berhalaman sendiri. `ref` lewat query, bukan segmen path, karena untuk unggahan manual '
+          + 'ia adalah NAMA BERKAS lengkap dengan titik, spasi, dan kadang garis miring.',
+        security: [apiKeyAuth],
+        parameters: [
+          { name: 'ref', in: 'query', required: true, schema: str },
+          { name: 'knowledgeBaseId', in: 'query', schema: uuid },
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: {
+          200: err('{ ref, title, chunks: [{ index, content, metadata }], total, hasMore }'),
+          400: err('`ref` kosong'),
+          404: err('dokumen tidak ditemukan'),
+        },
+      },
+    },
+    '/api/v1/uploaded-files': {
+      get: {
+        summary: 'Daftar BERKAS ASLI yang tersimpan (bukan teks hasil ekstraksi)',
+        description: 'Berbeda dari `/api/v1/documents`, dan bedanya berguna: berkas yang tersimpan '
+          + 'tapi gagal di-parse muncul di sini TANPA punya dokumen — satu-satunya cara pemiliknya '
+          + 'tahu PDF-nya masuk tapi teksnya tak terbaca. Sebaliknya, teks tempel punya dokumen '
+          + 'tanpa berkas asli. `path` dan `url` sengaja TIDAK dikembalikan: keduanya alamat internal '
+          + 'yang pada penyedia tertentu bisa dibaca tanpa melewati pemeriksaan tenant.',
+        security: [apiKeyAuth],
+        parameters: [
+          { name: 'knowledgeBaseId', in: 'query', schema: uuid },
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: { 200: err('{ files, total, limit, offset, hasMore }') },
+      },
+    },
+    '/api/v1/uploaded-files/{id}/download': {
+      get: {
+        summary: 'Unduh berkas asli — byte dialirkan lewat server, bukan tautan blob',
+        description: 'Mengembalikan url blob dan membiarkan peramban mengunduh sendiri ditolak '
+          + 'dengan sengaja: url blob platform bisa dibuka siapa saja yang memegangnya, tanpa '
+          + 'pernah melewati pemeriksaan tenant. Sekali url itu keluar — ke log, riwayat peramban, '
+          + 'atau tangkapan layar — berkas satu pelanggan bisa dibaca orang lain selamanya. Lebih '
+          + 'mahal satu lompatan, dan itu harga yang pantas.',
+        security: [apiKeyAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: {
+          200: err('byte berkas + Content-Disposition attachment'),
+          404: err('berkas tidak ditemukan / milik tenant lain'),
+          409: err('tenant tak punya admin aktif'),
+          502: err('gagal mengambil dari penyimpanan'),
+        },
+      },
+    },
+    '/api/v1/memory': {
+      get: {
+        summary: 'Catatan Memory + peta keterkaitan satu chatbot',
+        description: 'Memory Agent sudah lama menyusun rangkuman saling terhubung lewat '
+          + '`[[wikilink]]`, tapi satu-satunya pintunya (`/api/memory/*`) dijaga SESI LOGIN. '
+          + 'Pemakai yang datang lewat kunci API sengaja tak punya sesi itu, sehingga fitur yang '
+          + 'sudah jadi tak pernah bisa mereka lihat. Graf dan isi catatan digabung dalam satu '
+          + 'balasan karena selalu ditampilkan di satu layar; dua permintaan berarti dua kali '
+          + 'penyambungan basis data dari lambda dingin.',
+        security: [apiKeyAuth],
+        parameters: [{ name: 'chatbotId', in: 'query', required: true, schema: uuid }],
+        responses: {
+          200: err('{ chatbot, notes: [{ slug, title, linksTo, content }], edges, total }'),
+          400: err('`chatbotId` kosong'),
+          404: err('chatbot tidak ditemukan'),
+        },
+      },
+    },
+    '/api/v1/chatbots/{id}/logo': {
+      post: {
+        summary: 'Pasang logo chatbot (data URL PNG/JPEG/WebP, maks ±300KB)',
+        description: 'Logo adalah SATU-SATUNYA bagian tampilan yang tak bisa diatur lewat '
+          + '`PUT /api/v1/chatbots/{id}` — ia kolom tersendiri, bukan bagian `themeConfig`. '
+          + 'SVG ditolak: ia bisa membawa skrip, dan logo ini dirender di halaman pelanggan.',
+        security: [apiKeyAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ dataUrl: str }, ['dataUrl'])),
+        responses: {
+          200: err('{ ok, logoUrl }'), 400: err('format/ukuran ditolak'),
+          403: err('kunci tanpa izin write'), 404: err('chatbot tidak ditemukan'),
+        },
+      },
+      delete: {
+        summary: 'Hapus logo — widget kembali ke inisial',
+        security: [apiKeyAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }'), 404: err('chatbot tidak ditemukan') },
+      },
     },
     '/api/v1/knowledge-bases/{id}/upload': {
       post: {

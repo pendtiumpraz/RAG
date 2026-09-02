@@ -68,6 +68,64 @@ export const uploadedFileService = {
   },
 
   /**
+   * DAFTAR berkas orisinal milik tenant — berhalaman.
+   *
+   * ── KENAPA INI BARU ADA SEKARANG ────────────────────────────────────────
+   *
+   * Tabel `uploaded_files` sudah menyimpan setiap berkas sejak migrasi 0052,
+   * tapi service ini hanya bisa MENULIS dan MENJUMLAHKAN byte-nya. Tak ada satu
+   * pun cara membaca daftarnya. Akibatnya nyata: berkas asli tersimpan rapi di
+   * blob, tapi tak ada permukaan mana pun yang bisa memberitahu pemiliknya
+   * berkas apa saja yang ia punya, apalagi mengunduhnya kembali. Data yang
+   * tersimpan tapi tak bisa dilihat sama saja dengan hilang.
+   */
+  async daftar(
+    tenantId: string,
+    opsi: { knowledgeBaseId?: string | null; limit: number; offset: number },
+  ): Promise<{ rows: Array<Record<string, unknown>>; total: number }> {
+    return withTenant(tenantId, async (tx) => {
+      const kb = opsi.knowledgeBaseId;
+      // Penyaring tenant eksplisit di samping RLS — pola yang sama dengan rute
+      // v1 lain; RLS pernah lumpuh total di produksi dan baris inilah penahannya.
+      const saring = sql`
+        tenant_id = ${tenantId}::uuid and deleted_at is null
+        ${kb ? sql`and knowledge_base_id = ${kb}::uuid` : sql``}`;
+      const rows = await tx.execute(sql`
+        select id, filename, size_bytes, provider, storage_connection_id,
+               path, url, mime, knowledge_base_id, source_id, created_at
+          from uploaded_files
+         where ${saring}
+         order by created_at desc
+         limit ${opsi.limit} offset ${opsi.offset}`);
+      const c = await tx.execute(sql`
+        select count(*)::int as n from uploaded_files where ${saring}`);
+      return {
+        rows: rows as unknown as Array<Record<string, unknown>>,
+        total: Number((c as unknown as Array<{ n: number }>)[0]?.n ?? 0),
+      };
+    });
+  },
+
+  /**
+   * Satu baris berkas milik tenant ini — untuk mengunduh ulang isinya.
+   *
+   * Mengembalikan null (bukan melempar) bila bukan milik tenant tersebut,
+   * supaya pemanggil menjawab 404: membedakan "tak ada" dari "bukan milikmu"
+   * justru memberi tahu penebak bahwa id itu nyata.
+   */
+  async satu(tenantId: string, id: string): Promise<Record<string, unknown> | null> {
+    return withTenant(tenantId, async (tx) => {
+      const rows = await tx.execute(sql`
+        select id, filename, size_bytes, provider, storage_connection_id,
+               path, url, mime, knowledge_base_id, created_at
+          from uploaded_files
+         where id = ${id}::uuid and tenant_id = ${tenantId}::uuid and deleted_at is null
+         limit 1`);
+      return (rows as unknown as Array<Record<string, unknown>>)[0] ?? null;
+    });
+  },
+
+  /**
    * Soft-delete jejak berkas-orisinal untuk parameter sumber & filename.
    *
    * Dipanggil jalur unggahan ketika dokumen senama diganti (baris lama tak

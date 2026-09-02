@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, sql } from 'drizzle-orm';
 import { knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { QuotaError } from '@/modules/knowledge/knowledge.service';
 import { apiRoute } from '../_guard';
 import { tenantOwner } from '../_actor';
+import { bacaPaging, balasanDaftar } from '../_paging';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,28 +29,44 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /** GET /api/v1/knowledge-bases — daftar KB + jumlah potongan terindeks. */
-export const GET = apiRoute('read', async (_req, _ctx, caller) => {
-  const rows = await withTenant(caller.tenantId, async (tx) => {
+export const GET = apiRoute('read', async (req, _ctx, caller) => {
+  const paging = bacaPaging(req);
+  const { rows, total } = await withTenant(caller.tenantId, async (tx) => {
+    // Penyaring tenant eksplisit — lihat catatan di rute chatbots.
+    const saring = and(
+      eq(knowledgeBases.tenantId, caller.tenantId), isNull(knowledgeBases.deletedAt));
     const kbs = await tx.select().from(knowledgeBases)
-      // Penyaring tenant eksplisit — lihat catatan di rute chatbots.
-      .where(and(eq(knowledgeBases.tenantId, caller.tenantId), isNull(knowledgeBases.deletedAt)))
-      .orderBy(desc(knowledgeBases.createdAt));
+      .where(saring)
+      .orderBy(desc(knowledgeBases.createdAt))
+      .limit(paging.limit).offset(paging.offset);
+    const [c] = await tx.select({ n: count() }).from(knowledgeBases).where(saring);
+
     // Satu agregat untuk semua KB — bukan satu query per KB, karena daftar ini
     // ikut tumbuh seiring pemakaian pelanggan.
+    //
+    // `tenant_id` DITAMBAHKAN ke penyaring: tanpa itu agregatnya menghitung
+    // potongan SELURUH tenant lalu mengandalkan RLS untuk menyaringnya. Selama
+    // RLS hidup hasilnya benar, tapi ia jadi lumpuh persis ketika peran
+    // database boleh melewatinya — cacat yang sudah pernah terjadi di produksi
+    // dan menampilkan jumlah milik semua orang sebagai milik satu tenant.
     const counts = await tx.execute<{ knowledge_base_id: string; n: number }>(sql`
       select knowledge_base_id, count(*)::int as n
-      from documents where deleted_at is null
+      from documents
+      where tenant_id = ${caller.tenantId}::uuid and deleted_at is null
       group by knowledge_base_id`);
     const byKb = new Map(
       (counts as unknown as Array<{ knowledge_base_id: string; n: number }>)
-        .map((c) => [c.knowledge_base_id, Number(c.n)]));
-    return kbs.map((k) => ({
-      id: k.id, name: k.name, description: k.description,
-      chunks: byKb.get(k.id) ?? 0,
-      createdAt: k.createdAt, updatedAt: k.updatedAt,
-    }));
+        .map((x) => [x.knowledge_base_id, Number(x.n)]));
+    return {
+      rows: kbs.map((k) => ({
+        id: k.id, name: k.name, description: k.description,
+        chunks: byKb.get(k.id) ?? 0,
+        createdAt: k.createdAt, updatedAt: k.updatedAt,
+      })),
+      total: Number(c?.n ?? 0),
+    };
   });
-  return NextResponse.json({ knowledgeBases: rows });
+  return NextResponse.json(balasanDaftar('knowledgeBases', rows, total, paging));
 });
 
 const Body = z.object({

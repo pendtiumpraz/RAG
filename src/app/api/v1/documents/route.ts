@@ -5,6 +5,7 @@ import { withTenant } from '@/modules/core/db/tenant-context';
 import { knowledgeService } from '@/modules/knowledge/knowledge.service';
 import { jobsSettled } from '@/modules/core/jobs';
 import { apiRoute } from '../_guard';
+import { bacaPaging, balasanDaftar } from '../_paging';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,33 +26,61 @@ export const maxDuration = 60;
  */
 export const GET = apiRoute('read', async (req, _ctx, caller) => {
   const kbId = new URL(req.url).searchParams.get('knowledgeBaseId');
-  const rows = await withTenant(caller.tenantId, (tx) => tx.execute(sql`
-    select coalesce(external_id, title, id::text) as ref,
-           max(title)                             as title,
-           max(external_version)                  as version,
-           count(*)::int                          as chunks,
-           max(updated_at)                        as updated_at,
-           max(knowledge_base_id::text)           as knowledge_base_id
-    from documents
-    -- Penyaring tenant EKSPLISIT di samping RLS: RLS lumpuh total bila peran
-    -- database boleh melewatinya, dan itu pernah terjadi di produksi.
-    where tenant_id = ${caller.tenantId}::uuid
+  const paging = bacaPaging(req);
+  // Penyaring tenant EKSPLISIT di samping RLS: RLS lumpuh total bila peran
+  // database boleh melewatinya, dan itu pernah terjadi di produksi.
+  const saring = sql`
+    tenant_id = ${caller.tenantId}::uuid
       and deleted_at is null
-      ${kbId ? sql`and knowledge_base_id = ${kbId}::uuid` : sql``}
-    group by coalesce(external_id, title, id::text)
-    order by max(updated_at) desc
-    limit 500`));
+      ${kbId ? sql`and knowledge_base_id = ${kbId}::uuid` : sql``}`;
 
-  return NextResponse.json({
-    documents: (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+  const { rows, total } = await withTenant(caller.tenantId, async (tx) => {
+    /* Batas lamanya `limit 500` TANPA offset — begitu sebuah tenant melewati
+       500 dokumen, sisanya tak bisa dijangkau sama sekali dan tak ada satu pun
+       tanda bahwa daftarnya terpotong. Sekarang berhalaman, dengan `total`
+       supaya klien bisa menggambar nomor halaman alih-alih menebak. */
+    const daftar = await tx.execute(sql`
+      select coalesce(external_id, title, id::text) as ref,
+             max(title)                             as title,
+             max(external_version)                  as version,
+             count(*)::int                          as chunks,
+             sum(length(content))::int              as chars,
+             max(updated_at)                        as updated_at,
+             max(knowledge_base_id::text)           as knowledge_base_id
+      from documents
+      where ${saring}
+      group by coalesce(external_id, title, id::text)
+      order by max(updated_at) desc
+      limit ${paging.limit} offset ${paging.offset}`);
+
+    // Jumlah DOKUMEN LOGIS, bukan potongan — karena itulah yang dihalaman.
+    const c = await tx.execute(sql`
+      select count(*)::int as n from (
+        select 1 from documents where ${saring}
+        group by coalesce(external_id, title, id::text)
+      ) d`);
+    return {
+      rows: daftar as unknown as Array<Record<string, unknown>>,
+      total: Number((c as unknown as Array<{ n: number }>)[0]?.n ?? 0),
+    };
+  });
+
+  return NextResponse.json(balasanDaftar(
+    'documents',
+    rows.map((r) => ({
       ref: String(r.ref),
       title: r.title ?? null,
       version: r.version ?? null,
       chunks: Number(r.chunks),
+      // Ukuran teks yang benar-benar terbaca chatbot. Berbeda dari ukuran
+      // berkas aslinya, dan itu memang yang ingin diketahui pemilik KB.
+      chars: Number(r.chars ?? 0),
       knowledgeBaseId: r.knowledge_base_id,
       updatedAt: r.updated_at,
     })),
-  });
+    total,
+    paging,
+  ));
 });
 
 const Body = z.object({

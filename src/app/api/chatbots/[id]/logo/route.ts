@@ -29,7 +29,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   const updated = await withTenant(user.tenantId, async (tx) =>
     (await tx.update(chatbots).set({ logo: parsed.data.dataUrl, updatedAt: new Date() })
-      .where(and(eq(chatbots.id, id), isNull(chatbots.deletedAt)))
+      .where(and(
+        // `tenantId` eksplisit: ini TULIS, dan RLS yang lumpuh di sini berarti
+        // satu tenant bisa mengganti logo chatbot tenant lain dengan menebak id.
+        eq(chatbots.tenantId, user.tenantId),
+        eq(chatbots.id, id),
+        isNull(chatbots.deletedAt),
+      ))
       .returning({ id: chatbots.id, publicKey: chatbots.publicKey }))[0] ?? null);
   if (!updated) return NextResponse.json({ error: 'Chatbot tidak ditemukan' }, { status: 404 });
 
@@ -43,7 +49,13 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   const { id } = await ctx.params;
   const updated = await withTenant(user.tenantId, async (tx) =>
     (await tx.update(chatbots).set({ logo: null, updatedAt: new Date() })
-      .where(and(eq(chatbots.id, id), isNull(chatbots.deletedAt)))
+      .where(and(
+        // `tenantId` eksplisit: ini TULIS, dan RLS yang lumpuh di sini berarti
+        // satu tenant bisa mengganti logo chatbot tenant lain dengan menebak id.
+        eq(chatbots.tenantId, user.tenantId),
+        eq(chatbots.id, id),
+        isNull(chatbots.deletedAt),
+      ))
       .returning({ id: chatbots.id }))[0] ?? null);
   if (!updated) return NextResponse.json({ error: 'Chatbot tidak ditemukan' }, { status: 404 });
   await audit(user.tenantId, user.id, 'chatbot.logo_removed', id, {});
