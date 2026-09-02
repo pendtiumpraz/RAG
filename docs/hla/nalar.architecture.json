@@ -1,0 +1,409 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Nalar — Arsitektur Runtime",
+    "subtitle": "Dari berkas di Drive/SharePoint sampai jawaban bersitasi",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "jalur-tanya",
+        "label": "Jalur tanya",
+        "focus": [
+          "widget",
+          "app",
+          "retrieval",
+          "postgres",
+          "llm"
+        ],
+        "note": "Berjalan tiap pertanyaan, dalam hitungan detik. Tak ada berkas yang dibaca ulang di sini."
+      },
+      {
+        "id": "jalur-masuk",
+        "label": "Jalur masuk",
+        "focus": [
+          "sumber",
+          "app",
+          "blob",
+          "embedding",
+          "postgres"
+        ],
+        "note": "Berjalan saat sync, sekali per berkas. Mahal, tapi hanya sekali — inilah yang menentukan spesifikasi server."
+      },
+      {
+        "id": "isolasi",
+        "label": "Isolasi & penjaga",
+        "focus": [
+          "guardrails",
+          "app",
+          "postgres"
+        ],
+        "note": "Batas antar pelanggan dijaga database lewat RLS, bukan oleh kode aplikasi yang bisa lupa menyaring."
+      },
+      {
+        "id": "di-luar-lambda",
+        "label": "Yang tak muat di lambda",
+        "focus": [
+          "memory",
+          "pekerja",
+          "embserver",
+          "postgres"
+        ],
+        "note": "Pekerjaan yang melewati tenggat 300 detik Vercel dijalankan dari VPS, terhadap basis data yang sama."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "widget",
+      "type": "external",
+      "label": "Widget & Chat",
+      "sublabel": "embed.js · halaman chat",
+      "pos": [
+        40,
+        340
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "origin allow-list"
+    },
+    {
+      "id": "sumber",
+      "type": "external",
+      "label": "Sumber Dokumen",
+      "sublabel": "Drive · SharePoint · S3",
+      "pos": [
+        40,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "guardrails",
+      "type": "security",
+      "label": "Guardrail 5 Lapis",
+      "sublabel": "sanitasi → audit",
+      "pos": [
+        300,
+        150
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "tiap giliran"
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "Aplikasi Nalar",
+      "sublabel": "Next.js · Vercel",
+      "pos": [
+        300,
+        340
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "tenggat 300 dtk"
+    },
+    {
+      "id": "blob",
+      "type": "cloud",
+      "label": "Blob / BYOB",
+      "sublabel": "Vercel · S3 · GCS",
+      "pos": [
+        300,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "embedding",
+      "type": "backend",
+      "label": "Embedding",
+      "sublabel": "ONNX lokal · API",
+      "pos": [
+        560,
+        150
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "1536 dim"
+    },
+    {
+      "id": "retrieval",
+      "type": "backend",
+      "label": "Retrieval 3 Kaki",
+      "sublabel": "vektor · leksikal · memori",
+      "pos": [
+        560,
+        340
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "memory",
+      "type": "backend",
+      "label": "Memory Agent",
+      "sublabel": "distill → graf",
+      "pos": [
+        560,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "embserver",
+      "type": "cloud",
+      "label": "Server Embedding",
+      "sublabel": "VPS · BGE-M3",
+      "pos": [
+        820,
+        150
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "Postgres + pgvector",
+      "sublabel": "Neon · RLS",
+      "pos": [
+        820,
+        340
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "NOBYPASSRLS"
+    },
+    {
+      "id": "pekerja",
+      "type": "cloud",
+      "label": "Pekerja VPS",
+      "sublabel": "memory · ingest",
+      "pos": [
+        820,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "tanpa tenggat"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "Penyedia LLM",
+      "sublabel": "cloud + Sumopod",
+      "pos": [
+        1080,
+        340
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "failover cadangan"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Vercel — serverless, tenggat 300 detik",
+      "wraps": [
+        "guardrails",
+        "app",
+        "embedding",
+        "retrieval",
+        "memory"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "VPS — proses panjang & model besar",
+      "wraps": [
+        "embserver",
+        "pekerja"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Isolasi tenant ditegakkan database",
+      "wraps": [
+        "postgres"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "tanya",
+      "from": "widget",
+      "to": "app",
+      "label": "pertanyaan",
+      "variant": "emphasis"
+    },
+    {
+      "id": "penjaga",
+      "from": "guardrails",
+      "to": "app",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "cari",
+      "from": "app",
+      "to": "retrieval",
+      "label": "cari konteks",
+      "variant": "emphasis",
+      "labelDy": 26
+    },
+    {
+      "id": "vektor",
+      "from": "retrieval",
+      "to": "postgres",
+      "label": "pgvector",
+      "variant": "emphasis"
+    },
+    {
+      "id": "embed-query",
+      "from": "retrieval",
+      "to": "embedding",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "embed-besar",
+      "from": "embedding",
+      "to": "embserver",
+      "label": "model besar",
+      "variant": "dashed"
+    },
+    {
+      "id": "jawab",
+      "from": "app",
+      "to": "llm",
+      "label": "jawaban terstruktur",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          515,
+          372
+        ],
+        [
+          515,
+          60
+        ],
+        [
+          1165,
+          60
+        ]
+      ],
+      "labelSegment": 2
+    },
+    {
+      "id": "sync",
+      "from": "sumber",
+      "to": "app",
+      "label": "sync inkremental",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "simpan-berkas",
+      "from": "blob",
+      "to": "app",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "potongan",
+      "from": "app",
+      "to": "postgres",
+      "label": "potongan + vektor",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          385,
+          500
+        ],
+        [
+          905,
+          500
+        ]
+      ]
+    },
+    {
+      "id": "petakan",
+      "from": "memory",
+      "to": "postgres",
+      "label": "catatan + edges"
+    },
+    {
+      "id": "tuntas",
+      "from": "pekerja",
+      "to": "postgres",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Jalur tanya (detik)",
+      "items": [
+        "Tiga kaki pencarian digabung dengan pemeringkatan gabungan, bukan penjumlahan skor",
+        "Jawaban wajib bersitasi; mode ketat menolak menjawab bila dokumennya tak ada",
+        "Model aktif gagal → failover ke cadangan, hanya sebelum jawaban mulai mengalir"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Jalur masuk (sekali per berkas)",
+      "items": [
+        "Berkas asli tetap di Drive/SharePoint; yang tersimpan teks + vektornya",
+        "Delta sync: hanya berkas baru/berubah yang diunduh dan di-embed",
+        "Unggahan manual disimpan DULU ke blob, baru diekstraksi"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Batas & yang tak muat di lambda",
+      "items": [
+        "RLS mengunci tiap kueri ke satu tenant; aplikasi menyambung sebagai peran NOBYPASSRLS",
+        "Model embedding besar & run memory panjang dijalankan dari VPS, basis data tetap sama",
+        "Vercel memutus fungsi pada 300 detik — itu batas rancangan, bukan kegagalan"
+      ]
+    }
+  ]
+}

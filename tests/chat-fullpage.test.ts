@@ -107,6 +107,15 @@ test('hanya /c yang boleh dibingkai; sisanya tidak', () => {
   // dikecualikan dari aturan larangan framing, kalau tidak header DENY ikut
   // terkirim dan iframe-nya mati.
   assert.ok(/source: '\/plugin\/:path\*'/.test(CFG), 'panel plugin tak dinyatakan boleh dibingkai');
-  assert.ok(/source: '\/\(\(\?\!c\/\|plugin\)\.\*\)'/.test(CFG),
-    'aturan larangan framing tidak mengecualikan /c & /plugin — mode inline / panel akan mati');
+  assert.ok(/source: '\/\(\(\?\!c\/\|plugin\|hla\/\)\.\*\)'/.test(CFG),
+    'aturan larangan framing tidak mengecualikan /c, /plugin, & /hla — mode inline / panel / peta arsitektur akan mati');
+
+  /* /hla (peta arsitektur HLA) dibingkai halaman dasbor /arsitektur, jadi ia
+     WAJIB dikecualikan dari larangan — tapi hanya untuk origin KITA SENDIRI.
+     `'self'`, bukan `*`: berbeda dari /c dan /plugin yang memang untuk
+     disematkan di situs pelanggan, peta ini memuat rincian infrastruktur
+     internal dan tak ada alasan situs lain boleh membingkainya. */
+  assert.ok(/source: '\/hla\/:path\*'/.test(CFG), 'peta arsitektur tak dinyatakan boleh dibingkai sendiri');
+  assert.ok(/frame-ancestors 'self'/.test(CFG),
+    "/hla dibingkai dengan izin selain 'self' — peta infrastruktur internal tak boleh dibingkai situs lain");
 });

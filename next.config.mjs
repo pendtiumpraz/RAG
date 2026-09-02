@@ -68,15 +68,25 @@ const nextConfig = {
         headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *' }],
       },
       {
+        /* Peta arsitektur (HLA) — HTML mandiri hasil archify, dibingkai oleh
+           halaman /arsitektur di dasbor. `'self'` dan bukan `*`: ia memuat
+           rincian infrastruktur internal, jadi hanya origin kita sendiri yang
+           boleh membingkainya. Tanpa aturan ini, aturan menyeluruh di bawah
+           ('none') ikut berlaku dan bingkainya kosong TANPA galat yang
+           terlihat — kegagalan senyap yang paling lama dicari sebabnya. */
+        source: '/hla/:path*',
+        headers: [{ key: 'Content-Security-Policy', value: "frame-ancestors 'self'" }],
+      },
+      {
         /* SISANYA tak boleh dibingkai sama sekali. Sebelumnya tak ada
            proteksi apa pun — dasbor bisa ditumpuk di bawah halaman penyerang
            dan kliknya dicuri (clickjacking). Selama tak ada iframe yang
            dipakai produk ini, celah itu tak kentara; begitu iframe jadi pola
            resmi lewat mode inline, membiarkannya terbuka jadi kelalaian.
            Dua header sekaligus: frame-ancestors untuk peramban modern,
-           X-Frame-Options untuk yang belum mendukungnya. `/plugin` & `/c/`
-           dikecualikan — keduanya memang untuk dibingkai. */
-        source: '/((?!c/|plugin).*)',
+           X-Frame-Options untuk yang belum mendukungnya. `/plugin`, `/c/`, dan
+           `/hla/` dikecualikan — ketiganya memang untuk dibingkai. */
+        source: '/((?!c/|plugin|hla/).*)',
         headers: [
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
           { key: 'X-Frame-Options', value: 'DENY' },
