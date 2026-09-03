@@ -3,6 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { chatbots } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { memoryService } from '@/modules/memory/memory.service';
+import { categoryService } from '@/modules/memory/category.service';
 import { apiRoute } from '../_guard';
 
 export const runtime = 'nodejs';
@@ -54,9 +55,20 @@ export const GET = apiRoute('read', async (req, _ctx, caller) => {
       )).limit(1))[0]);
   if (!bot) return NextResponse.json({ error: 'Chatbot tidak ditemukan' }, { status: 404 });
 
-  const [graph, vault] = await Promise.all([
+  const [graph, vault, categories] = await Promise.all([
     memoryService.graph(caller.tenantId, chatbotId),
     memoryService.exportVault(caller.tenantId, chatbotId),
+    // Kategori IKUT dikirim, bukan disediakan endpoint terpisah.
+    //
+    // Penanda simpul (warna x bentuk) diturunkan dari SLOT tersimpan, dan itu
+    // disengaja: kalau klien menurunkannya dari urutan daftar, menghapus satu
+    // kategori akan menggambar ulang semua kategori sesudahnya dengan penanda
+    // berbeda — graf yang sama tampak berubah total tanpa ada yang mengubahnya.
+    //
+    // Karena itu ia harus datang dari server yang sama dengan grafnya, dalam
+    // balasan yang sama. Klien mana pun yang menggambar graf ini akan memakai
+    // penanda yang identik dengan panel Nalar sendiri.
+    categoryService.list(caller.tenantId).catch(() => []),
   ]);
 
   // Isi catatan dipetakan ke slug supaya klien bisa menampilkannya saat sebuah
@@ -83,6 +95,12 @@ export const GET = apiRoute('read', async (req, _ctx, caller) => {
     // dengan yang digambar panel Nalar sendiri. Dua bentuk berbeda untuk satu
     // graf adalah cara termudah membuat keduanya perlahan menyimpang.
     edges: graph.edges,
+    // Hanya kategori AKTIF: yang berstatus "proposed" belum diakui, dan
+    // menampilkannya di legenda graf membuat pemakai mengira pemetaannya sudah
+    // final padahal masih menunggu tinjauan.
+    categories: categories
+      .filter((c) => c.status === 'active')
+      .map((c) => ({ slug: c.slug, label: c.label, color: c.color, shape: c.shape, notes: c.notes })),
     total: graph.nodes.length,
   });
 });
