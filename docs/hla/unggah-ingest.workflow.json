@@ -1,0 +1,253 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Unggah berkas → potongan yang bisa dicari",
+    "subtitle": "Jalur unggahan manual, beserta dua cara ia gagal",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "jalan-mulus",
+        "label": "Jalan mulus",
+        "focus": [
+          "pilih",
+          "unggah",
+          "simpan",
+          "ekstrak",
+          "embed",
+          "tulis"
+        ],
+        "note": "Enam langkah, satu permintaan HTTP. Semua terjadi sebelum responsnya kembali."
+      },
+      {
+        "id": "gagal",
+        "label": "Dua cara gagal",
+        "focus": [
+          "unggah",
+          "kuota-habis",
+          "ekstrak",
+          "tak-terbaca"
+        ],
+        "note": "Kuota habis menghentikan seluruh unggahan; teks tak terbaca hanya menghentikan satu berkas — aslinya tetap tersimpan."
+      },
+      {
+        "id": "sesudah",
+        "label": "Yang terjadi sesudahnya",
+        "focus": [
+          "tulis",
+          "memory"
+        ],
+        "note": "KB berubah ⇒ memory dipetakan ulang untuk tiap chatbot yang memakai KB itu."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "pemilik",
+      "label": "Pemilik data"
+    },
+    {
+      "id": "aplikasi",
+      "label": "Aplikasi (satu permintaan)"
+    },
+    {
+      "id": "simpanan",
+      "label": "Penyimpanan & basis data"
+    },
+    {
+      "id": "gagal",
+      "label": "Kegagalan",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "terima",
+      "label": "Terima",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "amankan",
+      "label": "Amankan dulu",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "indeks",
+      "label": "Indeks",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "pilih",
+    "unggah",
+    "simpan",
+    "ekstrak",
+    "embed",
+    "tulis"
+  ],
+  "nodes": [
+    {
+      "id": "pilih",
+      "lane": "pemilik",
+      "col": 0,
+      "type": "external",
+      "label": "Pilih berkas",
+      "sublabel": "maks 4 MB per unggahan",
+      "width": 110
+    },
+    {
+      "id": "unggah",
+      "lane": "aplikasi",
+      "col": 1,
+      "type": "backend",
+      "label": "Terima & periksa kuota",
+      "sublabel": "POST /upload",
+      "tag": "per berkas",
+      "width": 160
+    },
+    {
+      "id": "simpan",
+      "lane": "simpanan",
+      "col": 2,
+      "type": "cloud",
+      "label": "Simpan berkas ASLI",
+      "sublabel": "blob / BYOB",
+      "tag": "sebelum diparse",
+      "width": 132
+    },
+    {
+      "id": "ekstrak",
+      "lane": "aplikasi",
+      "col": 3,
+      "type": "backend",
+      "label": "Ekstraksi teks",
+      "sublabel": "PDF · DOCX · teks",
+      "width": 118
+    },
+    {
+      "id": "embed",
+      "lane": "aplikasi",
+      "col": 4,
+      "type": "backend",
+      "label": "Potong + embed",
+      "sublabel": "vektor 1536 dim",
+      "width": 118
+    },
+    {
+      "id": "tulis",
+      "lane": "simpanan",
+      "col": 5,
+      "type": "database",
+      "label": "Simpan potongan",
+      "sublabel": "pgvector, per tenant",
+      "width": 118
+    },
+    {
+      "id": "memory",
+      "lane": "aplikasi",
+      "col": 5,
+      "type": "backend",
+      "label": "Picu Memory Agent",
+      "sublabel": "chatbot pemakai KB",
+      "width": 126
+    },
+    {
+      "id": "kuota-habis",
+      "lane": "gagal",
+      "col": 1,
+      "type": "external",
+      "label": "402 kuota habis",
+      "sublabel": "unggahan berhenti",
+      "width": 118
+    },
+    {
+      "id": "tak-terbaca",
+      "lane": "gagal",
+      "col": 3,
+      "type": "external",
+      "label": "Teks tak terbaca",
+      "sublabel": "asli tetap tersimpan",
+      "width": 118
+    }
+  ],
+  "edges": [
+    {
+      "from": "pilih",
+      "to": "unggah",
+      "label": "multipart",
+      "variant": "emphasis"
+    },
+    {
+      "from": "unggah",
+      "to": "simpan",
+      "label": "simpan dulu",
+      "variant": "emphasis"
+    },
+    {
+      "from": "simpan",
+      "to": "ekstrak",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ekstrak",
+      "to": "embed",
+      "label": "teks",
+      "variant": "emphasis"
+    },
+    {
+      "from": "embed",
+      "to": "tulis",
+      "variant": "emphasis"
+    },
+    {
+      "from": "tulis",
+      "to": "memory",
+      "label": "KB berubah"
+    },
+    {
+      "from": "unggah",
+      "to": "kuota-habis",
+      "label": "jatah habis",
+      "variant": "dashed"
+    },
+    {
+      "from": "ekstrak",
+      "to": "tak-terbaca",
+      "label": "parser gagal",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Knowledge → pilih KB → Tambah sumber → Unggah berkas dari komputer",
+        "Pilih berkas (total ≤ 4 MB per unggahan — batas badan permintaan Vercel), lalu Tambah & sync",
+        "Hasilnya disebut satu per satu: berapa masuk, berapa disimpan tanpa diingest, berapa dilewati"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Kenapa disimpan dulu, baru diparse",
+      "items": [
+        "Parser gagal bukan berarti dokumennya rusak — dan berkas yang hilang tak bisa dikembalikan",
+        "Berkas tersimpan tercatat di uploaded_files, jadi bisa di-ingest ulang tanpa unggah ulang",
+        "Tekan Sync pada sumber Unggahan manual untuk membacanya kembali dari blob"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Yang sering bikin bingung",
+      "items": [
+        "\"Disimpan tanpa diingest\" berarti berkasnya AMAN, hanya teksnya belum terbaca",
+        "Kuota habis menghentikan seluruh unggahan, bukan satu berkas — supaya sebabnya jelas",
+        "Nama berkas yang sama MENGGANTI isi lama, bukan menumpuk dua salinan"
+      ]
+    }
+  ]
+}

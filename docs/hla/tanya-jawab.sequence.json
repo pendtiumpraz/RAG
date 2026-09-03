@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Satu pertanyaan, dari ketikan sampai jawaban bersitasi",
+    "subtitle": "Jalur tanya — berjalan tiap giliran, dalam hitungan detik",
+    "quality_profile": "showcase",
+    "viewBox": [
+      900,
+      760
+    ],
+    "views": [
+      {
+        "id": "gerbang",
+        "label": "Gerbang sebelum bekerja",
+        "focus": [
+          "widget",
+          "api"
+        ],
+        "note": "Kunci publik, daftar origin, batas laju, dan kuota bulanan diperiksa SEBELUM satu potongan pun dicari."
+      },
+      {
+        "id": "pencarian",
+        "label": "Pencarian konteks",
+        "focus": [
+          "api",
+          "retrieval",
+          "db"
+        ],
+        "note": "Tiga kaki dijalankan lalu digabung dengan pemeringkatan gabungan — skor mesin berbeda tak dijumlahkan."
+      },
+      {
+        "id": "jawaban",
+        "label": "Jawaban & jejak",
+        "focus": [
+          "api",
+          "llm",
+          "widget",
+          "db"
+        ],
+        "note": "Sumber dikirim SEBELUM teks, supaya panel sitasi terisi saat jawaban masih mengalir."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "orang",
+      "type": "external",
+      "label": "Pengunjung",
+      "sublabel": "situs pelanggan"
+    },
+    {
+      "id": "widget",
+      "type": "frontend",
+      "label": "Widget",
+      "sublabel": "embed.js / /c"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Rute Chat",
+      "sublabel": "/api/chat/{id}"
+    },
+    {
+      "id": "retrieval",
+      "type": "backend",
+      "label": "Retrieval",
+      "sublabel": "3 kaki + fusi"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "pgvector + RLS"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM",
+      "sublabel": "aktif / cadangan"
+    }
+  ],
+  "messages": [
+    {
+      "id": "ketik",
+      "from": "orang",
+      "to": "widget",
+      "y": 180,
+      "label": "ketik pertanyaan",
+      "variant": "default"
+    },
+    {
+      "id": "kirim",
+      "from": "widget",
+      "to": "api",
+      "y": 218,
+      "label": "POST + publicKey (cb_live_…)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gerbang",
+      "from": "api",
+      "to": "db",
+      "y": 256,
+      "label": "resolve chatbot + periksa origin",
+      "variant": "security"
+    },
+    {
+      "id": "gerbang-ok",
+      "from": "db",
+      "to": "api",
+      "y": 292,
+      "label": "tenant + kebijakan jawaban",
+      "variant": "return"
+    },
+    {
+      "id": "batas",
+      "from": "api",
+      "to": "db",
+      "y": 330,
+      "label": "batas laju + kuota bulanan",
+      "variant": "security"
+    },
+    {
+      "id": "cari",
+      "from": "api",
+      "to": "retrieval",
+      "y": 372,
+      "label": "cari konteks (dalam withTenant)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tiga-kaki",
+      "from": "retrieval",
+      "to": "db",
+      "y": 410,
+      "label": "vektor + leksikal + memory",
+      "variant": "default"
+    },
+    {
+      "id": "potongan",
+      "from": "db",
+      "to": "retrieval",
+      "y": 446,
+      "label": "potongan + skor",
+      "variant": "return"
+    },
+    {
+      "id": "konteks",
+      "from": "retrieval",
+      "to": "api",
+      "y": 482,
+      "label": "konteks terperingkat",
+      "variant": "return"
+    },
+    {
+      "id": "sumber",
+      "from": "api",
+      "to": "widget",
+      "y": 520,
+      "label": "SSE: sumber (sebelum teks)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "prompt",
+      "from": "api",
+      "to": "llm",
+      "y": 558,
+      "label": "prompt — dokumen sebagai DATA",
+      "variant": "emphasis"
+    },
+    {
+      "id": "blok",
+      "from": "llm",
+      "to": "api",
+      "y": 596,
+      "label": "blok JSON, mengalir",
+      "variant": "return"
+    },
+    {
+      "id": "teks",
+      "from": "api",
+      "to": "widget",
+      "y": 634,
+      "label": "SSE: blok jawaban",
+      "variant": "emphasis"
+    },
+    {
+      "id": "jejak",
+      "from": "api",
+      "to": "db",
+      "y": 672,
+      "label": "audit + pemakaian token",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Chatbots → salin publicKey → tempel potongan embed.js di situsmu",
+        "Isi Domain diizinkan; kunci publik tanpa daftar origin bisa dipakai situs lain",
+        "Uji cepat lewat halaman Chat di dasbor, atau /c/{publicKey} untuk satu tab penuh"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Kenapa urutannya begitu",
+      "items": [
+        "Gerbang dulu: kunci, origin, batas laju, kuota — sebelum biaya pencarian dikeluarkan",
+        "Sumber dikirim sebelum teks: panel sitasi terisi saat jawaban masih mengalir",
+        "Model gagal sebelum kata pertama ⇒ pindah ke model cadangan; sesudahnya, tidak"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Batas yang disengaja",
+      "items": [
+        "Mode kepatuhan ketat menjawab \"tidak ada di dokumen\" — itu jawaban yang benar",
+        "Retrieval berjalan di dalam withTenant, jadi RLS mengunci tiap kueri ke satu tenant",
+        "Tak ada berkas yang dibaca ulang di jalur ini; yang dicari potongan yang sudah tersimpan"
+      ]
+    }
+  ]
+}
