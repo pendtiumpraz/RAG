@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Kebijakan jawaban — daur hidup satu jawaban",
+    "subtitle": "Empat tuas per chatbot, termasuk rem anti-karangan",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "jalan-benar",
+        "label": "Jalan yang benar",
+        "focus": [
+          "masuk",
+          "konteks",
+          "putusan",
+          "susun",
+          "bersitasi"
+        ],
+        "note": "Kebijakan tidak menyaring jawaban di ujung; ia ikut ke dalam prompt dan menentukan bentuk jawabannya sejak awal."
+      },
+      {
+        "id": "menolak",
+        "label": "Saat bot menolak",
+        "focus": [
+          "putusan",
+          "menolak"
+        ],
+        "note": "Pada mode KETAT, 'tidak ada di dokumen' adalah jawaban yang BENAR — bukan kegagalan yang perlu diperbaiki."
+      },
+      {
+        "id": "sitasi",
+        "label": "Penegakan sitasi",
+        "focus": [
+          "susun",
+          "tanpa-sitasi",
+          "bersitasi"
+        ],
+        "note": "Jawaban tanpa sitasi ditandai dan disusun ulang, bukan diloloskan diam-diam."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Daur jawaban"
+    },
+    {
+      "id": "penegakan",
+      "label": "Penegakan sitasi"
+    },
+    {
+      "id": "terminal",
+      "label": "Akhir yang sah"
+    }
+  ],
+  "states": [
+    {
+      "id": "masuk",
+      "type": "start",
+      "label": "Pertanyaan masuk",
+      "sublabel": "giliran baru",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "konteks",
+      "type": "active",
+      "label": "Konteks dikumpulkan",
+      "sublabel": "tiga kaki + fusi",
+      "lane": "main",
+      "col": 1,
+      "step": "02"
+    },
+    {
+      "id": "putusan",
+      "type": "decision",
+      "label": "Ada dasar di dokumen?",
+      "sublabel": "tuas: kepatuhan",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "rem",
+      "width": 140
+    },
+    {
+      "id": "susun",
+      "type": "active",
+      "label": "Model menyusun",
+      "sublabel": "tuas: bahasa · nada · suhu",
+      "lane": "main",
+      "col": 3,
+      "step": "04"
+    },
+    {
+      "id": "bersitasi",
+      "type": "success",
+      "label": "Jawaban bersitasi",
+      "sublabel": "sumber menyertai",
+      "lane": "main",
+      "col": 4,
+      "step": "05"
+    },
+    {
+      "id": "menolak",
+      "type": "failure",
+      "label": "Tidak ada di dokumen",
+      "sublabel": "jawaban yang BENAR",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "mode ketat"
+    },
+    {
+      "id": "tanpa-sitasi",
+      "type": "failure",
+      "label": "Sitasi hilang",
+      "sublabel": "disusun ulang",
+      "lane": "penegakan",
+      "col": 1
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-tolak",
+      "from": "putusan",
+      "to": "menolak",
+      "label": "ketat · nol potongan",
+      "variant": "security",
+      "route": "drop"
+    },
+    {
+      "id": "t-sitasi",
+      "from": "susun",
+      "to": "tanpa-sitasi",
+      "label": "sumber tak disebut",
+      "variant": "security",
+      "route": "drop",
+      "labelDx": -78
+    },
+    {
+      "id": "t-ulang",
+      "from": "tanpa-sitasi",
+      "to": "susun",
+      "label": "susun ulang",
+      "variant": "dashed",
+      "labelDx": 52
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Chatbots → buka chatbot → bagian Kebijakan jawaban",
+        "Empat tuas: bahasa (auto/id/en), nada, tingkat kepatuhan pada dokumen, dan suhu",
+        "Ubah lalu uji langsung di halaman Chat — kebijakan berlaku pada giliran berikutnya"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Tuas mana untuk masalah apa",
+      "items": [
+        "Bot mengarang → naikkan kepatuhan ke KETAT dan turunkan suhu",
+        "Bot terlalu sering menolak → periksa dulu isi KB-nya; melonggarkan kepatuhan menutupi gejala, bukan sebab",
+        "Jawaban campur bahasa → setel bahasa eksplisit, jangan auto"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Yang disengaja",
+      "items": [
+        "Mode ketat menolak menjawab bila nol potongan ditemukan — dan itu jawaban yang benar",
+        "Kebijakan ikut ke dalam prompt di posisi paling bawah: bagian akhir paling dipatuhi model",
+        "Bot yang mengarang dengan meyakinkan jauh lebih berbahaya daripada bot yang mengaku tak tahu"
+      ]
+    }
+  ]
+}

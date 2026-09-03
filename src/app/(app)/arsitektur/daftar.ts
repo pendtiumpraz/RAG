@@ -123,6 +123,42 @@ export const DIAGRAM: Diagram[] = [
       'Distill memanggil LLM sekali per dokumen; itu yang menentukan biaya maupun durasinya.',
     ],
   },
+  {
+    id: 'kategori-dokumen',
+    judul: 'Kategori dokumen',
+    jenis: 'workflow',
+    ringkas: 'Taksonomi milik tenant: ditetapkan sekali saat meringkas, dan bisa dibereskan belakangan tanpa mengulang seluruh agen.',
+    berkas: '/hla/kategori-dokumen.html',
+    spec: 'docs/hla/kategori-dokumen.workflow.json',
+    langkah: [
+      'Kategori Dokumen → sunting daftarnya supaya cocok dengan jenis dokumen perusahaanmu.',
+      'Usulan agen muncul berstatus "proposed" — setujui atau tolak di halaman yang sama.',
+      'Kalau banyak dokumen menumpuk di "Belum dikategorikan", tekan Nilai ulang.',
+    ],
+    catat: [
+      'Saat ingest kategori dinilai dari ISI dokumen dan gratis — ia menumpang panggilan distill yang memang sudah berjalan.',
+      'Nilai ulang memakai RINGKASAN: lebih lemah, tapi cukup menjawab "ini dokumen jenis apa" dan jauh lebih murah.',
+      'Hanya kategori yang KOSONG yang dinilai ulang; yang sudah diisi tak pernah disentuh.',
+    ],
+  },
+  {
+    id: 'kebijakan-jawaban',
+    judul: 'Kebijakan jawaban chatbot',
+    jenis: 'lifecycle',
+    ringkas: 'Daur hidup satu jawaban: empat tuas per chatbot, rem anti-karangan, dan penegakan sitasi.',
+    berkas: '/hla/kebijakan-jawaban.html',
+    spec: 'docs/hla/kebijakan-jawaban.lifecycle.json',
+    langkah: [
+      'Chatbots → buka chatbot → bagian Kebijakan jawaban.',
+      'Setel empat tuas: bahasa, nada, tingkat kepatuhan pada dokumen, dan suhu.',
+      'Uji langsung di halaman Chat — kebijakan berlaku pada giliran berikutnya.',
+    ],
+    catat: [
+      'Bot mengarang? Naikkan kepatuhan ke KETAT dan turunkan suhu.',
+      'Bot terlalu sering menolak? Periksa dulu isi KB-nya — melonggarkan kepatuhan menutupi gejala, bukan sebab.',
+      'Pada mode ketat, "tidak ada di dokumen" adalah jawaban yang BENAR, bukan kegagalan.',
+    ],
+  },
 ];
 
 export const LABEL_JENIS: Record<Diagram['jenis'], string> = {

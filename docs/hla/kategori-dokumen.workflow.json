@@ -1,0 +1,240 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Kategori dokumen — dan cara mengeluarkannya dari penampung",
+    "subtitle": "Taksonomi milik tenant, bukan daftar bawaan kode",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "sekali",
+        "label": "Ditetapkan sekali",
+        "focus": [
+          "distill",
+          "nilai",
+          "simpan"
+        ],
+        "note": "Kategori menumpang panggilan distill yang memang sudah berjalan — tak ada permintaan LLM tambahan saat ingest."
+      },
+      {
+        "id": "tersangkut",
+        "label": "Saat penilaian gagal",
+        "focus": [
+          "nilai",
+          "penampung",
+          "ulang"
+        ],
+        "note": "JSON cacat atau kategori terhapus membuat catatan jatuh ke penampung, dan dulu tak pernah keluar lagi."
+      },
+      {
+        "id": "usul",
+        "label": "Kategori usulan",
+        "focus": [
+          "nilai",
+          "usul",
+          "setuju"
+        ],
+        "note": "Agen boleh MENGUSULKAN kategori baru, tapi tak boleh memakainya sebelum disetujui manusia."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "agen",
+      "label": "Saat meringkas"
+    },
+    {
+      "id": "taksonomi",
+      "label": "Taksonomi tenant"
+    },
+    {
+      "id": "perbaikan",
+      "label": "Perbaikan tanpa ulang semuanya"
+    },
+    {
+      "id": "tersangkut",
+      "label": "Tersangkut",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "saat-ingest",
+      "label": "Saat ingest",
+      "fromCol": 0,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "sesudah",
+      "label": "Sesudahnya",
+      "fromCol": 3,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "distill",
+    "nilai",
+    "simpan"
+  ],
+  "nodes": [
+    {
+      "id": "distill",
+      "lane": "agen",
+      "col": 0,
+      "type": "external",
+      "label": "Distill dokumen",
+      "sublabel": "panggilan LLM yang sudah ada",
+      "width": 150,
+      "tag": "tanpa biaya tambahan"
+    },
+    {
+      "id": "nilai",
+      "lane": "agen",
+      "col": 1,
+      "type": "backend",
+      "label": "Pilih kategori",
+      "sublabel": "dari daftar aktif tenant",
+      "width": 140
+    },
+    {
+      "id": "simpan",
+      "lane": "agen",
+      "col": 2,
+      "type": "database",
+      "label": "Simpan di catatan",
+      "sublabel": "memory_notes.category",
+      "width": 140
+    },
+    {
+      "id": "daftar",
+      "lane": "taksonomi",
+      "col": 0,
+      "type": "database",
+      "label": "Daftar kategori",
+      "sublabel": "disunting pemilik data",
+      "width": 140
+    },
+    {
+      "id": "usul",
+      "lane": "taksonomi",
+      "col": 2,
+      "type": "backend",
+      "label": "Usulan agen",
+      "sublabel": "status: proposed",
+      "width": 128
+    },
+    {
+      "id": "setuju",
+      "lane": "taksonomi",
+      "col": 3,
+      "type": "external",
+      "label": "Disetujui manusia",
+      "sublabel": "baru boleh dipakai",
+      "width": 140
+    },
+    {
+      "id": "penampung",
+      "lane": "tersangkut",
+      "col": 3,
+      "type": "external",
+      "label": "Belum dikategorikan",
+      "sublabel": "penilaian tak terjadi",
+      "width": 150
+    },
+    {
+      "id": "ulang",
+      "lane": "perbaikan",
+      "col": 4,
+      "type": "backend",
+      "label": "Nilai ulang",
+      "sublabel": "dari ringkasan, 8 per panggilan",
+      "width": 176,
+      "tag": "murah"
+    },
+    {
+      "id": "hasil",
+      "lane": "perbaikan",
+      "col": 5,
+      "type": "database",
+      "label": "Keluar dari penampung",
+      "sublabel": "kategori terisi",
+      "width": 150
+    }
+  ],
+  "edges": [
+    {
+      "from": "daftar",
+      "to": "nilai",
+      "label": "daftar aktif",
+      "variant": "dashed"
+    },
+    {
+      "from": "distill",
+      "to": "nilai",
+      "variant": "emphasis"
+    },
+    {
+      "from": "nilai",
+      "to": "simpan",
+      "variant": "emphasis"
+    },
+    {
+      "from": "nilai",
+      "to": "usul",
+      "label": "kategori baru",
+      "variant": "dashed"
+    },
+    {
+      "from": "usul",
+      "to": "setuju",
+      "variant": "dashed"
+    },
+    {
+      "from": "nilai",
+      "to": "penampung",
+      "label": "JSON cacat / ditolak",
+      "variant": "dashed"
+    },
+    {
+      "from": "penampung",
+      "to": "ulang",
+      "label": "tombol Nilai ulang",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ulang",
+      "to": "hasil",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Kategori Dokumen → sunting daftarnya supaya cocok dengan jenis dokumen perusahaanmu",
+        "Usulan agen muncul dengan status 'proposed' — setujui atau tolak di halaman yang sama",
+        "Dokumen menumpuk di 'Belum dikategorikan'? Tekan Nilai ulang; ia tak membaca ulang dokumennya"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Kenapa dua jalur",
+      "items": [
+        "Saat ingest: dinilai dari ISI dokumen — paling akurat, dan gratis karena menumpang distill",
+        "Nilai ulang: dinilai dari RINGKASAN — lebih lemah, tapi cukup untuk menjawab 'ini dokumen jenis apa'",
+        "Yang dinilai ulang hanya yang kategorinya KOSONG; kategori yang sudah diisi tak pernah disentuh"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Yang mudah salah paham",
+      "items": [
+        "'Tetap belum' berarti model sudah menilai dan tak yakin — beda dari 'gagal dinilai' (model diam)",
+        "Kategori dipakai menyaring pencarian dan mewarnai graf memory, bukan sekadar label",
+        "Agen tak boleh memakai kategori usulannya sendiri sebelum disetujui manusia"
+      ]
+    }
+  ]
+}
