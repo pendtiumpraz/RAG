@@ -85,6 +85,44 @@ export const DIAGRAM: Diagram[] = [
       'Mode kepatuhan ketat menjawab "tidak ada di dokumen" — itu jawaban yang benar, bukan kegagalan.',
     ],
   },
+  {
+    id: 'sync-konektor',
+    judul: 'Sync konektor (delta)',
+    jenis: 'workflow',
+    ringkas: 'Drive/SharePoint/S3/Notion/Slack: listing murah dibandingkan manifest, lalu hanya yang berubah yang diunduh dan di-embed.',
+    berkas: '/hla/sync-konektor.html',
+    spec: 'docs/hla/sync-konektor.workflow.json',
+    langkah: [
+      'Settings → Connections → hubungkan akun Google atau Microsoft (sekali per akun).',
+      'Knowledge → pilih KB → Tambah sumber → pilih penyedia, folder, atau tempel URL folder yang dibagikan.',
+      'Sumber baru langsung disinkronkan; tekan Sync kapan pun untuk memeriksa perubahan.',
+      'Baca statusnya: synced, partial (masih ada sisa), quota, atau error.',
+    ],
+    catat: [
+      'Yang dibandingkan hanya metadata — Drive modifiedTime, Graph eTag — sehingga sync kedua jauh lebih murah.',
+      'Listing yang terpotong TIDAK memicu penghapusan; berkas di luar jendela listing bukan berkas yang hilang.',
+      'Format tak didukung disaring sebelum diunduh, dan status "quota" dibedakan dari "error" karena tindakannya berbeda.',
+    ],
+  },
+  {
+    id: 'memory-agent',
+    judul: 'Memory Agent',
+    jenis: 'workflow',
+    ringkas: 'Dokumen diringkas jadi catatan ber-wikilink dan graf pengetahuan — lima lapis, dengan satu batas waktu yang menentukan.',
+    berkas: '/hla/memory-agent.html',
+    spec: 'docs/hla/memory-agent.workflow.json',
+    langkah: [
+      'Memory → pilih chatbot → Jalankan Agent untuk dokumen yang sudah terlanjur masuk.',
+      'Unggahan baru dan assign KB memicunya sendiri — tak perlu ditekan.',
+      'Bila mode tinjau menyala, catatan baru menunggu persetujuan: pakai Setujui semua.',
+      'KB besar: jalankan `npm run memory:worker -- --chatbot=<nama>` dari VPS.',
+    ],
+    catat: [
+      'Terukur di produksi: 25 dokumen → 116 catatan → 1.277 detik, jauh di atas tenggat 300 detik lambda.',
+      'Catatan ditulis di L4 setelah SEMUA dokumen selesai — run yang terputus menyisakan nol catatan, bukan sebagian.',
+      'Distill memanggil LLM sekali per dokumen; itu yang menentukan biaya maupun durasinya.',
+    ],
+  },
 ];
 
 export const LABEL_JENIS: Record<Diagram['jenis'], string> = {

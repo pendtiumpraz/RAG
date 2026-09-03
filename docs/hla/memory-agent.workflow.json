@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Memory Agent — dokumen jadi peta pengetahuan",
+    "subtitle": "L1 tangkap → L2 ringkas → L3 tautkan → L4 graf → L5 rawat",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "pemicu",
+        "label": "Apa yang memicunya",
+        "focus": ["unggah", "sync", "assign", "antre"],
+        "note": "Tiga pemicu otomatis plus tombol manual. Sebelumnya hanya sync yang memicu — itu sebabnya memory bisa kosong padahal dokumennya ada."
+      },
+      {
+        "id": "pipeline",
+        "label": "Lima lapis",
+        "focus": ["antre", "kumpul", "distill", "tautkan", "graf"],
+        "note": "Distill memanggil LLM SEKALI PER DOKUMEN — di situlah seluruh waktunya habis."
+      },
+      {
+        "id": "batas",
+        "label": "Batas yang menentukan",
+        "focus": ["graf", "putus", "pekerja"],
+        "note": "Catatan baru ditulis di L4, setelah semua dokumen selesai. Lambda yang mati di detik ke-300 menyisakan NOL, bukan sebagian."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "pemicu", "label": "Pemicu" },
+    { "id": "agen", "label": "Pipeline agen" },
+    { "id": "simpan", "label": "Hasil" },
+    { "id": "batas", "label": "Batas & jalan keluar", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "picu", "label": "Terpicu", "fromCol": 0, "toCol": 1 },
+    { "id": "olah", "label": "Olah per dokumen", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "tulis", "label": "Tulis sekaligus", "fromCol": 4, "toCol": 5 }
+  ],
+  "mainPath": ["antre", "kumpul", "distill", "tautkan", "graf"],
+  "nodes": [
+    { "id": "unggah", "lane": "pemicu", "col": 0, "type": "backend", "label": "Unggahan selesai", "sublabel": "berkas masuk KB", "width": 128 },
+    { "id": "sync", "lane": "pemicu", "col": 0, "type": "backend", "label": "Sync mengubah KB", "sublabel": "ada yang berubah", "width": 128, "yOffset": 64 },
+    { "id": "assign", "lane": "pemicu", "col": 1, "type": "backend", "label": "KB di-assign", "sublabel": "chatbot baru dapat KB", "width": 128 },
+    { "id": "antre", "lane": "agen", "col": 1, "type": "messagebus", "label": "Antre job", "sublabel": "dedup per chatbot", "width": 118 },
+    { "id": "kumpul", "lane": "agen", "col": 2, "type": "database", "label": "L1 · Kumpulkan", "sublabel": "per doc_ref", "width": 118 },
+    { "id": "distill", "lane": "agen", "col": 3, "type": "external", "label": "L2 · Distill (LLM)", "sublabel": "1 panggilan / dokumen", "width": 140, "tag": "termahal" },
+    { "id": "tautkan", "lane": "agen", "col": 4, "type": "backend", "label": "L3 · Wikilink", "sublabel": "entitas → [[tautan]]", "width": 128 },
+    { "id": "graf", "lane": "simpan", "col": 5, "type": "database", "label": "L4 · Catatan + graf", "sublabel": "ditulis SEKALIGUS", "width": 132, "tag": "titik simpan" },
+    { "id": "putus", "lane": "batas", "col": 4, "type": "external", "label": "Lambda 300 dtk", "sublabel": "belum sampai L4 = NOL", "width": 132 },
+    { "id": "pekerja", "lane": "batas", "col": 5, "type": "cloud", "label": "Pekerja VPS", "sublabel": "memory:worker", "width": 118 }
+  ],
+  "edges": [
+    { "from": "unggah", "to": "antre", "variant": "emphasis" },
+    { "from": "sync", "to": "antre" },
+    { "from": "assign", "to": "antre" },
+    { "from": "antre", "to": "kumpul", "variant": "emphasis" },
+    { "from": "kumpul", "to": "distill", "label": "per dokumen", "variant": "emphasis" },
+    { "from": "distill", "to": "tautkan", "variant": "emphasis" },
+    { "from": "tautkan", "to": "graf", "label": "seluruh draf", "variant": "emphasis" },
+    { "from": "distill", "to": "putus", "label": "kehabisan waktu", "variant": "dashed" },
+    { "from": "putus", "to": "pekerja", "label": "jalankan dari luar", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Memory → pilih chatbot → Jalankan Agent (untuk dokumen yang sudah terlanjur masuk)",
+        "Unggahan baru & assign KB memicunya sendiri — tak perlu ditekan",
+        "Bila mode tinjau menyala, catatan baru menunggu di antrean: pakai Setujui semua"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Apa yang dihasilkan",
+      "items": [
+        "Satu catatan markdown per dokumen: ringkasan, poin kunci, kategori",
+        "Catatan topik (MOC) supaya [[wikilink]] tak menggantung",
+        "Edge wikilink + kemiripan — inilah yang jadi kaki memory saat menjawab"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Batas yang menentukan",
+      "items": [
+        "Terukur di produksi: 25 dokumen → 116 catatan → 1.277 detik, jauh di atas 300 detik lambda",
+        "Catatan ditulis di L4 setelah SEMUA dokumen selesai — terputus di tengah berarti nol catatan",
+        "Untuk KB besar jalankan npm run memory:worker dari VPS; basis datanya sama"
+      ]
+    }
+  ]
+}

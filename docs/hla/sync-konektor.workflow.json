@@ -1,0 +1,254 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Sync konektor — hanya yang berubah yang dibayar",
+    "subtitle": "Drive · SharePoint · S3 · Notion · Slack · URL",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "delta",
+        "label": "Kenapa murah",
+        "focus": [
+          "listing",
+          "manifest",
+          "rencana",
+          "unduh",
+          "ingest"
+        ],
+        "note": "Listing metadata itu murah; unduh + embed yang mahal. Delta memastikan yang mahal hanya jalan untuk berkas baru atau berubah."
+      },
+      {
+        "id": "hapus",
+        "label": "Penghapusan & jaring pengamannya",
+        "focus": [
+          "rencana",
+          "buang",
+          "terpotong"
+        ],
+        "note": "Listing yang TERPOTONG tak boleh memicu penghapusan — berkas di luar jendela listing bukan berkas yang hilang."
+      },
+      {
+        "id": "berhenti",
+        "label": "Saat sync berhenti di tengah",
+        "focus": [
+          "ingest",
+          "kuota",
+          "sisa"
+        ],
+        "note": "Kuota habis menghentikan seluruh jalan; sisanya dilaporkan pending, bukan gagal — sync berikutnya melanjutkan."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "upstream",
+      "label": "Penyedia (upstream)"
+    },
+    {
+      "id": "rencana",
+      "label": "Perencanaan (murah)"
+    },
+    {
+      "id": "kerja",
+      "label": "Pekerjaan mahal"
+    },
+    {
+      "id": "jaga",
+      "label": "Berhenti & jaring pengaman",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "lihat",
+      "label": "Lihat",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "bandingkan",
+      "label": "Bandingkan",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "kerjakan",
+      "label": "Kerjakan",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "listing",
+    "manifest",
+    "rencana",
+    "unduh",
+    "ingest"
+  ],
+  "nodes": [
+    {
+      "id": "listing",
+      "lane": "upstream",
+      "col": 0,
+      "type": "external",
+      "label": "Listing metadata",
+      "sublabel": "nama + versi saja",
+      "width": 128,
+      "tag": "tanpa unduh"
+    },
+    {
+      "id": "manifest",
+      "lane": "rencana",
+      "col": 2,
+      "type": "database",
+      "label": "Manifest KB",
+      "sublabel": "external_id + versi",
+      "width": 128
+    },
+    {
+      "id": "rencana",
+      "lane": "rencana",
+      "col": 3,
+      "type": "backend",
+      "label": "planDelta()",
+      "sublabel": "baru · berubah · hilang",
+      "width": 132,
+      "tag": "fungsi murni"
+    },
+    {
+      "id": "unduh",
+      "lane": "kerja",
+      "col": 4,
+      "type": "backend",
+      "label": "Unduh + ekstraksi",
+      "sublabel": "hanya yang berubah",
+      "width": 132
+    },
+    {
+      "id": "ingest",
+      "lane": "kerja",
+      "col": 5,
+      "type": "database",
+      "label": "Potong + embed",
+      "sublabel": "versi baru ganti lama",
+      "width": 132
+    },
+    {
+      "id": "buang",
+      "lane": "kerja",
+      "col": 4,
+      "type": "backend",
+      "label": "Soft-delete",
+      "sublabel": "hilang di upstream",
+      "width": 118,
+      "yOffset": 64
+    },
+    {
+      "id": "terpotong",
+      "lane": "jaga",
+      "col": 3,
+      "type": "external",
+      "label": "Listing terpotong",
+      "sublabel": "penghapusan DIBATALKAN",
+      "width": 132
+    },
+    {
+      "id": "kuota",
+      "lane": "jaga",
+      "col": 5,
+      "type": "external",
+      "label": "Kuota habis",
+      "sublabel": "seluruh jalan berhenti",
+      "width": 118
+    },
+    {
+      "id": "sisa",
+      "lane": "jaga",
+      "col": 5,
+      "type": "external",
+      "label": "Sisa = pending",
+      "sublabel": "dilanjutkan jalan berikutnya",
+      "width": 132,
+      "yOffset": 64
+    }
+  ],
+  "edges": [
+    {
+      "from": "listing",
+      "to": "manifest",
+      "label": "bandingkan",
+      "variant": "emphasis"
+    },
+    {
+      "from": "manifest",
+      "to": "rencana",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rencana",
+      "to": "unduh",
+      "label": "baru / berubah",
+      "variant": "emphasis"
+    },
+    {
+      "from": "unduh",
+      "to": "ingest",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rencana",
+      "to": "buang",
+      "label": "hilang",
+      "variant": "dashed"
+    },
+    {
+      "from": "rencana",
+      "to": "terpotong",
+      "label": "jendela penuh?",
+      "variant": "dashed"
+    },
+    {
+      "from": "ingest",
+      "to": "kuota",
+      "label": "jatah habis",
+      "variant": "dashed"
+    },
+    {
+      "from": "ingest",
+      "to": "sisa",
+      "label": "batas per jalan",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Settings → Connections → hubungkan akun Google / Microsoft (sekali per akun)",
+        "Knowledge → pilih KB → Tambah sumber → pilih penyedia, folder, atau tempel URL folder",
+        "Sumber tersimpan langsung disinkronkan; tekan Sync kapan pun untuk memeriksa perubahan"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Kenapa sync kedua jauh lebih cepat",
+      "items": [
+        "Yang dibandingkan hanya metadata: Drive modifiedTime, Graph eTag",
+        "Berkas tak berubah dilewati sepenuhnya — tak diunduh, tak di-embed, tak dibayar",
+        "?full=1 memaksa ingest ulang seluruhnya bila memang diperlukan"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Dua jaring pengaman",
+      "items": [
+        "Listing terpotong TIDAK memicu penghapusan — berkas di luar jendela bukan berkas hilang",
+        "Format tak didukung disaring SEBELUM diunduh, bukan sesudah",
+        "Kuota habis dilaporkan terpisah dari 'gagal': tindakannya berbeda sama sekali"
+      ]
+    }
+  ]
+}
