@@ -59,7 +59,10 @@ test('agen mengelompokkan per doc_ref, bukan per judul', () => {
   // membuat dua berkas berbeda yang kebetulan sejudul menyatu jadi satu
   // catatan, dan membuat catatan tak bisa di-JOIN pasti ke dokumennya.
   const cap = AGENT.slice(AGENT.indexOf('const docs = await'), AGENT.indexOf('kategoriAktif'));
-  assert.ok(/group by doc_ref/.test(cap), 'agen masih mengelompokkan per judul');
+  // `d.doc_ref` sejak kueri L1 memakai alias tabel (perlu untuk subquery
+  // prioritas dokumen-tanpa-catatan); yang dikunci tetap sama — grupnya
+  // identitas dokumen, bukan judul.
+  assert.ok(/group by d\.doc_ref/.test(cap), 'agen masih mengelompokkan per judul');
 });
 
 test('migrasi mem-backfill doc_ref catatan lama', () => {

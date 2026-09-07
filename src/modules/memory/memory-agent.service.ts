@@ -117,16 +117,38 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     // /api/v1/documents. Mengelompokkan per judul membuat dua berkas berbeda
     // yang kebetulan sejudul menyatu jadi satu catatan, dan membuat catatan
     // tak bisa di-JOIN pasti ke dokumennya (dulu hanya dicocokkan lewat slug).
+    /* Dokumen yang BELUM punya catatan didahulukan.
+
+       Tanpa urutan ini, `limit 40` selalu mengambil himpunan 40 yang sama —
+       dan pada KB berisi 69 dokumen, 29 sisanya TAK PERNAH mendapat catatan
+       berapa kali pun agennya dijalankan. Kegagalannya senyap: run berakhir
+       "done", jumlah catatannya wajar, dan tak ada yang tahu dokumen mana
+       yang tak terwakili sampai bot gagal menjawab isinya.
+
+       Sesudah semua terliput, urutan kedua (updated_at tertua dulu) membuat
+       run berikutnya MENYEGARKAN yang paling basi alih-alih mengulang
+       himpunan yang sama — jadi tombol "Jalankan Agent" tetap bermakna pada
+       KB yang sudah penuh catatan. */
     const rows = await tx.execute(sql`
-      select doc_ref,
-             max(title) as title,
-             string_agg(content, E'\n' order by (metadata->>'chunk')::int) as full_text
-      from documents
-      where knowledge_base_id in (
+      select d.doc_ref,
+             max(d.title) as title,
+             string_agg(d.content, E'\n' order by (d.metadata->>'chunk')::int) as full_text
+      from documents d
+      where d.knowledge_base_id in (
           select knowledge_base_id from chatbot_knowledge_bases
           where chatbot_id = ${chatbotId} and deleted_at is null)
-        and deleted_at is null and title is not null
-      group by doc_ref
+        and d.deleted_at is null and d.title is not null
+      group by d.doc_ref
+      order by
+        exists(select 1 from memory_notes n
+                where n.chatbot_id = ${chatbotId}
+                  and n.doc_ref = d.doc_ref
+                  and n.deleted_at is null) asc,
+        coalesce((select max(n.updated_at) from memory_notes n
+                   where n.chatbot_id = ${chatbotId}
+                     and n.doc_ref = d.doc_ref
+                     and n.deleted_at is null), 'epoch'::timestamp) asc,
+        d.doc_ref asc
       limit ${MAX_DOCS_PER_RUN}
     `);
     return rows as unknown as Array<{ doc_ref: string; title: string; full_text: string }>;
@@ -279,7 +301,21 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
     });
   }
 
-  // edges similarity (cosine antar embedding note; vektor sudah normalized)
+  /* Edges similarity dibangun ulang atas SELURUH catatan hidup chatbot —
+     satu pernyataan SQL di pgvector, bukan loop N² di JS.
+
+     Dua alasan, dan yang pertama BUG: versi lama menghapus semua edge
+     similarity lalu menyisipkan ulang hanya pasangan antar-catatan RUN INI.
+     Begitu KB melewati MAX_DOCS_PER_RUN dan pipeline berjalan dua kali, run
+     kedua memusnahkan edges run pertama — graf memory kehilangan sebagian
+     besar ototnya tanpa satu pun galat. Kedua, biaya: 250 catatan berarti
+     ±31 ribu pasangan, dan satu INSERT per pasangan dari JS adalah ribuan
+     round-trip ke Neon — penyumbang nyata run 21 menit yang terukur.
+
+     Bobotnya cosine similarity (1 − jarak cosine); vektor catatan
+     dinormalkan saat embed, jadi angkanya setara dot product versi lama.
+     Catatan 'rejected' dikecualikan — ia sudah ditolak manusia dan tak
+     boleh ikut menarik-narik graf. */
   await withTenant(tenantId, async (tx) => {
     await tx.update(memoryEdges).set({ deletedAt: new Date() })
       .where(and(
@@ -288,19 +324,19 @@ export async function runMemoryPipeline(tenantId: string, chatbotId: string): Pr
         eq(memoryEdges.kind, 'similarity'),
         isNull(memoryEdges.deletedAt),
       ));
-    for (let a = 0; a < uniqueDrafts.length; a++) {
-      for (let b = a + 1; b < uniqueDrafts.length; b++) {
-        const sim = dot(vectors[a], vectors[b]);
-        if (sim >= SIMILARITY_EDGE_THRESHOLD) {
-          await tx.insert(memoryEdges).values({
-            tenantId, chatbotId,
-            fromNoteId: idBySlug.get(uniqueDrafts[a].slug)!,
-            toNoteId: idBySlug.get(uniqueDrafts[b].slug)!,
-            kind: 'similarity', weight: sim,
-          });
-        }
-      }
-    }
+    await tx.execute(sql`
+      insert into memory_edges (tenant_id, chatbot_id, from_note_id, to_note_id, kind, weight)
+      select a.tenant_id, a.chatbot_id, a.id, b.id, 'similarity',
+             1 - (a.embedding <=> b.embedding)
+      from memory_notes a
+      join memory_notes b
+        on b.tenant_id = a.tenant_id and b.chatbot_id = a.chatbot_id
+       and b.id > a.id
+       and b.deleted_at is null and b.status <> 'rejected' and b.embedding is not null
+      where a.tenant_id = ${tenantId} and a.chatbot_id = ${chatbotId}
+        and a.deleted_at is null and a.status <> 'rejected' and a.embedding is not null
+        and 1 - (a.embedding <=> b.embedding) >= ${SIMILARITY_EDGE_THRESHOLD}
+    `);
   });
 
   /* ── L1b · PERCAKAPAN — pertanyaan berulang jadi catatan ─────────

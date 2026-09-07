@@ -135,24 +135,67 @@ async function main() {
 
   for (const c of list) {
     if (berhenti) { console.log('[memory] dihentikan.'); break; }
-    const mulai = Date.now();
-    console.log(`\n[memory] ${c.chatbotNama} (${c.dokumen} dokumen) — mulai…`);
-    try {
-      const r = await runMemoryPipeline(c.tenantId, c.chatbotId);
-      const detik = ((Date.now() - mulai) / 1000).toFixed(1);
-      console.log(`[memory] ${c.chatbotNama} SELESAI ${detik}s — ${r.catatan} catatan `
-        + `dari ${r.dokumen} dokumen`
-        + (r.distillKosong || r.distillCacat
-          ? ` · distill gagal: ${r.distillKosong} kosong, ${r.distillCacat} cacat`
-          : ''));
-    } catch (e) {
-      /* Satu chatbot gagal TIDAK boleh menghentikan sisanya — biasanya
-         sebabnya milik chatbot itu sendiri (kunci provider tenant belum
-         diisi), dan chatbot lain masih bisa dipetakan. */
-      const detik = ((Date.now() - mulai) / 1000).toFixed(1);
-      console.error(`[memory] ${c.chatbotNama} GAGAL setelah ${detik}s: ${(e as Error).message}`);
+
+    /* SATU chatbot bisa butuh BEBERAPA run: pipeline membatasi diri ke
+       MAX_DOCS_PER_RUN dokumen per jalan (40), dan sejak dokumen tanpa
+       catatan didahulukan, tiap run pasti memakan sisa yang belum terliput.
+       Pekerja ini — sesuai namanya — berputar sampai TUNTAS: berhenti saat
+       semua dokumen terliput, saat satu run tak lagi membuat kemajuan
+       (mis. distill gagal terus pada dokumen yang sama), atau saat atap
+       putaran tercapai. Tanpa loop ini, "sampai tuntas" cuma benar untuk
+       KB kecil. */
+    const MAX_PUTARAN = 25;
+    let sisaSebelum = await sisaTanpaCatatan(c.tenantId, c.chatbotId);
+    for (let putaran = 1; putaran <= MAX_PUTARAN; putaran++) {
+      if (berhenti) { console.log('[memory] dihentikan.'); break; }
+      const mulai = Date.now();
+      console.log(`\n[memory] ${c.chatbotNama} — putaran ${putaran}, ${sisaSebelum} dokumen belum terliput…`);
+      try {
+        const r = await runMemoryPipeline(c.tenantId, c.chatbotId);
+        const detik = ((Date.now() - mulai) / 1000).toFixed(1);
+        console.log(`[memory] ${c.chatbotNama} putaran ${putaran} selesai ${detik}s — ${r.catatan} catatan `
+          + `dari ${r.dokumen} dokumen`
+          + (r.distillKosong || r.distillCacat
+            ? ` · distill gagal: ${r.distillKosong} kosong, ${r.distillCacat} cacat`
+            : ''));
+      } catch (e) {
+        /* Satu chatbot gagal TIDAK boleh menghentikan sisanya — biasanya
+           sebabnya milik chatbot itu sendiri (kunci provider tenant belum
+           diisi), dan chatbot lain masih bisa dipetakan. */
+        const detik = ((Date.now() - mulai) / 1000).toFixed(1);
+        console.error(`[memory] ${c.chatbotNama} GAGAL setelah ${detik}s: ${(e as Error).message}`);
+        break;
+      }
+
+      const sisa = await sisaTanpaCatatan(c.tenantId, c.chatbotId);
+      if (sisa === 0) { console.log(`[memory] ${c.chatbotNama} TUNTAS — semua dokumen terliput.`); break; }
+      if (sisa >= sisaSebelum) {
+        console.log(`[memory] ${c.chatbotNama} berhenti: putaran terakhir tak membuat kemajuan (sisa ${sisa}). `
+          + 'Periksa log distill di atas.');
+        break;
+      }
+      sisaSebelum = sisa;
     }
   }
+}
+
+/** Berapa dokumen chatbot ini yang belum punya satu pun catatan hidup. */
+async function sisaTanpaCatatan(tenantId: string, chatbotId: string): Promise<number> {
+  const rows = (await withTenant(tenantId, (tx) => tx.execute(sql`
+    select count(*)::int as sisa from (
+      select d.doc_ref
+      from documents d
+      where d.knowledge_base_id in (
+          select knowledge_base_id from chatbot_knowledge_bases
+          where chatbot_id = ${chatbotId} and deleted_at is null)
+        and d.deleted_at is null and d.title is not null
+      group by d.doc_ref
+    ) dok
+    where not exists (
+      select 1 from memory_notes n
+      where n.chatbot_id = ${chatbotId} and n.doc_ref = dok.doc_ref and n.deleted_at is null)
+  `))) as unknown as Array<{ sisa: number }>;
+  return rows[0]?.sisa ?? 0;
 }
 
 main()
