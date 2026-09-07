@@ -6,6 +6,7 @@ import { requireRole } from '@/modules/core/auth';
 import { knowledgeService } from '@/modules/knowledge/knowledge.service';
 import { QuotaError } from '@/modules/knowledge/knowledge.service';
 import { extractText, isExtractable } from '@/modules/knowledge/sync.service';
+import { bersihkanJalur } from '@/modules/knowledge/jalur-unggahan';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { storageService } from '@/modules/storage';
@@ -88,6 +89,32 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const files = form.getAll('files').filter((f): f is File => f instanceof File);
   if (!files.length) return NextResponse.json({ error: 'Tak ada berkas yang dikirim' }, { status: 400 });
+
+  /* JALUR RELATIF (mode unggah folder). Peramban menaruh subfolder di
+     `File.webkitRelativePath`, dan bidang itu TIDAK ikut terkirim di
+     multipart — jadi klien mengirimkannya terpisah, sejajar urutan berkas.
+
+     Kenapa penting: `externalId` menentukan identitas dokumen. Dengan hanya
+     nama berkas, `02-bahasan/ringkasan.docx` dan `03-penerapan/ringkasan.docx`
+     dianggap dokumen yang SAMA — yang kedua menimpa yang pertama tanpa satu
+     pun galat. Pada unggahan satu-dua berkas itu tak pernah terlihat; pada
+     unggahan satu folder utuh ia menghapus pekerjaan orang.
+
+     Nilainya dibersihkan di sini, bukan dipercaya: klien mana pun bisa
+     mengirim "../" dan path absolut. */
+  const rawPaths = form.get('paths');
+  let paths: string[] = [];
+  if (typeof rawPaths === 'string' && rawPaths.trim()) {
+    try {
+      const urai: unknown = JSON.parse(rawPaths);
+      if (Array.isArray(urai)) paths = urai.map((x) => (typeof x === 'string' ? x : ''));
+    } catch {
+      return NextResponse.json({ error: "Daftar path tidak terbaca (harus JSON array)" }, { status: 400 });
+    }
+  }
+  /** Path relatif yang AMAN untuk berkas ke-i, atau namanya bila tak ada.
+   *  Pembersihannya diuji terpisah — lihat modules/knowledge/jalur-unggahan.ts. */
+  const jalurAman = (i: number, nama: string): string => bersihkanJalur(paths[i], nama);
   if (files.length > MAX_FILES) {
     return NextResponse.json({ error: `Maksimal ${MAX_FILES} berkas per unggahan` }, { status: 400 });
   }
@@ -125,7 +152,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
      blob diperiksa PER-BERKAS sebelum simpan; kalau habis → QuotaError (402)
      menghentikan seluruh unggahan. (Drive/SharePoint tak pernah lewat sini —
      mereka sync langsung tanpa blob dan tak dihitung terhadap kuota ini.) */
-  for (const f of files) {
+  for (const [i, f] of files.entries()) {
+    const rel = jalurAman(i, f.name);
     if (!isExtractable(f.name, f.type)) {
       skipped.push({ name: f.name, reason: 'format tak didukung' });
       continue;
@@ -141,7 +169,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         user.tenantId, user.id,
         {
           knowledgeBaseId,
-          nama: f.name,
+          nama: rel,
           bytes: buf,
           mime: f.type || null,
         },
@@ -196,14 +224,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // dokumen yang diperbaiki akan menyimpan DUA versi sekaligus, dan
       // retrieval bisa menjawab dari yang usang. Terbukti saat pengujian:
       // ingest dua kali dengan externalId sama menghasilkan dua potongan.
-      await knowledgeService.removeExternal(user.tenantId, source.id, [f.name]);
+      await knowledgeService.removeExternal(user.tenantId, source.id, [rel]);
 
       const chunks = await knowledgeService.ingest(user.tenantId, {
         knowledgeBaseId,
         title: f.name,
         text,
         sourceId: source.id,
-        externalId: f.name,
+        /* Identitas = JALUR, judul = nama berkas. Dua berkas sejudul di
+           subfolder berbeda tetap dua dokumen, tapi daftar dokumen tak
+           dipenuhi path panjang yang menyulitkan dibaca. */
+        externalId: rel,
+        path: rel,
         externalVersion: String(f.size),
         metadata: {
           uploadedBy: user.id, size: f.size, mime: f.type || null,

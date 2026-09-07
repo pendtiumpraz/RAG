@@ -793,7 +793,16 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const [accountEmail, setAccountEmail] = useState('');
   const [picked, setPicked] = useState<PickedFile[]>([]);
   /** berkas dari komputer pengguna (jenis sumber `upload`) */
+  /** Awalan berkas kunci Word (mis. ~$laporan.docx) — ikut terpilih saat
+   *  memilih folder, dan tak pernah berisi dokumen. */
+  const TANDA_KUNCI = '~' + '$';
+  /** Jalur relatif berkas (mode folder), atau namanya pada mode biasa. */
+  const jalurBerkas = (f: File) =>
+    (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
   const [files, setFiles] = useState<File[]>([]);
+  /** Mode folder: pilih satu direktori beserta seluruh subfolder-nya. */
+  const [modeFolder, setModeFolder] = useState(false);
+  const [progres, setProgres] = useState<{ batch: number; dari: number; berkas: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const toast = useToast();
@@ -879,36 +888,96 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
    * permintaan, dan tak ada yang bisa disinkronkan ulang setelahnya —
    * ekstraksi + ingest tuntas dalam satu permintaan itu juga.
    */
+  /**
+   * Batas per PERMINTAAN, bukan per unggahan.
+   *
+   * Vercel memutus badan permintaan di ±4,5 MB dan rute menolak lebih dari 20
+   * berkas sekaligus. Keduanya batas TRANSPOR, bukan batas seberapa banyak
+   * dokumen yang boleh dimasukkan orang — jadi yang benar adalah memecah di
+   * sini, bukan menyuruh pemilik data menghitung sendiri lalu mengulang
+   * seleksi berkas empat kali.
+   */
+  const BATCH_BERKAS = 20;
+  const BATCH_BYTE = 3.5 * 1024 * 1024;   // sisakan ruang untuk overhead multipart
+
+  /** Pecah daftar berkas jadi batch yang muat dalam satu permintaan. */
+  function pecahBatch(daftar: File[]): File[][] {
+    const out: File[][] = [];
+    let kini: File[] = [];
+    let bytes = 0;
+    for (const f of daftar) {
+      /* Berkas tunggal yang lebih besar dari anggaran tetap dikirim sendirian:
+         menolaknya di sini berarti pengguna tak pernah tahu berkas MANA yang
+         terlalu besar — biar server yang menjawab dengan pesan yang tepat. */
+      if (kini.length && (kini.length >= BATCH_BERKAS || bytes + f.size > BATCH_BYTE)) {
+        out.push(kini); kini = []; bytes = 0;
+      }
+      kini.push(f); bytes += f.size;
+    }
+    if (kini.length) out.push(kini);
+    return out;
+  }
+
+  /**
+   * Unggahan TIDAK lewat /api/sources: berkasnya harus ikut dalam badan
+   * permintaan, dan tak ada yang bisa disinkronkan ulang setelahnya —
+   * ekstraksi + ingest tuntas dalam permintaan itu juga.
+   *
+   * Mode folder mengirim JALUR RELATIF tiap berkas (webkitRelativePath)
+   * berdampingan dengan berkasnya. Tanpa itu dua berkas sejudul di subfolder
+   * berbeda punya externalId yang sama dan saling menimpa diam-diam.
+   */
   async function uploadFiles() {
     if (!files.length) { setErr('Pilih berkasnya dulu.'); return; }
-    const total = files.reduce((n, f) => n + f.size, 0);
-    if (total > 4 * 1024 * 1024) {
-      setErr(`Total ${(total / 1048576).toFixed(1)} MB melebihi batas 4 MB per unggahan (batas Vercel). Bagi jadi beberapa kali.`);
-      return;
-    }
     setBusy(true); setErr(null);
+
+    const batch = pecahBatch(files);
+    let masuk = 0, potongan = 0, tersimpan = 0, dilewati = 0;
+    const rincian: string[] = [];
+
     try {
-      const fd = new FormData();
-      for (const f of files) fd.append('files', f);
-      const r = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/upload`, { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error ?? 'Gagal mengunggah');
-      const n = j.ingested?.length ?? 0;
-      const s = j.skipped?.length ?? 0;
-      const d = j.disimpan?.length ?? 0;
-      // Berkas yang dilewati / tersimpan-tapi-belum-diingest disebut satu per
-      // satu beserta sebabnya — "3 dari 5 berhasil" tanpa keterangan memaksa
-      // orang menebak yang mana. `disimpan` = aslinya AMAN di storage, cuma
-      // teksnya belum terbaca (bukan hilang, bukan "hasil pindai").
-      const rincian = [
-        ...(j.disimpan as Array<{ name: string; reason: string }> ?? []),
-        ...(j.skipped as Array<{ name: string; reason: string }> ?? []),
-      ].map((x) => `${x.name} — ${x.reason}`).join('; ');
-      toast(s || d
-        ? `${n} berkas masuk (${j.chunks} potongan) · ${d} disimpan tanpa diingest · ${s} dilewati: ${rincian}`
-        : `${n} berkas masuk (${j.chunks} potongan)`);
+      for (let i = 0; i < batch.length; i++) {
+        setProgres({ batch: i + 1, dari: batch.length, berkas: masuk + tersimpan + dilewati, total: files.length });
+        const fd = new FormData();
+        const jalur: string[] = [];
+        for (const f of batch[i]) {
+          fd.append('files', f);
+          jalur.push(jalurBerkas(f));
+        }
+        fd.append('paths', JSON.stringify(jalur));
+
+        const r = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/upload`, { method: 'POST', body: fd });
+        const j = await r.json();
+        /* Batch yang gagal MENGHENTIKAN sisanya, dan itu disengaja: penyebab
+           tersering (kuota habis, sesi kedaluwarsa) pasti menjatuhkan batch
+           berikutnya juga. Yang sudah masuk tetap masuk, dan jumlahnya
+           disebutkan supaya orang tahu harus melanjutkan dari mana. */
+        if (!r.ok) {
+          const sebab = j.error ?? 'Gagal mengunggah';
+          throw new Error(batch.length > 1
+            ? `${sebab} — berhenti di batch ${i + 1}/${batch.length}; ${masuk} berkas sudah masuk.`
+            : sebab);
+        }
+
+        masuk += j.ingested?.length ?? 0;
+        potongan += j.chunks ?? 0;
+        tersimpan += j.disimpan?.length ?? 0;
+        dilewati += j.skipped?.length ?? 0;
+        for (const x of [...(j.disimpan ?? []), ...(j.skipped ?? [])] as Array<{ name: string; reason: string }>) {
+          rincian.push(`${x.name} — ${x.reason}`);
+        }
+      }
+
+      /* Rincian dipotong: 69 berkas yang semuanya gagal akan menghasilkan
+         toast sepanjang layar yang justru tak terbaca. Yang tersembunyi
+         disebut jumlahnya, dan daftar lengkapnya ada di halaman Dokumen. */
+      const tampil = rincian.slice(0, 5).join('; ');
+      const sisa = rincian.length > 5 ? ` (+${rincian.length - 5} lagi)` : '';
+      toast(tersimpan || dilewati
+        ? `${masuk} berkas masuk (${potongan} potongan) · ${tersimpan} disimpan tanpa diingest · ${dilewati} dilewati: ${tampil}${sisa}`
+        : `${masuk} berkas masuk (${potongan} potongan)`);
       onSaved();
-    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); setProgres(null); }
   }
 
   async function save() {
@@ -1088,14 +1157,52 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
                   jalankan OCR dulu atau salin isinya ke teks.
                 </p>
               </div>
+              {/* Dua mode, satu input. `webkitdirectory` tak bisa dipasang-lepas
+                  pada elemen yang sama — peramban menahan atribut itu setelah
+                  render pertama — jadi `key` memaksa elemen baru saat mode
+                  berganti. Tanpa itu, menekan "Satu folder" tetap membuka
+                  pemilih berkas biasa dan orang menyangka fiturnya rusak. */}
+              <div className="cluster gap-2" style={{ marginBottom: 8 }}>
+                <button type="button" className={`btn btn-sm${modeFolder ? '' : ' btn-primary'}`}
+                  onClick={() => { setModeFolder(false); setFiles([]); }}>Pilih berkas</button>
+                <button type="button" className={`btn btn-sm${modeFolder ? ' btn-primary' : ''}`}
+                  onClick={() => { setModeFolder(true); setFiles([]); }}>Satu folder (dengan subfolder)</button>
+              </div>
               <input className="input" type="file" multiple
+                key={modeFolder ? 'folder' : 'berkas'}
+                {...(modeFolder ? { webkitdirectory: '', directory: '' } : {})}
                 accept=".pdf,.docx,.txt,.md,.markdown,.csv,.json,.log,.yaml,.yml,.html,.htm"
-                onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+                onChange={(e) => {
+                  const semua = Array.from(e.target.files ?? []);
+                  /* Memilih FOLDER mengambil seluruh isinya — termasuk .DS_Store,
+                     ~$berkas kunci Word, gambar, dan apa pun yang kebetulan ada di
+                     sana. Menyaring di sini, bukan membiarkan server menolaknya,
+                     supaya jumlah yang tampil di layar sama dengan jumlah yang
+                     benar-benar akan diunggah. */
+                  const sah = (n: string) => [".pdf",".docx",".txt",".md",".markdown",".csv",".json",".log",".yaml",".yml",".html",".htm"].some((x) => n.toLowerCase().endsWith(x));
+                  setFiles(modeFolder
+                    ? semua.filter((f) => sah(f.name) && !f.name.startsWith(TANDA_KUNCI))
+                    : semua);
+                }} />
+              {files.length > 0 && (
+                <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--muted)' }}>
+                  <b>{files.length}</b> berkas terpilih ·{' '}
+                  {(files.reduce((n, f) => n + f.size, 0) / 1048576).toFixed(2)} MB ·{' '}
+                  dikirim dalam {pecahBatch(files).length} batch
+                </p>
+              )}
+              {/* aria-live: unggahan 69 berkas berlangsung setengah menit tanpa
+                  satu pun perubahan yang terlihat pembaca layar bila diam. */}
+              {progres && (
+                <p style={{ margin: '6px 0 0', fontSize: 13 }} aria-live="polite">
+                  Batch {progres.batch}/{progres.dari} — {progres.berkas} dari {progres.total} berkas selesai…
+                </p>
+              )}
               {files.length > 0 && (
                 <div style={{ marginTop: 8, maxHeight: 160, overflowY: 'auto' }} className="stack gap-1">
                   {files.map((f) => (
-                    <div key={f.name} className="cluster gap-2" style={{ fontSize: 13 }}>
-                      <span className="mono" style={{ color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                    <div key={jalurBerkas(f)} className="cluster gap-2" style={{ fontSize: 13 }}>
+                      <span className="mono" style={{ color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{jalurBerkas(f)}</span>
                       <span className="mono" style={{ color: 'var(--faint)', fontSize: 11 }}>{(f.size / 1024).toFixed(0)} KB</span>
                     </div>
                   ))}
