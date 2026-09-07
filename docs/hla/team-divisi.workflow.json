@@ -1,0 +1,89 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Orang & akses — pendaftaran, persetujuan, divisi",
+    "subtitle": "Pendaftaran terbuka, tapi bergerbang",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "masuk",
+        "label": "Dari daftar sampai bisa masuk",
+        "focus": ["daftar", "pending", "setuju", "aktif"],
+        "note": "Akun baru berstatus pending dan tak bisa masuk sampai superadmin menyetujuinya."
+      },
+      {
+        "id": "ditolak",
+        "label": "Kenapa alasannya disembunyikan",
+        "focus": ["pending", "login", "samar"],
+        "note": "Akun pending ditolak PERSIS seperti password salah — kalau tidak, endpoint login jadi alat mendata email terdaftar."
+      },
+      {
+        "id": "akses",
+        "label": "Siapa melihat apa",
+        "focus": ["aktif", "peran", "divisi"],
+        "note": "Peran menentukan yang boleh dilakukan; divisi menentukan chatbot dan konteks yang dilihat."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "calon", "label": "Calon anggota" },
+    { "id": "gerbang", "label": "Gerbang" },
+    { "id": "akses", "label": "Akses sesudahnya" },
+    { "id": "tolak", "label": "Ditolak", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "daftar", "label": "Mendaftar", "fromCol": 0, "toCol": 1 },
+    { "id": "gerbang", "label": "Digerbang", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "kerja", "label": "Bekerja", "fromCol": 4, "toCol": 5 }
+  ],
+  "mainPath": ["daftar", "pending", "setuju", "aktif"],
+  "nodes": [
+    { "id": "daftar", "lane": "calon", "col": 0, "type": "external", "label": "Daftar / diundang", "sublabel": "email · Google · Microsoft", "width": 158 },
+    { "id": "pending", "lane": "gerbang", "col": 2, "type": "backend", "label": "Status pending", "sublabel": "belum bisa masuk", "width": 140, "tag": "kedua jalur" },
+    { "id": "setuju", "lane": "gerbang", "col": 3, "type": "security", "label": "Disetujui superadmin", "sublabel": "antrean lintas tenant", "width": 168 },
+    { "id": "aktif", "lane": "akses", "col": 4, "type": "backend", "label": "Akun aktif", "sublabel": "sesi membawa tenant + peran", "width": 168 },
+    { "id": "peran", "lane": "akses", "col": 5, "type": "database", "label": "Peran", "sublabel": "superadmin · admin · member", "width": 168 },
+    { "id": "divisi", "lane": "akses", "col": 5, "type": "database", "label": "Divisi", "sublabel": "chatbot & konteks yang dilihat", "width": 176, "yOffset": 76 },
+    { "id": "login", "lane": "tolak", "col": 3, "type": "external", "label": "Mencoba masuk", "sublabel": "sebelum disetujui", "width": 148 },
+    { "id": "samar", "lane": "tolak", "col": 4, "type": "security", "label": "Ditolak samar", "sublabel": "sama seperti salah sandi", "width": 160 }
+  ],
+  "edges": [
+    { "from": "daftar", "to": "pending", "variant": "emphasis" },
+    { "from": "pending", "to": "setuju", "variant": "emphasis" },
+    { "from": "setuju", "to": "aktif", "variant": "emphasis" },
+    { "from": "aktif", "to": "peran", "label": "boleh apa", "variant": "emphasis" },
+    { "from": "aktif", "to": "divisi", "label": "lihat apa", "variant": "dashed" },
+    { "from": "pending", "to": "login", "label": "belum sabar", "variant": "dashed" },
+    { "from": "login", "to": "samar", "label": "alasan disembunyikan", "variant": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Team → antrean pendaftar → Setujui atau Tolak (khusus superadmin)",
+        "Team → ubah peran anggota: admin ↔ member",
+        "Divisi → buat divisi, isi anggotanya, lalu tautkan chatbot ke divisi itu"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Gerbangnya ada di DUA jalur",
+      "items": [
+        "Login email-sandi dan login Google/Microsoft sama-sama diperiksa statusnya",
+        "Melewatkan yang kedua berarti siapa pun bisa masuk lewat Google — gerbangnya jadi hiasan",
+        "Undangan tim melewati antrean: yang mengundang sudah tepercaya"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Kenapa penolakannya samar",
+      "items": [
+        "Akun pending ditolak PERSIS seperti password salah — pesan yang berbeda berarti endpoint login bisa dipakai mendata email terdaftar",
+        "Alasan sebenarnya hanya diberikan setelah passwordnya terbukti benar",
+        "Antrean persetujuan lintas tenant memakai jalur khusus yang dibuka hanya untuk peran superadmin"
+      ]
+    }
+  ]
+}

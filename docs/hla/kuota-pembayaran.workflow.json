@@ -1,0 +1,234 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Kuota & pembayaran — saat batas paket tertabrak",
+    "subtitle": "Batas dipilih superadmin, bukan dipaku di kode",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "batas",
+        "label": "Di mana batasnya diperiksa",
+        "focus": [
+          "tindakan",
+          "periksa",
+          "lanjut"
+        ],
+        "note": "Kuota diperiksa di SERVICE, bukan di satu rute — kalau tidak, jalur lain (API v1, sync) jadi pintu belakang."
+      },
+      {
+        "id": "tertabrak",
+        "label": "Saat tertabrak",
+        "focus": [
+          "periksa",
+          "tolak",
+          "peringatan"
+        ],
+        "note": "402 menyebut angkanya: terpakai lawan batas. Kuota habis saat sync juga diterbitkan sebagai peringatan."
+      },
+      {
+        "id": "naik",
+        "label": "Menaikkan paket",
+        "focus": [
+          "tolak",
+          "bayar",
+          "aktif"
+        ],
+        "note": "Pembayaran mengalir lewat gateway; callback yang menaikkan paket, bukan halaman terima kasih."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "pengguna",
+      "label": "Tindakan pemilik data"
+    },
+    {
+      "id": "penjaga",
+      "label": "Penjaga kuota"
+    },
+    {
+      "id": "bayar",
+      "label": "Pembayaran"
+    },
+    {
+      "id": "tolak",
+      "label": "Ditolak",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "coba",
+      "label": "Mencoba",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "nilai",
+      "label": "Dinilai",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "lanjut",
+      "label": "Kelanjutannya",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "tindakan",
+    "periksa",
+    "lanjut"
+  ],
+  "nodes": [
+    {
+      "id": "tindakan",
+      "lane": "pengguna",
+      "col": 0,
+      "type": "external",
+      "label": "Unggah · sync · chat",
+      "sublabel": "tindakan yang berbiaya",
+      "width": 152
+    },
+    {
+      "id": "periksa",
+      "lane": "penjaga",
+      "col": 2,
+      "type": "backend",
+      "label": "Periksa kuota",
+      "sublabel": "potongan · blob · pesan",
+      "width": 148,
+      "tag": "di service"
+    },
+    {
+      "id": "lanjut",
+      "lane": "penjaga",
+      "col": 4,
+      "type": "database",
+      "label": "Diteruskan",
+      "sublabel": "pemakaian dicatat",
+      "width": 132
+    },
+    {
+      "id": "batas",
+      "lane": "penjaga",
+      "col": 2,
+      "type": "database",
+      "label": "Batas paket",
+      "sublabel": "bawaan + penimpa superadmin",
+      "width": 160,
+      "yOffset": 76
+    },
+    {
+      "id": "tolak",
+      "lane": "tolak",
+      "col": 3,
+      "type": "external",
+      "label": "402 + angkanya",
+      "sublabel": "terpakai / batas",
+      "width": 140
+    },
+    {
+      "id": "peringatan",
+      "lane": "tolak",
+      "col": 4,
+      "type": "messagebus",
+      "label": "Peringatan",
+      "sublabel": "kuota habis saat sync",
+      "width": 140
+    },
+    {
+      "id": "bayar",
+      "lane": "bayar",
+      "col": 4,
+      "type": "external",
+      "label": "Gateway",
+      "sublabel": "TriPay · Midtrans · Xendit",
+      "width": 156
+    },
+    {
+      "id": "aktif",
+      "lane": "bayar",
+      "col": 5,
+      "type": "backend",
+      "label": "Paket naik",
+      "sublabel": "lewat callback",
+      "width": 132,
+      "tag": "bukan halaman terima kasih"
+    }
+  ],
+  "edges": [
+    {
+      "from": "tindakan",
+      "to": "periksa",
+      "variant": "emphasis"
+    },
+    {
+      "from": "batas",
+      "to": "periksa",
+      "label": "angka berlaku",
+      "variant": "dashed"
+    },
+    {
+      "from": "periksa",
+      "to": "lanjut",
+      "label": "masih muat",
+      "variant": "emphasis"
+    },
+    {
+      "from": "periksa",
+      "to": "tolak",
+      "label": "melewati batas",
+      "variant": "security"
+    },
+    {
+      "from": "tolak",
+      "to": "peringatan",
+      "label": "bila dari sync",
+      "variant": "dashed"
+    },
+    {
+      "from": "tolak",
+      "to": "bayar",
+      "label": "naikkan paket",
+      "variant": "dashed"
+    },
+    {
+      "from": "bayar",
+      "to": "aktif",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Usage → lihat pemakaian berjalan: potongan, penyimpanan, pesan bulan ini",
+        "Billing → pilih paket → bayar lewat gateway yang aktif",
+        "Superadmin: Billing → Kuota Paket untuk menimpa angka per paket tanpa deploy"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Kenapa 402 menyebut angka",
+      "items": [
+        "\"Kuota habis\" tanpa angka memaksa orang menebak harus membuang berapa",
+        "Kuota diperiksa di service, bukan di satu rute — API v1 dan sync tunduk pada batas yang sama",
+        "Kuota habis saat sync juga diterbitkan sebagai peringatan; yang menabraknya mungkin sedang tidur"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Yang membebaskan batas",
+      "items": [
+        "Mode on-premise: semua tanpa batas — pelanggan membayar sekali, bukan per pemakaian",
+        "Tenant platform (is_platform) dibebaskan; PERAN superadmin sendiri tidak membebaskan apa pun",
+        "Enterprise tetap BERHINGGA dengan sengaja: kuota tanpa batas di SaaS = biaya tak bisa diperkirakan"
+      ]
+    }
+  ]
+}

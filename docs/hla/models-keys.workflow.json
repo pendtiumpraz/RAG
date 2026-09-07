@@ -1,0 +1,89 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Models & Keys — memilih otak, dan menyiapkan cadangannya",
+    "subtitle": "Penyedia cloud · server sendiri · agregator · model cadangan",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "memilih",
+        "label": "Memilih model",
+        "focus": ["kunci", "registry", "aktif", "jawab"],
+        "note": "Satu model chat dan satu model embedding aktif per tenant. Kuncinya per tenant, terenkripsi, tak pernah sampai ke peramban."
+      },
+      {
+        "id": "sendiri",
+        "label": "Server sendiri & agregator",
+        "focus": ["server", "uji", "registry"],
+        "note": "Server OpenAI-compatible (Ollama, vLLM, Sumopod) melaporkan sendiri daftar modelnya lewat Test koneksi — tanpa deploy."
+      },
+      {
+        "id": "cadangan",
+        "label": "Saat model aktif menolak",
+        "focus": ["jawab", "gagal", "cadangan"],
+        "note": "Failover hanya bila kegagalan datang SEBELUM kata pertama; sesudahnya, menyambung dua model di tengah kalimat lebih membingungkan."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "siapkan", "label": "Menyiapkan (sekali)" },
+    { "id": "katalog", "label": "Katalog model" },
+    { "id": "pakai", "label": "Saat menjawab" },
+    { "id": "gagal", "label": "Saat menolak", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "pasang", "label": "Pasang", "fromCol": 0, "toCol": 1 },
+    { "id": "pilih", "label": "Pilih", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "jalan", "label": "Jalan", "fromCol": 4, "toCol": 5 }
+  ],
+  "mainPath": ["kunci", "registry", "aktif", "jawab"],
+  "nodes": [
+    { "id": "kunci", "lane": "siapkan", "col": 0, "type": "security", "label": "Kunci provider", "sublabel": "AES-256-GCM per tenant", "width": 140, "tag": "tak ke peramban" },
+    { "id": "server", "lane": "siapkan", "col": 1, "type": "cloud", "label": "Server LLM sendiri", "sublabel": "Ollama · vLLM · Sumopod", "width": 150 },
+    { "id": "uji", "lane": "siapkan", "col": 2, "type": "backend", "label": "Test koneksi", "sublabel": "server melaporkan modelnya", "width": 150, "tag": "tanpa deploy" },
+    { "id": "registry", "lane": "katalog", "col": 3, "type": "database", "label": "Katalog model", "sublabel": "cloud + vps:…", "width": 140 },
+    { "id": "aktif", "lane": "katalog", "col": 4, "type": "backend", "label": "Model aktif tenant", "sublabel": "1 chat + 1 embedding", "width": 150 },
+    { "id": "jawab", "lane": "pakai", "col": 5, "type": "external", "label": "Menjawab", "sublabel": "stream ke pengguna", "width": 132 },
+    { "id": "gagal", "lane": "gagal", "col": 4, "type": "external", "label": "Kuota / 429 / mati", "sublabel": "sebelum kata pertama", "width": 150 },
+    { "id": "cadangan", "lane": "gagal", "col": 5, "type": "backend", "label": "Model cadangan", "sublabel": "setelan platform", "width": 140, "tag": "dicatat di audit" }
+  ],
+  "edges": [
+    { "from": "kunci", "to": "registry", "label": "provider siap", "variant": "emphasis" },
+    { "from": "server", "to": "uji", "variant": "dashed" },
+    { "from": "uji", "to": "registry", "label": "daftar model", "variant": "dashed" },
+    { "from": "registry", "to": "aktif", "label": "dipilih pemilik data", "variant": "emphasis" },
+    { "from": "aktif", "to": "jawab", "variant": "emphasis" },
+    { "from": "jawab", "to": "gagal", "label": "menolak", "variant": "dashed" },
+    { "from": "gagal", "to": "cadangan", "label": "pindah sekali", "variant": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Models & Keys → tab Kunci: isi API key provider (Anthropic/OpenAI/Google/…)",
+        "Tab Model: pilih satu model chat dan satu model embedding untuk tenant ini",
+        "Superadmin — tab Server: daftarkan server OpenAI-compatible, lalu Test koneksi"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Agregator & server sendiri",
+      "items": [
+        "Endpoint OpenAI-compatible cukup didaftarkan sekali; modelnya datang dari server itu sendiri",
+        "Id-nya berawalan vps: sehingga tak pernah bentrok dengan model cloud bernama sama",
+        "Kredensialnya milik SERVER, bukan kunci provider tenant — jangan diisi dua-duanya"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Model cadangan",
+      "items": [
+        "Satu setelan, dua tugas: bawaan bagi tenant tanpa pilihan, dan tujuan failover",
+        "Failover hanya sebelum jawaban mulai mengalir — sesudahnya galat dilaporkan apa adanya",
+        "Pilih cadangan yang BERBEDA dari model aktif; sama = failover tak pernah menyala"
+      ]
+    }
+  ]
+}

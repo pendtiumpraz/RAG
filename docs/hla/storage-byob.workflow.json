@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Penyimpanan sendiri (BYOB) — berkas asli tinggal di bucket-mu",
+    "subtitle": "S3 · R2 · MinIO · GCS · Azure — atau blob platform sebagai bawaan",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "hubungkan",
+        "label": "Menghubungkan",
+        "focus": ["isi", "enkripsi", "uji"],
+        "note": "Kredensial dikirim polos SEKALI lewat HTTPS lalu dienkripsi di server; yang dienkripsi di peramban berarti kuncinya juga ada di peramban."
+      },
+      {
+        "id": "dipakai",
+        "label": "Saat mengunggah",
+        "focus": ["unggah", "pilih", "tulis", "catat"],
+        "note": "BYOB bawaan user dipakai lebih dulu; bila tak ada, jatuh ke blob platform dari env."
+      },
+      {
+        "id": "putus",
+        "label": "Saat koneksinya dilepas",
+        "focus": ["catat", "lepas"],
+        "note": "Kredensial dihapus dan tak bisa dipulihkan — berkas yang sudah tersimpan di sana tak lagi bisa dibaca ulang oleh Nalar."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "pemilik", "label": "Pemilik data" },
+    { "id": "nalar", "label": "Nalar" },
+    { "id": "bucket", "label": "Bucket / blob" },
+    { "id": "resiko", "label": "Yang perlu diwaspadai", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "pasang", "label": "Pasang sekali", "fromCol": 0, "toCol": 2, "variant": "emphasis" },
+    { "id": "pakai", "label": "Tiap unggahan", "fromCol": 3, "toCol": 5 }
+  ],
+  "mainPath": ["isi", "enkripsi", "uji", "pilih", "tulis"],
+  "nodes": [
+    { "id": "isi", "lane": "pemilik", "col": 0, "type": "external", "label": "Isi kredensial", "sublabel": "bucket · key · region", "width": 140 },
+    { "id": "enkripsi", "lane": "nalar", "col": 1, "type": "security", "label": "Dienkripsi", "sublabel": "AES-256-GCM di server", "width": 148, "tag": "sekali lewat HTTPS" },
+    { "id": "uji", "lane": "nalar", "col": 2, "type": "backend", "label": "Uji koneksi", "sublabel": "tulis + baca percobaan", "width": 148 },
+    { "id": "unggah", "lane": "pemilik", "col": 3, "type": "external", "label": "Unggah berkas", "sublabel": "atau sync sumber", "width": 140 },
+    { "id": "pilih", "lane": "nalar", "col": 4, "type": "backend", "label": "Pilih tujuan", "sublabel": "BYOB bawaan → blob platform", "width": 160 },
+    { "id": "tulis", "lane": "bucket", "col": 5, "type": "cloud", "label": "Berkas asli", "sublabel": "kunci: uuid + jalur", "width": 140 },
+    { "id": "catat", "lane": "nalar", "col": 5, "type": "database", "label": "uploaded_files", "sublabel": "provider · path · ukuran", "width": 148, "yOffset": 76 },
+    { "id": "lepas", "lane": "resiko", "col": 4, "type": "external", "label": "Koneksi dilepas", "sublabel": "kredensial tak bisa dipulihkan", "width": 168 }
+  ],
+  "edges": [
+    { "from": "isi", "to": "enkripsi", "variant": "emphasis" },
+    { "from": "enkripsi", "to": "uji", "variant": "emphasis" },
+    { "from": "unggah", "to": "pilih", "variant": "emphasis" },
+    { "from": "uji", "to": "pilih", "label": "koneksi siap", "variant": "dashed" },
+    { "from": "pilih", "to": "tulis", "label": "simpan asli", "variant": "emphasis" },
+    { "from": "tulis", "to": "catat", "label": "jejak per berkas", "variant": "dashed" },
+    { "from": "catat", "to": "lepas", "label": "tak terbaca lagi", "variant": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Settings → Penyimpanan → pilih penyedia (S3, R2, MinIO, GCS, Azure)",
+        "Isi bucket + kredensial, tekan Uji koneksi, lalu jadikan bawaan",
+        "Tanpa BYOB, unggahan tetap jalan — jatuh ke blob platform dari env"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Apa yang benar-benar disimpan",
+      "items": [
+        "Hanya jalur unggahan MANUAL yang menulis ke bucket; Drive/SharePoint tetap sync langsung",
+        "Kunci objek memakai UUID + jalur berkas, jadi dua berkas sejudul tak pernah saling menimpa",
+        "Tiap unggahan menambah satu baris uploaded_files — riwayatnya utuh, bisa diunduh ulang"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Yang perlu diwaspadai",
+      "items": [
+        "Melepas koneksi menghapus kredensialnya dan TAK BISA dipulihkan",
+        "Berkas yang terlanjur tersimpan di sana berhenti bisa dibaca ulang Nalar — potongannya tetap ada",
+        "Superadmin bisa mematikan penyedia tertentu platform-lebar; koneksi yang sudah ada tak ikut mati"
+      ]
+    }
+  ]
+}

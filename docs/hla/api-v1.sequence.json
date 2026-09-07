@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "API v1 — dua pintu, dua tingkat kepercayaan",
+    "subtitle": "Kunci API pelanggan · token master server-ke-server",
+    "quality_profile": "showcase",
+    "viewBox": [
+      900,
+      700
+    ],
+    "views": [
+      {
+        "id": "pelanggan",
+        "label": "Kunci API pelanggan",
+        "focus": [
+          "sistem",
+          "rute",
+          "kunci",
+          "db"
+        ],
+        "note": "Bearer key milik satu tenant. Semua kueri tetap lewat RLS, jadi kunci bocor pun tak menjangkau tenant lain."
+      },
+      {
+        "id": "s2s",
+        "label": "Server-ke-server",
+        "focus": [
+          "mitra",
+          "rute",
+          "master"
+        ],
+        "note": "Token master boleh membuat tenant baru — karena itu ia dijaga berlapis: token, lalu daftar domain untuk permintaan dari peramban."
+      },
+      {
+        "id": "batas",
+        "label": "Batas yang sama",
+        "focus": [
+          "rute",
+          "kuota",
+          "db"
+        ],
+        "note": "Kuota dan RLS berlaku identik dengan jalur dasbor; API bukan pintu belakang yang melewati keduanya."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "sistem",
+      "type": "external",
+      "label": "Sistem klien",
+      "sublabel": "server pelanggan"
+    },
+    {
+      "id": "mitra",
+      "type": "external",
+      "label": "Mitra S2S",
+      "sublabel": "provisioning"
+    },
+    {
+      "id": "rute",
+      "type": "backend",
+      "label": "/api/v1",
+      "sublabel": "penjaga bersama"
+    },
+    {
+      "id": "kunci",
+      "type": "security",
+      "label": "Kunci API",
+      "sublabel": "hash, per tenant"
+    },
+    {
+      "id": "master",
+      "type": "security",
+      "label": "Token master",
+      "sublabel": "+ daftar domain"
+    },
+    {
+      "id": "kuota",
+      "type": "backend",
+      "label": "Kuota",
+      "sublabel": "batas paket"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "RLS per tenant"
+    }
+  ],
+  "messages": [
+    {
+      "id": "req",
+      "from": "sistem",
+      "to": "rute",
+      "y": 170,
+      "label": "Bearer nlr_… + permintaan",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cek-kunci",
+      "from": "rute",
+      "to": "kunci",
+      "y": 208,
+      "label": "cocokkan hash kunci",
+      "variant": "security"
+    },
+    {
+      "id": "tenant",
+      "from": "kunci",
+      "to": "rute",
+      "y": 244,
+      "label": "tenant + peran kunci",
+      "variant": "return"
+    },
+    {
+      "id": "cek-kuota",
+      "from": "rute",
+      "to": "kuota",
+      "y": 282,
+      "label": "batas paket yang sama",
+      "variant": "security"
+    },
+    {
+      "id": "kerja",
+      "from": "rute",
+      "to": "db",
+      "y": 320,
+      "label": "dijalankan dalam withTenant",
+      "variant": "emphasis"
+    },
+    {
+      "id": "hasil",
+      "from": "db",
+      "to": "rute",
+      "y": 356,
+      "label": "hanya data tenant itu",
+      "variant": "return"
+    },
+    {
+      "id": "balas",
+      "from": "rute",
+      "to": "sistem",
+      "y": 394,
+      "label": "JSON + paginasi",
+      "variant": "emphasis"
+    },
+    {
+      "id": "s2s-req",
+      "from": "mitra",
+      "to": "rute",
+      "y": 448,
+      "label": "token master: buat tenant",
+      "variant": "emphasis"
+    },
+    {
+      "id": "s2s-cek",
+      "from": "rute",
+      "to": "master",
+      "y": 486,
+      "label": "token + Origin di daftar?",
+      "variant": "security"
+    },
+    {
+      "id": "s2s-tolak",
+      "from": "master",
+      "to": "rute",
+      "y": 522,
+      "label": "di luar daftar → 403",
+      "variant": "dashed"
+    },
+    {
+      "id": "s2s-buat",
+      "from": "rute",
+      "to": "db",
+      "y": 560,
+      "label": "tenant + kunci pertamanya",
+      "variant": "emphasis"
+    },
+    {
+      "id": "s2s-balas",
+      "from": "rute",
+      "to": "mitra",
+      "y": 598,
+      "label": "kunci dikembalikan SEKALI",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Settings → Integrations → API Keys → buat kunci; nilainya tampil SEKALI",
+        "Panggil dengan header Authorization: Bearer <kunci>",
+        "Kontrak lengkapnya OpenAPI 3.1 di GET /api/openapi"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Dua tingkat kepercayaan",
+      "items": [
+        "Kunci API: milik SATU tenant, untuk membaca/menulis isinya sendiri",
+        "Token master: server-ke-server, boleh membuat tenant baru beserta kunci pertamanya",
+        "Untuk permintaan dari peramban, token master masih ditambah daftar domain yang diizinkan"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Yang berlaku sama dengan dasbor",
+      "items": [
+        "Kueri berjalan di dalam withTenant — kunci yang bocor tak menjangkau tenant lain",
+        "Kuota paket diperiksa identik; API bukan pintu belakang yang melewatinya",
+        "Kunci disimpan sebagai HASH: hilang berarti dibuat ulang, bukan dilihat lagi"
+      ]
+    }
+  ]
+}

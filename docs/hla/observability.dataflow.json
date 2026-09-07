@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Jejak & peringatan — dari kejadian ke orang yang bisa bertindak",
+    "subtitle": "Audit, pemakaian, dan saluran keluar",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "jejak",
+        "label": "Jejak yang selalu ditulis",
+        "focus": [
+          "chat",
+          "sync",
+          "audit",
+          "usage"
+        ],
+        "note": "Tiap giliran chat dan tiap sync meninggalkan baris audit — itu yang membuat jawaban bisa ditelusuri berbulan-bulan kemudian."
+      },
+      {
+        "id": "peringatan",
+        "label": "Yang menuntut tindakan",
+        "focus": [
+          "alert",
+          "slack",
+          "webhook"
+        ],
+        "note": "Peringatan hanya untuk yang menuntut tindakan manusia — kuota habis, sync gagal berulang, koneksi dicabut."
+      },
+      {
+        "id": "lihat",
+        "label": "Tempat melihatnya",
+        "focus": [
+          "audit",
+          "panel"
+        ],
+        "note": "Observability lintas tenant untuk superadmin; Usage per tenant untuk pemilik data."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "Kejadian"
+    },
+    {
+      "label": "Tercatat"
+    },
+    {
+      "label": "Dinilai"
+    },
+    {
+      "label": "Sampai ke orang"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "chat",
+      "type": "backend",
+      "label": "Giliran chat",
+      "stage": 0,
+      "row": 0,
+      "sublabel": "pertanyaan + sumber",
+      "tag": "tiap giliran"
+    },
+    {
+      "id": "sync",
+      "type": "backend",
+      "label": "Sync & ingest",
+      "stage": 0,
+      "row": 1,
+      "sublabel": "masuk · gagal · sisa"
+    },
+    {
+      "id": "audit",
+      "type": "database",
+      "label": "audit_logs",
+      "stage": 1,
+      "row": 1,
+      "sublabel": "siapa · apa · kapan",
+      "tag": "per tenant"
+    },
+    {
+      "id": "usage",
+      "type": "database",
+      "label": "Pemakaian",
+      "stage": 1,
+      "row": 0,
+      "sublabel": "token · pesan · potongan"
+    },
+    {
+      "id": "alert",
+      "type": "backend",
+      "label": "Penilai peringatan",
+      "stage": 2,
+      "row": 2,
+      "sublabel": "layak ditindak?",
+      "tag": "diredam 6 jam"
+    },
+    {
+      "id": "panel",
+      "type": "frontend",
+      "label": "Observability",
+      "stage": 3,
+      "row": 0,
+      "sublabel": "superadmin, lintas tenant"
+    },
+    {
+      "id": "slack",
+      "type": "external",
+      "label": "Slack",
+      "stage": 3,
+      "row": 2,
+      "sublabel": "kanal tim"
+    },
+    {
+      "id": "webhook",
+      "type": "external",
+      "label": "Webhook",
+      "stage": 3,
+      "row": 3,
+      "sublabel": "sistem pelanggan"
+    }
+  ],
+  "flows": [
+    {
+      "from": "chat",
+      "to": "audit",
+      "label": "chat.turn",
+      "classification": "model · potongan · token",
+      "variant": "emphasis"
+    },
+    {
+      "from": "sync",
+      "to": "audit",
+      "label": "source.sync",
+      "classification": "hasil per jalan",
+      "route": "straight",
+      "labelDy": 34
+    },
+    {
+      "from": "chat",
+      "to": "usage",
+      "label": "token terpakai",
+      "classification": "dasar kuota",
+      "route": "straight",
+      "labelDy": -18
+    },
+    {
+      "from": "audit",
+      "to": "alert",
+      "label": "kejadian gawat",
+      "classification": "kuota · gagal berulang",
+      "variant": "emphasis"
+    },
+    {
+      "from": "audit",
+      "to": "panel",
+      "label": "riwayat",
+      "classification": "lintas tenant"
+    },
+    {
+      "from": "alert",
+      "to": "slack",
+      "label": "kirim ke kanal",
+      "classification": "URL webhook Slack",
+      "variant": "emphasis",
+      "route": "straight",
+      "labelDy": -22
+    },
+    {
+      "from": "alert",
+      "to": "webhook",
+      "label": "kirim bertanda tangan",
+      "classification": "bertanda tangan",
+      "variant": "emphasis",
+      "labelDy": 18
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cara pakai",
+      "items": [
+        "Observability → kesehatan & aktivitas seluruh platform (superadmin)",
+        "Usage → pemakaian tenant sendiri: pesan, potongan, penyimpanan",
+        "Settings → Peringatan → tempel URL webhook Slack; Integrations → webhook keluar"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Kenapa audit ditulis di tiap giliran",
+      "items": [
+        "Jawaban chatbot harus bisa ditelusuri ke dokumen sumbernya berbulan-bulan kemudian",
+        "Baris audit juga yang membuktikan run panjang benar-benar TUNTAS, bukan cuma dimulai",
+        "Pemakaian dipisah dari audit karena keduanya menjawab pertanyaan berbeda: apa yang terjadi vs berapa yang terpakai"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Peringatan yang tak diabaikan",
+      "items": [
+        "Hanya kejadian yang menuntut tindakan manusia yang jadi peringatan",
+        "Peringatan sejenis diredam 6 jam — satu folder bermasalah tak boleh mengirim belasan pesan identik per hari",
+        "Peringatan yang terlalu sering datang akan berhenti dibaca, dan saat itu ia berhenti berguna"
+      ]
+    }
+  ]
+}
