@@ -121,7 +121,12 @@ test('setiap <img> punya atribut alt', () => {
      membacakan nama berkasnya, yang kedua menyatakannya hiasan dengan sadar. */
   const buruk: string[] = [];
   for (const [f, s] of SUMBER) {
-    for (const m of s.matchAll(/<img\b([\s\S]*?)\/>/g)) {
+    /* `<img\s` (tag sungguhan, selalu berspasi sebelum atributnya), BUKAN
+       `<img\b`: pola lama ikut menangkap kata "<img>" di dalam KOMENTAR,
+       menelan teks sampai `/>` pertama entah di mana, dan menuduh baris
+       komentar itu sebagai gambar tanpa alt. Checker yang bisa digagalkan
+       oleh sebuah komentar adalah checker yang berhenti dipercaya. */
+    for (const m of s.matchAll(/<img\s([\s\S]*?)\/>/g)) {
       if (!/\balt=/.test(m[1])) buruk.push(`${f}:${s.slice(0, m.index).split('\n').length}`);
     }
   }

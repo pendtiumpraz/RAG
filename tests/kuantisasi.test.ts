@@ -142,7 +142,16 @@ test('saklar kuantisasi punya panel superadmin, bukan cuma kolom', () => {
   const page = readFileSync('src/app/(app)/settings/page.tsx', 'utf8');
   assert.ok(/function PanelRetrieval\(\)/.test(page), 'panel retrieval tak ada');
   assert.ok(/'\/api\/admin\/retrieval'/.test(page), 'panel tak tersambung ke rutenya');
-  assert.ok(/role === 'superadmin' && <PanelRetrieval \/>/.test(page),
+  /* Gerbangnya kini di tingkat TAB — `active === 'platform' && isSuper` —
+     bukan inline per panel seperti yang dulu dikunci pola lama. Yang dijaga
+     tetap sama dua hal: isSuper benar-benar berarti peran superadmin, dan
+     PanelRetrieval dirender HANYA di dalam blok yang digerbang itu (di
+     antara pembuka bloknya dan blok tab berikutnya). */
+  assert.ok(/const isSuper = session\?\.user\?\.role === 'superadmin';/.test(page),
+    'isSuper tak lagi berarti peran superadmin');
+  const blokPlatform = page.match(/\{active === 'platform' && isSuper && <>([\s\S]*?)\{active ===|\{active === 'platform' && isSuper && <>([\s\S]*)$/);
+  assert.ok(blokPlatform, 'blok tab platform ber-gerbang superadmin tak ditemukan');
+  assert.ok(/<PanelRetrieval \/>/.test(blokPlatform![1] ?? blokPlatform![2] ?? ''),
     'panel tak dibatasi superadmin — ini keputusan pemasangan, bukan per-tenant');
 });
 

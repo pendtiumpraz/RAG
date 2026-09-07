@@ -15,7 +15,7 @@
  *   /api/auth/signup, /api/auth/login-status, NextAuth signIn/out.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { konfirmasi } from '../_components/alert';
 
@@ -58,6 +58,7 @@ export default function PluginPanel() {
 const PENDING = 'Akunmu terdaftar dan menunggu verifikasi admin. Kamu bisa masuk setelah disetujui.';
 
 function AuthView() {
+  const uid = useId();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [f, setF] = useState({ orgName: '', name: '', email: '', password: '' });
   const [totp, setTotp] = useState('');
@@ -108,25 +109,34 @@ function AuthView() {
         </div>
         {err && <p className="np-err">{err}</p>}
         {notice && <p className="np-notice">{notice}</p>}
+        {/* htmlFor + useId, mengikuti konvensi Field di aplikasi utama.
+            Sebelumnya label duduk sebagai saudara input tanpa asosiasi:
+            tampak benar, tapi pembaca layar mengumumkan "kotak isian,
+            kosong" tanpa menyebut kotak apa, dan klik pada label tak
+            memindahkan fokus. useId, bukan id tulisan tangan — panel ini
+            bisa di-iframe dua kali di satu halaman induk. */}
         {tab === 'login' ? (
           <form onSubmit={login}>
-            <label>Email</label>
-            <input type="email" value={f.email} onChange={set('email')} required autoComplete="username" />
-            <label>Password</label>
-            <input type="password" value={f.password} onChange={set('password')} required autoComplete="current-password" />
-            {needTotp && (<><label>Kode 2FA</label><input value={totp} onChange={(e) => setTotp(e.target.value)} inputMode="numeric" autoComplete="one-time-code" /></>)}
+            <label htmlFor={`${uid}-email`}>Email</label>
+            <input id={`${uid}-email`} type="email" value={f.email} onChange={set('email')} required autoComplete="username" />
+            <label htmlFor={`${uid}-sandi`}>Password</label>
+            <input id={`${uid}-sandi`} type="password" value={f.password} onChange={set('password')} required autoComplete="current-password" />
+            {needTotp && (<>
+              <label htmlFor={`${uid}-totp`}>Kode 2FA</label>
+              <input id={`${uid}-totp`} value={totp} onChange={(e) => setTotp(e.target.value)} inputMode="numeric" autoComplete="one-time-code" />
+            </>)}
             <button type="submit" disabled={busy} style={{ width: '100%' }}>{busy ? 'Memproses…' : 'Masuk'}</button>
           </form>
         ) : (
           <form onSubmit={register}>
-            <label>Nama organisasi</label>
-            <input value={f.orgName} onChange={set('orgName')} required />
-            <label>Nama lengkap</label>
-            <input value={f.name} onChange={set('name')} required />
-            <label>Email</label>
-            <input type="email" value={f.email} onChange={set('email')} required autoComplete="username" />
-            <label>Password</label>
-            <input type="password" value={f.password} onChange={set('password')} required minLength={8} autoComplete="new-password" />
+            <label htmlFor={`${uid}-org`}>Nama organisasi</label>
+            <input id={`${uid}-org`} value={f.orgName} onChange={set('orgName')} required />
+            <label htmlFor={`${uid}-nama`}>Nama lengkap</label>
+            <input id={`${uid}-nama`} value={f.name} onChange={set('name')} required />
+            <label htmlFor={`${uid}-email`}>Email</label>
+            <input id={`${uid}-email`} type="email" value={f.email} onChange={set('email')} required autoComplete="username" />
+            <label htmlFor={`${uid}-sandi`}>Password</label>
+            <input id={`${uid}-sandi`} type="password" value={f.password} onChange={set('password')} required minLength={8} autoComplete="new-password" />
             <button type="submit" disabled={busy} style={{ width: '100%' }}>{busy ? 'Memproses…' : 'Daftar'}</button>
           </form>
         )}

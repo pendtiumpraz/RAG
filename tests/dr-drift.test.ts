@@ -147,8 +147,15 @@ test('patokan yang di-commit sudah menyertakan migrasi terakhir', () => {
      0052 (uploaded_files — berkas orisinal unggahan manual di blob/BYOB)
      menambah SATU tabel ber-tenant: uploaded_files, tiga indeks, satu
      kebijakan, dan RLS aktif — didaftarkan ke patokan ini bersama kawat
-     pemicunya. */
-  assert.equal(terakhir, '0052_uploaded_files.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
+     pemicunya.
+
+     Migrasi 0053 (whitelist domain S2S) dan 0054 (model cadangan platform)
+     masing-masing hanya menambah SATU KOLOM pada platform_settings — tabel
+     tanpa tenant dan tanpa RLS — jadi keduanya tak menggerakkan satu pun
+     angka patokan. Diperiksa 7 Sep 2026 dengan `npm run dr:verify` sungguhan
+     terhadap produksi: 35 tabel · 123 indeks · 40 kebijakan · RLS aktif di
+     26 tabel, NOL SELISIH terhadap patokan ter-commit. */
+  assert.equal(terakhir, '0054_fallback_llm_model.sql', 'ada migrasi lebih baru — patokan perlu disegarkan');
   assert.ok(patokan.tabel.includes('uploaded_files'), 'uploaded_files belum masuk patokan');
   assert.ok(patokan.rlsAktif.includes('uploaded_files'), 'uploaded_files tanpa RLS aktif');
   assert.ok(patokan.kebijakan.includes('uploaded_files.tenant_isolation'), 'kebijakan uploaded_files belum masuk patokan');

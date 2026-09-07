@@ -80,9 +80,55 @@ export const openApiSpec = {
         responses: { 200: err('{ ok, service }'), 401: err('master key salah/kurang panjang') },
       },
     },
+    '/api/v1/tenants': {
+      post: { summary: 'MASTER: provision satu tenant baru → { tenantId, apiKey }',
+        description: 'Bukan POST /api/auth/signup apa adanya: signup publik tanpa-auth dan '
+          + 'di-rate-limit per IP — tak cocok untuk server yang provision massal. Jalur ini '
+          + 'bertoken master (NALAR_MASTER_KEY) dan langsung mengembalikan kunci API pertama '
+          + 'tenant itu, jadi pemanggil tak perlu round-trip kedua. Kunci hanya dikirim SEKALI; '
+          + 'yang tersimpan hash-nya.',
+        requestBody: json(obj({
+          orgName: str, name: str, email: str, password: str,
+          keyName: str, scopes: { type: 'array' },
+        }, ['orgName', 'name', 'email', 'password'])),
+        responses: { 201: err('{ tenantId, apiKey }'), 400: err('input tidak valid'),
+          401: err('master key salah'), 403: err('Origin di luar whitelist S2S') } },
+    },
+    '/api/v1/tenants/{id}/keys': {
+      post: { summary: 'MASTER: terbitkan kunci API tambahan untuk sebuah tenant',
+        description: 'Pelengkap provisioning: kunci pertama lahir bersama tenant, kunci '
+          + 'berikutnya (mis. scope berbeda per lingkungan) lewat sini. Nilai kunci hanya '
+          + 'dikirim sekali.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        requestBody: json(obj({ name: str, scopes: { type: 'array' } }, [])),
+        responses: { 201: err('{ apiKey }'), 401: err('master key salah'),
+          404: err('tenant tidak ditemukan') } },
+    },
     '/api/v1/chatbots': {
       get: { summary: 'Daftar chatbot tenant (termasuk publicKey)', security: [apiKeyAuth],
         responses: { 200: err('{ chatbots }'), 403: err('kunci tanpa izin read') } },
+    },
+    '/api/v1/chatbots/{id}': {
+      put: { summary: 'Perbarui chatbot (nama, origin, greeting, tema)', security: [apiKeyAuth],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ chatbot }'), 403: err('kunci tanpa izin write'),
+          404: err('tidak ditemukan') } },
+      delete: { summary: 'Soft-delete chatbot', security: [apiKeyAuth],
+        description: 'Soft-delete, konsisten dengan seluruh aplikasi — pulihkan lewat dasbor. '
+          + 'Chatbot tenant lain dijawab 404, bukan 403: membedakan "tak ada" dari "bukan '
+          + 'milikmu" membuat endpoint ini bisa dipakai memastikan sebuah id itu nyata.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
+        responses: { 200: err('{ ok }'), 403: err('kunci tanpa izin write'),
+          404: err('tidak ditemukan') } },
+    },
+    '/api/v1/payments': {
+      post: { summary: 'Buat tagihan QRIS → { id, qrString, qrImageUrl } dalam satu respons',
+        security: [apiKeyAuth],
+        description: 'Berbeda dari POST /api/payments (sesi dasbor) yang hanya mengembalikan '
+          + '{ id }: pemanggil mesin butuh QR-nya sekarang, bukan halaman untuk di-redirect. '
+          + 'Status pembayaran tetap ditentukan callback gateway, bukan respons ini.',
+        responses: { 201: err('{ id, qrString, qrImageUrl }'), 403: err('kunci tanpa izin write'),
+          422: err('gateway belum dikonfigurasi') } },
     },
     '/api/v1/conversations': {
       get: { summary: 'Daftar percakapan tenant — untuk ditarik SERVER pelanggan',
@@ -232,8 +278,10 @@ export const openApiSpec = {
           + 'punya akun Nalar — sebelum ini jalur API hanya menerima teks tempel lewat '
           + '`/api/v1/documents`, sehingga PDF tak bisa masuk sama sekali. Alurnya sama persis: '
           + 'berkas asli disimpan DULU, baru diekstrak + di-ingest; parser gagal ⇒ berkas tetap '
-          + 'tersimpan (masuk `storedOnly[]`), bukan hilang. Nama berkas jadi externalId, jadi '
-          + 'nama yang sama MENGGANTI isi lamanya. Batas 2 MB — lebih ketat dari jalur sesi karena '
+          + 'tersimpan (masuk `storedOnly[]`), bukan hilang. Identitas dokumen = field opsional '
+          + '`paths` (JSON array jalur relatif, sejajar urutan berkas) — tanpa itu jatuh ke nama '
+          + 'berkas, dan dua berkas sejudul dari folder berbeda akan saling menimpa. Jalur/nama '
+          + 'yang sama MENGGANTI isi lamanya. Batas 2 MB — lebih ketat dari jalur sesi karena '
           + 'permintaannya melewati dua fungsi serverless yang masing-masing dibatasi ~4,5 MB.',
         security: [apiKeyAuth],
         parameters: [{ name: 'id', in: 'path', required: true, schema: uuid }],
@@ -691,6 +739,39 @@ export const openApiSpec = {
           + 'Mengabaikan dirinya sendiri pada korpus kecil, tempat ia justru merugikan.',
         requestBody: json(obj({ binaryQuantize: { type: 'boolean' } }, ['binaryQuantize'])),
         responses: { 200: err('{ ok: true }'), 400: err('input tidak valid') } },
+    },
+    '/api/admin/llm-fallback': {
+      get: { summary: 'SUPERADMIN: model cadangan platform + pilihan sah dari katalog',
+        security: [sessionAuth],
+        responses: { 200: err('{ fallbackLlmModel, bawaan, model }') } },
+      put: { summary: 'SUPERADMIN: setel model cadangan (bawaan tenant + tujuan failover)',
+        security: [sessionAuth],
+        description: 'Divalidasi ke katalog SEBELUM disimpan: cadangan yang salah ketik tak '
+          + 'bergejala hari ini — ia diam sampai model utama gagal, lalu ikut gagal. '
+          + 'null = kembali ke bawaan kode.',
+        requestBody: json(obj({ fallbackLlmModel: str }, [])),
+        responses: { 200: err('{ fallbackLlmModel }'), 400: err('model tak ada di katalog') } },
+    },
+    '/api/admin/s2s-whitelist': {
+      get: { summary: 'SUPERADMIN: daftar domain yang boleh memanggil provisioning S2S dari peramban',
+        security: [sessionAuth],
+        description: 'Token master tetap kontrol utama; daftar ini hanya menyaring permintaan '
+          + 'yang membawa Origin/Referer. Daftar KOSONG itu sah: S2S-only, tak ada peramban '
+          + 'yang diizinkan.',
+        responses: { 200: err('{ domains }') } },
+      post: { summary: 'SUPERADMIN: tambah domain ke whitelist', security: [sessionAuth],
+        requestBody: json(obj({ domain: str }, ['domain'])),
+        responses: { 200: err('{ domains }'), 400: err('domain tidak valid') } },
+      delete: { summary: 'SUPERADMIN: hapus domain dari whitelist', security: [sessionAuth],
+        requestBody: json(obj({ domain: str }, ['domain'])),
+        responses: { 200: err('{ domains }') } },
+    },
+    '/api/admin/s2s-master-test': {
+      post: { summary: 'SUPERADMIN: uji kesiapan NALAR_MASTER_KEY — tanpa efek samping',
+        security: [sessionAuth],
+        description: 'Hanya status boolean + jumlah domain whitelist. Nilai kuncinya TAK PERNAH '
+          + 'dikirim ke peramban.',
+        responses: { 200: err('{ ok, panjangCukup, jumlahDomain }') } },
     },
     '/api/admin/connectors': {
       get: { summary: 'SUPERADMIN: daftar konektor + saklarnya + berapa sumber masih memakainya',
