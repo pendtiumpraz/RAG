@@ -361,6 +361,14 @@ const AGENT: SeedItem[] = [
   { key: 'a-visitor-identity', track: 'agent', dimension: 'feature', size: 'M', priority: 'P2',
     title: 'Riwayat chat publik yang ikut berpindah perangkat',
     why: 'Identitas pengunjung di /c dan di widget sepenuhnya visitorId di localStorage. Untuk chatbot landing page itu tepat dan sengaja. Tapi batasnya nyata: buka dari ponsel setelah mengobrol di laptop, riwayatnya kosong — dan pengunjung akan menyangka datanya terhapus, bukan menyangka identitasnya berbeda. Sekarang batas itu ditulis apa adanya di kaki daftar sesi, yang cukup untuk jujur tapi tak menyelesaikan apa pun. Jalan keluarnya bisa ringan (tautan lanjutkan-percakapan berisi token sekali pakai) atau berat (login pengunjung opsional); yang berat baru sepadan kalau ada pelanggan yang benar-benar memintanya.' },
+
+  { key: 'a-memory-failover', track: 'agent', dimension: 'agentic', size: 'S', priority: 'P1',
+    title: 'Distill Memory Agent ikut failover model cadangan',
+    why: 'TERBUKTI 7 Sep 2026: kunci Sumopod diblokir penyedianya, dan run memory 67 dokumen mati di panggilan pertama dengan "401 Key is blocked" — padahal mesin failover model cadangan SUDAH ADA, hanya dipasang di jalur chat. Pipeline memory memanggil completeChat dengan model aktif tenant apa adanya, jadi satu kunci yang diblokir mematikan seluruh pemetaan memory tanpa ada yang menggantikan. Perbaikannya kecil dan polanya sudah teruji di chat.service: coba model aktif; bila gagal SEBELUM ada keluaran, ulangi sekali dengan platformSettingsService.modelCadangan() dan catat pergantiannya di audit — supaya biaya yang berpindah akun tak pernah tanpa penjelasan.' },
+
+  { key: 'a-riwayat-versi', track: 'agent', dimension: 'feature', size: 'M', priority: 'P2',
+    title: 'Riwayat versi dokumen unggahan + pulihkan versi sebelumnya',
+    why: 'Datanya sudah SELESAI dikumpulkan tanpa satu kolom pun baru: kunci objek blob memakai UUID sehingga tak pernah menimpa, dan uploaded_files menyimpan satu baris per unggahan lengkap dengan created_at — terbukti di produksi saat berkas yang sama diunggah dua kali dan keduanya utuh berdampingan di blob. Yang belum ada hanya TAMPILANNYA: daftar versi per dokumen (jalur yang sama, urut waktu) dan tombol "pulihkan versi ini" yang membaca ulang byte dari blob lalu meng-ingest ulang lewat jalur re-sync yang sudah ada. Tanpa layar itu, riwayat yang sudah dibayar penyimpanannya tak bisa dipakai siapa pun — dan pemilik data yang menimpa dokumen dengan versi salah tak punya jalan pulang.' },
 ];
 
 export const SEED: SeedItem[] = [...HUMAN, ...AGENT];
