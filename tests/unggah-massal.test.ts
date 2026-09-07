@@ -55,10 +55,14 @@ test('jalur kosong jatuh ke nama berkas, tak pernah jadi kosong', async () => {
 });
 
 test('rute memakai JALUR sebagai identitas dokumen, bukan nama berkas', () => {
-  assert.match(RUTE, /externalId: rel,/, 'externalId masih nama berkas — subfolder akan saling menimpa');
+  /* Identitasnya `idDokumen`, dan idDokumen SELALU diturunkan dari `rel`
+     (jalur) — dengan sidik jari isi ditambahkan hanya pada mode simpan.
+     Yang dikunci di sini: dasarnya tetap jalur, tak pernah kembali jadi
+     nama berkas telanjang. */
+  assert.match(RUTE, /const rel = jalurAman\(i, f\.name\);/, 'jalur relatif tak lagi dihitung per berkas');
+  assert.match(RUTE, /const idDokumen = sidik \? `\$\{rel\}#\$\{sidik\}` : rel;/,
+    'identitas dokumen tak lagi berbasis jalur — subfolder akan saling menimpa');
   assert.match(RUTE, /path: rel,/, 'path tak dikirim ke ingest — kolom folder tak akan terisi');
-  assert.match(RUTE, /removeExternal\(user\.tenantId, source\.id, \[rel\]\)/,
-    'pembuangan versi lama memakai nama berkas — dokumen bernama sama di folder lain ikut terhapus');
   assert.match(RUTE, /nama: rel,/, 'berkas asli disimpan tanpa jalur — dua berkas sejudul menimpa di blob');
 });
 
@@ -76,4 +80,41 @@ test('batch yang gagal menghentikan sisanya dan menyebut yang sudah masuk', () =
   assert.match(UI, /berhenti di batch \$\{i \+ 1\}\/\$\{batch\.length\}/,
     'kegagalan batch tak menyebut posisi berhentinya');
   assert.match(UI, /\$\{masuk\} berkas sudah masuk/, 'kegagalan batch tak menyebut yang sudah berhasil');
+});
+
+test('nama sama + isi BERBEDA bisa jadi dua dokumen (mode simpan)', () => {
+  /* Permintaan langsung Bos Galih: "2 file berbeda dengan nama sama harusnya
+     jadi 2 dokumen". Yang membuatnya mungkin tanpa merusak pembaruan adalah
+     sidik jari ISI ikut ke identitas — bukan cap waktu, yang akan membuat
+     SETIAP unggahan ulang jadi dokumen baru dan menimbun versi usang. */
+  assert.match(RUTE, /const modeKembar = form\.get\('kembar'\) === 'simpan'/,
+    'mode nama-kembar tak dibaca dari permintaan');
+  assert.match(RUTE, /createHash\('sha256'\)\.update\(buf\)/,
+    'sidik jari dihitung dari teks, bukan byte berkas — dua berkas berbeda bisa dianggap sama');
+  assert.match(RUTE, /const idDokumen = sidik \? `\$\{rel\}#\$\{sidik\}` : rel;/,
+    'identitas dokumen tak menyertakan sidik jari pada mode simpan');
+  assert.match(RUTE, /externalId: idDokumen,/, 'ingest masih memakai jalur telanjang');
+});
+
+test('bawaannya GANTI, bukan simpan-keduanya', () => {
+  /* Kasus tersering adalah memperbaiki dokumen. Kalau bawaannya menyimpan
+     keduanya, retrieval bisa menjawab dari versi yang sudah dicabut — dengan
+     sitasi yang meyakinkan, dan tanpa satu pun galat yang terlihat. */
+  assert.match(RUTE, /=== 'simpan' \? 'simpan' : 'ganti'/,
+    'mode selain simpan harus jatuh ke ganti');
+  assert.match(UI, /useState<'ganti' \| 'simpan'>\('ganti'\)/, 'bawaan UI bukan ganti');
+  assert.match(UI, /fd\.append\('kembar', kembar\)/, 'mode tak ikut dikirim per batch');
+});
+
+test('judul diberi penanda agar dua dokumen sejudul bisa dibedakan', () => {
+  assert.match(RUTE, /title: sidik \? `\$\{f\.name\} · \$\{sidik\}` : f\.name,/,
+    'dua dokumen sejudul akan tampil sebagai dua baris yang tak bisa dibedakan siapa pun');
+});
+
+test('pembuangan versi lama memakai identitas yang sama dengan yang ditulis', () => {
+  /* Kalau removeExternal memakai jalur telanjang sementara ingest menulis
+     jalur+sidik, mode simpan justru menghapus dokumen lain yang sejudul —
+     kebalikan persis dari yang diminta. */
+  assert.match(RUTE, /removeExternal\(user\.tenantId, source\.id, \[idDokumen\]\)/,
+    'identitas yang dibuang berbeda dari identitas yang ditulis');
 });

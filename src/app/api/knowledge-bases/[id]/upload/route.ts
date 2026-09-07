@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import { createHash } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import { dataSources, knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
@@ -102,6 +103,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
      Nilainya dibersihkan di sini, bukan dipercaya: klien mana pun bisa
      mengirim "../" dan path absolut. */
+  /* MODE NAMA KEMBAR — pilihan pengunggah, karena mesin tak bisa menebaknya.
+
+     Dua berkas bernama sama di folder yang sama: apakah yang kedua PERBAIKAN
+     dari yang pertama, atau DOKUMEN LAIN yang kebetulan sejudul? Keduanya
+     terlihat persis sama dari sisi sistem — yang membedakan hanya maksud
+     orang yang mengunggah.
+
+     Bawaannya `ganti`, dan itu bukan pilihan sembarangan: kasus tersering
+     adalah memperbaiki dokumen, dan menyimpan keduanya diam-diam membuat
+     retrieval bisa menjawab dari versi yang sudah dicabut — dengan sitasi
+     yang meyakinkan. Kegagalan seperti itu tak menimbulkan galat apa pun.
+
+     `simpan` menyisipkan sidik jari ISI ke identitas dokumen, jadi nama sama +
+     isi berbeda = dua dokumen, sedangkan mengunggah ulang berkas yang SAMA
+     PERSIS tetap satu dokumen (sidik jarinya sama). */
+  const modeKembar = form.get('kembar') === 'simpan' ? 'simpan' : 'ganti';
+
   const rawPaths = form.get('paths');
   let paths: string[] = [];
   if (typeof rawPaths === 'string' && rawPaths.trim()) {
@@ -160,6 +178,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     try {
       const buf = Buffer.from(await f.arrayBuffer());
+
+      /* Sidik jari BYTE, bukan teks hasil ekstraksi: yang ditanyakan pengguna
+         adalah "dua berkas berbeda", dan dua berkas bisa berbeda byte namun
+         menghasilkan teks yang sama. Kalau ternyata teksnya memang identik,
+         lapis kembar di ingest() yang menangkapnya — bukan urusan di sini. */
+      const sidik = modeKembar === 'simpan'
+        ? createHash('sha256').update(buf).digest('hex').slice(0, 8)
+        : null;
+      const idDokumen = sidik ? `${rel}#${sidik}` : rel;
 
       /* 1. Kuota + SIMPAN berkas ORISINAL ke blob/BYOB (Bos Galih: "sing
          nyimpen nang blob cuma sing upload aja"). Pastikan byte-nya muat di
@@ -224,17 +251,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // dokumen yang diperbaiki akan menyimpan DUA versi sekaligus, dan
       // retrieval bisa menjawab dari yang usang. Terbukti saat pengujian:
       // ingest dua kali dengan externalId sama menghasilkan dua potongan.
-      await knowledgeService.removeExternal(user.tenantId, source.id, [rel]);
+      /* Pada mode `simpan`, ini hanya membuang versi dengan sidik jari yang
+         SAMA — jadi mengunggah ulang berkas identik tetap idempoten, sementara
+         berkas lain yang kebetulan sejudul tak ikut terhapus. */
+      await knowledgeService.removeExternal(user.tenantId, source.id, [idDokumen]);
 
       const chunks = await knowledgeService.ingest(user.tenantId, {
         knowledgeBaseId,
-        title: f.name,
+        /* Tanpa penanda, dua dokumen sejudul tampil sebagai dua baris yang
+           tak bisa dibedakan siapa pun — fitur ini justru jadi sumber bingung. */
+        title: sidik ? `${f.name} · ${sidik}` : f.name,
         text,
         sourceId: source.id,
         /* Identitas = JALUR, judul = nama berkas. Dua berkas sejudul di
            subfolder berbeda tetap dua dokumen, tapi daftar dokumen tak
            dipenuhi path panjang yang menyulitkan dibaca. */
-        externalId: rel,
+        externalId: idDokumen,
         path: rel,
         externalVersion: String(f.size),
         metadata: {

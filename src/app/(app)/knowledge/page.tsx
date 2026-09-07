@@ -802,6 +802,8 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
   const [files, setFiles] = useState<File[]>([]);
   /** Mode folder: pilih satu direktori beserta seluruh subfolder-nya. */
   const [modeFolder, setModeFolder] = useState(false);
+  /** Nama berkas kembar: ganti versi lama (bawaan) atau simpan keduanya. */
+  const [kembar, setKembar] = useState<'ganti' | 'simpan'>('ganti');
   const [progres, setProgres] = useState<{ batch: number; dari: number; berkas: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -945,6 +947,7 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
           jalur.push(jalurBerkas(f));
         }
         fd.append('paths', JSON.stringify(jalur));
+        fd.append('kembar', kembar);
 
         const r = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/upload`, { method: 'POST', body: fd });
         const j = await r.json();
@@ -1184,6 +1187,26 @@ function SourceDrawer({ knowledgeBaseId, accounts, providers, onClose, onSaved }
                     ? semua.filter((f) => sah(f.name) && !f.name.startsWith(TANDA_KUNCI))
                     : semua);
                 }} />
+              {/* Mesin tak bisa membedakan "perbaikan dokumen" dari "dokumen
+                  lain yang kebetulan sejudul" — yang membedakan cuma maksud
+                  pengunggah. Karena itu ditanyakan sekali di sini, bukan
+                  ditebak diam-diam pada tiap berkas. */}
+              <div className="stack gap-1" style={{ marginTop: 10, padding: 'var(--sp-3)', border: '1px solid var(--line)', borderRadius: 'var(--rad-sm)' }}>
+                <span className="microlabel">KALAU ADA NAMA BERKAS YANG SAMA</span>
+                <label className="cluster gap-2" style={{ fontSize: 13, cursor: 'pointer' }}>
+                  <input type="radio" name="kembar" checked={kembar === 'ganti'}
+                    onChange={() => setKembar('ganti')} />
+                  <span>Ganti versi lama — <b>bawaan</b>. Cocok saat memperbaiki dokumen.</span>
+                </label>
+                <label className="cluster gap-2" style={{ fontSize: 13, cursor: 'pointer' }}>
+                  <input type="radio" name="kembar" checked={kembar === 'simpan'}
+                    onChange={() => setKembar('simpan')} />
+                  <span>Simpan keduanya — dokumen berbeda yang kebetulan sejudul.</span>
+                </label>
+                <span className="microlabel" style={{ marginTop: 4 }}>
+                  BERKAS YANG ISINYA BENAR-BENAR SAMA TAK PERNAH DIGANDAKAN PADA MODE MANA PUN.
+                </span>
+              </div>
               {files.length > 0 && (
                 <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--muted)' }}>
                   <b>{files.length}</b> berkas terpilih ·{' '}
