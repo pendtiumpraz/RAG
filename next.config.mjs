@@ -18,6 +18,12 @@ const nextConfig = {
     '/api/sources': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
     '/api/sources/[id]/sync': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
     '/api/sources/[id]/pratinjau': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+    /* Rute v1 lahir SETELAH daftar ini dan sempat tertinggal — persis pola
+       kegagalan yang daftar ini dibuat untuk mencegah: PDF via API v1 gagal
+       senyap HANYA di produksi. Tes penjaganya kini MEMINDAI semua rute yang
+       memanggil extractText alih-alih menghafal daftar, supaya rute
+       pengekstrak berikutnya tak bisa lolos tanpa baris di sini. */
+    '/api/v1/knowledge-bases/[id]/upload': ['./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
   },
   images: { unoptimized: true },  // logo PNG statis — tak perlu sharp
   webpack: (config, { isServer, webpack }) => {

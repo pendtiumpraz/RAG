@@ -4,6 +4,7 @@ import { dataSources, knowledgeBases } from '@/modules/core/db';
 import { withTenant } from '@/modules/core/db/tenant-context';
 import { knowledgeService, QuotaError } from '@/modules/knowledge/knowledge.service';
 import { extractText, isExtractable } from '@/modules/knowledge/sync.service';
+import { bersihkanJalur } from '@/modules/knowledge/jalur-unggahan';
 import { knowledgeBaseService } from '@/modules/knowledge/knowledge-base.service';
 import { memoryAgent } from '@/modules/memory/memory-agent.service';
 import { storageService } from '@/modules/storage';
@@ -83,6 +84,24 @@ export const POST = apiRoute<{ params: Promise<{ id: string }> }>(
     if (files.length > MAKS_BERKAS) {
       return NextResponse.json({ error: `Maksimal ${MAKS_BERKAS} berkas per unggahan` }, { status: 400 });
     }
+
+    /* JALUR RELATIF opsional — paritas dengan rute dashboard. Tanpa ini,
+       identitas dokumen = nama berkas telanjang, dan dua berkas sejudul dari
+       folder berbeda milik pemanggil API saling MENIMPA tanpa satu pun galat.
+       Bentuknya sama persis: field `paths` berisi JSON array sejajar urutan
+       berkas; nilai kosong / tak ada = jatuh ke nama berkas (kompatibel
+       dengan semua pemanggil lama). Pembersihannya bersama bersihkanJalur —
+       jangan pernah menulis pembersih kedua yang pelan-pelan menyimpang. */
+    const rawPaths = form.get('paths');
+    let paths: string[] = [];
+    if (typeof rawPaths === 'string' && rawPaths.trim()) {
+      try {
+        const urai: unknown = JSON.parse(rawPaths);
+        if (Array.isArray(urai)) paths = urai.map((x) => (typeof x === 'string' ? x : ''));
+      } catch {
+        return NextResponse.json({ error: 'Daftar path tidak terbaca (harus JSON array)' }, { status: 400 });
+      }
+    }
     const total = files.reduce((n, f) => n + f.size, 0);
     if (total > MAKS_BYTE) {
       // Menyebut angkanya DAN batasnya: "terlalu besar" saja membuat orang
@@ -114,7 +133,8 @@ export const POST = apiRoute<{ params: Promise<{ id: string }> }>(
     const tersimpanSaja: Array<{ name: string; reason: string }> = [];
     const dilewati: Array<{ name: string; reason: string }> = [];
 
-    for (const f of files) {
+    for (const [i, f] of files.entries()) {
+      const rel = bersihkanJalur(paths[i], f.name);
       if (!isExtractable(f.name, f.type)) {
         dilewati.push({ name: f.name, reason: 'format tak didukung' });
         continue;
@@ -128,7 +148,7 @@ export const POST = apiRoute<{ params: Promise<{ id: string }> }>(
         await knowledgeService.assertStorageBlobQuota(caller.tenantId, f.size);
         const simpan = await storageService.simpanBerkasUpload(
           caller.tenantId, owner.id,
-          { knowledgeBaseId, nama: f.name, bytes: buf, mime: f.type || null },
+          { knowledgeBaseId, nama: rel, bytes: buf, mime: f.type || null },
         ).catch((e: unknown) => {
           console.error('[v1 upload] gagal simpan ke blob:', (e as Error).message);
           return null;
@@ -164,14 +184,15 @@ export const POST = apiRoute<{ params: Promise<{ id: string }> }>(
         // Buang potongan lama bernama sama dulu — `ingest` tidak melakukannya
         // sendiri, dan tanpa ini mengunggah dokumen yang diperbaiki menyimpan
         // DUA versi sekaligus, lalu retrieval bisa menjawab dari yang usang.
-        await knowledgeService.removeExternal(caller.tenantId, source.id, [f.name]);
+        await knowledgeService.removeExternal(caller.tenantId, source.id, [rel]);
 
         const chunks = await knowledgeService.ingest(caller.tenantId, {
           knowledgeBaseId,
           title: f.name,
           text,
           sourceId: source.id,
-          externalId: f.name,
+          externalId: rel,
+          path: rel,
           externalVersion: String(f.size),
           metadata: {
             uploadedVia: 'maira',
