@@ -491,9 +491,92 @@ diangkat ke sini alih-alih dikerjakan diam-diam.
 **Status:** MENUNGGU KEPUTUSAN. Pekerjaan persiapannya selesai; migrasinya
 belum ditulis.
 
+---
+
+## ✅ D18 — Modul Analisis: `/analyze` per chatbot, template-sebagai-data, kepala + temuan (2026-09-15)
+
+**Keputusan (15 Sep 2026, pemilik produk):** Nalar mendapat modul ANALISIS —
+policy review & contract review di atas korpus kebijakan internal + peraturan
+perundang-undangan — dengan enam ketetapan:
+
+1. **Analisis adalah KEMAMPUAN per chatbot**, bukan fitur global. Flag
+   `analysis_enabled` dinyalakan dari drawer chatbot; chatbot yang
+   menyalakannya menampilkan palet perintah `/` di chat. Yang menegakkan
+   adalah SERVER (rute chat dan API v1 memeriksa flag-nya) — UI hanya
+   menyembunyikan tombol. Setiap analisis DIKUOTA per paket (satu analisis =
+   puluhan panggilan LLM), angkanya bisa ditimpa superadmin seperti kuota lain.
+2. **`/analyze` adalah pemicu JOB, bukan giliran chat.** Analisis sungguhan
+   melewati batas 300 detik lambda dan batas 4.000 karakter pesan. Perintah itu
+   mencatat permintaan, membalas di chat bahwa analisis dimulai, lalu
+   pekerjaannya berjalan lewat job runner / pekerja VPS — mesin yang sama dengan
+   Memory Agent. Dokumen yang ditinjau DIRUJUK (berkas unggahan), tidak ditempel.
+3. **Penyimpanan: template-sebagai-data.** Analisis AGNOSTIK terhadap regulasi
+   (regulasi hanyalah isi KB; identitasnya hidup di sitasi tiap temuan) tapi
+   TERIKAT pada jenis analisis. Bentuk formulirnya hidup di basis data sebagai
+   `analysis_templates` per tenant — bawaan sistem + suntingan, berversi — persis
+   pola `document_categories`. Datanya dua tabel: KEPALA `analyses` dengan kolom
+   tetap untuk yang perlu dicari/dihitung (tenant, chatbot, template + versinya,
+   status draft|final, dokumen subjek, model, pembuat) plus `fields` JSONB untuk
+   isi menurut template; dan TEMUAN `analysis_findings`, satu baris per
+   klausul/kewajiban, dengan kolom tetap universal — `verdict` enum
+   (sesuai | bertentangan | tak_diatur | perlu_cek_manusia), `severity`,
+   `citations` JSONB ber-GIN, ringkasan, rekomendasi — plus `extra` JSONB untuk
+   field khas template. Tanpa FK, soft-delete, RLS per tenant, sesuai aturan.
+4. **Satu model isi → tiga penyaji.** Form per field dibangun otomatis dari
+   template (tak ada form tulisan tangan per template); DOCX sungguhan lewat
+   pustaka `docx` (heading, numbering, tabel, footnote — terbuka di Word); PDF
+   sungguhan dari model isi yang SAMA. Kop surat dari branding tenant. Tiap
+   ekspor dicap asal-usulnya: versi analisis, template + versinya, model,
+   waktu, penyunting, dan keterangan "dibuat dengan bantuan AI, ditinjau oleh …".
+5. **Vonis adalah enum, dan `perlu_cek_manusia` vonis kelas satu** — bukan
+   kegagalan yang disembunyikan. Bukti lemah ⇒ vonis itu, bukan tebakan.
+6. **Prasyarat yang tak boleh dilompati:** kaki leksikal dibereskan dan DIUKUR
+   (`a-lexical-dead`, eval bergolden-set dari korpus PDP), dan pemotongan
+   sadar-struktur untuk dokumen hukum. Analisis yang mengutip pasal yang salah
+   lebih buruk daripada tak ada analisis.
+
+**Konteks — kenapa hibrid, bukan salah satu ekstrem.** Murni JSONB agnostik
+kehilangan validasi per field, render dokumen resmi yang konsisten, dan
+filter/agregasi lintas analisis ("berapa temuan *bertentangan* tingkat tinggi
+bulan ini?"). Murni kolom tetap berarti tiap jenis regulasi/analisis baru =
+migrasi skema, kolom nullable menumpuk, dan template lama pecah saat kolom
+berubah. Template-sebagai-data mengambil keduanya: kolom tetap untuk apa yang
+APLIKASI butuhkan (identitas, status, vonis, tingkat, sitasi), JSONB untuk apa
+yang TEMPLATE butuhkan. Temuan dipisah dari kepala karena ia unit yang
+dihitung, disaring, dan diekspor per baris. `template_version` di tiap analisis
+menjamin analisis lama dirender dengan bentuk saat ia dibuat.
+
+**Yang sudah ada dan dipakai ulang, bukan dibangun ulang:** blok jawaban LLM
+bertipe (text/list/table/chart/cards) dengan validasi — pola "LLM mengeluarkan
+JSON terstruktur, divalidasi, dirender"; Memory Agent — pola "satu pass LLM per
+unit, disimpan per unit, dirangkai" beserta akuntansi kegagalan
+(`distillKosong/distillCacat`); jalur unggah + `uploaded_files` untuk dokumen
+subjek; retrieval 3 kaki bersitasi; job runner + pekerja VPS untuk run panjang;
+`document_categories` sebagai pola master data per tenant; branding tenant
+untuk kop surat; `limits.ts` + panel kuota superadmin untuk pengukuran biaya.
+
+**Yang DITOLAK:** analisis inline dalam satu giliran chat (mustahil di 300
+detik / 4.000 karakter); murni JSONB; murni kolom tetap; PDF dari tangkapan
+layar; konversi DOCX→PDF lewat LibreOffice di Vercel (boleh kelak di VPS bila
+PDF harus identik piksel dengan DOCX-nya).
+
+**Yang belum bisa dibuktikan dari sini:** kualitas vonis pada kontrak
+sungguhan bergantung pada dua prasyarat di butir 6 — sebelum keduanya
+terukur, vonis `perlu_cek_manusia` akan muncul terlalu sering, dan alat yang
+terlalu sering angkat tangan berhenti dipakai orang.
+
+**Status:** ✅ APPROVED user 2026-09-15 ("menarik, gas dong"). Dipecah jadi
+kartu `a-potong-struktur` + `a-analisis-{gerbang,template,agen,form,ekspor}`
+di papan backlog. Urutan kerja: prasyarat retrieval (`a-lexical-dead`,
+`a-potong-struktur`) → template + migrasi → gerbang & kuota → agen → form →
+ekspor. Template mendahului gerbang karena `/analyze` menulis baris `analyses`
+— tabelnya harus ada sebelum perintahnya.
+
+---
 ## Log
 | Tanggal | Keputusan | Oleh |
 |---------|-----------|------|
+| 2026-09-15 | D18 = modul Analisis: `/analyze` kemampuan per chatbot + kuota; job bukan giliran chat; template-sebagai-data; kepala + temuan (kolom tetap + JSONB); satu model isi → form/DOCX/PDF; vonis enum dgn perlu_cek_manusia | User |
 | 2026-08-03 | D17 diangkat = partisi HASH per knowledge_base_id; batasan Postgres dibuktikan langsung; PK documents jadi (id, knowledge_base_id) — MENUNGGU KEPUTUSAN | AI |
 | 2026-08-01 | D16 = SSO enterprise: Entra/Google/Okta/OIDC generik, kredensial milik tenant, gerbang pending tetap berlaku, perutean lewat domain email | User |
 | 2026-07-30 | D15 = basis data tak terikat penyedia + pemindahan bertingkat; TLS tak lagi ditebak dari nama host; BYODB per tenant ditunda sampai diminta | User |

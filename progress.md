@@ -14,7 +14,7 @@
 | **Status Loop** | `active` |
 | **Dimulai** | `2026-07-23` |
 | **Live sejak** | `2026-07-24` di `nalar.sainskerta.net` (Vercel + Neon PG17/pgvector 0.8) |
-| **Terakhir diperbarui** | `2026-09-07` |
+| **Terakhir diperbarui** | `2026-09-15` |
 | **Antrean kerja** | **Papan backlog** (Dataroom ▸ Update & Backlog) — 17 selesai · 53 tersisa (P0=3 · P1=13 · P2=25 · P3=12) |
 | **Migrasi produksi** | `0001–0054 TERPASANG (7 Sep 2026)` — dr:verify nyata: 35 tabel · 123 indeks · 40 kebijakan · RLS 26 tabel, nol selisih |
 | **Progress** | `~94% — produk tayang & terverifikasi; ketiga P0 yang tersisa SEMUANYA menunggu kredensial pihak ketiga (SMTP, gateway, Drive API key), bukan menunggu kode` |
@@ -605,6 +605,7 @@ Catatan: belum diuji end-to-end terhadap DB nyata (npm install + verifikasi = ba
 
 | Tanggal | Fase | Perubahan |
 |---------|------|-----------|
+| 2026-09-15 | 07 | **D18 diputuskan — modul Analisis (policy & contract review).** Brainstorm 15 Sep dibukukan sebagai keputusan arsitektur, bukan kode: `/analyze` sebagai KEMAMPUAN per chatbot yang dikuota, dijalankan sebagai JOB (bukan giliran chat — batas 300 dtk & 4.000 karakter), penyimpanan template-sebagai-data (`analysis_templates` + kepala `analyses` + temuan `analysis_findings`: kolom tetap untuk yang dicari/dihitung, JSONB untuk isi template), satu model isi → form editable / DOCX (`docx`) / PDF bercap asal-usul, vonis enum dengan `perlu_cek_manusia` sebagai vonis sah. Dipecah jadi 6 kartu backlog berurutan `a-potong-struktur → a-analisis-{template,gerbang,agen,form,ekspor}`; prasyaratnya kartu P0 `a-lexical-dead` yang masih terbuka. Belum satu baris pun kode fitur |
 | 2026-09-07 | 07 | **Suite hijau penuh untuk pertama kalinya — 1029/1029.** Lima kegagalan baseline yang selama ini diabaikan dibereskan menurut sebabnya masing-masing: label form plugin diberi asosiasi htmlFor+useId; checker `<img>` dipertajam (positif palsu pada komentar); 7 rute didaftarkan ke OpenAPI; ratchet dr-drift dimajukan ke 0054 setelah dr:verify nyata (nol selisih); asersi panel kuantisasi mengikuti gerbang tab yang sebenarnya. Derau lima kegagalan itulah yang membuat kegagalan keenam tak akan terlihat |
 | 2026-09-07 | 07 | 🔴 **PDF via API v1 gagal senyap di produksi** — rute v1 lahir setelah daftar outputFileTracingIncludes dan tak membawa pdf.worker.mjs; tes penjaganya MENGHAFAL daftar rute sehingga tak menyala. Keduanya diperbaiki: baris include ditambah, dan penjaganya kini MEMINDAI tiap route.ts yang mengimpor sync.service. Sekalian paritas: v1 menerima field `paths` supaya dua berkas sejudul beda folder tak saling menimpa |
 | 2026-09-07 | 07 | **Memory Agent kini meliput KB >40 dokumen.** L1 mendahulukan dokumen tanpa catatan (dulu `limit 40` tanpa urutan — dokumen ke-41+ tak pernah terliput); edges similarity dibangun ulang atas SELURUH catatan hidup dalam satu SQL pgvector (dulu run kedua memusnahkan edges run pertama, plus N² insert per baris ke Neon); memory-worker berputar sampai tuntas dengan atap 25 putaran |
