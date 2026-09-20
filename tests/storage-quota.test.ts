@@ -80,7 +80,9 @@ test('kuota ditegakkan di ingest(), bukan hanya di rute', () => {
 });
 
 test('kuota diperiksa SETELAH dedup dan SEBELUM embed', () => {
-  const iDedupe = KS.indexOf('const hash = fingerprintable(input.text)');
+  /* Urutan yang diuji, bukan ejaan variabelnya — lihat catatan serupa di
+     tests/dedupe.test.ts sejak penjaga NUL (teks-aman.ts) dipasang. */
+  const iDedupe = KS.search(/const hash = fingerprintable\(/);
   const iQuota = KS.indexOf('await assertChunkQuota');
   const iEmbed = KS.indexOf('const vectors = await embed(');
   // Berkas kembar tak boleh ikut menghabiskan jatah — ia tak menambah satu

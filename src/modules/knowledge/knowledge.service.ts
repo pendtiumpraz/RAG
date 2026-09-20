@@ -28,6 +28,7 @@ import { audit } from '@/modules/core/guardrails';
  * seluruh service beserta basis datanya.
  */
 import { chunkText } from './chunker';
+import { amankanTeks } from './teks-aman';
 export { chunkText };
 
 
@@ -370,6 +371,14 @@ export const knowledgeService = {
      */
     path?: string;
   }): Promise<number> {
+    /* Dibersihkan DI SINI, di titik yang sama dengan pencegahan kembar dan
+       untuk alasan yang sama: ini satu-satunya jalur yang dilewati semua cara
+       dokumen masuk. Sebelum sidik isi dihitung, supaya teks yang dipakai
+       menghitung sidik adalah teks yang benar-benar disimpan. Lihat
+       `teks-aman.ts` — satu byte NUL dari satu PDF membatalkan insert seluruh
+       potongan dokumen itu. */
+    const teks = amankanTeks(input.text);
+
     const modelId = await withTenant(tenantId, async (tx) => {
       const kb = await tx.select({ id: knowledgeBases.id }).from(knowledgeBases)
         .where(and(eq(knowledgeBases.id, input.knowledgeBaseId), isNull(knowledgeBases.deletedAt))).limit(1);
@@ -387,7 +396,7 @@ export const knowledgeService = {
 
        Dilakukan SEBELUM chunk & embed: yang mahal bukan unduhannya,
        melainkan embedding dan penyimpanan vektornya. */
-    const hash = fingerprintable(input.text) ? contentFingerprint(input.text) : null;
+    const hash = fingerprintable(teks) ? contentFingerprint(teks) : null;
     if (hash) {
       const kembar = await withTenant(tenantId, async (tx) => {
         const r = await tx.execute(sql`
@@ -412,7 +421,7 @@ export const knowledgeService = {
       }
     }
 
-    const chunks = chunkText(input.text);
+    const chunks = chunkText(teks);
     if (chunks.length === 0) return 0;
 
     /* ── KUOTA PENYIMPANAN ───────────────────────────────────────────

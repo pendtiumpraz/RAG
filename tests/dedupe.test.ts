@@ -66,8 +66,12 @@ test('dedup dilakukan SEBELUM chunk & embed', () => {
   // Yang mahal bukan unduhannya, melainkan embedding dan penyimpanan
   // vektornya. Men-dedup setelah embed berarti membayar seluruh biayanya
   // lalu membuang hasilnya.
-  const i = KS.indexOf('const hash = fingerprintable(input.text)');
-  const c = KS.indexOf('const chunks = chunkText(input.text)');
+  /* Yang diuji URUTANNYA, bukan ejaan variabelnya: sejak penjaga NUL dipasang
+     (teks-aman.ts, 20 Sep 2026) teks yang dipakai sudah dibersihkan lebih dulu,
+     jadi namanya bukan lagi `input.text`. Memaku ejaan membuat penjaga ini
+     gagal pada perubahan yang justru tak menyentuh invariannya. */
+  const i = KS.search(/const hash = fingerprintable\(/);
+  const c = KS.search(/const chunks = chunkText\(/);
   assert.ok(i > 0 && c > 0 && i < c, 'pemeriksaan kembar terjadi setelah chunking');
 });
 
@@ -75,7 +79,7 @@ test('dedup dipasang di ingest(), bukan hanya di sync', () => {
   // Ingest adalah satu-satunya jalur yang dilewati SEMUA cara dokumen masuk:
   // sync, unggahan manual, konektor URL, dan API publik. Memasangnya hanya di
   // sync membuat tiga jalur lain tetap bisa menyisipkan kembar.
-  assert.ok(/contentFingerprint\(input\.text\)/.test(KS), 'ingest tak menghitung sidik jari');
+  assert.ok(/contentFingerprint\(/.test(KS), 'ingest tak menghitung sidik jari');
 });
 
 test('berkas TIDAK dianggap kembar dengan dirinya sendiri', () => {
