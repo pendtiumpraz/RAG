@@ -2,11 +2,15 @@
 
 import { FeatureGate } from '../../_components/entitlements';
 import { Select } from '../../_components/select';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, useApi } from '../../_lib/api';
 import { Icon } from '../../_components/icons';
 import { Skeleton, ErrorState, EmptyState, useToast } from '../../_components/ui';
 import { OVERFLOW_COLOR, FALLBACK_SLUG } from '@/modules/memory/categories';
+import {
+  ambangLabel, batasiKemiripan, batasOtomatis, derajatRataRata, hitungDerajat,
+  langkah, parameterFisika, pasKeLayar, saringTumpang, type NodeSim, type SisiSim,
+} from '@/modules/memory/graf-tata';
 
 interface Chatbot { id: string; name: string }
 interface Node { id: string; slug: string; title: string; linksTo: string[]; category?: string }
@@ -466,15 +470,32 @@ function drawMarker(ctx: CanvasRenderingContext2D, x: number, y: number, r: numb
   }
 }
 
-interface SimNode {
-  id: string; title: string; slug: string;
-  x: number; y: number; vx: number; vy: number; r: number; deg: number; seed: number;
+/** Node kanvas = node simulasi + yang hanya perlu untuk menggambarnya. */
+interface SimNode extends NodeSim {
+  title: string; slug: string;
   /** Slug kategori — menentukan warna & bentuk penanda. */
   category?: string;
 }
 
 function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Dipanggil tombol "pas ke layar"; diisi oleh efek di bawah. */
+  const pasRef = useRef<() => void>(() => {});
+
+  /* Batas sisi kemiripan yang DIGAMBAR. 'auto' menghitungnya dari kepadatan
+     graf ini sendiri — graf sepi tak dipangkas sama sekali. Pilihan manual
+     ada karena kepadatan yang nyaman dibaca berbeda per orang dan per layar. */
+  const [batas, setBatas] = useState<'auto' | 'ringkas' | 'semua'>('auto');
+  const derajatRata = derajatRataRata(graph.nodes.length, graph.edges.length);
+  /* DI-MEMO, dan itu bukan optimasi: identitas `sisiTampil` adalah salah satu
+     dependensi efek simulasi. Menghitungnya ulang tiap render akan membongkar
+     dan membangun ulang seluruh tata letak pada setiap gerak kursor. */
+  const { sisi: sisiTampil, dibuang } = useMemo(() => {
+    const k = batas === 'semua' ? Infinity
+      : batas === 'ringkas' ? 2
+      : batasOtomatis(derajatRataRata(graph.nodes.length, graph.edges.length));
+    return batasiKemiripan(graph.edges, k);
+  }, [graph, batas]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -489,16 +510,19 @@ function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
     const markerOf = (slug?: string) =>
       markerBySlug.get(slug ?? FALLBACK_SLUG) ?? { color: OVERFLOW_COLOR, shape: 'circle' };
 
-    /* — data — */
-    const deg = new Map<string, number>();
-    for (const e of graph.edges) {
-      deg.set(e.from, (deg.get(e.from) ?? 0) + 1);
-      deg.set(e.to, (deg.get(e.to) ?? 0) + 1);
-    }
+    /* — data —
+       Derajat dihitung dari sisi yang DIGAMBAR, bukan dari seluruh sisi di
+       basis data: ukuran node, normalisasi pegas, dan ambang label semuanya
+       harus sepadan dengan apa yang benar-benar terlihat, kalau tidak node
+       akan tampak besar tanpa satu pun garis yang menjelaskan kenapa. */
+    const deg = hitungDerajat(sisiTampil);
+    const P = parameterFisika(graph.nodes.length);
     const nodes: SimNode[] = graph.nodes.map((n, i) => {
       const d = deg.get(n.id) ?? 0;
       const a = (i / Math.max(1, graph.nodes.length)) * Math.PI * 2;
-      const rr = 60 + (i % 5) * 28; // sebar awal spiral — hindari ledakan awal
+      // Sebar awal spiral, ikut tumbuh bersama jumlah node — hindari ledakan
+      // awal DAN hindari 225 node bertumpuk di petak yang sama.
+      const rr = P.sebarAwal + (i % 5) * (P.sebarAwal * 0.47);
       return {
         id: n.id, title: n.title, slug: n.slug, category: n.category,
         x: Math.cos(a) * rr, y: Math.sin(a) * rr, vx: 0, vy: 0,
@@ -507,9 +531,14 @@ function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
       };
     });
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    const links = graph.edges
+    const links = sisiTampil
       .map((e) => ({ a: byId.get(e.from), b: byId.get(e.to), wiki: e.kind === 'wikilink' }))
-      .filter((l): l is { a: SimNode; b: SimNode; wiki: boolean } => !!l.a && !!l.b);
+      .filter((l): l is SisiSim & { a: SimNode; b: SimNode } => !!l.a && !!l.b);
+    /* Label hanya untuk hub TERATAS, bukan menurut ambang derajat mutlak:
+       aturan lama `deg >= 6` di graf padat berlaku untuk hampir semua node,
+       dan 225 label bertumpuk adalah sebab "tak terbaca" yang berdiri sendiri
+       terpisah dari fisikanya. */
+    const ambangDeg = ambangLabel(nodes.map((n) => n.deg));
     const neighbors = new Map<string, Set<string>>();
     for (const l of links) {
       (neighbors.get(l.a.id) ?? neighbors.set(l.a.id, new Set()).get(l.a.id)!).add(l.b.id);
@@ -605,50 +634,11 @@ function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
         • denyut halus per-node membuatnya mengambang seperti benda langit.
        `alpha` tinggal pengganda ENERGI TAMBAHAN sesudah interaksi (reheat),
        tak pernah nol — bukan lagi tombol mati. */
+    /* Fisikanya hidup di `@/modules/memory/graf-tata` supaya perilakunya bisa
+       DIUKUR di tes tanpa kanvas — dan itulah yang menemukan sebab graf PDP
+       menciut: pegas tak dinormalisasi derajat. */
     function step(now: number) {
-      const REPULSE = 2400, SPRING = 0.05, REST = 62, GRAVITY = 0.005;
-      const DAMP = 0.90, MAX_V = 7, BREATH = 0.045;
-      const t = now * 0.00035;
-
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i];
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j];
-          let dx = a.x - b.x, dy = a.y - b.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
-          // batasi gaya jarak-dekat: tanpa ini dua node berimpit saling
-          // melontarkan diri dan seluruh graph meledak
-          const f = Math.min(REPULSE / d2, 3.5) * alpha;
-          const d = Math.sqrt(d2);
-          a.vx += (dx / d) * f; a.vy += (dy / d) * f;
-          b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
-        }
-        // gravitasi lemah ke pusat — supaya gugus tak melayang keluar layar
-        a.vx -= a.x * GRAVITY; a.vy -= a.y * GRAVITY;
-        // denyut: tiap node punya fase sendiri → mengambang, bukan bergetar
-        a.vx += Math.cos(t + a.seed) * BREATH;
-        a.vy += Math.sin(t * 1.13 + a.seed * 1.7) * BREATH;
-      }
-
-      for (const l of links) {
-        const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y;
-        const d = Math.max(1, Math.hypot(dx, dy));
-        // pegas penuh: inilah yang membuat tetangga IKUT saat node diseret
-        const f = SPRING * (d - REST);
-        l.a.vx += (dx / d) * f; l.a.vy += (dy / d) * f;
-        l.b.vx -= (dx / d) * f; l.b.vy -= (dy / d) * f;
-      }
-
-      for (const n of nodes) {
-        if (n === drag) { n.vx = 0; n.vy = 0; continue; } // yang diseret ikut kursor
-        n.vx *= DAMP; n.vy *= DAMP;
-        const v = Math.hypot(n.vx, n.vy);
-        if (v > MAX_V) { n.vx = (n.vx / v) * MAX_V; n.vy = (n.vy / v) * MAX_V; }
-        n.x += n.vx; n.y += n.vy;
-      }
-      // energi tambahan mereda ke 1 (bukan ke nol) — gerak dasarnya abadi
-      alpha = alpha > 1 ? Math.max(1, alpha * 0.985) : 1;
+      alpha = langkah(nodes, links, P, alpha, now, drag);
     }
 
     /* — gambar — */
@@ -662,6 +652,8 @@ function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
       const hood = focus ? (neighbors.get(focus.id) ?? new Set<string>()) : null;
       const dimmed = (id: string) =>
         !!focus && focus.id !== id && !hood!.has(id);
+
+      const kandidatLabel: Array<{ n: SimNode; utama: boolean }> = [];
 
       for (const l of links) {
         const dim = focus ? dimmed(l.a.id) || dimmed(l.b.id) : false;
@@ -687,29 +679,93 @@ function GraphView({ graph, cats }: { graph: Graph; cats: Cat[] }) {
         }
         // label: saat disorot / tetangganya / hub besar / zoom dekat
         const showLabel = (focus && (focus.id === n.id || hood!.has(n.id)))
-          || (!focus && (scale > 1.4 || n.deg >= 6));
-        if (showLabel) {
-          ctx!.globalAlpha = dim ? 0.15 : 0.95;
-          ctx!.font = `${11 / scale}px ui-monospace, monospace`;
-          ctx!.textAlign = 'center';
-          ctx!.fillStyle = C.label;
-          ctx!.fillText(n.title.slice(0, 28), n.x, n.y + n.r + 12 / scale);
-        }
+          || (!focus && (scale > 1.4 || n.deg >= ambangDeg));
+        // Dikumpulkan dulu, digambar belakangan: label yang ditulis di tengah
+        // loop akan tertimpa node yang digambar sesudahnya.
+        if (showLabel) kandidatLabel.push({ n, utama: !!focus && (focus.id === n.id || hood!.has(n.id)) });
+      }
+
+      /* Label digambar TERAKHIR dan yang bertabrakan dibuang. Membatasi
+         jumlahnya saja tak cukup — hub berkumpul di pusat gugusnya, jadi
+         belasan label bisa menumpuk di satu tempat sementara tepinya kosong.
+         Urutan menentukan siapa yang bertahan: yang disorot dulu, lalu hub
+         terbesar. */
+      ctx!.font = `${11 / scale}px ui-monospace, monospace`;
+      ctx!.textAlign = 'center';
+      const kotak = kandidatLabel
+        .sort((a, b) => Number(b.utama) - Number(a.utama) || b.n.deg - a.n.deg)
+        .map(({ n }) => {
+          const teks = n.title.slice(0, 28);
+          const lebar = ctx!.measureText(teks).width;
+          return {
+            n, teks, lebar, tinggi: 13 / scale,
+            x: n.x - lebar / 2, y: n.y + n.r + 4 / scale,
+          };
+        });
+      for (const l of saringTumpang(kotak)) {
+        ctx!.globalAlpha = dimmed(l.n.id) ? 0.15 : 0.95;
+        ctx!.fillStyle = C.label;
+        ctx!.fillText(l.teks, l.n.x, l.n.y + l.n.r + 12 / scale);
       }
       ctx!.globalAlpha = 1;
     }
 
+    /* — pas ke layar —
+       Dipanggil SEKALI otomatis setelah tata letak sempat melebar, lalu kapan
+       pun lewat tombol. Tanpa ini, graf 225 node yang sudah melebar dengan
+       benar tetap tampak sebagai gumpalan, karena viewport-nya masih
+       memperlihatkan petak di tengahnya saja. */
+    function pas() {
+      const v = pasKeLayar(nodes, W, H);
+      scale = v.scale; tx = v.tx; ty = v.ty;
+    }
+    pasRef.current = pas;
+    // Menunggu tata letaknya mengendap dulu: memasnya pada frame pertama hanya
+    // akan mengepaskan spiral awal, bukan bentuk akhirnya.
+    let frame = 0;
+    const FRAME_PAS = 150;
+
     let raf = 0;
     // Selalu melangkah — graph ini memang hidup terus. Saat tab tersembunyi
     // browser menghentikan rAF sendiri, jadi tak ada CPU terbuang di latar.
-    const loop = (now: number) => { step(now); draw(); raf = requestAnimationFrame(loop); };
+    const loop = (now: number) => {
+      step(now);
+      if (++frame === FRAME_PAS) pas();
+      draw();
+      raf = requestAnimationFrame(loop);
+    };
     raf = requestAnimationFrame(loop);
 
     return () => { cancelAnimationFrame(raf); ro.disconnect(); themeObs.disconnect(); };
-  }, [graph, cats]);
+    // `sisiTampil` ikut: mengubah batas kepadatan berarti graf lain, jadi
+    // simulasinya memang harus dibangun ulang.
+  }, [graph, cats, sisiTampil]);
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* Kendali kepadatan + pas ke layar.
+          Ditaruh DI ATAS kanvas, bukan di bawah legenda: keduanya menjawab
+          keluhan "tak bisa dibaca", dan alat yang menjawabnya harus terlihat
+          sebelum orang menyerah menggulir. */}
+      <div className="cluster gap-2" style={{ flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
+        <span className="microlabel">SISI KEMIRIPAN</span>
+        {([
+          ['auto', 'Otomatis', 'Dipangkas hanya bila grafnya memang padat'],
+          ['ringkas', 'Ringkas', '2 sisi kemiripan terkuat per catatan'],
+          ['semua', 'Semua', 'Gambar seluruh sisi — padat, tapi utuh'],
+        ] as const).map(([nilai, label, ket]) => (
+          <button key={nilai} className="btn btn-sm" title={ket}
+            aria-pressed={batas === nilai}
+            style={{ opacity: batas === nilai ? 1 : 0.5 }}
+            onClick={() => setBatas(nilai)}>{label}</button>
+        ))}
+        <button className="btn btn-sm btn-ghost" onClick={() => pasRef.current()}
+          title="Zoom & geser supaya seluruh graf masuk layar">Pas ke layar</button>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+          {`derajat rata-rata ${derajatRata.toFixed(1)}`}
+          {dibuang > 0 ? ` · ${dibuang} sisi kemiripan disembunyikan` : ''}
+        </span>
+      </div>
       <canvas ref={canvasRef} role="img" aria-label="Knowledge graph"
         style={{ display: 'block', width: '100%', height: 460, borderRadius: 'var(--rad-md)', touchAction: 'none' }} />
       <span className="microlabel" style={{ position: 'absolute', right: 10, bottom: 8, pointerEvents: 'none' }}>
